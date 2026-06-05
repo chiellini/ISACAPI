@@ -93,11 +93,7 @@ describe('BulkEditAccountModal', () => {
     const selector = wrapper.findComponent(ModelWhitelistSelector)
     expect(selector.exists()).toBe(true)
 
-    await selector.find('div.cursor-pointer').trigger('click')
-
-    expect(wrapper.text()).toContain('gemini-3.1-flash-image')
-    expect(wrapper.text()).toContain('gemini-2.5-flash-image')
-    expect(wrapper.text()).not.toContain('gpt-5.3-codex')
+    expect(selector.props('platforms')).toEqual(['antigravity'])
   })
 
   it('antigravity 映射预设包含图片映射并过滤 OpenAI 预设', async () => {

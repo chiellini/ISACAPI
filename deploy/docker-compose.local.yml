@@ -1,5 +1,5 @@
 # =============================================================================
-# Sub2API Docker Compose - Local Directory Version
+# ISACAPI Docker Compose - Local Directory Version
 # =============================================================================
 # This configuration uses local directories for data storage instead of named
 # volumes, making it easy to migrate the entire deployment by simply copying
@@ -21,7 +21,7 @@
 
 services:
   # ===========================================================================
-  # Sub2API Application
+  # ISACAPI Application
   # ===========================================================================
   sub2api:
     image: weishaw/sub2api:latest
@@ -114,6 +114,12 @@ services:
       # Common values: Asia/Shanghai, America/New_York, Europe/London, UTC
       # =======================================================================
       - TZ=${TZ:-Asia/Shanghai}
+
+      # =======================================================================
+      # CORS Configuration
+      # =======================================================================
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-https://isacai.space}
+      - CORS_ALLOW_CREDENTIALS=${CORS_ALLOW_CREDENTIALS:-true}
 
       # =======================================================================
       # Gemini OAuth Configuration (for Gemini accounts)

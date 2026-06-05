@@ -690,6 +690,7 @@
               class="input"
             >
               <option value="google_one_free">{{ t('admin.accounts.gemini.tier.googleOne.free') }}</option>
+              <option value="google_ai_plus">{{ t('admin.accounts.gemini.tier.googleOne.plus') }}</option>
               <option value="google_ai_pro">{{ t('admin.accounts.gemini.tier.googleOne.pro') }}</option>
               <option value="google_ai_ultra">{{ t('admin.accounts.gemini.tier.googleOne.ultra') }}</option>
             </select>
@@ -3070,6 +3071,13 @@
               </tr>
               <tr>
                 <td class="px-3 py-2 text-gray-900 dark:text-white"></td>
+                <td class="px-3 py-2 text-gray-600 dark:text-gray-400">Plus</td>
+                <td class="px-3 py-2 text-gray-600 dark:text-gray-400">
+                  {{ t('admin.accounts.gemini.quotaPolicy.rows.googleOne.limitsPlus') }}
+                </td>
+              </tr>
+              <tr>
+                <td class="px-3 py-2 text-gray-900 dark:text-white"></td>
                 <td class="px-3 py-2 text-gray-600 dark:text-gray-400">Pro</td>
                 <td class="px-3 py-2 text-gray-600 dark:text-gray-400">
                   {{ t('admin.accounts.gemini.quotaPolicy.rows.googleOne.limitsPro') }}
@@ -3580,7 +3588,7 @@ const customBaseUrlEnabled = ref(false)
 const customBaseUrl = ref('')
 
 // Gemini tier selection (used as fallback when auto-detection is unavailable/fails)
-const geminiTierGoogleOne = ref<'google_one_free' | 'google_ai_pro' | 'google_ai_ultra'>('google_one_free')
+const geminiTierGoogleOne = ref<'google_one_free' | 'google_ai_plus' | 'google_ai_pro' | 'google_ai_ultra'>('google_one_free')
 const geminiTierGcp = ref<'gcp_standard' | 'gcp_enterprise'>('gcp_standard')
 const geminiTierAIStudio = ref<'aistudio_free' | 'aistudio_paid'>('aistudio_free')
 

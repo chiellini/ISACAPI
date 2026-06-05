@@ -148,6 +148,7 @@ func TestGetModelPricing_OpenAICompactAliasesFallback(t *testing.T) {
 		longContext int
 	}{
 		{model: "gpt5.5", inputPrice: 2.5e-6, outputPrice: 15e-6, cacheRead: 0.25e-6, longContext: 272000},
+		{model: "openai/gpt5.5", inputPrice: 2.5e-6, outputPrice: 15e-6, cacheRead: 0.25e-6, longContext: 272000},
 		{model: "openai/gpt5.4", inputPrice: 2.5e-6, outputPrice: 15e-6, cacheRead: 0.25e-6, longContext: 272000},
 		{model: "gpt5.4-mini", inputPrice: 7.5e-7, outputPrice: 4.5e-6, cacheRead: 7.5e-8, longContext: 0},
 		{model: "gpt5.3codexspark", inputPrice: 1.5e-6, outputPrice: 12e-6, cacheRead: 0.15e-6, longContext: 0},
@@ -164,6 +165,31 @@ func TestGetModelPricing_OpenAICompactAliasesFallback(t *testing.T) {
 			require.Equal(t, tt.longContext, pricing.LongContextInputThreshold)
 		})
 	}
+}
+
+func TestCalculateCost_OpenAICompactAliasBillsPositiveCost(t *testing.T) {
+	svc := newTestBillingService()
+
+	cost, err := svc.CalculateCost("openai/gpt5.5", UsageTokens{
+		InputTokens:  20,
+		OutputTokens: 10,
+	}, 1.1)
+
+	require.NoError(t, err)
+	require.InDelta(t, (20*2.5e-6+10*15e-6)*1.1, cost.ActualCost, 1e-12)
+	require.Positive(t, cost.ActualCost)
+}
+
+func TestCalculateCost_UnknownOpenAIModelDoesNotFallbackToZeroCost(t *testing.T) {
+	svc := newTestBillingService()
+
+	cost, err := svc.CalculateCost("openai/gpt-unknown-model", UsageTokens{
+		InputTokens:  20,
+		OutputTokens: 10,
+	}, 1.0)
+
+	require.ErrorIs(t, err, ErrModelPricingUnavailable)
+	require.Nil(t, cost)
 }
 
 func TestGetModelPricing_OpenAIGPT54MiniFallback(t *testing.T) {

@@ -1,6 +1,6 @@
-# Sub2API Docker Image
+# ISACAPI Docker Image
 
-Sub2API is an AI API Gateway Platform for distributing and managing AI product subscription API quotas.
+ISACAPI is an AI API Gateway Platform for distributing and managing AI product subscription API quotas.
 
 ## Quick Start
 

@@ -656,7 +656,7 @@ const antigravity3FlashUsageFromAPI = computed(() => getAntigravityUsageFromAPI(
 
 // Gemini Image from API
 const antigravity3ImageUsageFromAPI = computed(() =>
-  getAntigravityUsageFromAPI(['gemini-2.5-flash-image', 'gemini-3.1-flash-image', 'gemini-3-pro-image'])
+  getAntigravityUsageFromAPI(['gemini-2.5-flash-image', 'gemini-3-pro-image-preview', 'gemini-3.1-flash-image', 'gemini-3-pro-image'])
 )
 
 // Claude from API (all Claude model variants)
@@ -739,13 +739,15 @@ const geminiUserLevel = computed((): string | null => {
   const tierLower = tier.toLowerCase()
   const tierUpper = tier.toUpperCase()
 
-  // Google One: free / pro / ultra
+  // Google One: free / plus / pro / ultra
   if (geminiOAuthType.value === 'google_one') {
     if (tierLower === 'google_one_free') return 'free'
+    if (tierLower === 'google_ai_plus') return 'plus'
     if (tierLower === 'google_ai_pro') return 'pro'
     if (tierLower === 'google_ai_ultra') return 'ultra'
 
     // Backward compatibility (legacy tier markers)
+    if (tierUpper === 'AI_PLUS' || tierUpper === 'GOOGLE_AI_PLUS') return 'plus'
     if (tierUpper === 'AI_PREMIUM' || tierUpper === 'GOOGLE_ONE_STANDARD') return 'pro'
     if (tierUpper === 'GOOGLE_ONE_UNLIMITED') return 'ultra'
     if (tierUpper === 'FREE' || tierUpper === 'GOOGLE_ONE_BASIC' || tierUpper === 'GOOGLE_ONE_UNKNOWN' || tierUpper === '') return 'free'
@@ -798,6 +800,7 @@ const geminiTierClass = computed(() => {
   if (channel === 'google one') {
     if (level === 'ultra') return 'bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-300'
     if (level === 'pro') return 'bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-300'
+    if (level === 'plus') return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
     return 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
   }
 
@@ -829,6 +832,9 @@ const geminiQuotaPolicyLimits = computed(() => {
     }
     if (tierLower === 'google_ai_pro' || geminiUserLevel.value === 'pro') {
       return t('admin.accounts.gemini.quotaPolicy.rows.googleOne.limitsPro')
+    }
+    if (tierLower === 'google_ai_plus' || geminiUserLevel.value === 'plus') {
+      return t('admin.accounts.gemini.quotaPolicy.rows.googleOne.limitsPlus')
     }
     return t('admin.accounts.gemini.quotaPolicy.rows.googleOne.limitsFree')
   }
@@ -1213,6 +1219,7 @@ watch(openAIUsageRefreshKey, (nextKey, prevKey) => {
   if (!prevKey || nextKey === prevKey) return
   if (props.account.platform !== 'openai' || props.account.type !== 'oauth') return
 
+  _usageCache.delete(props.account.id)
   requestAutoLoad()
 })
 

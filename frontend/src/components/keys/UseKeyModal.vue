@@ -947,8 +947,8 @@ function generateOpenCodeConfig(platform: string, baseUrl: string, apiKey: strin
         }
       }
     },
-    'gemini-3.1-flash-image': {
-      name: 'Gemini 3.1 Flash Image',
+	    'gemini-3-pro-image-preview': {
+	      name: 'Gemini 3 Pro Image Preview',
       limit: {
         context: 1048576,
         output: 65536

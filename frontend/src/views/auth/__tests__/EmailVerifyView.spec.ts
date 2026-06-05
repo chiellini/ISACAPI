@@ -57,7 +57,7 @@ vi.mock('vue-i18n', () => ({
   useI18n: () => ({
     t: (key: string, params?: Record<string, string | number>) => {
       if (key === 'auth.accountCreatedSuccess') {
-        return `Account created for ${params?.siteName ?? 'Sub2API'}`
+        return `Account created for ${params?.siteName ?? 'ISACAPI'}`
       }
       return key
     },
@@ -117,7 +117,7 @@ describe('EmailVerifyView', () => {
     getPublicSettingsMock.mockResolvedValue({
       turnstile_enabled: false,
       turnstile_site_key: '',
-      site_name: 'Sub2API',
+      site_name: 'ISACAPI',
       registration_email_suffix_whitelist: [],
     })
     sendVerifyCodeMock.mockResolvedValue({ countdown: 60 })
@@ -171,7 +171,7 @@ describe('EmailVerifyView', () => {
     getPublicSettingsMock.mockResolvedValue({
       turnstile_enabled: false,
       turnstile_site_key: '',
-      site_name: 'Sub2API',
+      site_name: 'ISACAPI',
       registration_email_suffix_whitelist: ['allowed.com'],
     })
     sessionStorage.setItem(
@@ -212,7 +212,7 @@ describe('EmailVerifyView', () => {
     getPublicSettingsMock.mockResolvedValue({
       turnstile_enabled: false,
       turnstile_site_key: '',
-      site_name: 'Sub2API',
+      site_name: 'ISACAPI',
       registration_email_suffix_whitelist: ['allowed.com'],
     })
     sessionStorage.setItem(
@@ -254,7 +254,7 @@ describe('EmailVerifyView', () => {
     getPublicSettingsMock.mockResolvedValue({
       turnstile_enabled: false,
       turnstile_site_key: '',
-      site_name: 'Sub2API',
+      site_name: 'ISACAPI',
       registration_email_suffix_whitelist: ['allowed.com'],
     })
     sendPendingOAuthVerifyCodeMock.mockResolvedValue({
@@ -332,12 +332,15 @@ describe('EmailVerifyView', () => {
     await wrapper.get('form').trigger('submit.prevent')
     await flushPromises()
 
-    expect(apiClientPostMock).toHaveBeenCalledWith('/auth/oauth/pending/create-account', {
-      email: 'fresh@example.com',
-      password: 'secret-123',
-      verify_code: '123456',
-      aff_code: 'AFF123',
-    })
+    expect(apiClientPostMock).toHaveBeenCalledWith(
+      '/auth/oauth/pending/create-account',
+      expect.objectContaining({
+        email: 'fresh@example.com',
+        password: 'secret-123',
+        verify_code: '123456',
+      })
+    )
+    expect(apiClientPostMock.mock.calls[0][1]).not.toHaveProperty('aff_code')
     expect(persistOAuthTokenContextMock).toHaveBeenCalledWith({
       access_token: 'oauth-access-token',
       refresh_token: 'oauth-refresh-token',
@@ -360,7 +363,7 @@ describe('EmailVerifyView', () => {
     getPublicSettingsMock.mockResolvedValue({
       turnstile_enabled: false,
       turnstile_site_key: '',
-      site_name: 'Sub2API',
+      site_name: 'ISACAPI',
       registration_email_suffix_whitelist: ['allowed.com'],
     })
     sessionStorage.setItem(

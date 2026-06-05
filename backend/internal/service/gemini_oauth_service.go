@@ -21,6 +21,7 @@ import (
 const (
 	// Canonical tier IDs used by sub2api (2026-aligned).
 	GeminiTierGoogleOneFree    = "google_one_free"
+	GeminiTierGoogleAIPlus     = "google_ai_plus"
 	GeminiTierGoogleAIPro      = "google_ai_pro"
 	GeminiTierGoogleAIUltra    = "google_ai_ultra"
 	GeminiTierGCPStandard      = "gcp_standard"
@@ -31,6 +32,8 @@ const (
 
 	// Legacy/compat tier IDs that may exist in historical data or upstream responses.
 	legacyTierAIPremium          = "AI_PREMIUM"
+	legacyTierAIPlus             = "AI_PLUS"
+	legacyTierGoogleAIPlus       = "GOOGLE_AI_PLUS"
 	legacyTierGoogleOneStandard  = "GOOGLE_ONE_STANDARD"
 	legacyTierGoogleOneBasic     = "GOOGLE_ONE_BASIC"
 	legacyTierFree               = "FREE"
@@ -43,7 +46,9 @@ const (
 	TB = 1024 * GB
 
 	StorageTierUnlimited = 100 * TB // 100TB
-	StorageTierAIPremium = 2 * TB   // 2TB
+	StorageTierAIPro     = 5 * TB   // 5TB
+	StorageTierAIPremium = 2 * TB   // 2TB legacy AI Premium / current AI Plus storage tier
+	StorageTierAIPlus    = 200 * GB // 200GB
 	StorageTierStandard  = 200 * GB // 200GB
 	StorageTierBasic     = 100 * GB // 100GB
 	StorageTierFree      = 15 * GB  // 15GB
@@ -231,6 +236,7 @@ func canonicalGeminiTierID(raw string) string {
 	lower := strings.ToLower(raw)
 	switch lower {
 	case GeminiTierGoogleOneFree,
+		GeminiTierGoogleAIPlus,
 		GeminiTierGoogleAIPro,
 		GeminiTierGoogleAIUltra,
 		GeminiTierGCPStandard,
@@ -246,6 +252,8 @@ func canonicalGeminiTierID(raw string) string {
 	// Google One legacy tiers
 	case legacyTierAIPremium:
 		return GeminiTierGoogleAIPro
+	case legacyTierAIPlus, legacyTierGoogleAIPlus:
+		return GeminiTierGoogleAIPlus
 	case legacyTierGoogleOneUnlimited:
 		return GeminiTierGoogleAIUltra
 	case legacyTierFree, legacyTierGoogleOneBasic, legacyTierGoogleOneStandard:
@@ -281,7 +289,7 @@ func canonicalGeminiTierIDForOAuthType(oauthType, tierID string) string {
 	switch oauthType {
 	case "google_one":
 		switch canonical {
-		case GeminiTierGoogleOneFree, GeminiTierGoogleAIPro, GeminiTierGoogleAIUltra:
+		case GeminiTierGoogleOneFree, GeminiTierGoogleAIPlus, GeminiTierGoogleAIPro, GeminiTierGoogleAIUltra:
 			return canonical
 		default:
 			return ""
@@ -342,9 +350,13 @@ func inferGoogleOneTier(storageBytes int64) string {
 		logger.LegacyPrintf("service.gemini_oauth", "[GeminiOAuth] inferGoogleOneTier - > %d bytes (100TB), returning UNLIMITED", StorageTierUnlimited)
 		return GeminiTierGoogleAIUltra
 	}
-	if storageBytes >= StorageTierAIPremium {
-		logger.LegacyPrintf("service.gemini_oauth", "[GeminiOAuth] inferGoogleOneTier - >= %d bytes (2TB), returning google_ai_pro", StorageTierAIPremium)
+	if storageBytes >= StorageTierAIPro {
+		logger.LegacyPrintf("service.gemini_oauth", "[GeminiOAuth] inferGoogleOneTier - >= %d bytes (5TB), returning google_ai_pro", StorageTierAIPro)
 		return GeminiTierGoogleAIPro
+	}
+	if storageBytes >= StorageTierAIPlus {
+		logger.LegacyPrintf("service.gemini_oauth", "[GeminiOAuth] inferGoogleOneTier - >= %d bytes (200GB), returning google_ai_plus", StorageTierAIPlus)
+		return GeminiTierGoogleAIPlus
 	}
 	if storageBytes >= StorageTierFree {
 		logger.LegacyPrintf("service.gemini_oauth", "[GeminiOAuth] inferGoogleOneTier - >= %d bytes (15GB), returning FREE", StorageTierFree)

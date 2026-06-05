@@ -12,9 +12,12 @@ func TestDefaultModels_ContainsFallbackCatalogModels(t *testing.T) {
 	}
 
 	required := []string{
-		"models/gemini-2.5-flash-image",
-		"models/gemini-3.1-pro-preview-customtools",
-		"models/gemini-3.1-flash-image",
+		"models/gemini-2.5-flash",
+		"models/gemini-2.5-pro",
+		"models/gemini-3-flash-preview",
+		"models/gemini-3-pro-preview",
+		"models/gemini-3.1-pro-preview",
+		"models/gemini-3.5-flash",
 	}
 
 	for _, name := range required {
@@ -28,14 +31,14 @@ func TestDefaultModels_ContainsFallbackCatalogModels(t *testing.T) {
 	}
 }
 
-func TestHasFallbackModel_RecognizesCustomtoolsModel(t *testing.T) {
+func TestHasFallbackModel_RecognizesCuratedModel(t *testing.T) {
 	t.Parallel()
 
-	if !HasFallbackModel("gemini-3.1-pro-preview-customtools") {
-		t.Fatalf("expected customtools model to exist in fallback catalog")
+	if !HasFallbackModel("gemini-3.1-pro-preview") {
+		t.Fatalf("expected curated model to exist in fallback catalog")
 	}
-	if !HasFallbackModel("models/gemini-3.1-pro-preview-customtools") {
-		t.Fatalf("expected prefixed customtools model to exist in fallback catalog")
+	if !HasFallbackModel("models/gemini-3.1-pro-preview") {
+		t.Fatalf("expected prefixed curated model to exist in fallback catalog")
 	}
 	if HasFallbackModel("gemini-unknown") {
 		t.Fatalf("did not expect unknown model to exist in fallback catalog")

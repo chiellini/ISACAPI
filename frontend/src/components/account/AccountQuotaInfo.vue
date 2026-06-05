@@ -79,9 +79,11 @@ const tierLabel = computed(() => {
     const tier = (creds?.tier_id || '').toString().trim().toLowerCase()
     if (tier === 'google_ai_ultra') return 'Google AI Ultra'
     if (tier === 'google_ai_pro') return 'Google AI Pro'
+    if (tier === 'google_ai_plus') return 'Google AI Plus'
     if (tier === 'google_one_free') return 'Google One Free'
     // Backward compatibility
     const upper = (creds?.tier_id || '').toString().trim().toUpperCase()
+    if (upper === 'AI_PLUS' || upper === 'GOOGLE_AI_PLUS') return 'Google AI Plus'
     if (upper === 'AI_PREMIUM') return 'Google AI Pro'
     if (upper === 'GOOGLE_ONE_UNLIMITED') return 'Google AI Ultra'
     if (upper) return `Google One ${upper}`
@@ -113,11 +115,13 @@ const tierBadgeClass = computed(() => {
     const tier = (creds?.tier_id || '').toString().trim().toLowerCase()
     if (tier === 'google_ai_ultra') return 'bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-300'
     if (tier === 'google_ai_pro') return 'bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-300'
+    if (tier === 'google_ai_plus') return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
     if (tier === 'google_one_free') return 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
     // Backward compatibility
     const upper = (creds?.tier_id || '').toString().trim().toUpperCase()
     if (upper === 'GOOGLE_ONE_UNLIMITED') return 'bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-300'
     if (upper === 'AI_PREMIUM') return 'bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-300'
+    if (upper === 'AI_PLUS' || upper === 'GOOGLE_AI_PLUS') return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
     return 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
   }
 

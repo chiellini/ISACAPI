@@ -847,20 +847,7 @@ func (s *AccountTestService) testGeminiAccountConnection(c *gin.Context, account
 	ctx := c.Request.Context()
 
 	// Determine the model to use
-	testModelID := modelID
-	if testModelID == "" {
-		testModelID = geminicli.DefaultTestModel
-	}
-
-	// For static upstream credentials with model mapping, map the model
-	if account.Type == AccountTypeAPIKey || account.Type == AccountTypeServiceAccount {
-		mapping := account.GetModelMapping()
-		if len(mapping) > 0 {
-			if mappedModel, exists := mapping[testModelID]; exists {
-				testModelID = mappedModel
-			}
-		}
-	}
+	testModelID := resolveGeminiAccountTestModel(account, modelID)
 
 	// Set SSE headers
 	c.Writer.Header().Set("Content-Type", "text/event-stream")
@@ -913,6 +900,38 @@ func (s *AccountTestService) testGeminiAccountConnection(c *gin.Context, account
 
 	// Process SSE stream
 	return s.processGeminiStream(c, resp.Body)
+}
+
+func resolveGeminiAccountTestModel(account *Account, modelID string) string {
+	testModelID := strings.TrimSpace(modelID)
+	if testModelID == "" {
+		testModelID = geminicli.DefaultTestModel
+	}
+	if account == nil || account.Platform != PlatformGemini {
+		return testModelID
+	}
+
+	testModelID = account.GetMappedModel(testModelID)
+	if !account.IsGeminiCodeAssist() {
+		testModelID = normalizeGeminiAPIImageModelID(testModelID)
+	}
+	return testModelID
+}
+
+func normalizeGeminiAPIImageModelID(modelID string) string {
+	trimmed := strings.TrimSpace(modelID)
+	if trimmed == "" {
+		return ""
+	}
+	normalized := strings.ToLower(strings.TrimPrefix(trimmed, "models/"))
+	switch normalized {
+	case "gemini-3.1-flash-image", "gemini-3.1-flash-image-preview", "gemini-3-pro-image":
+		return "gemini-3-pro-image-preview"
+	case "gemini-2.5-flash-image-preview":
+		return "gemini-2.5-flash-image"
+	default:
+		return strings.TrimPrefix(trimmed, "models/")
+	}
 }
 
 // routeAntigravityTest 路由 Antigravity 账号的测试请求。

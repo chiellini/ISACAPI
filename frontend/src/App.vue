@@ -27,7 +27,16 @@ function updateFavicon(logoUrl: string) {
     link.rel = 'icon'
     document.head.appendChild(link)
   }
-  link.type = logoUrl.endsWith('.svg') ? 'image/svg+xml' : 'image/x-icon'
+  const normalizedLogoUrl = logoUrl.split('?')[0].split('#')[0].toLowerCase()
+  if (normalizedLogoUrl.endsWith('.svg')) {
+    link.type = 'image/svg+xml'
+  } else if (normalizedLogoUrl.endsWith('.png')) {
+    link.type = 'image/png'
+  } else if (normalizedLogoUrl.endsWith('.jpg') || normalizedLogoUrl.endsWith('.jpeg')) {
+    link.type = 'image/jpeg'
+  } else {
+    link.type = 'image/x-icon'
+  }
   link.href = logoUrl
 }
 

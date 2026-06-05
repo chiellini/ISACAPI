@@ -198,6 +198,7 @@ func newGeminiQuotaPolicy() *GeminiQuotaPolicy {
 
 			// --- Google One (shared pool) ---
 			GeminiTierGoogleOneFree: {Quota: GeminiQuota{SharedRPD: 1000, SharedRPM: 60}, Cooldown: 30 * time.Minute},
+			GeminiTierGoogleAIPlus:  {Quota: GeminiQuota{SharedRPD: 1200, SharedRPM: 90}, Cooldown: 5 * time.Minute},
 			GeminiTierGoogleAIPro:   {Quota: GeminiQuota{SharedRPD: 1500, SharedRPM: 120}, Cooldown: 5 * time.Minute},
 			GeminiTierGoogleAIUltra: {Quota: GeminiQuota{SharedRPD: 2000, SharedRPM: 120}, Cooldown: 5 * time.Minute},
 
@@ -331,6 +332,8 @@ func normalizeGeminiTierID(tierID string) string {
 		return GeminiTierAIStudioPaid
 	case "GOOGLE_ONE_FREE":
 		return GeminiTierGoogleOneFree
+	case "GOOGLE_AI_PLUS":
+		return GeminiTierGoogleAIPlus
 	case "GOOGLE_AI_PRO":
 		return GeminiTierGoogleAIPro
 	case "GOOGLE_AI_ULTRA":

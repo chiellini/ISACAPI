@@ -17,6 +17,17 @@ func resetViperWithJWTSecret(t *testing.T) {
 	t.Setenv("JWT_SECRET", strings.Repeat("x", 32))
 }
 
+func TestLoadCORSAllowedOriginsFromEnv(t *testing.T) {
+	resetViperWithJWTSecret(t)
+	t.Setenv("CORS_ALLOWED_ORIGINS", "https://isacai.space,https://www.isacai.space")
+	t.Setenv("CORS_ALLOW_CREDENTIALS", "true")
+
+	cfg, err := Load()
+	require.NoError(t, err)
+	require.Equal(t, []string{"https://isacai.space", "https://www.isacai.space"}, cfg.CORS.AllowedOrigins)
+	require.True(t, cfg.CORS.AllowCredentials)
+}
+
 func TestLoadForBootstrapAllowsMissingJWTSecret(t *testing.T) {
 	viper.Reset()
 	t.Setenv("JWT_SECRET", "")

@@ -23,9 +23,6 @@ vi.mock('@/composables/useClipboard', () => ({
 
 vi.mock('vue-i18n', async () => {
   const actual = await vi.importActual<typeof import('vue-i18n')>('vue-i18n')
-  const messages: Record<string, string> = {
-    'admin.accounts.imagePromptDefault': 'Generate a cute orange cat astronaut sticker on a clean pastel background.'
-  }
   return {
     ...actual,
     useI18n: () => ({
@@ -33,7 +30,7 @@ vi.mock('vue-i18n', async () => {
         if (key === 'admin.accounts.imageReceived' && params?.count) {
           return `received-${params.count}`
         }
-        return messages[key] || key
+        return key
       }
     })
   }
@@ -65,7 +62,7 @@ function mountModal() {
       show: false,
       account: {
         id: 42,
-        name: 'Gemini Image Test',
+        name: 'Gemini Text Test',
         platform: 'gemini',
         type: 'apikey',
         status: 'active'
@@ -89,9 +86,12 @@ function mountModal() {
 describe('AccountTestModal', () => {
   beforeEach(() => {
     getAvailableModels.mockResolvedValue([
-      { id: 'gemini-2.0-flash', display_name: 'Gemini 2.0 Flash' },
-      { id: 'gemini-2.5-flash-image', display_name: 'Gemini 2.5 Flash Image' },
-      { id: 'gemini-3.1-flash-image', display_name: 'Gemini 3.1 Flash Image' }
+      { id: 'gemini-2.5-flash', display_name: 'Gemini 2.5 Flash' },
+      { id: 'gemini-2.5-pro', display_name: 'Gemini 2.5 Pro' },
+      { id: 'gemini-3-flash-preview', display_name: 'Gemini 3 Flash Preview' },
+      { id: 'gemini-3-pro-preview', display_name: 'Gemini 3 Pro Preview' },
+      { id: 'gemini-3.1-pro-preview', display_name: 'Gemini 3.1 Pro Preview' },
+      { id: 'gemini-3.5-flash', display_name: 'Gemini 3.5 Flash' }
     ])
     copyToClipboard.mockReset()
     Object.defineProperty(globalThis, 'localStorage', {
@@ -105,8 +105,8 @@ describe('AccountTestModal', () => {
     })
     global.fetch = vi.fn().mockResolvedValue(
       createStreamResponse([
-        'data: {"type":"test_start","model":"gemini-2.5-flash-image"}\n',
-        'data: {"type":"image","image_url":"data:image/png;base64,QUJD","mime_type":"image/png"}\n',
+        'data: {"type":"test_start","model":"gemini-2.5-flash"}\n',
+        'data: {"type":"content","text":"Hi there!"}\n',
         'data: {"type":"test_complete","success":true}\n'
       ])
     ) as any
@@ -116,14 +116,10 @@ describe('AccountTestModal', () => {
     vi.restoreAllMocks()
   })
 
-  it('gemini 图片模型测试会携带提示词并渲染图片预览', async () => {
+  it('gemini 文本模型测试会使用确认可见的默认模型', async () => {
     const wrapper = mountModal()
     await wrapper.setProps({ show: true })
     await flushPromises()
-
-    const promptInput = wrapper.find('textarea.textarea-stub')
-    expect(promptInput.exists()).toBe(true)
-    await promptInput.setValue('draw a tiny orange cat astronaut')
 
     const buttons = wrapper.findAll('button')
     const startButton = buttons.find((button) => button.text().includes('admin.accounts.startTest'))
@@ -136,12 +132,10 @@ describe('AccountTestModal', () => {
     expect(global.fetch).toHaveBeenCalledTimes(1)
     const [, request] = (global.fetch as any).mock.calls[0]
     expect(JSON.parse(request.body)).toEqual({
-      model_id: 'gemini-3.1-flash-image',
-      prompt: 'draw a tiny orange cat astronaut'
+      model_id: 'gemini-2.5-flash',
+      prompt: ''
     })
 
-    const preview = wrapper.find('img[alt="test-image-1"]')
-    expect(preview.exists()).toBe(true)
-    expect(preview.attributes('src')).toBe('data:image/png;base64,QUJD')
+    expect(wrapper.text()).toContain('Hi there!')
   })
 })

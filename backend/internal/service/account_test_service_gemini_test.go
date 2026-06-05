@@ -38,6 +38,61 @@ func TestCreateGeminiTestPayload_ImageModel(t *testing.T) {
 	require.Equal(t, "1:1", parsed.GenerationConfig.ImageConfig.AspectRatio)
 }
 
+func TestNormalizeGeminiAPIImageModelID(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]string{
+		"gemini-3.1-flash-image":         "gemini-3-pro-image-preview",
+		"gemini-3.1-flash-image-preview": "gemini-3-pro-image-preview",
+		"gemini-3-pro-image":             "gemini-3-pro-image-preview",
+		"gemini-3-pro-image-preview":     "gemini-3-pro-image-preview",
+		"gemini-2.5-flash-image-preview": "gemini-2.5-flash-image",
+		"models/gemini-2.5-flash-image":  "gemini-2.5-flash-image",
+	}
+
+	for input, want := range tests {
+		if got := normalizeGeminiAPIImageModelID(input); got != want {
+			t.Fatalf("normalizeGeminiAPIImageModelID(%q) = %q, want %q", input, got, want)
+		}
+	}
+}
+
+func TestResolveGeminiAccountTestModel_AppliesOAuthMapping(t *testing.T) {
+	t.Parallel()
+
+	account := &Account{
+		Platform: PlatformGemini,
+		Type:     AccountTypeOAuth,
+		Credentials: map[string]any{
+			"oauth_type": "google_one",
+			"model_mapping": map[string]any{
+				"gemini-3.1-pro-preview": "gemini-2.5-pro",
+				"gemini-3.5-flash":       "gemini-2.5-flash",
+			},
+		},
+	}
+
+	require.Equal(t, "gemini-2.5-pro", resolveGeminiAccountTestModel(account, "gemini-3.1-pro-preview"))
+	require.Equal(t, "gemini-2.5-flash", resolveGeminiAccountTestModel(account, "gemini-3.5-flash"))
+}
+
+func TestResolveGeminiAccountTestModel_NormalizesMappedOAuthImageModel(t *testing.T) {
+	t.Parallel()
+
+	account := &Account{
+		Platform: PlatformGemini,
+		Type:     AccountTypeOAuth,
+		Credentials: map[string]any{
+			"oauth_type": "google_one",
+			"model_mapping": map[string]any{
+				"gemini-3-pro-image": "gemini-3.1-flash-image",
+			},
+		},
+	}
+
+	require.Equal(t, "gemini-3-pro-image-preview", resolveGeminiAccountTestModel(account, "gemini-3-pro-image"))
+}
+
 func TestProcessGeminiStream_EmitsImageEvent(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)

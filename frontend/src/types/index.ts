@@ -1,5 +1,5 @@
 /**
- * Core Type Definitions for Sub2API Frontend
+ * Core Type Definitions for ISACAPI Frontend
  */
 
 // ==================== Common Types ====================
@@ -773,6 +773,7 @@ export interface GeminiCredentials {
   oauth_type?: 'code_assist' | 'google_one' | 'ai_studio' | string
   tier_id?:
     | 'google_one_free'
+    | 'google_ai_plus'
     | 'google_ai_pro'
     | 'google_ai_ultra'
     | 'gcp_standard'

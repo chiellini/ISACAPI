@@ -7,6 +7,33 @@ import (
 )
 
 func TestIsMigrationChecksumCompatible(t *testing.T) {
+	t.Run("001重命名注释checksum可兼容", func(t *testing.T) {
+		ok := isMigrationChecksumCompatible(
+			"001_init.sql",
+			"9ba0369779484625edcea7a7d1d4582397e31546db9149b05004990a3f16c630",
+			"7fc940ad8f6c98b62276ebc051cc40b07e1e4623071f209188209c0e2fec51b5",
+		)
+		require.True(t, ok)
+	})
+
+	t.Run("002重命名注释checksum可兼容", func(t *testing.T) {
+		ok := isMigrationChecksumCompatible(
+			"002_account_type_migration.sql",
+			"aad3816e44f58ff007ea4df8092aae580f3f85180314c1deb1b1054b20892bbf",
+			"3f3add6510026b294fdbaf7b5d64930ad8d1deb256e43eb13ee4a9a6b6d582eb",
+		)
+		require.True(t, ok)
+	})
+
+	t.Run("003重命名注释checksum可兼容", func(t *testing.T) {
+		ok := isMigrationChecksumCompatible(
+			"003_subscription.sql",
+			"4642fcb1ccd7954b1d3eef8f795cfba2ce21431257346cc5a7568cde61a60b13",
+			"9269c13a570d49c7ec07f54adb44ff2efb3082d756b7ad221b53196c3882a5fc",
+		)
+		require.True(t, ok)
+	})
+
 	t.Run("054历史checksum可兼容", func(t *testing.T) {
 		ok := isMigrationChecksumCompatible(
 			"054_drop_legacy_cache_columns.sql",

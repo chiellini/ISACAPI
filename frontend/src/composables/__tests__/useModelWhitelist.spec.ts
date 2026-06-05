@@ -40,13 +40,17 @@ describe('useModelWhitelist', () => {
     expect(getModelsByPlatform('antigravity')).toContain('claude-opus-4-8')
   })
 
-  it('gemini 模型列表包含原生生图模型', () => {
+  it('gemini 模型列表使用确认可见的文本模型', () => {
     const models = getModelsByPlatform('gemini')
 
-    expect(models).toContain('gemini-2.5-flash-image')
-    expect(models).toContain('gemini-3.1-flash-image')
-    expect(models.indexOf('gemini-3.1-flash-image')).toBeLessThan(models.indexOf('gemini-2.0-flash'))
-    expect(models.indexOf('gemini-2.5-flash-image')).toBeLessThan(models.indexOf('gemini-2.5-flash'))
+    expect(models).toEqual([
+      'gemini-2.5-flash',
+      'gemini-2.5-pro',
+      'gemini-3-flash-preview',
+      'gemini-3-pro-preview',
+      'gemini-3.1-pro-preview',
+      'gemini-3.5-flash'
+    ])
   })
 
   it('antigravity 模型列表会把新的 Gemini 图片模型排在前面', () => {

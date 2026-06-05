@@ -1,7 +1,7 @@
 # =============================================================================
-# Sub2API Docker Compose - Standalone Configuration
+# ISACAPI Docker Compose - Standalone Configuration
 # =============================================================================
-# This configuration runs only the Sub2API application.
+# This configuration runs only the ISACAPI application.
 # PostgreSQL and Redis must be provided externally.
 #
 # Usage:
@@ -80,6 +80,12 @@ services:
       # Timezone Configuration
       # =======================================================================
       - TZ=${TZ:-Asia/Shanghai}
+
+      # =======================================================================
+      # CORS Configuration
+      # =======================================================================
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-https://isacai.space}
+      - CORS_ALLOW_CREDENTIALS=${CORS_ALLOW_CREDENTIALS:-true}
 
       # =======================================================================
       # Gemini OAuth Configuration (optional)

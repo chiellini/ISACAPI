@@ -199,6 +199,7 @@ func TestCanonicalGeminiTierID(t *testing.T) {
 
 		// 已规范化的值（直接返回）
 		{name: "google_one_free", raw: "google_one_free", want: GeminiTierGoogleOneFree},
+		{name: "google_ai_plus", raw: "google_ai_plus", want: GeminiTierGoogleAIPlus},
 		{name: "google_ai_pro", raw: "google_ai_pro", want: GeminiTierGoogleAIPro},
 		{name: "google_ai_ultra", raw: "google_ai_ultra", want: GeminiTierGoogleAIUltra},
 		{name: "gcp_standard", raw: "gcp_standard", want: GeminiTierGCPStandard},
@@ -212,6 +213,8 @@ func TestCanonicalGeminiTierID(t *testing.T) {
 		{name: "GCP_STANDARD 全大写", raw: "GCP_STANDARD", want: GeminiTierGCPStandard},
 
 		// legacy 映射: Google One
+		{name: "GOOGLE_AI_PLUS -> google_ai_plus", raw: "GOOGLE_AI_PLUS", want: GeminiTierGoogleAIPlus},
+		{name: "AI_PLUS -> google_ai_plus", raw: "AI_PLUS", want: GeminiTierGoogleAIPlus},
 		{name: "AI_PREMIUM -> google_ai_pro", raw: "AI_PREMIUM", want: GeminiTierGoogleAIPro},
 		{name: "FREE -> google_one_free", raw: "FREE", want: GeminiTierGoogleOneFree},
 		{name: "GOOGLE_ONE_BASIC -> google_one_free", raw: "GOOGLE_ONE_BASIC", want: GeminiTierGoogleOneFree},
@@ -266,6 +269,7 @@ func TestCanonicalGeminiTierIDForOAuthType(t *testing.T) {
 	}{
 		// google_one 类型过滤
 		{name: "google_one + google_one_free", oauthType: "google_one", tierID: "google_one_free", want: GeminiTierGoogleOneFree},
+		{name: "google_one + google_ai_plus", oauthType: "google_one", tierID: "google_ai_plus", want: GeminiTierGoogleAIPlus},
 		{name: "google_one + google_ai_pro", oauthType: "google_one", tierID: "google_ai_pro", want: GeminiTierGoogleAIPro},
 		{name: "google_one + google_ai_ultra", oauthType: "google_one", tierID: "google_ai_ultra", want: GeminiTierGoogleAIUltra},
 		{name: "google_one + gcp_standard 被过滤", oauthType: "google_one", tierID: "gcp_standard", want: ""},
@@ -418,15 +422,19 @@ func TestInferGoogleOneTier(t *testing.T) {
 		{name: "> 100TB -> ultra", storageBytes: int64(StorageTierUnlimited) + 1, want: GeminiTierGoogleAIUltra},
 		{name: "200TB -> ultra", storageBytes: 200 * int64(TB), want: GeminiTierGoogleAIUltra},
 
-		// >= 2TB -> pro (但 <= 100TB)
-		{name: "正好 2TB -> pro", storageBytes: int64(StorageTierAIPremium), want: GeminiTierGoogleAIPro},
-		{name: "5TB -> pro", storageBytes: 5 * int64(TB), want: GeminiTierGoogleAIPro},
+		// >= 5TB -> pro (但 <= 100TB)
+		{name: "正好 5TB -> pro", storageBytes: int64(StorageTierAIPro), want: GeminiTierGoogleAIPro},
 		{name: "100TB 正好 -> pro (不是 > 100TB)", storageBytes: int64(StorageTierUnlimited), want: GeminiTierGoogleAIPro},
 
-		// >= 15GB -> free (但 < 2TB)
+		// >= 200GB -> plus (但 < 5TB)
+		{name: "正好 200GB -> plus", storageBytes: int64(StorageTierAIPlus), want: GeminiTierGoogleAIPlus},
+		{name: "正好 2TB -> plus", storageBytes: int64(StorageTierAIPremium), want: GeminiTierGoogleAIPlus},
+		{name: "略低于 5TB -> plus", storageBytes: int64(StorageTierAIPro) - 1, want: GeminiTierGoogleAIPlus},
+
+		// >= 15GB -> free (但 < 200GB)
 		{name: "正好 15GB -> free", storageBytes: int64(StorageTierFree), want: GeminiTierGoogleOneFree},
 		{name: "100GB -> free", storageBytes: 100 * int64(GB), want: GeminiTierGoogleOneFree},
-		{name: "略低于 2TB -> free", storageBytes: int64(StorageTierAIPremium) - 1, want: GeminiTierGoogleOneFree},
+		{name: "略低于 200GB -> free", storageBytes: int64(StorageTierAIPlus) - 1, want: GeminiTierGoogleOneFree},
 
 		// < 15GB -> unknown
 		{name: "1GB -> unknown", storageBytes: int64(GB), want: GeminiTierGoogleOneUnknown},

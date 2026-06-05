@@ -1,5 +1,5 @@
-# Sub2API Configuration File
-# Sub2API 配置文件
+# ISACAPI Configuration File
+# ISACAPI 配置文件
 #
 # Copy this file to /etc/sub2api/config.yaml and modify as needed
 # 复制此文件到 /etc/sub2api/config.yaml 并根据需要修改
@@ -71,9 +71,10 @@ run_mode: "standard"
 # 跨域资源共享 (CORS) 配置
 # =============================================================================
 cors:
-  # Allowed origins list. Leave empty to disable cross-origin requests.
-  # 允许的来源列表。留空则禁用跨域请求。
-  allowed_origins: []
+  # Allowed origins list. Use HTTPS origins in production.
+  # 允许的来源列表。生产环境只加入 HTTPS 来源；HTTP 入口只做 308 跳转。
+  allowed_origins:
+    - "https://isacai.space"
   # Allow credentials (cookies/authorization headers). Cannot be used with "*".
   # 允许携带凭证（cookies/授权头）。不能与 "*" 通配符同时使用。
   allow_credentials: true
@@ -869,7 +870,7 @@ totp:
 
 # =============================================================================
 # LinuxDo Connect OAuth Login (SSO)
-# LinuxDo Connect OAuth 登录（用于 Sub2API 用户登录）
+# LinuxDo Connect OAuth 登录（用于 ISACAPI 用户登录）
 # =============================================================================
 linuxdo_connect:
   enabled: false
@@ -894,7 +895,7 @@ linuxdo_connect:
 
 # =============================================================================
 # Generic OIDC OAuth Login (SSO)
-# 通用 OIDC OAuth 登录（用于 Sub2API 用户登录）
+# 通用 OIDC OAuth 登录（用于 ISACAPI 用户登录）
 # =============================================================================
 oidc_connect:
   enabled: false
@@ -1029,8 +1030,8 @@ turnstile:
 # Gemini OAuth (Required for Gemini accounts)
 # Gemini OAuth 配置（Gemini 账户必需）
 # =============================================================================
-# Sub2API supports TWO Gemini OAuth modes:
-# Sub2API 支持两种 Gemini OAuth 模式：
+# ISACAPI supports TWO Gemini OAuth modes:
+# ISACAPI 支持两种 Gemini OAuth 模式：
 #
 # 1. Code Assist OAuth (requires GCP project_id)
 # 1. Code Assist OAuth（需要 GCP project_id）
