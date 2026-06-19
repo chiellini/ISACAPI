@@ -8,7 +8,6 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
-	"unicode/utf8"
 
 	"github.com/google/uuid"
 )
@@ -427,17 +426,6 @@ func previewOf(s string, maxRunes int) string {
 		return s
 	}
 	return string(runes[:maxRunes])
-}
-
-func truncateUTF8(s string, maxBytes int) string {
-	if maxBytes <= 0 || len(s) <= maxBytes {
-		return s
-	}
-	b := []byte(s)[:maxBytes]
-	for len(b) > 0 && !utf8.Valid(b) {
-		b = b[:len(b)-1]
-	}
-	return string(b)
 }
 
 var _ CaptureSink = (*ConversationArchiver)(nil)
