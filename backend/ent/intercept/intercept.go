@@ -19,6 +19,10 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitordailyrollup"
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorhistory"
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorrequesttemplate"
+	"github.com/Wei-Shaw/sub2api/ent/conversationbranch"
+	"github.com/Wei-Shaw/sub2api/ent/conversationevent"
+	"github.com/Wei-Shaw/sub2api/ent/conversationresponseref"
+	"github.com/Wei-Shaw/sub2api/ent/conversationsession"
 	"github.com/Wei-Shaw/sub2api/ent/errorpassthroughrule"
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/idempotencyrecord"
@@ -397,6 +401,114 @@ func (f TraverseChannelMonitorRequestTemplate) Traverse(ctx context.Context, q e
 		return f(ctx, q)
 	}
 	return fmt.Errorf("unexpected query type %T. expect *ent.ChannelMonitorRequestTemplateQuery", q)
+}
+
+// The ConversationBranchFunc type is an adapter to allow the use of ordinary function as a Querier.
+type ConversationBranchFunc func(context.Context, *ent.ConversationBranchQuery) (ent.Value, error)
+
+// Query calls f(ctx, q).
+func (f ConversationBranchFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
+	if q, ok := q.(*ent.ConversationBranchQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *ent.ConversationBranchQuery", q)
+}
+
+// The TraverseConversationBranch type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseConversationBranch func(context.Context, *ent.ConversationBranchQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseConversationBranch) Intercept(next ent.Querier) ent.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseConversationBranch) Traverse(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.ConversationBranchQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *ent.ConversationBranchQuery", q)
+}
+
+// The ConversationEventFunc type is an adapter to allow the use of ordinary function as a Querier.
+type ConversationEventFunc func(context.Context, *ent.ConversationEventQuery) (ent.Value, error)
+
+// Query calls f(ctx, q).
+func (f ConversationEventFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
+	if q, ok := q.(*ent.ConversationEventQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *ent.ConversationEventQuery", q)
+}
+
+// The TraverseConversationEvent type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseConversationEvent func(context.Context, *ent.ConversationEventQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseConversationEvent) Intercept(next ent.Querier) ent.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseConversationEvent) Traverse(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.ConversationEventQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *ent.ConversationEventQuery", q)
+}
+
+// The ConversationResponseRefFunc type is an adapter to allow the use of ordinary function as a Querier.
+type ConversationResponseRefFunc func(context.Context, *ent.ConversationResponseRefQuery) (ent.Value, error)
+
+// Query calls f(ctx, q).
+func (f ConversationResponseRefFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
+	if q, ok := q.(*ent.ConversationResponseRefQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *ent.ConversationResponseRefQuery", q)
+}
+
+// The TraverseConversationResponseRef type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseConversationResponseRef func(context.Context, *ent.ConversationResponseRefQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseConversationResponseRef) Intercept(next ent.Querier) ent.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseConversationResponseRef) Traverse(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.ConversationResponseRefQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *ent.ConversationResponseRefQuery", q)
+}
+
+// The ConversationSessionFunc type is an adapter to allow the use of ordinary function as a Querier.
+type ConversationSessionFunc func(context.Context, *ent.ConversationSessionQuery) (ent.Value, error)
+
+// Query calls f(ctx, q).
+func (f ConversationSessionFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
+	if q, ok := q.(*ent.ConversationSessionQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *ent.ConversationSessionQuery", q)
+}
+
+// The TraverseConversationSession type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseConversationSession func(context.Context, *ent.ConversationSessionQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseConversationSession) Intercept(next ent.Querier) ent.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseConversationSession) Traverse(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.ConversationSessionQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *ent.ConversationSessionQuery", q)
 }
 
 // The ErrorPassthroughRuleFunc type is an adapter to allow the use of ordinary function as a Querier.
@@ -1072,6 +1184,14 @@ func NewQuery(q ent.Query) (Query, error) {
 		return &query[*ent.ChannelMonitorHistoryQuery, predicate.ChannelMonitorHistory, channelmonitorhistory.OrderOption]{typ: ent.TypeChannelMonitorHistory, tq: q}, nil
 	case *ent.ChannelMonitorRequestTemplateQuery:
 		return &query[*ent.ChannelMonitorRequestTemplateQuery, predicate.ChannelMonitorRequestTemplate, channelmonitorrequesttemplate.OrderOption]{typ: ent.TypeChannelMonitorRequestTemplate, tq: q}, nil
+	case *ent.ConversationBranchQuery:
+		return &query[*ent.ConversationBranchQuery, predicate.ConversationBranch, conversationbranch.OrderOption]{typ: ent.TypeConversationBranch, tq: q}, nil
+	case *ent.ConversationEventQuery:
+		return &query[*ent.ConversationEventQuery, predicate.ConversationEvent, conversationevent.OrderOption]{typ: ent.TypeConversationEvent, tq: q}, nil
+	case *ent.ConversationResponseRefQuery:
+		return &query[*ent.ConversationResponseRefQuery, predicate.ConversationResponseRef, conversationresponseref.OrderOption]{typ: ent.TypeConversationResponseRef, tq: q}, nil
+	case *ent.ConversationSessionQuery:
+		return &query[*ent.ConversationSessionQuery, predicate.ConversationSession, conversationsession.OrderOption]{typ: ent.TypeConversationSession, tq: q}, nil
 	case *ent.ErrorPassthroughRuleQuery:
 		return &query[*ent.ErrorPassthroughRuleQuery, predicate.ErrorPassthroughRule, errorpassthroughrule.OrderOption]{typ: ent.TypeErrorPassthroughRule, tq: q}, nil
 	case *ent.GroupQuery:

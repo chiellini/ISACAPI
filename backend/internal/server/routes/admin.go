@@ -97,7 +97,22 @@ func RegisterAdminRoutes(
 
 		// 邀请返利（专属用户管理）
 		registerAffiliateRoutes(admin, h)
+
+		// 对话存档（仅管理员查看/删除）
+		registerConversationRoutes(admin, h)
 	}
+}
+
+func registerConversationRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
+	conv := admin.Group("/conversations")
+	{
+		conv.GET("", h.Admin.Conversation.ListSessions)
+		conv.GET("/:id", h.Admin.Conversation.GetSession)
+		conv.GET("/:id/export", h.Admin.Conversation.ExportSession)
+		conv.DELETE("/:id", h.Admin.Conversation.DeleteSession)
+	}
+	// 批量导出独立路径，避免与 /conversations/:id 的参数段冲突。
+	admin.GET("/conversation-exports", h.Admin.Conversation.ExportAll)
 }
 
 func registerContentModerationRoutes(admin *gin.RouterGroup, h *handler.Handlers) {

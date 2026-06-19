@@ -388,6 +388,7 @@ export default {
     channelMonitor: '渠道监控',
     channelStatus: '渠道状态',
     riskControl: '风控中心',
+    conversations: '对话存档',
   },
 
   // Auth
@@ -4640,6 +4641,50 @@ export default {
     },
 
     // Usage Records
+    conversations: {
+      title: '对话存档',
+      description: '仅管理员可见的已归档对话',
+      view: '查看',
+      detailTitle: '对话详情',
+      deleteTitle: '删除对话',
+      deleteConfirm: '删除该对话及其全部消息？此操作不可撤销。',
+      deleteSuccess: '对话已删除',
+      deleteFailed: '删除对话失败',
+      loadFailed: '加载对话列表失败',
+      loadDetailFailed: '加载对话详情失败',
+      noEvents: '该对话没有存储任何消息',
+      partial: '不完整',
+      previewOnly: '仅预览（无法解密）',
+      exportAll: '导出全部（.zip）',
+      exporting: '导出中…',
+      exportFailed: '导出失败',
+      downloadTxt: '下载 .txt',
+      deleteAfterDownload: '删除',
+      filters: {
+        userId: '用户 ID',
+        allStatuses: '全部状态'
+      },
+      columns: {
+        lastActive: '最近活跃',
+        user: '用户',
+        contextDomain: '上游',
+        requests: '请求数',
+        tokens: 'Token（入/出）',
+        status: '状态',
+        actions: '操作'
+      },
+      status: {
+        active: '活跃',
+        archived: '已归档',
+        expired: '已过期'
+      },
+      roles: {
+        user: '用户',
+        assistant: '助手',
+        tool: '工具',
+        system: '系统'
+      }
+    },
     usage: {
       title: '使用记录',
       description: '查看和管理所有用户的使用记录',

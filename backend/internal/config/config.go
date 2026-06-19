@@ -93,6 +93,7 @@ type Config struct {
 	Gemini                  GeminiConfig                  `mapstructure:"gemini"`
 	Update                  UpdateConfig                  `mapstructure:"update"`
 	Idempotency             IdempotencyConfig             `mapstructure:"idempotency"`
+	ConversationArchive     ConversationArchiveConfig     `mapstructure:"conversation_archive"`
 }
 
 type LogConfig struct {
@@ -1327,6 +1328,64 @@ type UsageCleanupConfig struct {
 	TaskTimeoutSeconds int `mapstructure:"task_timeout_seconds"`
 }
 
+// ConversationArchiveConfig 配置对话存档模块（旁路采集会话内容）。
+//
+// 小团队内部版：默认关闭。开启前应在用户协议/隐私政策中明确告知。
+// 采集必须 fail-open 且非阻塞：队列满或后端故障时丢弃记录，绝不影响 API 转发主路径。
+type ConversationArchiveConfig struct {
+	// Enabled: 总开关，默认关闭。
+	Enabled bool `mapstructure:"enabled"`
+	// Mode: 采集级别 metadata / user_assistant_text / full。
+	//   metadata            仅会话、模型、token，不存内容
+	//   user_assistant_text 用户文本 + 最终 assistant 文本（第一版默认推荐）
+	//   full                追加经筛选的工具事件等
+	Mode string `mapstructure:"mode"`
+
+	// RetentionDays: 会话保留天数，过期由清理任务删除。
+	RetentionDays int `mapstructure:"retention_days"`
+	// MaxEventBytes: 单条事件内容最大字节数，超出截断。
+	MaxEventBytes int `mapstructure:"max_event_bytes"`
+	// MaxSessionEvents: 单会话最大事件数，超出后停止追加（防止异常会话膨胀）。
+	MaxSessionEvents int `mapstructure:"max_session_events"`
+
+	// CaptureSystem: 是否采集 system prompt（默认关）。
+	CaptureSystem bool `mapstructure:"capture_system"`
+	// CaptureReasoning: 是否采集思维链（默认必须关闭）。
+	CaptureReasoning bool `mapstructure:"capture_reasoning"`
+	// CaptureToolCalls: 是否采集工具调用（第一版默认关）。
+	CaptureToolCalls bool `mapstructure:"capture_tool_calls"`
+	// CaptureToolResults: 是否采集工具返回（可能含完整文件/Shell 输出，默认关）。
+	CaptureToolResults bool `mapstructure:"capture_tool_results"`
+	// CaptureMedia: 媒体采集策略 metadata_only / none。默认仅元数据。
+	CaptureMedia string `mapstructure:"capture_media"`
+
+	// RedactSecrets: 写库前脱敏密钥/凭据。
+	RedactSecrets bool `mapstructure:"redact_secrets"`
+	// EncryptContent: 是否对内容做应用层 AES-256-GCM 加密。
+	EncryptContent bool `mapstructure:"encrypt_content"`
+
+	// AdminCanView / UserCanView / UserCanDelete: 基础访问开关（小团队版不做细粒度 RBAC）。
+	AdminCanView  bool `mapstructure:"admin_can_view"`
+	UserCanView   bool `mapstructure:"user_can_view"`
+	UserCanDelete bool `mapstructure:"user_can_delete"`
+
+	// FailOpen: 采集失败时是否放行请求（必须为 true）。
+	FailOpen bool `mapstructure:"fail_open"`
+	// QueueSize: 有界采集队列容量，满则丢弃并计数。
+	QueueSize int `mapstructure:"queue_size"`
+
+	// EncryptionKey: AES-256-GCM 内容加密密钥（32 字节，base64 或 hex）。
+	// EncryptContent=true 时必须提供；建议经环境变量 / Docker Secret 注入。
+	EncryptionKey string `mapstructure:"encryption_key"`
+	// IdentitySecret: archive_key 派生用 HMAC 密钥；留空则退化为不可逆哈希。建议环境变量注入。
+	IdentitySecret string `mapstructure:"identity_secret"`
+
+	// CleanupBatchSize: 清理任务单批删除行数。
+	CleanupBatchSize int `mapstructure:"cleanup_batch_size"`
+	// CleanupIntervalSeconds: 清理任务轮询间隔（秒）。
+	CleanupIntervalSeconds int `mapstructure:"cleanup_interval_seconds"`
+}
+
 func NormalizeRunMode(value string) string {
 	normalized := strings.ToLower(strings.TrimSpace(value))
 	switch normalized {
@@ -1777,6 +1836,29 @@ func setDefaults() {
 	viper.SetDefault("usage_cleanup.batch_size", 5000)
 	viper.SetDefault("usage_cleanup.worker_interval_seconds", 10)
 	viper.SetDefault("usage_cleanup.task_timeout_seconds", 1800)
+
+	// Conversation Archive（对话存档，默认关闭）
+	viper.SetDefault("conversation_archive.enabled", false)
+	viper.SetDefault("conversation_archive.mode", "user_assistant_text")
+	viper.SetDefault("conversation_archive.retention_days", 14)
+	viper.SetDefault("conversation_archive.max_event_bytes", 65536)
+	viper.SetDefault("conversation_archive.max_session_events", 2000)
+	viper.SetDefault("conversation_archive.capture_system", false)
+	viper.SetDefault("conversation_archive.capture_reasoning", false)
+	viper.SetDefault("conversation_archive.capture_tool_calls", false)
+	viper.SetDefault("conversation_archive.capture_tool_results", false)
+	viper.SetDefault("conversation_archive.capture_media", "metadata_only")
+	viper.SetDefault("conversation_archive.redact_secrets", true)
+	viper.SetDefault("conversation_archive.encrypt_content", true)
+	viper.SetDefault("conversation_archive.admin_can_view", true)
+	viper.SetDefault("conversation_archive.user_can_view", true)
+	viper.SetDefault("conversation_archive.user_can_delete", true)
+	viper.SetDefault("conversation_archive.fail_open", true)
+	viper.SetDefault("conversation_archive.queue_size", 1000)
+	viper.SetDefault("conversation_archive.encryption_key", "")
+	viper.SetDefault("conversation_archive.identity_secret", "")
+	viper.SetDefault("conversation_archive.cleanup_batch_size", 5000)
+	viper.SetDefault("conversation_archive.cleanup_interval_seconds", 600)
 
 	// Idempotency
 	viper.SetDefault("idempotency.observe_only", true)

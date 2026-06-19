@@ -141,6 +141,54 @@ func (f ChannelMonitorRequestTemplateFunc) Mutate(ctx context.Context, m ent.Mut
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ChannelMonitorRequestTemplateMutation", m)
 }
 
+// The ConversationBranchFunc type is an adapter to allow the use of ordinary
+// function as ConversationBranch mutator.
+type ConversationBranchFunc func(context.Context, *ent.ConversationBranchMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f ConversationBranchFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.ConversationBranchMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ConversationBranchMutation", m)
+}
+
+// The ConversationEventFunc type is an adapter to allow the use of ordinary
+// function as ConversationEvent mutator.
+type ConversationEventFunc func(context.Context, *ent.ConversationEventMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f ConversationEventFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.ConversationEventMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ConversationEventMutation", m)
+}
+
+// The ConversationResponseRefFunc type is an adapter to allow the use of ordinary
+// function as ConversationResponseRef mutator.
+type ConversationResponseRefFunc func(context.Context, *ent.ConversationResponseRefMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f ConversationResponseRefFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.ConversationResponseRefMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ConversationResponseRefMutation", m)
+}
+
+// The ConversationSessionFunc type is an adapter to allow the use of ordinary
+// function as ConversationSession mutator.
+type ConversationSessionFunc func(context.Context, *ent.ConversationSessionMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f ConversationSessionFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.ConversationSessionMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ConversationSessionMutation", m)
+}
+
 // The ErrorPassthroughRuleFunc type is an adapter to allow the use of ordinary
 // function as ErrorPassthroughRule mutator.
 type ErrorPassthroughRuleFunc func(context.Context, *ent.ErrorPassthroughRuleMutation) (ent.Value, error)

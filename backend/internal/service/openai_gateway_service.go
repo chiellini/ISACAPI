@@ -3810,6 +3810,13 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
 	scanner.Buffer(scanBuf[:0], maxLineSize)
 	defer putSSEScannerBuf64K(scanBuf)
 
+	// 对话存档旁路：启用时聚合 assistant 输出文本与 response id（仅追加，不影响转发/计费）。
+	var captureAcc *openAIResponseAccumulator
+	if s.conversationCaptureEnabled() {
+		captureAcc = newOpenAIResponseAccumulator()
+		SetOpenAICapturedResponseAccumulator(c, captureAcc)
+	}
+
 	needModelReplace := strings.TrimSpace(originalModel) != "" && strings.TrimSpace(mappedModel) != "" && strings.TrimSpace(originalModel) != strings.TrimSpace(mappedModel)
 	resultWithUsage := func() *openaiStreamingResultPassthrough {
 		return &openaiStreamingResultPassthrough{
@@ -3857,6 +3864,9 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
 				firstTokenMs = &ms
 			}
 			s.parseSSEUsageBytes(dataBytes, usage)
+			if captureAcc != nil {
+				captureAcc.observeSSE(dataBytes)
+			}
 		}
 
 		if !clientDisconnected {
@@ -4619,6 +4629,14 @@ func (s *OpenAIGatewayService) handleStreamingResponse(ctx context.Context, resp
 		lastDownstreamWriteAt = time.Now()
 	}
 
+	// 对话存档旁路：启用时聚合 assistant 输出文本与 response id，暂存进 context 供 handler 读取。
+	// 仅追加，不影响向客户端的写出与计费。
+	var captureAcc *openAIResponseAccumulator
+	if s.conversationCaptureEnabled() {
+		captureAcc = newOpenAIResponseAccumulator()
+		SetOpenAICapturedResponseAccumulator(c, captureAcc)
+	}
+
 	needModelReplace := originalModel != mappedModel
 	resultWithUsage := func() *openaiStreamingResult {
 		return &openaiStreamingResult{
@@ -4762,6 +4780,9 @@ func (s *OpenAIGatewayService) handleStreamingResponse(ctx context.Context, resp
 				firstTokenMs = &ms
 			}
 			s.parseSSEUsageBytes(dataBytes, usage)
+			if captureAcc != nil {
+				captureAcc.observeSSE(dataBytes)
+			}
 			return
 		}
 
@@ -5122,6 +5143,10 @@ func (s *OpenAIGatewayService) handleNonStreamingResponse(ctx context.Context, r
 		}
 	}
 
+	if s.conversationCaptureEnabled() {
+		captureOpenAIResponseFromJSON(c, body)
+	}
+
 	c.Data(resp.StatusCode, contentType, body)
 
 	return &openaiNonStreamingResult{
@@ -5187,6 +5212,10 @@ func (s *OpenAIGatewayService) handleSSEToJSON(resp *http.Response, c *gin.Conte
 			contentType = "text/event-stream"
 		}
 	}
+	if s.conversationCaptureEnabled() && ok {
+		captureOpenAIResponseFromJSON(c, body)
+	}
+
 	c.Data(resp.StatusCode, contentType, body)
 
 	return &openaiNonStreamingResult{

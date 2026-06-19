@@ -36,6 +36,14 @@ type Tx struct {
 	ChannelMonitorHistory *ChannelMonitorHistoryClient
 	// ChannelMonitorRequestTemplate is the client for interacting with the ChannelMonitorRequestTemplate builders.
 	ChannelMonitorRequestTemplate *ChannelMonitorRequestTemplateClient
+	// ConversationBranch is the client for interacting with the ConversationBranch builders.
+	ConversationBranch *ConversationBranchClient
+	// ConversationEvent is the client for interacting with the ConversationEvent builders.
+	ConversationEvent *ConversationEventClient
+	// ConversationResponseRef is the client for interacting with the ConversationResponseRef builders.
+	ConversationResponseRef *ConversationResponseRefClient
+	// ConversationSession is the client for interacting with the ConversationSession builders.
+	ConversationSession *ConversationSessionClient
 	// ErrorPassthroughRule is the client for interacting with the ErrorPassthroughRule builders.
 	ErrorPassthroughRule *ErrorPassthroughRuleClient
 	// Group is the client for interacting with the Group builders.
@@ -226,6 +234,10 @@ func (tx *Tx) init() {
 	tx.ChannelMonitorDailyRollup = NewChannelMonitorDailyRollupClient(tx.config)
 	tx.ChannelMonitorHistory = NewChannelMonitorHistoryClient(tx.config)
 	tx.ChannelMonitorRequestTemplate = NewChannelMonitorRequestTemplateClient(tx.config)
+	tx.ConversationBranch = NewConversationBranchClient(tx.config)
+	tx.ConversationEvent = NewConversationEventClient(tx.config)
+	tx.ConversationResponseRef = NewConversationResponseRefClient(tx.config)
+	tx.ConversationSession = NewConversationSessionClient(tx.config)
 	tx.ErrorPassthroughRule = NewErrorPassthroughRuleClient(tx.config)
 	tx.Group = NewGroupClient(tx.config)
 	tx.IdempotencyRecord = NewIdempotencyRecordClient(tx.config)
