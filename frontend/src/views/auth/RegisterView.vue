@@ -317,7 +317,6 @@ import Icon from '@/components/icons/Icon.vue'
 import TurnstileWidget from '@/components/TurnstileWidget.vue'
 import { useAuthStore, useAppStore } from '@/stores'
 import {
-  getPublicSettings,
   isWeChatWebOAuthEnabled,
   validatePromoCode,
   validateInvitationCode
@@ -460,7 +459,10 @@ onMounted(async () => {
   syncAffiliateReferralCode()
 
   try {
-    const settings = await getPublicSettings()
+    const settings = await appStore.fetchPublicSettings()
+    if (!settings) {
+      throw new Error('Failed to load public settings')
+    }
     registrationEnabled.value = settings.registration_enabled
     emailVerifyEnabled.value = settings.email_verify_enabled
     promoCodeEnabled.value = settings.promo_code_enabled

@@ -332,5 +332,56 @@ describe('useAppStore', () => {
       expect(localStorage.getItem('table-page-size')).toBeNull()
       expect(localStorage.getItem('table-page-size-source')).toBeNull()
     })
+
+    it('fetchPublicSettings 会复用进行中的公开设置请求', async () => {
+      const settings = {
+        registration_enabled: true,
+        email_verify_enabled: false,
+        registration_email_suffix_whitelist: [],
+        promo_code_enabled: true,
+        password_reset_enabled: false,
+        invitation_code_enabled: false,
+        turnstile_enabled: false,
+        turnstile_site_key: '',
+        site_name: 'Shared Site',
+        site_logo: '',
+        site_subtitle: '',
+        api_base_url: '',
+        contact_info: '',
+        doc_url: '',
+        home_content: '',
+        hide_ccs_import_button: false,
+        purchase_subscription_enabled: false,
+        purchase_subscription_url: '',
+        table_default_page_size: 20,
+        table_page_size_options: [10, 20, 50, 100],
+        custom_menu_items: [],
+        custom_endpoints: [],
+        linuxdo_oauth_enabled: false,
+        backend_mode_enabled: false,
+        version: '1.0.0'
+      } as any
+      let resolveSettings: (value: typeof settings) => void = () => {}
+
+      vi.mocked(getPublicSettings).mockClear()
+      vi.mocked(getPublicSettings).mockReturnValue(
+        new Promise((resolve) => {
+          resolveSettings = resolve
+        }) as any
+      )
+
+      const store = useAppStore()
+      const first = store.fetchPublicSettings()
+      const second = store.fetchPublicSettings()
+
+      expect(getPublicSettings).toHaveBeenCalledTimes(1)
+
+      resolveSettings(settings)
+
+      await expect(first).resolves.toEqual(settings)
+      await expect(second).resolves.toEqual(settings)
+      expect(store.publicSettingsLoaded).toBe(true)
+      expect(store.siteName).toBe('Shared Site')
+    })
   })
 })

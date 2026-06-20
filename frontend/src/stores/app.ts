@@ -44,6 +44,7 @@ export const useAppStore = defineStore('app', () => {
 
   // Auto-incrementing ID for toasts
   let toastIdCounter = 0
+  let publicSettingsPromise: Promise<PublicSettings | null> | null = null
 
   // ==================== Computed ====================
 
@@ -364,22 +365,27 @@ export const useAppStore = defineStore('app', () => {
       }
     }
 
-    // Prevent duplicate requests
-    if (publicSettingsLoading.value) {
-      return null
+    // Prevent duplicate requests while still letting callers wait for the data.
+    if (publicSettingsPromise && !force) {
+      return publicSettingsPromise
     }
 
     publicSettingsLoading.value = true
-    try {
-      const data = await fetchPublicSettingsAPI()
-      applySettings(data)
-      return data
-    } catch (error) {
-      console.error('Failed to fetch public settings:', error)
-      return null
-    } finally {
-      publicSettingsLoading.value = false
-    }
+    publicSettingsPromise = (async () => {
+      try {
+        const data = await fetchPublicSettingsAPI()
+        applySettings(data)
+        return data
+      } catch (error) {
+        console.error('Failed to fetch public settings:', error)
+        return null
+      } finally {
+        publicSettingsLoading.value = false
+        publicSettingsPromise = null
+      }
+    })()
+
+    return publicSettingsPromise
   }
 
   /**
@@ -388,6 +394,8 @@ export const useAppStore = defineStore('app', () => {
   function clearPublicSettingsCache(): void {
     publicSettingsLoaded.value = false
     cachedPublicSettings.value = null
+    publicSettingsPromise = null
+    publicSettingsLoading.value = false
   }
 
   /**
