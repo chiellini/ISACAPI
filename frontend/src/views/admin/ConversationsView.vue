@@ -230,27 +230,31 @@ onMounted(load)
         </div>
       </template>
 
-      <DataTable :columns="columns" :data="sessions" :loading="loading">
-        <template #cell-last_active_at="{ value }">
-          <span class="text-sm">{{ formatTime(value) }}</span>
-        </template>
-        <template #cell-tokens="{ row }">
-          <span class="text-sm">{{ row.total_input_tokens }} / {{ row.total_output_tokens }}</span>
-        </template>
-        <template #cell-status="{ value }">
-          <span class="badge">{{ t(`admin.conversations.status.${value}`, value) }}</span>
-        </template>
-        <template #cell-actions="{ row }">
-          <div class="actions">
-            <button class="btn btn-sm" @click="openDetail(row)">
-              {{ t('admin.conversations.view') }}
-            </button>
-            <button class="btn btn-sm btn-danger" @click="askDelete(row)">
-              {{ t('common.delete') }}
-            </button>
-          </div>
-        </template>
-      </DataTable>
+      <template #table>
+        <div class="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <DataTable :columns="columns" :data="sessions" :loading="loading">
+            <template #cell-last_active_at="{ value }">
+              <span class="text-sm">{{ formatTime(value) }}</span>
+            </template>
+            <template #cell-tokens="{ row }">
+              <span class="text-sm">{{ row.total_input_tokens }} / {{ row.total_output_tokens }}</span>
+            </template>
+            <template #cell-status="{ value }">
+              <span class="badge">{{ t(`admin.conversations.status.${value}`, value) }}</span>
+            </template>
+            <template #cell-actions="{ row }">
+              <div class="actions">
+                <button class="btn btn-sm" @click="openDetail(row)">
+                  {{ t('admin.conversations.view') }}
+                </button>
+                <button class="btn btn-sm btn-danger" @click="askDelete(row)">
+                  {{ t('common.delete') }}
+                </button>
+              </div>
+            </template>
+          </DataTable>
+        </div>
+      </template>
 
       <template #pagination>
         <Pagination
