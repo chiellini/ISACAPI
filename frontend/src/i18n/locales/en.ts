@@ -416,6 +416,7 @@ export default {
     channelMonitor: 'Channel Monitor',
     channelStatus: 'Channel Status',
     riskControl: 'Risk Control',
+    conversations: 'Conversations',
   },
 
   // Auth
@@ -4592,6 +4593,50 @@ export default {
     },
 
     // Usage Records
+    conversations: {
+      title: 'Conversation Archive',
+      description: 'Admin-only view of archived conversations',
+      view: 'View',
+      detailTitle: 'Conversation Detail',
+      deleteTitle: 'Delete Conversation',
+      deleteConfirm: 'Delete this conversation and all its messages? This cannot be undone.',
+      deleteSuccess: 'Conversation deleted',
+      deleteFailed: 'Failed to delete conversation',
+      loadFailed: 'Failed to load conversations',
+      loadDetailFailed: 'Failed to load conversation detail',
+      noEvents: 'No messages stored for this conversation',
+      partial: 'partial',
+      previewOnly: 'preview only (cannot decrypt)',
+      exportAll: 'Export all (.zip)',
+      exporting: 'Exporting…',
+      exportFailed: 'Export failed',
+      downloadTxt: 'Download .txt',
+      deleteAfterDownload: 'Delete',
+      filters: {
+        userId: 'User ID',
+        allStatuses: 'All statuses'
+      },
+      columns: {
+        lastActive: 'Last Active',
+        user: 'User',
+        contextDomain: 'Upstream',
+        requests: 'Requests',
+        tokens: 'Tokens (in/out)',
+        status: 'Status',
+        actions: 'Actions'
+      },
+      status: {
+        active: 'Active',
+        archived: 'Archived',
+        expired: 'Expired'
+      },
+      roles: {
+        user: 'User',
+        assistant: 'Assistant',
+        tool: 'Tool',
+        system: 'System'
+      }
+    },
     usage: {
       title: 'Usage Records',
       description: 'View and manage all user usage records',

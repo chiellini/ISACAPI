@@ -105,6 +105,17 @@ services:
       - TOTP_ENCRYPTION_KEY=${TOTP_ENCRYPTION_KEY:-}
 
       # =======================================================================
+      # Conversation Archive (admin-only GPT conversation storage)
+      # =======================================================================
+      # Stores user + assistant text per session. Admin can view/export/delete
+      # at /admin/conversations. Defaults below = enabled + plaintext (no
+      # encryption). To encrypt instead: set ENCRYPT_CONTENT=true and provide a
+      # 32-byte ENCRYPTION_KEY (e.g. `openssl rand -hex 32`).
+      - CONVERSATION_ARCHIVE_ENABLED=${CONVERSATION_ARCHIVE_ENABLED:-true}
+      - CONVERSATION_ARCHIVE_ENCRYPT_CONTENT=${CONVERSATION_ARCHIVE_ENCRYPT_CONTENT:-false}
+      - CONVERSATION_ARCHIVE_ENCRYPTION_KEY=${CONVERSATION_ARCHIVE_ENCRYPTION_KEY:-}
+
+      # =======================================================================
       # Timezone Configuration
       # This affects ALL time operations in the application:
       # - Database timestamps
@@ -164,6 +175,8 @@ services:
       - GATEWAY_OPENAI_HTTP2_FALLBACK_ERROR_THRESHOLD=${GATEWAY_OPENAI_HTTP2_FALLBACK_ERROR_THRESHOLD:-2}
       - GATEWAY_OPENAI_HTTP2_FALLBACK_WINDOW_SECONDS=${GATEWAY_OPENAI_HTTP2_FALLBACK_WINDOW_SECONDS:-60}
       - GATEWAY_OPENAI_HTTP2_FALLBACK_TTL_SECONDS=${GATEWAY_OPENAI_HTTP2_FALLBACK_TTL_SECONDS:-600}
+      - GATEWAY_STREAM_DATA_INTERVAL_TIMEOUT=${GATEWAY_STREAM_DATA_INTERVAL_TIMEOUT:-900}
+      - GATEWAY_STREAM_KEEPALIVE_INTERVAL=${GATEWAY_STREAM_KEEPALIVE_INTERVAL:-10}
       - GATEWAY_IMAGE_STREAM_DATA_INTERVAL_TIMEOUT=${GATEWAY_IMAGE_STREAM_DATA_INTERVAL_TIMEOUT:-900}
       - GATEWAY_IMAGE_STREAM_KEEPALIVE_INTERVAL=${GATEWAY_IMAGE_STREAM_KEEPALIVE_INTERVAL:-10}
       - GATEWAY_IMAGE_CONCURRENCY_ENABLED=${GATEWAY_IMAGE_CONCURRENCY_ENABLED:-false}

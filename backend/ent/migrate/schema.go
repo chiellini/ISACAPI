@@ -598,6 +598,200 @@ var (
 			},
 		},
 	}
+	// ConversationBranchesColumns holds the columns for the "conversation_branches" table.
+	ConversationBranchesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "session_id", Type: field.TypeUUID},
+		{Name: "parent_branch_id", Type: field.TypeUUID, Nullable: true},
+		{Name: "fork_event_id", Type: field.TypeInt64, Nullable: true},
+		{Name: "head_event_id", Type: field.TypeInt64, Nullable: true},
+		{Name: "event_count", Type: field.TypeInt, Default: 0},
+		{Name: "tail_sequence", Type: field.TypeInt, Default: -1},
+		{Name: "tail_event_hash", Type: field.TypeString, Nullable: true, Size: 64},
+		{Name: "branch_reason", Type: field.TypeString, Size: 32, Default: "initial"},
+		{Name: "status", Type: field.TypeString, Size: 32, Default: "active"},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "last_active_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+	}
+	// ConversationBranchesTable holds the schema information for the "conversation_branches" table.
+	ConversationBranchesTable = &schema.Table{
+		Name:       "conversation_branches",
+		Columns:    ConversationBranchesColumns,
+		PrimaryKey: []*schema.Column{ConversationBranchesColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "conversationbranch_session_id",
+				Unique:  false,
+				Columns: []*schema.Column{ConversationBranchesColumns[1]},
+			},
+			{
+				Name:    "conversationbranch_session_id_status",
+				Unique:  false,
+				Columns: []*schema.Column{ConversationBranchesColumns[1], ConversationBranchesColumns[9]},
+			},
+			{
+				Name:    "conversationbranch_parent_branch_id",
+				Unique:  false,
+				Columns: []*schema.Column{ConversationBranchesColumns[2]},
+			},
+		},
+	}
+	// ConversationEventsColumns holds the columns for the "conversation_events" table.
+	ConversationEventsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "session_id", Type: field.TypeUUID},
+		{Name: "branch_id", Type: field.TypeUUID},
+		{Name: "parent_event_id", Type: field.TypeInt64, Nullable: true},
+		{Name: "sequence", Type: field.TypeInt},
+		{Name: "request_id", Type: field.TypeString, Size: 64},
+		{Name: "role", Type: field.TypeString, Size: 16},
+		{Name: "kind", Type: field.TypeString, Size: 32},
+		{Name: "content_ciphertext", Type: field.TypeBytes, Nullable: true, SchemaType: map[string]string{"postgres": "bytea"}},
+		{Name: "content_nonce", Type: field.TypeBytes, Nullable: true, SchemaType: map[string]string{"postgres": "bytea"}},
+		{Name: "encryption_key_version", Type: field.TypeInt, Default: 0},
+		{Name: "content_preview", Type: field.TypeString, Nullable: true, SchemaType: map[string]string{"postgres": "text"}},
+		{Name: "event_hash", Type: field.TypeString, Nullable: true, Size: 64},
+		{Name: "model", Type: field.TypeString, Nullable: true, Size: 100},
+		{Name: "provider", Type: field.TypeString, Nullable: true, Size: 32},
+		{Name: "upstream_response_id_hash", Type: field.TypeString, Nullable: true, Size: 64},
+		{Name: "tool_call_id_hash", Type: field.TypeString, Nullable: true, Size: 64},
+		{Name: "partial", Type: field.TypeBool, Default: false},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+	}
+	// ConversationEventsTable holds the schema information for the "conversation_events" table.
+	ConversationEventsTable = &schema.Table{
+		Name:       "conversation_events",
+		Columns:    ConversationEventsColumns,
+		PrimaryKey: []*schema.Column{ConversationEventsColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "conversationevent_branch_id_request_id_sequence",
+				Unique:  true,
+				Columns: []*schema.Column{ConversationEventsColumns[2], ConversationEventsColumns[5], ConversationEventsColumns[4]},
+			},
+			{
+				Name:    "conversationevent_session_id",
+				Unique:  false,
+				Columns: []*schema.Column{ConversationEventsColumns[1]},
+			},
+			{
+				Name:    "conversationevent_branch_id_sequence",
+				Unique:  false,
+				Columns: []*schema.Column{ConversationEventsColumns[2], ConversationEventsColumns[4]},
+			},
+			{
+				Name:    "conversationevent_request_id",
+				Unique:  false,
+				Columns: []*schema.Column{ConversationEventsColumns[5]},
+			},
+			{
+				Name:    "conversationevent_event_hash",
+				Unique:  false,
+				Columns: []*schema.Column{ConversationEventsColumns[12]},
+			},
+			{
+				Name:    "conversationevent_upstream_response_id_hash",
+				Unique:  false,
+				Columns: []*schema.Column{ConversationEventsColumns[15]},
+			},
+		},
+	}
+	// ConversationResponseRefsColumns holds the columns for the "conversation_response_refs" table.
+	ConversationResponseRefsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "user_id", Type: field.TypeInt64},
+		{Name: "context_domain", Type: field.TypeString, Size: 40},
+		{Name: "response_id_hash", Type: field.TypeString, Size: 64},
+		{Name: "session_id", Type: field.TypeUUID},
+		{Name: "branch_id", Type: field.TypeUUID},
+		{Name: "tail_event_id", Type: field.TypeInt64, Nullable: true},
+		{Name: "durable", Type: field.TypeBool, Default: false},
+		{Name: "expires_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+	}
+	// ConversationResponseRefsTable holds the schema information for the "conversation_response_refs" table.
+	ConversationResponseRefsTable = &schema.Table{
+		Name:       "conversation_response_refs",
+		Columns:    ConversationResponseRefsColumns,
+		PrimaryKey: []*schema.Column{ConversationResponseRefsColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "conversationresponseref_user_id_context_domain_response_id_hash",
+				Unique:  true,
+				Columns: []*schema.Column{ConversationResponseRefsColumns[3], ConversationResponseRefsColumns[4], ConversationResponseRefsColumns[5]},
+			},
+			{
+				Name:    "conversationresponseref_session_id",
+				Unique:  false,
+				Columns: []*schema.Column{ConversationResponseRefsColumns[6]},
+			},
+			{
+				Name:    "conversationresponseref_branch_id",
+				Unique:  false,
+				Columns: []*schema.Column{ConversationResponseRefsColumns[7]},
+			},
+			{
+				Name:    "conversationresponseref_expires_at",
+				Unique:  false,
+				Columns: []*schema.Column{ConversationResponseRefsColumns[10]},
+			},
+		},
+	}
+	// ConversationSessionsColumns holds the columns for the "conversation_sessions" table.
+	ConversationSessionsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "deleted_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "user_id", Type: field.TypeInt64},
+		{Name: "api_key_id", Type: field.TypeInt64, Nullable: true},
+		{Name: "group_id", Type: field.TypeInt64, Default: 0},
+		{Name: "archive_key", Type: field.TypeString, Size: 80},
+		{Name: "context_domain", Type: field.TypeString, Size: 40},
+		{Name: "protocol", Type: field.TypeString, Size: 32},
+		{Name: "title", Type: field.TypeString, Nullable: true, Size: 255},
+		{Name: "started_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "last_active_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "active_branch_id", Type: field.TypeUUID, Nullable: true},
+		{Name: "request_count", Type: field.TypeInt, Default: 0},
+		{Name: "total_input_tokens", Type: field.TypeInt64, Default: 0},
+		{Name: "total_output_tokens", Type: field.TypeInt64, Default: 0},
+		{Name: "status", Type: field.TypeString, Size: 32, Default: "active"},
+	}
+	// ConversationSessionsTable holds the schema information for the "conversation_sessions" table.
+	ConversationSessionsTable = &schema.Table{
+		Name:       "conversation_sessions",
+		Columns:    ConversationSessionsColumns,
+		PrimaryKey: []*schema.Column{ConversationSessionsColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "conversationsession_user_id_group_id_context_domain_archive_key",
+				Unique:  true,
+				Columns: []*schema.Column{ConversationSessionsColumns[4], ConversationSessionsColumns[6], ConversationSessionsColumns[8], ConversationSessionsColumns[7]},
+			},
+			{
+				Name:    "conversationsession_user_id_last_active_at",
+				Unique:  false,
+				Columns: []*schema.Column{ConversationSessionsColumns[4], ConversationSessionsColumns[12]},
+			},
+			{
+				Name:    "conversationsession_group_id",
+				Unique:  false,
+				Columns: []*schema.Column{ConversationSessionsColumns[6]},
+			},
+			{
+				Name:    "conversationsession_status",
+				Unique:  false,
+				Columns: []*schema.Column{ConversationSessionsColumns[17]},
+			},
+			{
+				Name:    "conversationsession_context_domain",
+				Unique:  false,
+				Columns: []*schema.Column{ConversationSessionsColumns[8]},
+			},
+		},
+	}
 	// ErrorPassthroughRulesColumns holds the columns for the "error_passthrough_rules" table.
 	ErrorPassthroughRulesColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt64, Increment: true},
@@ -1786,6 +1980,10 @@ var (
 		ChannelMonitorDailyRollupsTable,
 		ChannelMonitorHistoriesTable,
 		ChannelMonitorRequestTemplatesTable,
+		ConversationBranchesTable,
+		ConversationEventsTable,
+		ConversationResponseRefsTable,
+		ConversationSessionsTable,
 		ErrorPassthroughRulesTable,
 		GroupsTable,
 		IdempotencyRecordsTable,
@@ -1858,6 +2056,18 @@ func init() {
 	}
 	ChannelMonitorRequestTemplatesTable.Annotation = &entsql.Annotation{
 		Table: "channel_monitor_request_templates",
+	}
+	ConversationBranchesTable.Annotation = &entsql.Annotation{
+		Table: "conversation_branches",
+	}
+	ConversationEventsTable.Annotation = &entsql.Annotation{
+		Table: "conversation_events",
+	}
+	ConversationResponseRefsTable.Annotation = &entsql.Annotation{
+		Table: "conversation_response_refs",
+	}
+	ConversationSessionsTable.Annotation = &entsql.Annotation{
+		Table: "conversation_sessions",
 	}
 	ErrorPassthroughRulesTable.Annotation = &entsql.Annotation{
 		Table: "error_passthrough_rules",

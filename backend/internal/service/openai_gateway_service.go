@@ -133,6 +133,19 @@ type NormalizedCodexLimits struct {
 	Window7dMinutes *int
 }
 
+func normalizeCodexUsedPercent(raw *float64) *float64 {
+	if raw == nil {
+		return nil
+	}
+	// x-codex-*-used-percent reports used%, while some official UI surfaces
+	// display the inverse remaining% value.
+	used := *raw
+	if used < 0 {
+		used = 0
+	}
+	return &used
+}
+
 // Normalize converts primary/secondary fields to canonical 5h/7d fields.
 // Strategy: Compare window_minutes to determine which is 5h vs 7d.
 // Returns nil if snapshot is nil or has no useful data.
@@ -191,17 +204,17 @@ func (s *OpenAICodexUsageSnapshot) Normalize() *NormalizedCodexLimits {
 
 	// Assign values
 	if use5hFromPrimary {
-		result.Used5hPercent = s.PrimaryUsedPercent
+		result.Used5hPercent = normalizeCodexUsedPercent(s.PrimaryUsedPercent)
 		result.Reset5hSeconds = s.PrimaryResetAfterSeconds
 		result.Window5hMinutes = s.PrimaryWindowMinutes
-		result.Used7dPercent = s.SecondaryUsedPercent
+		result.Used7dPercent = normalizeCodexUsedPercent(s.SecondaryUsedPercent)
 		result.Reset7dSeconds = s.SecondaryResetAfterSeconds
 		result.Window7dMinutes = s.SecondaryWindowMinutes
 	} else if use7dFromPrimary {
-		result.Used7dPercent = s.PrimaryUsedPercent
+		result.Used7dPercent = normalizeCodexUsedPercent(s.PrimaryUsedPercent)
 		result.Reset7dSeconds = s.PrimaryResetAfterSeconds
 		result.Window7dMinutes = s.PrimaryWindowMinutes
-		result.Used5hPercent = s.SecondaryUsedPercent
+		result.Used5hPercent = normalizeCodexUsedPercent(s.SecondaryUsedPercent)
 		result.Reset5hSeconds = s.SecondaryResetAfterSeconds
 		result.Window5hMinutes = s.SecondaryWindowMinutes
 	}
@@ -3844,6 +3857,13 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
 	scanner.Buffer(scanBuf[:0], maxLineSize)
 	defer putSSEScannerBuf64K(scanBuf)
 
+	// 对话存档旁路：启用时聚合 assistant 输出文本与 response id（仅追加，不影响转发/计费）。
+	var captureAcc *openAIResponseAccumulator
+	if s.conversationCaptureEnabled() {
+		captureAcc = newOpenAIResponseAccumulator()
+		SetOpenAICapturedResponseAccumulator(c, captureAcc)
+	}
+
 	needModelReplace := strings.TrimSpace(originalModel) != "" && strings.TrimSpace(mappedModel) != "" && strings.TrimSpace(originalModel) != strings.TrimSpace(mappedModel)
 	resultWithUsage := func() *openaiStreamingResultPassthrough {
 		return &openaiStreamingResultPassthrough{
@@ -3908,6 +3928,9 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
 				firstTokenMs = &ms
 			}
 			s.parseSSEUsageBytes(dataBytes, usage)
+			if captureAcc != nil {
+				captureAcc.observeSSE(dataBytes)
+			}
 		}
 
 		if !clientDisconnected {
@@ -4729,6 +4752,14 @@ func (s *OpenAIGatewayService) handleStreamingResponse(ctx context.Context, resp
 		lastDownstreamWriteAt = time.Now()
 	}
 
+	// 对话存档旁路：启用时聚合 assistant 输出文本与 response id，暂存进 context 供 handler 读取。
+	// 仅追加，不影响向客户端的写出与计费。
+	var captureAcc *openAIResponseAccumulator
+	if s.conversationCaptureEnabled() {
+		captureAcc = newOpenAIResponseAccumulator()
+		SetOpenAICapturedResponseAccumulator(c, captureAcc)
+	}
+
 	needModelReplace := originalModel != mappedModel
 	streamOutputAccumulator := apicompat.NewBufferedResponseAccumulator()
 	streamImageOutputs := make([]json.RawMessage, 0, 1)
@@ -4905,6 +4936,9 @@ func (s *OpenAIGatewayService) handleStreamingResponse(ctx context.Context, resp
 				firstTokenMs = &ms
 			}
 			s.parseSSEUsageBytes(dataBytes, usage)
+			if captureAcc != nil {
+				captureAcc.observeSSE(dataBytes)
+			}
 			return
 		}
 
@@ -5292,6 +5326,10 @@ func (s *OpenAIGatewayService) handleNonStreamingResponse(ctx context.Context, r
 		}
 	}
 
+	if s.conversationCaptureEnabled() {
+		captureOpenAIResponseFromJSON(c, body)
+	}
+
 	c.Data(resp.StatusCode, contentType, body)
 
 	return &openaiNonStreamingResult{
@@ -5358,6 +5396,10 @@ func (s *OpenAIGatewayService) handleSSEToJSON(resp *http.Response, c *gin.Conte
 			contentType = "text/event-stream"
 		}
 	}
+	if s.conversationCaptureEnabled() && ok {
+		captureOpenAIResponseFromJSON(c, body)
+	}
+
 	c.Data(resp.StatusCode, contentType, body)
 
 	return &openaiNonStreamingResult{

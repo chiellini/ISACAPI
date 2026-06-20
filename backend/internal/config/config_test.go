@@ -1370,6 +1370,11 @@ func TestValidateConfigErrors(t *testing.T) {
 			wantErr: "gateway.stream_data_interval_timeout",
 		},
 		{
+			name:    "gateway stream data interval too high",
+			mutate:  func(c *Config) { c.Gateway.StreamDataIntervalTimeout = 901 },
+			wantErr: "gateway.stream_data_interval_timeout",
+		},
+		{
 			name:    "gateway stream data interval negative",
 			mutate:  func(c *Config) { c.Gateway.StreamDataIntervalTimeout = -1 },
 			wantErr: "gateway.stream_data_interval_timeout must be non-negative",
@@ -1913,8 +1918,8 @@ func TestLoad_DefaultGatewayImageStreamConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load() error: %v", err)
 	}
-	if cfg.Gateway.StreamDataIntervalTimeout != 180 {
-		t.Fatalf("stream_data_interval_timeout = %d, want 180", cfg.Gateway.StreamDataIntervalTimeout)
+	if cfg.Gateway.StreamDataIntervalTimeout != 900 {
+		t.Fatalf("stream_data_interval_timeout = %d, want 900", cfg.Gateway.StreamDataIntervalTimeout)
 	}
 	if cfg.Gateway.StreamKeepaliveInterval != 10 {
 		t.Fatalf("stream_keepalive_interval = %d, want 10", cfg.Gateway.StreamKeepaliveInterval)
@@ -1939,8 +1944,5 @@ func TestLoad_DefaultGatewayImageStreamConfig(t *testing.T) {
 	}
 	if cfg.Gateway.ImageConcurrency.MaxWaitingRequests != 100 {
 		t.Fatalf("image_concurrency.max_waiting_requests = %d, want 100", cfg.Gateway.ImageConcurrency.MaxWaitingRequests)
-	}
-	if cfg.Gateway.ImageStreamDataIntervalTimeout <= cfg.Gateway.StreamDataIntervalTimeout {
-		t.Fatalf("image stream timeout = %d, want greater than ordinary stream timeout %d", cfg.Gateway.ImageStreamDataIntervalTimeout, cfg.Gateway.StreamDataIntervalTimeout)
 	}
 }
