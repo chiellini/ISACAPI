@@ -4,3 +4,7 @@ services:
     build:
       context: ..
       dockerfile: Dockerfile
+      args:
+        # 注册接口防刷密钥（反薅羊毛）：从 .env 读取并注入前端构建，
+        # 必须与运行时 SERVER_REGISTER_GUARD_TOKEN 一致。
+        VITE_REG_GUARD_TOKEN: ${VITE_REG_GUARD_TOKEN:-}

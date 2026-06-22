@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/handler"
 	servermiddleware "github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/gin-gonic/gin"
@@ -30,6 +31,7 @@ func newAuthRoutesTestRouter(redisClient *redis.Client) *gin.Engine {
 		}),
 		redisClient,
 		nil,
+		&config.Config{},
 	)
 
 	return router
@@ -48,10 +50,10 @@ func TestAuthRoutesRateLimitFailCloseWhenRedisUnavailable(t *testing.T) {
 
 	router := newAuthRoutesTestRouter(rdb)
 	paths := []string{
-		"/api/v1/auth/register",
+		"/api/v1/auth" + registerPath,
 		"/api/v1/auth/login",
 		"/api/v1/auth/login/2fa",
-		"/api/v1/auth/send-verify-code",
+		"/api/v1/auth" + sendVerifyCodePath,
 		"/api/v1/auth/oauth/pending/send-verify-code",
 	}
 

@@ -198,6 +198,13 @@
         </div>
       </div>
 
+      <!-- Contact Admin -->
+      <div class="card">
+        <div class="p-6">
+          <OwnerContactInfo variant="plain" :columns="true" />
+        </div>
+      </div>
+
       <!-- Recent Activity -->
       <div class="card">
         <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
@@ -350,6 +357,7 @@ import { useSubscriptionStore } from '@/stores/subscriptions'
 import { redeemAPI, authAPI, type RedeemHistoryItem } from '@/api'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import Icon from '@/components/icons/Icon.vue'
+import OwnerContactInfo from '@/components/common/OwnerContactInfo.vue'
 import { formatDateTime } from '@/utils/format'
 
 const { t } = useI18n()

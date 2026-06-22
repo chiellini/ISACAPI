@@ -283,7 +283,8 @@ gateway:
     oauth_max_conns_factor: 1.0
     apikey_max_conns_factor: 1.0
     dial_timeout_seconds: 10
-    read_timeout_seconds: 900
+    # Responses WebSocket 上游读空闲超时（秒）；上游连续无数据超过该时间即断开。必须 >0。
+    read_timeout_seconds: 1800
     write_timeout_seconds: 120
     pool_target_utilization: 0.7
     queue_limit_per_conn: 64

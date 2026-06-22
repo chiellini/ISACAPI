@@ -11,29 +11,8 @@
         </p>
       </div>
 
-      <!-- Registration Disabled Message -->
-      <div
-        v-if="!registrationEnabled && settingsLoaded"
-        class="rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-800/50 dark:bg-amber-900/20"
-      >
-        <div class="flex items-start gap-3">
-          <div class="flex-shrink-0">
-            <Icon name="exclamationCircle" size="md" class="text-amber-500" />
-          </div>
-          <div class="space-y-2 text-sm text-amber-700 dark:text-amber-400">
-            <p>
-              {{ t('auth.registrationDisabled') }}
-            </p>
-            <div>
-              <p>Whatsapp: +852 94893166</p>
-              <p>Wechat/Weixin: 18319277690</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
       <!-- Registration Form -->
-      <form v-else @submit.prevent="handleRegister" class="space-y-5">
+      <form @submit.prevent="handleRegister" class="space-y-5">
         <!-- Email Input -->
         <div>
           <label for="email" class="input-label">
@@ -286,6 +265,8 @@
           :show-divider="false"
         />
       </div>
+
+      <OwnerContactInfo />
     </div>
 
     <!-- Footer -->
@@ -313,6 +294,7 @@ import OidcOAuthSection from '@/components/auth/OidcOAuthSection.vue'
 import WechatOAuthSection from '@/components/auth/WechatOAuthSection.vue'
 import EmailOAuthButtons from '@/components/auth/EmailOAuthButtons.vue'
 import LoginAgreementPrompt from '@/components/auth/LoginAgreementPrompt.vue'
+import OwnerContactInfo from '@/components/common/OwnerContactInfo.vue'
 import Icon from '@/components/icons/Icon.vue'
 import TurnstileWidget from '@/components/TurnstileWidget.vue'
 import { useAuthStore, useAppStore } from '@/stores'
@@ -352,7 +334,6 @@ const errorMessage = ref<string>('')
 const showPassword = ref<boolean>(false)
 
 // Public settings
-const registrationEnabled = ref<boolean>(true)
 const emailVerifyEnabled = ref<boolean>(false)
 const promoCodeEnabled = ref<boolean>(true)
 const invitationCodeEnabled = ref<boolean>(false)
@@ -463,7 +444,6 @@ onMounted(async () => {
     if (!settings) {
       throw new Error('Failed to load public settings')
     }
-    registrationEnabled.value = settings.registration_enabled
     emailVerifyEnabled.value = settings.email_verify_enabled
     promoCodeEnabled.value = settings.promo_code_enabled
     invitationCodeEnabled.value = settings.invitation_code_enabled

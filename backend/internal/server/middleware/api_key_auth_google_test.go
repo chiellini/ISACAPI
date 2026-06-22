@@ -50,6 +50,9 @@ func (f fakeAPIKeyRepo) GetByKey(ctx context.Context, key string) (*service.APIK
 func (f fakeAPIKeyRepo) GetByKeyForAuth(ctx context.Context, key string) (*service.APIKey, error) {
 	return f.GetByKey(ctx, key)
 }
+func (f fakeAPIKeyRepo) FindInternalChatKey(ctx context.Context, userID int64) (*service.APIKey, error) {
+	return nil, errors.New("not implemented")
+}
 func (f fakeAPIKeyRepo) Update(ctx context.Context, key *service.APIKey) error {
 	return errors.New("not implemented")
 }

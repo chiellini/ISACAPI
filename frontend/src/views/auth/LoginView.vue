@@ -170,6 +170,8 @@
           />
         </div>
       </form>
+
+      <OwnerContactInfo />
     </div>
 
     <!-- Footer -->
@@ -209,6 +211,7 @@ import WechatOAuthSection from '@/components/auth/WechatOAuthSection.vue'
 import EmailOAuthButtons from '@/components/auth/EmailOAuthButtons.vue'
 import LoginAgreementPrompt from '@/components/auth/LoginAgreementPrompt.vue'
 import TotpLoginModal from '@/components/auth/TotpLoginModal.vue'
+import OwnerContactInfo from '@/components/common/OwnerContactInfo.vue'
 import Icon from '@/components/icons/Icon.vue'
 import TurnstileWidget from '@/components/TurnstileWidget.vue'
 import { useAuthStore, useAppStore } from '@/stores'

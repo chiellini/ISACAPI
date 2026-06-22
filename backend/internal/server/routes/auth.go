@@ -3,6 +3,7 @@ package routes
 import (
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/handler"
 	"github.com/Wei-Shaw/sub2api/internal/middleware"
 	servermiddleware "github.com/Wei-Shaw/sub2api/internal/server/middleware"
@@ -12,6 +13,13 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
+// 注册相关接口的自定义路径（防刷：刻意偏离上游开源项目的默认 /register、/send-verify-code，
+// 以挡掉照搬开源格式的批量脚本）。如需修改，请同步修改前端 frontend/src/api/regGuard.ts。
+const (
+	registerPath       = "/r/x7k2q"
+	sendVerifyCodePath = "/r/x7k2q/code"
+)
+
 // RegisterAuthRoutes 注册认证相关路由
 func RegisterAuthRoutes(
 	v1 *gin.RouterGroup,
@@ -19,27 +27,32 @@ func RegisterAuthRoutes(
 	jwtAuth servermiddleware.JWTAuthMiddleware,
 	redisClient *redis.Client,
 	settingService *service.SettingService,
+	cfg *config.Config,
 ) {
 	// 创建速率限制器
 	rateLimiter := middleware.NewRateLimiter(redisClient)
+
+	// 注册接口防刷守卫：请求必须携带 X-Reg-Guard 头且值匹配，否则按 404 拒绝。
+	regGuard := servermiddleware.NewRegistrationGuard(cfg.Server.RegisterGuardToken)
 
 	// 公开接口
 	auth := v1.Group("/auth")
 	auth.Use(servermiddleware.BackendModeAuthGuard(settingService))
 	{
 		// 注册/登录/2FA/验证码发送均属于高风险入口，增加服务端兜底限流（Redis 故障时 fail-close）
-		auth.POST("/register", rateLimiter.LimitWithOptions("auth-register", 5, time.Minute, middleware.RateLimitOptions{
+		// 注册与发送验证码额外挂载 regGuard：自定义路径 + 自定义请求头双重门槛。
+		auth.POST(registerPath, rateLimiter.LimitWithOptions("auth-register", 5, time.Minute, middleware.RateLimitOptions{
 			FailureMode: middleware.RateLimitFailClose,
-		}), h.Auth.Register)
+		}), regGuard, h.Auth.Register)
 		auth.POST("/login", rateLimiter.LimitWithOptions("auth-login", 20, time.Minute, middleware.RateLimitOptions{
 			FailureMode: middleware.RateLimitFailClose,
 		}), h.Auth.Login)
 		auth.POST("/login/2fa", rateLimiter.LimitWithOptions("auth-login-2fa", 20, time.Minute, middleware.RateLimitOptions{
 			FailureMode: middleware.RateLimitFailClose,
 		}), h.Auth.Login2FA)
-		auth.POST("/send-verify-code", rateLimiter.LimitWithOptions("auth-send-verify-code", 5, time.Minute, middleware.RateLimitOptions{
+		auth.POST(sendVerifyCodePath, rateLimiter.LimitWithOptions("auth-send-verify-code", 5, time.Minute, middleware.RateLimitOptions{
 			FailureMode: middleware.RateLimitFailClose,
-		}), h.Auth.SendVerifyCode)
+		}), regGuard, h.Auth.SendVerifyCode)
 		// Token刷新接口添加速率限制：每分钟最多 30 次（Redis 故障时 fail-close）
 		auth.POST("/refresh", rateLimiter.LimitWithOptions("refresh-token", 30, time.Minute, middleware.RateLimitOptions{
 			FailureMode: middleware.RateLimitFailClose,

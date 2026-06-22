@@ -556,6 +556,7 @@ type ServerConfig struct {
 	IdleTimeout        int       `mapstructure:"idle_timeout"`          // 空闲连接超时（秒）
 	TrustedProxies     []string  `mapstructure:"trusted_proxies"`       // 可信代理列表（CIDR/IP）
 	MaxRequestBodySize int64     `mapstructure:"max_request_body_size"` // 全局最大请求体限制
+	RegisterGuardToken string    `mapstructure:"register_guard_token"`  // 注册接口防刷密钥：请求必须携带 X-Reg-Guard 头且值匹配，否则按 404 拒绝。前端需用相同值（VITE_REG_GUARD_TOKEN）
 	H2C                H2CConfig `mapstructure:"h2c"`                   // HTTP/2 Cleartext 配置
 }
 
@@ -1601,6 +1602,9 @@ func setDefaults() {
 	viper.SetDefault("server.idle_timeout", 120)       // 120秒空闲超时
 	viper.SetDefault("server.trusted_proxies", []string{})
 	viper.SetDefault("server.max_request_body_size", int64(256*1024*1024))
+	// 注册接口防刷密钥默认值。建议在你的部署中通过 SERVER_REGISTER_GUARD_TOKEN 覆盖为自定义随机串，
+	// 并将前端构建变量 VITE_REG_GUARD_TOKEN 设为相同值。默认值仅用于让 fork 出来的实例开箱可用。
+	viper.SetDefault("server.register_guard_token", "s2a-rg-7Kq2xZ9m")
 	// H2C 默认配置
 	viper.SetDefault("server.h2c.enabled", false)
 	viper.SetDefault("server.h2c.max_concurrent_streams", uint32(50))      // 50 个并发流
@@ -1927,7 +1931,7 @@ func setDefaults() {
 	viper.SetDefault("gateway.openai_ws.oauth_max_conns_factor", 1.0)
 	viper.SetDefault("gateway.openai_ws.apikey_max_conns_factor", 1.0)
 	viper.SetDefault("gateway.openai_ws.dial_timeout_seconds", 10)
-	viper.SetDefault("gateway.openai_ws.read_timeout_seconds", 900)
+	viper.SetDefault("gateway.openai_ws.read_timeout_seconds", 1800)
 	viper.SetDefault("gateway.openai_ws.write_timeout_seconds", 120)
 	viper.SetDefault("gateway.openai_ws.pool_target_utilization", 0.7)
 	viper.SetDefault("gateway.openai_ws.queue_limit_per_conn", 64)

@@ -384,7 +384,10 @@ func (r *apiKeyRepository) deleteWithAudit(ctx context.Context, exec *dbent.Clie
 }
 
 func (r *apiKeyRepository) ListByUserID(ctx context.Context, userID int64, params pagination.PaginationParams, filters service.APIKeyListFilters) ([]service.APIKey, *pagination.PaginationResult, error) {
-	q := r.activeQuery().Where(apikey.UserIDEQ(userID))
+	q := r.activeQuery().
+		Where(apikey.UserIDEQ(userID)).
+		// 隐藏聊天 Playground 专用的内置 Key，使其不出现在用户 Key 列表中。
+		Where(apikey.NameNEQ(service.InternalChatKeyName))
 
 	// Apply filters
 	if filters.Search != "" {
@@ -428,6 +431,22 @@ func (r *apiKeyRepository) ListByUserID(ctx context.Context, userID int64, param
 	}
 
 	return outKeys, paginationResultFromTotal(int64(total), params), nil
+}
+
+// FindInternalChatKey 返回用户的内置聊天 Key（按保留名识别）。
+// 若存在多条（极少数首次并发创建竞态），返回最早创建的一条以保持稳定。
+func (r *apiKeyRepository) FindInternalChatKey(ctx context.Context, userID int64) (*service.APIKey, error) {
+	m, err := r.activeQuery().
+		Where(apikey.UserIDEQ(userID), apikey.NameEQ(service.InternalChatKeyName)).
+		Order(dbent.Asc(apikey.FieldID)).
+		First(ctx)
+	if err != nil {
+		if dbent.IsNotFound(err) {
+			return nil, service.ErrAPIKeyNotFound
+		}
+		return nil, err
+	}
+	return apiKeyEntityToService(m), nil
 }
 
 func (r *apiKeyRepository) VerifyOwnership(ctx context.Context, userID int64, apiKeyIDs []int64) ([]int64, error) {

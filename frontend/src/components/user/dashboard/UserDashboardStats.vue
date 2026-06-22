@@ -12,7 +12,17 @@
         <div>
           <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ t('dashboard.balance') }}</p>
           <p class="text-xl font-bold text-emerald-600 dark:text-emerald-400">${{ formatBalance(balance) }}</p>
-          <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('common.available') }}</p>
+          <div class="mt-1 flex items-center gap-2">
+            <span class="text-xs text-gray-500 dark:text-gray-400">{{ t('common.available') }}</span>
+            <button
+              type="button"
+              class="inline-flex items-center gap-0.5 rounded-full bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-400"
+              @click="showRechargeDialog = true"
+            >
+              <Icon name="plus" size="xs" :stroke-width="2.5" />
+              {{ t('common.recharge') }}
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -220,12 +230,26 @@
       </div>
     </div>
   </div>
+
+  <!-- Recharge: contact admin -->
+  <BaseDialog
+    :show="showRechargeDialog"
+    :title="t('common.recharge')"
+    width="narrow"
+    close-on-click-outside
+    @close="showRechargeDialog = false"
+  >
+    <p class="mb-4 text-sm text-gray-600 dark:text-dark-300">{{ t('common.rechargeContactHint') }}</p>
+    <OwnerContactInfo variant="plain" :columns="false" />
+  </BaseDialog>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Icon from '@/components/icons/Icon.vue'
+import BaseDialog from '@/components/common/BaseDialog.vue'
+import OwnerContactInfo from '@/components/common/OwnerContactInfo.vue'
 import type { UserDashboardStats as UserStatsType } from '@/api/usage'
 import type { PlatformQuotaItem } from '@/types'
 
@@ -246,6 +270,8 @@ const props = defineProps<{
   platformQuotas?: PlatformQuotaItem[] | null
 }>()
 const { t } = useI18n()
+
+const showRechargeDialog = ref(false)
 
 const PLATFORM_LABELS: Record<string, string> = {
   anthropic: 'Claude',

@@ -54,6 +54,8 @@ type APIKeyRepository interface {
 	GetByKey(ctx context.Context, key string) (*APIKey, error)
 	// GetByKeyForAuth 认证专用查询，返回最小字段集
 	GetByKeyForAuth(ctx context.Context, key string) (*APIKey, error)
+	// FindInternalChatKey 返回用户的内置聊天 Key（按保留名识别），不存在返回 ErrAPIKeyNotFound
+	FindInternalChatKey(ctx context.Context, userID int64) (*APIKey, error)
 	Update(ctx context.Context, key *APIKey) error
 	Delete(ctx context.Context, id int64) error
 	// DeleteWithAudit 在同一事务内先写 deleted_api_key_audits 审计、再软删除该 key。

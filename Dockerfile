@@ -34,6 +34,10 @@ RUN pnpm install --frozen-lockfile
 # Copy only that subtree to keep the build dependency minimal.
 COPY frontend/ ./
 COPY docs/legal/ /app/docs/legal/
+# 注册接口防刷密钥（反薅羊毛）：Vite 构建时注入，必须与后端 SERVER_REGISTER_GUARD_TOKEN 一致。
+# 不传则回退到 regGuard.ts 中的默认值。
+ARG VITE_REG_GUARD_TOKEN=
+ENV VITE_REG_GUARD_TOKEN=${VITE_REG_GUARD_TOKEN}
 RUN pnpm run build
 
 # -----------------------------------------------------------------------------

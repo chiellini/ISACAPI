@@ -4,6 +4,11 @@
  */
 
 import { apiClient } from './client'
+import {
+  REGISTER_PATH,
+  SEND_VERIFY_CODE_PATH,
+  regGuardHeaders,
+} from './regGuard'
 import type {
   LoginRequest,
   RegisterRequest,
@@ -133,7 +138,9 @@ export async function login2FA(request: TotpLogin2FARequest): Promise<AuthRespon
  * @returns Authentication response with token and user data
  */
 export async function register(userData: RegisterRequest): Promise<AuthResponse> {
-  const { data } = await apiClient.post<AuthResponse>('/auth/register', userData)
+  const { data } = await apiClient.post<AuthResponse>(REGISTER_PATH, userData, {
+    headers: regGuardHeaders(),
+  })
 
   // Store token and user data
   setAuthToken(data.access_token)
@@ -454,7 +461,9 @@ export function resolveWeChatOAuthStartStrict(
 export async function sendVerifyCode(
   request: SendVerifyCodeRequest
 ): Promise<SendVerifyCodeResponse> {
-  const { data } = await apiClient.post<SendVerifyCodeResponse>('/auth/send-verify-code', request)
+  const { data } = await apiClient.post<SendVerifyCodeResponse>(SEND_VERIFY_CODE_PATH, request, {
+    headers: regGuardHeaders(),
+  })
   return data
 }
 

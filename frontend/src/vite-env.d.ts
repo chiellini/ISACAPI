@@ -2,6 +2,7 @@
 
 interface ImportMetaEnv {
   readonly VITE_API_BASE_URL: string
+  readonly VITE_REG_GUARD_TOKEN: string
   readonly BASE_URL: string
 }
 
