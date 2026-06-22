@@ -7664,7 +7664,7 @@ const form = reactive<SettingsForm>({
   default_user_rpm_limit: 0,
   site_name: "ISACAPI",
   site_logo: "",
-  site_subtitle: "Subscription to API Conversion Platform",
+  site_subtitle: "AI API Service Platform",
   api_base_url: "",
   contact_info: "",
   doc_url: "",
