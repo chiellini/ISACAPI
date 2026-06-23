@@ -989,21 +989,35 @@ func (h *GatewayHandler) Models(c *gin.Context) {
 	// Get available models from account configurations for the selected group platform.
 	availableModels := h.gatewayService.GetAvailableModels(c.Request.Context(), groupID, platform)
 	if apiKey != nil && apiKey.Group != nil && apiKey.Group.CustomModelsListEnabled() {
+		// 自定义模型列表是管理员精选的白名单，不强行注入别名（如需暴露别名请显式加入列表）。
 		availableModels = filterModelsByCustomList(availableModels, defaultModelIDsForPlatform(platform), apiKey.Group.ModelsListConfig.Models)
 		writeCustomModelsList(c, platform, availableModels)
 		return
 	}
 
 	if len(availableModels) > 0 {
+		availableModels = service.AppendModelAliasNames(platform, availableModels)
 		writeModelsList(c, availableModels)
 		return
 	}
 
 	// Fallback to default models
 	if platform == service.PlatformOpenAI {
+		// 拷贝后追加别名，避免污染包级 DefaultModels 切片。
+		data := append([]openai.Model(nil), openai.DefaultModels...)
+		for _, alias := range service.ModelAliasNamesForPlatform(platform) {
+			data = append(data, openai.Model{
+				ID:          alias,
+				Object:      "model",
+				Created:     1704067200,
+				OwnedBy:     "openai",
+				Type:        "model",
+				DisplayName: alias,
+			})
+		}
 		c.JSON(http.StatusOK, gin.H{
 			"object": "list",
-			"data":   openai.DefaultModels,
+			"data":   data,
 		})
 		return
 	}

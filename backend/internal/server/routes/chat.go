@@ -42,6 +42,12 @@ func RegisterChatRoutes(
 	requireGroupAnthropic := middleware.RequireGroupAssignment(settingService, middleware.AnthropicErrorWriter)
 
 	chat := r.Group("/api/v1/chat")
+	// 标记跳过网关侧会话存档：聊天历史已单独存于 chat_sessions/chat_messages，
+	// 不重复写入 API 会话存档系统。
+	chat.Use(func(c *gin.Context) {
+		c.Set(handler.CtxSkipConversationCapture, true)
+		c.Next()
+	})
 	chat.Use(bodyLimit)
 	chat.Use(clientRequestID)
 	chat.Use(opsErrorLogger)

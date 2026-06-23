@@ -93,6 +93,18 @@ func (h *OpenAIGatewayHandler) ChatCompletions(c *gin.Context) {
 		return
 	}
 
+	// 模型别名（如 isac-gpt-fast / isac-gpt-best）：命中则把请求体改写为目标模型
+	// + 预设推理档位 / 服务档位（fast→priority）。后续渠道映射、账号调度、计费均按
+	// 改写后的请求处理，无需感知别名。纯加法、fail-open。
+	if aliasBody, aliasSpec, applied := service.ApplyModelAlias(body, service.ModelAliasFormatChatCompletions); applied {
+		body = aliasBody
+		reqModel = aliasSpec.TargetModel
+		reqLog = reqLog.With(zap.String("model_alias", aliasSpec.Alias))
+		if aliasSpec.RateMultiplier > 0 {
+			c.Request = c.Request.WithContext(service.WithModelAliasRate(c.Request.Context(), aliasSpec.RateMultiplier))
+		}
+	}
+
 	// 解析渠道级模型映射
 	channelMapping, _ := h.gatewayService.ResolveChannelMappingAndRestrict(c.Request.Context(), apiKey.GroupID, reqModel)
 

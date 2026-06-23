@@ -5981,6 +5981,13 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 	}
 	imageMultiplier := resolveImageRateMultiplier(apiKey, multiplier)
 
+	// 模型别名（如 isac-gpt-fast）自带计费倍率：仅叠加到文本计费倍率上（image 倍率已先算出，
+	// 不受影响）。下方 serviceTier 在计费侧中和，确保该倍率是唯一加价、与 priority 单价解耦。
+	aliasRateMultiplier := ModelAliasRateFromContext(ctx)
+	if aliasRateMultiplier > 0 {
+		multiplier *= aliasRateMultiplier
+	}
+
 	var cost *CostBreakdown
 	var err error
 	billingModel := forwardResultBillingModel(result.Model, result.UpstreamModel)
@@ -6004,6 +6011,11 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 	serviceTier := ""
 	if result.ServiceTier != nil {
 		serviceTier = strings.TrimSpace(*result.ServiceTier)
+	}
+	if aliasRateMultiplier > 0 {
+		// 别名自带计费倍率时中和注入的 service_tier，避免 priority 计费与倍率叠加。
+		// 仅影响计费成本计算；usageLog.ServiceTier 仍按 result.ServiceTier 记录真实档位。
+		serviceTier = ""
 	}
 	cost, err = s.calculateOpenAIRecordUsageCost(ctx, result, apiKey, billingModels, multiplier, imageMultiplier, tokens, serviceTier)
 	if err != nil {

@@ -28,8 +28,151 @@ export interface StreamHandlers {
   onError: (err: Error) => void
 }
 
+interface ImageGenerationItem {
+  b64_json?: string
+  url?: string
+}
+
+type UnknownRecord = Record<string, unknown>
+
 function authToken(): string {
   return localStorage.getItem('auth_token') || ''
+}
+
+function responseErrorMessage(detail: string, status: number, fallback: string): string {
+  const trimmed = detail.trim()
+  if (!trimmed) return `${fallback}: ${status}`
+  if (trimmed.startsWith('<') || trimmed.toLowerCase().includes('<html')) {
+    return `${fallback}: ${status}`
+  }
+  return trimmed
+}
+
+function imageItemToSrc(item: ImageGenerationItem): string {
+  const b64 = item.b64_json?.trim()
+  if (b64) {
+    if (b64.startsWith('data:image/')) return b64
+    return `data:image/png;base64,${b64}`
+  }
+  return item.url?.trim() || ''
+}
+
+function addImageSrc(out: string[], item: ImageGenerationItem) {
+  const src = imageItemToSrc(item)
+  if (src && !out.includes(src)) out.push(src)
+}
+
+function asRecord(value: unknown): UnknownRecord | null {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value as UnknownRecord : null
+}
+
+function collectImagesFromPayload(payload: unknown, out: string[], eventName = '') {
+  const obj = asRecord(payload)
+  if (!obj) return
+
+  if (Array.isArray(obj.data)) {
+    for (const item of obj.data) {
+      const image = asRecord(item)
+      if (image) addImageSrc(out, image as ImageGenerationItem)
+    }
+  }
+
+  const type = typeof obj.type === 'string' ? obj.type : ''
+  const streamKind = `${eventName} ${type}`.trim().toLowerCase()
+  if (streamKind.includes('partial_image')) return
+  if (streamKind && !streamKind.includes('completed') && !streamKind.includes('output_item.done')) return
+  addImageSrc(out, obj as ImageGenerationItem)
+}
+
+function imageStreamError(payload: unknown, eventName = ''): string {
+  const obj = asRecord(payload)
+  if (!obj) return ''
+  const type = typeof obj.type === 'string' ? obj.type.toLowerCase() : ''
+  const isError = eventName.toLowerCase() === 'error' || type === 'error' || !!obj.error
+  if (!isError) return ''
+  const error = asRecord(obj.error)
+  if (error && typeof error.message === 'string') return error.message
+  return typeof obj.message === 'string' ? obj.message : 'image request failed'
+}
+
+function parseSSEEvent(raw: string): { eventName: string; data: string } | null {
+  const dataLines: string[] = []
+  let eventName = ''
+  for (const line of raw.split(/\r?\n/)) {
+    if (!line || line.startsWith(':')) continue
+    const sep = line.indexOf(':')
+    const field = sep >= 0 ? line.slice(0, sep) : line
+    let value = sep >= 0 ? line.slice(sep + 1) : ''
+    if (value.startsWith(' ')) value = value.slice(1)
+    if (field === 'event') eventName = value
+    if (field === 'data') dataLines.push(value)
+  }
+  if (!dataLines.length) return null
+  return { eventName, data: dataLines.join('\n') }
+}
+
+function nextSSEBoundary(buffer: string): { index: number; length: number } | null {
+  const crlf = buffer.indexOf('\r\n\r\n')
+  const lf = buffer.indexOf('\n\n')
+  if (crlf >= 0 && (lf < 0 || crlf < lf)) return { index: crlf, length: 4 }
+  if (lf >= 0) return { index: lf, length: 2 }
+  return null
+}
+
+function consumeImageStreamEvent(raw: string, out: string[]): string {
+  const event = parseSSEEvent(raw)
+  if (!event) return ''
+  if (event.data === '[DONE]') return ''
+  try {
+    const payload = JSON.parse(event.data)
+    const err = imageStreamError(payload, event.eventName)
+    if (err) return err
+    collectImagesFromPayload(payload, out, event.eventName)
+  } catch {
+    // 忽略上游心跳或非 JSON 诊断行。
+  }
+  return ''
+}
+
+async function readImageStream(res: Response): Promise<string[]> {
+  const images: string[] = []
+  const reader = res.body?.getReader()
+  if (!reader) return images
+
+  const decoder = new TextDecoder()
+  let buffer = ''
+  let streamError = ''
+
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+    let boundary: { index: number; length: number } | null
+    while ((boundary = nextSSEBoundary(buffer))) {
+      const raw = buffer.slice(0, boundary.index)
+      buffer = buffer.slice(boundary.index + boundary.length)
+      if (!streamError) streamError = consumeImageStreamEvent(raw, images)
+    }
+  }
+
+  buffer += decoder.decode()
+  if (buffer.trim()) {
+    if (!streamError) streamError = consumeImageStreamEvent(buffer, images)
+  }
+  if (streamError) throw new Error(streamError)
+  return images
+}
+
+async function parseImageResponse(res: Response): Promise<string[]> {
+  const contentType = res.headers.get('Content-Type') || ''
+  if (contentType.toLowerCase().includes('text/event-stream')) {
+    return readImageStream(res)
+  }
+
+  const data = await res.json()
+  const images: string[] = []
+  collectImagesFromPayload(data, images)
+  return images
 }
 
 // ───────── 服务端会话历史（跨设备同步，JWT 鉴权，走 apiClient） ─────────
@@ -86,18 +229,14 @@ export async function generateImage(
       'Content-Type': 'application/json',
       Authorization: `Bearer ${authToken()}`,
     },
-    body: JSON.stringify(body),
+    body: JSON.stringify({ ...body, stream: true, response_format: 'b64_json' }),
     signal,
   })
   if (!res.ok) {
     const detail = await res.text().catch(() => '')
-    throw new Error(detail || `image request failed: ${res.status}`)
+    throw new Error(responseErrorMessage(detail, res.status, 'image request failed'))
   }
-  const data = await res.json()
-  const items: Array<{ b64_json?: string; url?: string }> = data?.data ?? []
-  return items
-    .map((it) => (it.b64_json ? `data:image/png;base64,${it.b64_json}` : it.url || ''))
-    .filter((s): s is string => !!s)
+  return parseImageResponse(res)
 }
 
 /** 获取可用模型列表（复用网关 /v1/models）。 */
@@ -135,7 +274,7 @@ export async function streamChat(
 
     if (!res.ok || !res.body) {
       const detail = await res.text().catch(() => '')
-      throw new Error(detail || `chat request failed: ${res.status}`)
+      throw new Error(responseErrorMessage(detail, res.status, 'chat request failed'))
     }
 
     const reader = res.body.getReader()

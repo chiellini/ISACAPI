@@ -396,6 +396,7 @@ export default {
     errBalance: '余额不足，请充值后重试。',
     errQuota: '额度已用完，请稍后再试或联系管理员。',
     errRate: '请求过于频繁，请放慢速度后重试。',
+    errTimeout: '请求超时了，生图可能耗时较久，请稍后重试。',
     errModel: '当前账户暂不支持该模型。',
     errUnavailable: '当前账户暂不可用聊天。',
     errGeneric: '出错了，请重试。'

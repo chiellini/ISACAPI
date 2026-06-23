@@ -9,6 +9,11 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// CtxSkipConversationCapture 是 gin.Context 标记位：置 true 时跳过网关侧会话存档采集。
+// 内置聊天 Playground 用它来避免把对话重复写进 API 会话存档系统
+// （聊天历史已单独存于 chat_sessions / chat_messages 表）。
+const CtxSkipConversationCapture = "skip_conversation_capture"
+
 // conversationHeaderSignals 汇集从 HTTP 头读取的会话标识候选（同时兼容下划线/连字符写法）。
 type conversationHeaderSignals struct {
 	ExplicitConversationID string
@@ -50,6 +55,10 @@ func (h *OpenAIGatewayHandler) captureResponsesConversation(
 	userID int64,
 ) {
 	if h.captureSink == nil || result == nil || apiKey == nil || !service.ConversationArchiveEnabled(h.cfg) {
+		return
+	}
+	// 内置聊天 Playground：对话已单独存表，跳过网关侧会话存档，避免重复采集。
+	if c != nil && c.GetBool(CtxSkipConversationCapture) {
 		return
 	}
 

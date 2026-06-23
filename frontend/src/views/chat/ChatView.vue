@@ -238,8 +238,10 @@ function friendlyError(err: Error): string {
   if (hay.includes('insufficient') || hay.includes('balance')) return t('chat.errBalance')
   if (hay.includes('quota')) return t('chat.errQuota')
   if (hay.includes('429') || hay.includes('rate') || hay.includes('too many')) return t('chat.errRate')
+  if (hay.includes('504') || hay.includes('gateway time-out') || hay.includes('gateway timeout') || hay.includes('timeout')) return t('chat.errTimeout')
   if (hay.includes('chat_unavailable') || hay.includes('no_available_chat_group')) return t('chat.errUnavailable')
   if (hay.includes('not_found') || hay.includes('not supported') || hay.includes('model')) return t('chat.errModel')
+  if (raw.trim().startsWith('<') || hay.includes('<html')) return t('chat.errGeneric')
   return msg || t('chat.errGeneric')
 }
 

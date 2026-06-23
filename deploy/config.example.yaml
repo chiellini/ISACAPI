@@ -1125,3 +1125,31 @@ update:
   # Leave empty for direct connection (recommended for overseas servers)
   # 留空表示直连（适用于海外服务器）
   proxy_url: ""
+
+# =============================================================================
+# Model Aliases (虚拟模型别名)
+# =============================================================================
+# 对外暴露虚拟模型名，命中后把请求改写为真实上游模型 + 预设推理档位/服务档位/计费倍率。
+# 后续渠道映射、账号调度、计费均按改写后的请求处理。改这里 + 重启即可调整映射。
+# 留空（不配置 model_aliases）时使用代码内置默认表（isac-gpt-fast / isac-gpt-best）。
+#
+# 字段：
+#   alias            对外模型名（客户端请求用），如 "isac-gpt-fast"
+#   target_model     改写后的真实上游模型，需有账号支持，如 "gpt-5.5"
+#   reasoning_effort 推理档位（留空=不注入）：low / medium / high / xhigh(extra high)
+#   service_tier     服务档位（留空=不注入）：priority(=fast 提速) / flex / auto
+#   rate_multiplier  计费倍率（<=0 或留空=不改计费）；>0 时该倍率是唯一加价，
+#                    并中和 service_tier 自带的 priority 计费，使结果正好是该倍率
+#   platform         平台（留空=openai），仅在该平台的 /v1/models 列表中暴露
+#
+# 示例（与内置默认一致）：
+# model_aliases:
+#   - alias: "isac-gpt-fast"
+#     target_model: "gpt-5.5"
+#     reasoning_effort: "xhigh"
+#     service_tier: "priority"
+#     rate_multiplier: 1.5
+#     platform: "openai"
+#   - alias: "isac-gpt-best"
+#     target_model: "gpt-5.5"
+#     reasoning_effort: "xhigh"

@@ -86,6 +86,10 @@ func usageRecordContext(parent context.Context, base context.Context) context.Co
 	if requestID, _ := parent.Value(ctxkey.RequestID).(string); strings.TrimSpace(requestID) != "" {
 		base = context.WithValue(base, ctxkey.RequestID, strings.TrimSpace(requestID))
 	}
+	// 透传模型别名计费倍率：usage 记账在 worker goroutine 上以全新 ctx 执行，需显式转结。
+	if rate := service.ModelAliasRateFromContext(parent); rate > 0 {
+		base = service.WithModelAliasRate(base, rate)
+	}
 	return base
 }
 
@@ -266,6 +270,18 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 		}
 		if imageReleaseFunc != nil {
 			defer imageReleaseFunc()
+		}
+	}
+
+	// 模型别名（如 isac-gpt-fast / isac-gpt-best）：命中则把请求体改写为目标模型
+	// + 预设推理档位 / 服务档位（fast→priority）。后续渠道映射、账号调度、fast 策略、
+	// 计费均按改写后的请求处理，无需感知别名。纯加法、fail-open。
+	if aliasBody, aliasSpec, applied := service.ApplyModelAlias(body, service.ModelAliasFormatResponses); applied {
+		body = aliasBody
+		reqModel = aliasSpec.TargetModel
+		reqLog = reqLog.With(zap.String("model_alias", aliasSpec.Alias))
+		if aliasSpec.RateMultiplier > 0 {
+			c.Request = c.Request.WithContext(service.WithModelAliasRate(c.Request.Context(), aliasSpec.RateMultiplier))
 		}
 	}
 

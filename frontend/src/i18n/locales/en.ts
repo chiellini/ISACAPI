@@ -396,6 +396,7 @@ export default {
     errBalance: 'Insufficient balance. Please top up and try again.',
     errQuota: 'Quota exhausted. Please try again later or contact the admin.',
     errRate: 'Too many requests. Please slow down and try again.',
+    errTimeout: 'The request timed out. Image generation can take a while, so please try again.',
     errModel: 'This model is not available for your account.',
     errUnavailable: 'Chat is not available for your account yet.',
     errGeneric: 'Something went wrong. Please try again.'

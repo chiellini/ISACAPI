@@ -94,6 +94,18 @@ type Config struct {
 	Update                  UpdateConfig                  `mapstructure:"update"`
 	Idempotency             IdempotencyConfig             `mapstructure:"idempotency"`
 	ConversationArchive     ConversationArchiveConfig     `mapstructure:"conversation_archive"`
+	ModelAliases            []ModelAliasConfig            `mapstructure:"model_aliases"`
+}
+
+// ModelAliasConfig 定义一个对外暴露的虚拟模型别名 → 真实上游模型 + 预设参数的映射。
+// 留空（未配置 model_aliases）时使用代码内置默认表（isac-gpt-fast / isac-gpt-best）。
+type ModelAliasConfig struct {
+	Alias           string  `mapstructure:"alias"`            // 对外模型名，如 "isac-gpt-fast"
+	TargetModel     string  `mapstructure:"target_model"`     // 改写后的真实上游模型，如 "gpt-5.5"
+	ReasoningEffort string  `mapstructure:"reasoning_effort"` // 推理档位（""=不注入），如 "xhigh"
+	ServiceTier     string  `mapstructure:"service_tier"`     // 服务档位（""=不注入），如 "priority"
+	RateMultiplier  float64 `mapstructure:"rate_multiplier"`  // 计费倍率（<=0=不改计费），如 1.5
+	Platform        string  `mapstructure:"platform"`         // 平台（""=openai），仅在该平台 /v1/models 暴露
 }
 
 type LogConfig struct {

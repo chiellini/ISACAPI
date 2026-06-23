@@ -174,7 +174,8 @@ func TestGatewayModels_CustomModelsListDisabledKeepsOriginalModels(t *testing.T)
 
 	var got gatewayModelsResponseForTest
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
-	require.Equal(t, []string{"gpt-5.4", "gpt-5.5"}, modelIDsForTest(got.Data))
+	// OpenAI 平台的虚拟模型别名（isac-gpt-*）追加在映射模型之后对外暴露。
+	require.Equal(t, []string{"gpt-5.4", "gpt-5.5", "isac-gpt-fast", "isac-gpt-best"}, modelIDsForTest(got.Data))
 }
 
 func TestGatewayModels_CustomModelsListFiltersAndOrdersMappedModels(t *testing.T) {

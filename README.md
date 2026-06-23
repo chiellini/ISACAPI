@@ -513,6 +513,47 @@ In Claude Code, Plan Mode cannot exit automatically. (Normally when using the na
 
 ---
 
+## Model Aliases (Virtual Models)
+
+The gateway can expose virtual model names that rewrite each request to a real upstream model plus a preset reasoning effort / service tier / billing multiplier. Two aliases ship by default:
+
+| Alias | Upstream | Reasoning | Service tier | Billing |
+|-------|----------|-----------|--------------|---------|
+| `isac-gpt-fast` | `gpt-5.5` | extra high (`xhigh`) | `priority` (fast) | 1.5× |
+| `isac-gpt-best` | `gpt-5.5` | extra high (`xhigh`) | — | 1× |
+
+Clients call them via `/v1/responses` or `/v1/chat/completions` (they also appear in `GET /v1/models` for OpenAI groups). The group must have an account that supports the target upstream model.
+
+### How to change the mapping
+
+Edit the `model_aliases` section of your runtime config (`data/config.yaml`, mounted to `/app/data/config.yaml`), then restart the container — **no image rebuild needed**:
+
+```yaml
+model_aliases:
+  - alias: "isac-gpt-fast"
+    target_model: "gpt-5.5"
+    reasoning_effort: "xhigh"   # low / medium / high / xhigh (extra high); empty = don't inject
+    service_tier: "priority"    # priority (= fast) / flex / auto; empty = don't inject
+    rate_multiplier: 1.5        # <=0 or omitted = no billing change; >0 = the only surcharge
+    platform: "openai"          # empty = openai
+  - alias: "isac-gpt-best"
+    target_model: "gpt-5.5"
+    reasoning_effort: "xhigh"
+```
+
+```bash
+docker compose -f docker-compose.local.yml restart sub2api
+```
+
+Notes:
+
+- Omit `model_aliases` to use the built-in defaults (the two aliases above). If set, your config fully replaces the defaults — add / remove / rename entries freely.
+- `rate_multiplier` is decoupled from pricing config: when `> 0` it is the **only** surcharge applied. The injected `service_tier=priority` is still sent upstream for speed but is neutralized for billing, so `isac-gpt-fast` costs exactly `rate_multiplier × base`.
+- The first time you enable this feature you must rebuild the image (`--build`); afterwards, mapping changes only need a `restart`.
+- Full field docs: [`deploy/config.example.yaml`](deploy/config.example.yaml).
+
+---
+
 ## Project Structure
 
 ```
