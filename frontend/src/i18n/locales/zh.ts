@@ -798,6 +798,14 @@ export default {
       noGroupTitle: '请先分配分组',
       noGroupDescription:
         '此 API 密钥尚未分配分组，请先在密钥列表中点击分组列进行分配，然后才能查看使用配置。',
+      oneClick: {
+        title: '一键安装（推荐）',
+        hint: '复制下面这一条命令，粘贴到终端按回车，即可自动写入配置文件，无需手动创建。',
+        runHint: '执行后重启你的客户端（Claude Code / Codex / Gemini CLI / OpenCode）即可生效。',
+        manualLabel: '或手动配置：',
+        copy: '复制命令',
+        copied: '已复制'
+      },
       openai: {
         description: '将以下配置文件添加到 Codex CLI 配置目录中。',
         configTomlHint: '请确保以下内容位于 config.toml 文件的开头部分',

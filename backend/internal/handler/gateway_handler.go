@@ -24,6 +24,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/pkg/ip"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/openai"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/timezone"
 	middleware2 "github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
@@ -1034,6 +1035,66 @@ func (h *GatewayHandler) Models(c *gin.Context) {
 		"object": "list",
 		"data":   claude.DefaultModels,
 	})
+}
+
+// GroupModels 返回指定分组对外支持的模型名列表（用户态，JWT 鉴权）。
+// 用于「API 页面」展示「该组 API 支持的模型」。仅允许查询当前用户可绑定的分组。
+// GET /api/v1/groups/:id/models
+func (h *GatewayHandler) GroupModels(c *gin.Context) {
+	subject, ok := middleware2.GetAuthSubjectFromContext(c)
+	if !ok {
+		response.Unauthorized(c, "User not authenticated")
+		return
+	}
+	groupID, err := strconv.ParseInt(strings.TrimSpace(c.Param("id")), 10, 64)
+	if err != nil || groupID <= 0 {
+		response.BadRequest(c, "invalid group id")
+		return
+	}
+
+	groups, err := h.apiKeyService.GetAvailableGroups(c.Request.Context(), subject.UserID)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	var target *service.Group
+	for i := range groups {
+		if groups[i].ID == groupID {
+			target = &groups[i]
+			break
+		}
+	}
+	if target == nil {
+		response.Forbidden(c, "group not available")
+		return
+	}
+
+	models := h.resolveGroupModelNames(c.Request.Context(), target)
+	response.Success(c, gin.H{
+		"group_id": target.ID,
+		"platform": target.Platform,
+		"models":   models,
+	})
+}
+
+// resolveGroupModelNames 计算分组对外暴露的模型名列表，与 Models(/v1/models) 的口径保持一致：
+// 自定义白名单优先；否则账号映射模型（含别名）；都没有则平台默认模型（含别名）。
+func (h *GatewayHandler) resolveGroupModelNames(ctx context.Context, group *service.Group) []string {
+	var groupID *int64
+	platform := ""
+	if group != nil {
+		groupID = &group.ID
+		platform = group.Platform
+	}
+
+	available := h.gatewayService.GetAvailableModels(ctx, groupID, platform)
+	if group != nil && group.CustomModelsListEnabled() {
+		return filterModelsByCustomList(available, defaultModelIDsForPlatform(platform), group.ModelsListConfig.Models)
+	}
+	if len(available) > 0 {
+		return service.AppendModelAliasNames(platform, available)
+	}
+	return service.AppendModelAliasNames(platform, defaultModelIDsForPlatform(platform))
 }
 
 func writeModelsList(c *gin.Context, modelIDs []string) {

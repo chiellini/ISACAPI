@@ -27,9 +27,26 @@ export async function getUserGroupRates(): Promise<Record<number, number>> {
   return data || {}
 }
 
+/** Models that a group's API exposes (mirrors what GET /v1/models returns for that group). */
+export interface GroupModelsInfo {
+  group_id: number
+  platform: string
+  models: string[]
+}
+
+/**
+ * Get the models supported by a group (the current user must have access to it).
+ * @param groupId target group id
+ */
+export async function getModels(groupId: number): Promise<GroupModelsInfo> {
+  const { data } = await apiClient.get<GroupModelsInfo>(`/groups/${groupId}/models`)
+  return data
+}
+
 export const userGroupsAPI = {
   getAvailable,
-  getUserGroupRates
+  getUserGroupRates,
+  getModels
 }
 
 export default userGroupsAPI

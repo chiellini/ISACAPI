@@ -50,6 +50,86 @@
           </nav>
         </div>
 
+        <!-- One-click install command -->
+        <div
+          v-if="oneClickSupported"
+          class="rounded-xl border border-primary-200 bg-primary-50/60 p-4 dark:border-primary-800 dark:bg-primary-900/15"
+        >
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-2">
+              <Icon name="terminal" size="md" class="text-primary-600 dark:text-primary-400" />
+              <span class="text-sm font-semibold text-primary-700 dark:text-primary-300">
+                {{ t('keys.useKeyModal.oneClick.title') }}
+              </span>
+            </div>
+            <div class="inline-flex overflow-hidden rounded-lg border border-primary-200 dark:border-primary-700">
+              <button
+                type="button"
+                @click="oneClickOs = 'unix'"
+                :class="[
+                  'px-3 py-1 text-xs font-medium transition-colors',
+                  oneClickOs === 'unix'
+                    ? 'bg-primary-500 text-white'
+                    : 'bg-white text-gray-600 hover:bg-primary-50 dark:bg-dark-800 dark:text-gray-300 dark:hover:bg-dark-700'
+                ]"
+              >
+                macOS / Linux
+              </button>
+              <button
+                type="button"
+                @click="oneClickOs = 'windows'"
+                :class="[
+                  'px-3 py-1 text-xs font-medium transition-colors',
+                  oneClickOs === 'windows'
+                    ? 'bg-primary-500 text-white'
+                    : 'bg-white text-gray-600 hover:bg-primary-50 dark:bg-dark-800 dark:text-gray-300 dark:hover:bg-dark-700'
+                ]"
+              >
+                Windows
+              </button>
+            </div>
+          </div>
+
+          <p class="mt-2 text-xs text-primary-700/80 dark:text-primary-300/80">
+            {{ t('keys.useKeyModal.oneClick.hint') }}
+          </p>
+
+          <div class="mt-3 overflow-hidden rounded-xl bg-gray-900 dark:bg-dark-900">
+            <div class="flex items-center justify-between border-b border-gray-700 bg-gray-800 px-4 py-2 dark:border-dark-700 dark:bg-dark-800">
+              <span class="font-mono text-xs text-gray-400">
+                {{ oneClickOs === 'unix' ? 'bash / zsh' : 'PowerShell' }}
+              </span>
+              <button
+                @click="copyOneClickScript"
+                class="flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium transition-colors"
+                :class="oneClickCopied
+                  ? 'bg-green-500/20 text-green-400'
+                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white'"
+              >
+                <svg v-if="oneClickCopied" class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+                <svg v-else class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184" />
+                </svg>
+                {{ oneClickCopied ? t('keys.useKeyModal.oneClick.copied') : t('keys.useKeyModal.oneClick.copy') }}
+              </button>
+            </div>
+            <pre class="overflow-x-auto p-4 text-sm font-mono text-gray-100"><code v-text="oneClickScript"></code></pre>
+          </div>
+
+          <p class="mt-2 text-[11px] text-primary-700/70 dark:text-primary-300/70">
+            {{ t('keys.useKeyModal.oneClick.runHint') }}
+          </p>
+        </div>
+
+        <p
+          v-if="oneClickSupported"
+          class="text-xs font-medium text-gray-400 dark:text-gray-500"
+        >
+          {{ t('keys.useKeyModal.oneClick.manualLabel') }}
+        </p>
+
         <!-- OS/Shell Tabs -->
         <div v-if="showShellTabs" class="border-b border-gray-200 dark:border-dark-700">
           <nav class="-mb-px flex space-x-4" aria-label="Tabs">
@@ -134,7 +214,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, h, watch, type Component } from 'vue'
+import { ref, computed, h, watch, onBeforeUnmount, type Component } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
@@ -175,6 +255,11 @@ const { copyToClipboard: clipboardCopy } = useClipboard()
 const copiedIndex = ref<number | null>(null)
 const activeTab = ref<string>('unix')
 const activeClientTab = ref<string>('claude')
+
+// One-click install: target OS for the generated single-command installer.
+const oneClickOs = ref<'unix' | 'windows'>('unix')
+const oneClickCopied = ref(false)
+let oneClickCopiedTimer: number | undefined
 
 // Reset tabs when platform changes
 const defaultClientTab = computed(() => {
@@ -433,6 +518,151 @@ const currentFiles = computed((): FileConfig[] => {
   }
 })
 
+// ── One-click install ──────────────────────────────────────────────────────
+// Bundle the generated config into a single runnable command so the user can
+// configure their client by pasting ONE line into the terminal — no manual file
+// creation, and no external helper app required. Falls back to the manual code
+// blocks below for clients we can't script safely.
+interface OneClickFile {
+  // dir/file are paths relative to the user's home directory.
+  dir: string
+  file: string
+  content: string
+}
+
+const oneClickKind = computed<'claude' | 'codex' | 'gemini' | 'opencode' | null>(() => {
+  switch (activeClientTab.value) {
+    case 'claude':
+      return 'claude'
+    case 'codex':
+    case 'codex-ws':
+      return 'codex'
+    case 'gemini':
+      return 'gemini'
+    case 'opencode':
+      // Antigravity OpenCode needs two providers merged into one file — keep it
+      // on the manual path for now rather than risk a malformed config.
+      return props.platform === 'antigravity' ? null : 'opencode'
+    default:
+      return null
+  }
+})
+
+function oneClickBases() {
+  const rawBase = props.baseUrl || window.location.origin
+  const baseRoot = rawBase.replace(/\/v1\/?$/, '').replace(/\/+$/, '')
+  const ensureV1 = (value: string) => {
+    const trimmed = value.replace(/\/+$/, '')
+    return trimmed.endsWith('/v1') ? trimmed : `${trimmed}/v1`
+  }
+  const ensureV1Beta = (value: string) => {
+    const trimmed = value.replace(/\/+$/, '')
+    return trimmed.endsWith('/v1beta') ? trimmed : `${trimmed}/v1beta`
+  }
+  return { rawBase, apiBase: ensureV1(baseRoot), geminiBase: ensureV1Beta(baseRoot) }
+}
+
+function buildOneClickFiles(): OneClickFile[] {
+  const apiKey = props.apiKey
+  const { rawBase, apiBase, geminiBase } = oneClickBases()
+  switch (oneClickKind.value) {
+    case 'claude': {
+      const claudeBase = props.platform === 'antigravity' ? `${rawBase}/antigravity` : rawBase
+      const content = JSON.stringify(
+        {
+          env: {
+            ANTHROPIC_BASE_URL: claudeBase,
+            ANTHROPIC_AUTH_TOKEN: apiKey,
+            CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1',
+            CLAUDE_CODE_ATTRIBUTION_HEADER: '0'
+          }
+        },
+        null,
+        2
+      )
+      return [{ dir: '.claude', file: '.claude/settings.json', content }]
+    }
+    case 'codex': {
+      const ws = activeClientTab.value === 'codex-ws'
+      return [
+        { dir: '.codex', file: '.codex/config.toml', content: buildCodexConfigToml(rawBase, ws) },
+        { dir: '.codex', file: '.codex/auth.json', content: buildCodexAuthJson(apiKey) }
+      ]
+    }
+    case 'gemini': {
+      const geminiEnvBase = props.platform === 'antigravity' ? `${rawBase}/antigravity` : rawBase
+      const content = `GOOGLE_GEMINI_BASE_URL=${geminiEnvBase}
+GEMINI_API_KEY=${apiKey}
+GEMINI_MODEL=gemini-2.0-flash`
+      return [{ dir: '.gemini', file: '.gemini/.env', content }]
+    }
+    case 'opencode': {
+      let cfg: FileConfig
+      switch (props.platform) {
+        case 'gemini':
+          cfg = generateOpenCodeConfig('gemini', geminiBase, apiKey)
+          break
+        case 'openai':
+          cfg = generateOpenCodeConfig('openai', apiBase, apiKey)
+          break
+        default:
+          cfg = generateOpenCodeConfig('anthropic', apiBase, apiKey)
+          break
+      }
+      return [{ dir: '.config/opencode', file: '.config/opencode/opencode.json', content: cfg.content }]
+    }
+    default:
+      return []
+  }
+}
+
+const oneClickFiles = computed(() => buildOneClickFiles())
+const oneClickSupported = computed(() => oneClickFiles.value.length > 0)
+
+const oneClickScript = computed(() => {
+  const files = oneClickFiles.value
+  if (files.length === 0) return ''
+  const lines: string[] = []
+  const dirs = Array.from(new Set(files.map(f => f.dir)))
+
+  if (oneClickOs.value === 'unix') {
+    const EOF = 'SUB2API_EOF'
+    for (const dir of dirs) lines.push(`mkdir -p "$HOME/${dir}"`)
+    for (const f of files) {
+      // Quoted heredoc => content is written literally, no shell expansion.
+      lines.push(`cat > "$HOME/${f.file}" <<'${EOF}'`)
+      lines.push(f.content)
+      lines.push(EOF)
+    }
+    lines.push('echo "[OK] Configured. Restart your client to apply."')
+    return lines.join('\n')
+  }
+
+  // Windows PowerShell: literal here-strings (@' '@) keep JSON/TOML intact.
+  for (const dir of dirs) {
+    const winDir = dir.replace(/\//g, '\\')
+    lines.push(`New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\\${winDir}" | Out-Null`)
+  }
+  for (const f of files) {
+    const winPath = f.file.replace(/\//g, '\\')
+    lines.push("@'")
+    lines.push(f.content)
+    lines.push(`'@ | Set-Content -Path "$env:USERPROFILE\\${winPath}" -Encoding utf8`)
+  }
+  lines.push('Write-Host "[OK] Configured. Restart your client to apply."')
+  return lines.join('\n')
+})
+
+async function copyOneClickScript() {
+  const success = await clipboardCopy(oneClickScript.value, t('keys.useKeyModal.oneClick.copied'))
+  if (!success) return
+  oneClickCopied.value = true
+  if (oneClickCopiedTimer !== undefined) window.clearTimeout(oneClickCopiedTimer)
+  oneClickCopiedTimer = window.setTimeout(() => {
+    oneClickCopied.value = false
+  }, 2000)
+}
+
 function generateAnthropicFiles(baseUrl: string, apiKey: string): FileConfig[] {
   let path: string
   let content: string
@@ -525,12 +755,10 @@ ${keyword('$env:')}${variable('GEMINI_MODEL')}${operator('=')}${string(`"${model
   return { path, content, highlighted }
 }
 
-function generateOpenAIFiles(baseUrl: string, apiKey: string): FileConfig[] {
-  const isWindows = activeTab.value === 'windows'
-  const configDir = isWindows ? '%userprofile%\\.codex' : '~/.codex'
-
-  // config.toml content
-  const configContent = `model_provider = "OpenAI"
+// Shared Codex config.toml builder so the manual blocks and the one-click
+// install command never drift apart.
+function buildCodexConfigToml(baseUrl: string, ws: boolean): string {
+  return `model_provider = "OpenAI"
 model = "gpt-5.5"
 review_model = "gpt-5.5"
 model_reasoning_effort = "xhigh"
@@ -541,70 +769,42 @@ windows_wsl_setup_acknowledged = true
 [model_providers.OpenAI]
 name = "OpenAI"
 base_url = "${baseUrl}"
-wire_api = "responses"
+wire_api = "responses"${ws ? '\nsupports_websockets = true' : ''}
 requires_openai_auth = true
 
-[features]
+[features]${ws ? '\nresponses_websockets_v2 = true' : ''}
 goals = true`
+}
 
-  // auth.json content
-  const authContent = `{
+function buildCodexAuthJson(apiKey: string): string {
+  return `{
   "OPENAI_API_KEY": "${apiKey}"
 }`
+}
+
+function generateCodexFiles(baseUrl: string, apiKey: string, ws: boolean): FileConfig[] {
+  const isWindows = activeTab.value === 'windows'
+  const configDir = isWindows ? '%userprofile%\\.codex' : '~/.codex'
 
   return [
     {
       path: `${configDir}/config.toml`,
-      content: configContent,
+      content: buildCodexConfigToml(baseUrl, ws),
       hint: t('keys.useKeyModal.openai.configTomlHint')
     },
     {
       path: `${configDir}/auth.json`,
-      content: authContent
+      content: buildCodexAuthJson(apiKey)
     }
   ]
 }
 
+function generateOpenAIFiles(baseUrl: string, apiKey: string): FileConfig[] {
+  return generateCodexFiles(baseUrl, apiKey, false)
+}
+
 function generateOpenAIWsFiles(baseUrl: string, apiKey: string): FileConfig[] {
-  const isWindows = activeTab.value === 'windows'
-  const configDir = isWindows ? '%userprofile%\\.codex' : '~/.codex'
-
-  // config.toml content with WebSocket v2
-  const configContent = `model_provider = "OpenAI"
-model = "gpt-5.5"
-review_model = "gpt-5.5"
-model_reasoning_effort = "xhigh"
-disable_response_storage = true
-network_access = "enabled"
-windows_wsl_setup_acknowledged = true
-
-[model_providers.OpenAI]
-name = "OpenAI"
-base_url = "${baseUrl}"
-wire_api = "responses"
-supports_websockets = true
-requires_openai_auth = true
-
-[features]
-responses_websockets_v2 = true
-goals = true`
-
-  // auth.json content
-  const authContent = `{
-  "OPENAI_API_KEY": "${apiKey}"
-}`
-
-  return [
-    {
-      path: `${configDir}/config.toml`,
-      content: configContent,
-      hint: t('keys.useKeyModal.openai.configTomlHint')
-    },
-    {
-      path: `${configDir}/auth.json`,
-      content: authContent
-    }
-  ]
+  return generateCodexFiles(baseUrl, apiKey, true)
 }
 
 function generateOpenCodeConfig(platform: string, baseUrl: string, apiKey: string, pathLabel?: string): FileConfig {
@@ -1077,4 +1277,8 @@ const copyContent = async (content: string, index: number) => {
     }, 2000)
   }
 }
+
+onBeforeUnmount(() => {
+  if (oneClickCopiedTimer !== undefined) window.clearTimeout(oneClickCopiedTimer)
+})
 </script>
