@@ -852,7 +852,6 @@ export default {
     ipBlacklistPlaceholder: '1.2.3.4\n5.6.0.0/16',
     ipBlacklistHint: 'One IP or CIDR per line. These IPs will be blocked from using this key.',
     ipRestrictionEnabled: 'IP restriction enabled',
-    ccSwitchNotInstalled: 'CC-Switch is not installed or the protocol handler is not registered. Please install CC-Switch first or manually copy the API key.',
     ccsClientSelect: {
       title: 'Select Client',
       description: 'Please select the client type to import to CC-Switch:',
@@ -860,6 +859,15 @@ export default {
       claudeCodeDesc: 'Import as Claude Code configuration',
       geminiCli: 'Gemini CLI',
       geminiCliDesc: 'Import as Gemini CLI configuration',
+    },
+    ccsFallback: {
+      title: 'CC-Switch not detected',
+      description:
+        'CC-Switch may not be installed or its protocol handler is not registered. You can copy the key directly, or view the one-click install command to configure manually.',
+      copyKey: 'Copy Key',
+      copyKeyDesc: 'Copy the API key to clipboard',
+      useKey: 'Install Command',
+      useKeyDesc: 'Open one-click install / setup guide',
     },
     // Quota and expiration
     quotaLimit: 'Quota Limit',
