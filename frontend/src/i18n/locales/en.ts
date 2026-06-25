@@ -1069,6 +1069,23 @@ export default {
   },
 
   // Channel Status (user-facing read-only view)
+  publicStatus: {
+    title: 'Service Status',
+    empty: 'No status data to display yet.',
+    loadError: 'Failed to load service status',
+    updatedAt: 'Updated {time}',
+    windowHint: 'Availability is based on the last 7 days of monitoring · auto-refresh',
+    overall: {
+      operational: 'All systems operational',
+      degraded: 'Some services are experiencing issues',
+      down: 'Service outage',
+    },
+    status: {
+      operational: 'Operational',
+      degraded: 'Degraded',
+      down: 'Down',
+    },
+  },
   channelStatus: {
     title: 'Channel Status',
     description: 'Inspect channel availability, latency and recent status',
@@ -5540,6 +5557,13 @@ export default {
           configureLink: 'Configure model pricing in Channel Management > Channel Pricing',
           enabled: 'Enable Available Channels',
           enabledHint: 'When off, the sidebar entry is hidden and the endpoint returns an empty list.',
+        },
+        publicStatus: {
+          title: 'Public Status Page',
+          description: 'Serve a no-login /status page showing availability aggregated by provider/model, with internal channel names hidden. Disabled by default.',
+          previewLink: 'Preview /status in a new tab',
+          enabled: 'Enable public status page',
+          enabledHint: 'When off, the /status endpoint returns enabled=false and exposes no data.',
         },
         riskControl: {
           title: 'Risk Control',

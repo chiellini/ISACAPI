@@ -230,6 +230,9 @@ func RegisterAuthRoutes(
 		settings.GET("/email-unsubscribe", h.Setting.UnsubscribeNotificationEmail)
 	}
 
+	// 公开服务状态（无需认证；按 provider/model 聚合，opt-in）
+	v1.GET("/status/public", h.ChannelMonitor.PublicStatus)
+
 	// 需要认证的当前用户信息
 	authenticated := v1.Group("")
 	authenticated.Use(gin.HandlerFunc(jwtAuth))

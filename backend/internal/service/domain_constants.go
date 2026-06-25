@@ -363,6 +363,12 @@ const (
 	// sidebar entry is hidden. Defaults to false (opt-in feature).
 	SettingKeyAvailableChannelsEnabled = "available_channels_enabled"
 
+	// SettingKeyPublicStatusEnabled is a DB-backed soft switch for the public (no-auth)
+	// service status page. When true: the /status/public endpoint serves availability
+	// aggregated by provider/model (internal channel/group names stripped). Defaults to
+	// false (opt-in) so upgrading deployments never expose data without opting in.
+	SettingKeyPublicStatusEnabled = "public_status_enabled"
+
 	// =========================
 	// Overload Cooldown (529)
 	// =========================

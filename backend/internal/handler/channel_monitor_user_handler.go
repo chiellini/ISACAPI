@@ -136,6 +136,76 @@ func userMonitorDetailToResponse(d *service.UserMonitorDetail) *channelMonitorUs
 	}
 }
 
+// --- Public status (no-auth) ---
+
+type publicStatusModel struct {
+	Model          string   `json:"model"`
+	Status         string   `json:"status"`
+	Availability7d *float64 `json:"availability_7d"`
+}
+
+type publicStatusProvider struct {
+	Provider       string              `json:"provider"`
+	Status         string              `json:"status"`
+	Availability7d *float64            `json:"availability_7d"`
+	Models         []publicStatusModel `json:"models"`
+}
+
+type publicStatusResponse struct {
+	Enabled       bool                   `json:"enabled"`
+	OverallStatus string                 `json:"overall_status"`
+	Providers     []publicStatusProvider `json:"providers"`
+}
+
+func availabilityPtr(value float64, present bool) *float64 {
+	if !present {
+		return nil
+	}
+	return &value
+}
+
+func publicStatusToResponse(view *service.PublicServiceStatus) publicStatusResponse {
+	providers := make([]publicStatusProvider, 0, len(view.Providers))
+	for _, p := range view.Providers {
+		models := make([]publicStatusModel, 0, len(p.Models))
+		for _, m := range p.Models {
+			models = append(models, publicStatusModel{
+				Model:          m.Model,
+				Status:         m.Status,
+				Availability7d: availabilityPtr(m.Availability7d, m.HasAvailability),
+			})
+		}
+		providers = append(providers, publicStatusProvider{
+			Provider:       p.Provider,
+			Status:         p.Status,
+			Availability7d: availabilityPtr(p.Availability7d, p.HasAvailability),
+			Models:         models,
+		})
+	}
+	return publicStatusResponse{
+		Enabled:       true,
+		OverallStatus: view.OverallStatus,
+		Providers:     providers,
+	}
+}
+
+// PublicStatus GET /api/v1/status/public
+//
+// 无鉴权的公开服务状态：按 provider/model 聚合，剥离内部渠道名/分组名。
+// opt-in：仅当管理员开启 public_status_enabled 时返回数据，否则返回 enabled=false。
+func (h *ChannelMonitorUserHandler) PublicStatus(c *gin.Context) {
+	if h.settingService == nil || !h.settingService.GetPublicStatusRuntime(c.Request.Context()).Enabled {
+		response.Success(c, publicStatusResponse{Enabled: false, Providers: []publicStatusProvider{}})
+		return
+	}
+	view, err := h.monitorService.PublicStatusView(c.Request.Context())
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, publicStatusToResponse(view))
+}
+
 // --- Handlers ---
 
 // List GET /api/v1/channel-monitors

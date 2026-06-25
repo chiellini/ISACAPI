@@ -1073,6 +1073,23 @@ export default {
   },
 
   // Channel Status (user-facing read-only view)
+  publicStatus: {
+    title: '服务状态',
+    empty: '暂无可展示的状态数据。',
+    loadError: '加载服务状态失败',
+    updatedAt: '更新于 {time}',
+    windowHint: '可用率基于最近 7 天监控数据 · 自动刷新',
+    overall: {
+      operational: '全部系统正常运行',
+      degraded: '部分服务出现波动',
+      down: '服务中断',
+    },
+    status: {
+      operational: '正常',
+      degraded: '波动',
+      down: '中断',
+    },
+  },
   channelStatus: {
     title: '渠道状态',
     description: '查看渠道可用性、延迟和近期状态',
@@ -5700,6 +5717,13 @@ export default {
           configureLink: '前往 渠道管理 > 渠道定价 配置模型价格',
           enabled: '启用可用渠道',
           enabledHint: '关闭后用户端侧边栏入口隐藏，接口返回空数组。',
+        },
+        publicStatus: {
+          title: '公开状态页',
+          description: '提供无需登录的 /status 服务状态页，按平台/模型聚合展示可用率，隐藏内部渠道名。默认关闭。',
+          previewLink: '在新标签页预览 /status',
+          enabled: '启用公开状态页',
+          enabledHint: '关闭后 /status 接口返回 enabled=false，不对外暴露任何数据。',
         },
         riskControl: {
           title: '风控中心',

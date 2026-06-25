@@ -381,6 +381,14 @@
           &copy; {{ currentYear }} {{ siteName }}. {{ t('home.footer.allRightsReserved') }}
         </p>
         <div class="flex items-center gap-4">
+          <router-link
+            v-if="publicStatusEnabled"
+            to="/status"
+            class="inline-flex items-center gap-1.5 text-sm text-gray-500 transition-colors hover:text-gray-700 dark:text-dark-400 dark:hover:text-white"
+          >
+            <span class="inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
+            {{ t('publicStatus.title') }}
+          </router-link>
           <a
             v-if="docUrl"
             :href="docUrl"
@@ -410,6 +418,7 @@ import { useI18n } from 'vue-i18n'
 import { useAuthStore, useAppStore } from '@/stores'
 import LocaleSwitcher from '@/components/common/LocaleSwitcher.vue'
 import Icon from '@/components/icons/Icon.vue'
+import { FeatureFlags, isFeatureFlagEnabled } from '@/utils/featureFlags'
 
 const { t } = useI18n()
 
@@ -444,6 +453,9 @@ const userInitial = computed(() => {
   if (!user || !user.email) return ''
   return user.email.charAt(0).toUpperCase()
 })
+
+// Public status page link (opt-in; hidden unless admin enabled it)
+const publicStatusEnabled = computed(() => isFeatureFlagEnabled(FeatureFlags.publicStatus))
 
 // Current year for footer
 const currentYear = computed(() => new Date().getFullYear())
