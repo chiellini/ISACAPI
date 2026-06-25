@@ -123,6 +123,83 @@ describe('UseKeyModal', () => {
     expect(codeBlock.text()).not.toContain('"name": "GPT-5.4 Nano"')
   })
 
+  const oneClickStubs = {
+    BaseDialog: { template: '<div><slot /><slot name="footer" /></div>' },
+    Icon: { template: '<span />' }
+  }
+
+  it('builds a one-click install command writing ~/.claude/settings.json for Anthropic', () => {
+    const wrapper = mount(UseKeyModal, {
+      props: {
+        show: true,
+        apiKey: 'sk-test',
+        baseUrl: 'https://example.com',
+        platform: 'anthropic'
+      },
+      global: { stubs: oneClickStubs }
+    })
+
+    const script = wrapper
+      .findAll('pre code')
+      .map((code) => code.text())
+      .find((content) => content.includes('.claude/settings.json'))
+
+    expect(script).toBeDefined()
+    expect(script).toContain('mkdir -p "$HOME/.claude"')
+    expect(script).toContain(`cat > "$HOME/.claude/settings.json" <<'SUB2API_EOF'`)
+    expect(script).toContain('"ANTHROPIC_BASE_URL": "https://example.com"')
+    expect(script).toContain('"ANTHROPIC_AUTH_TOKEN": "sk-test"')
+  })
+
+  it('builds a one-click install command writing both Codex files for OpenAI', () => {
+    const wrapper = mount(UseKeyModal, {
+      props: {
+        show: true,
+        apiKey: 'sk-test',
+        baseUrl: 'https://example.com/v1',
+        platform: 'openai'
+      },
+      global: { stubs: oneClickStubs }
+    })
+
+    const script = wrapper
+      .findAll('pre code')
+      .map((code) => code.text())
+      .find((content) => content.includes('.codex/config.toml'))
+
+    expect(script).toBeDefined()
+    expect(script).toContain('.codex/config.toml')
+    expect(script).toContain('.codex/auth.json')
+    expect(script).toContain('"OPENAI_API_KEY": "sk-test"')
+    expect(script).toContain('model_provider = "OpenAI"')
+  })
+
+  it('switches the one-click command to PowerShell on Windows', async () => {
+    const wrapper = mount(UseKeyModal, {
+      props: {
+        show: true,
+        apiKey: 'sk-test',
+        baseUrl: 'https://example.com',
+        platform: 'anthropic'
+      },
+      global: { stubs: oneClickStubs }
+    })
+
+    const winButton = wrapper.findAll('button').find((b) => b.text() === 'Windows')
+    expect(winButton).toBeDefined()
+    await winButton!.trigger('click')
+    await nextTick()
+
+    const script = wrapper
+      .findAll('pre code')
+      .map((code) => code.text())
+      .find((content) => content.includes('Set-Content'))
+
+    expect(script).toBeDefined()
+    expect(script).toContain('$env:USERPROFILE\\.claude\\settings.json')
+    expect(script).toContain('New-Item -ItemType Directory -Force')
+  })
+
   it('renders Claude Fable 5 OpenCode config with adaptive thinking', async () => {
     const wrapper = mount(UseKeyModal, {
       props: {
