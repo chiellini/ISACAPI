@@ -29,6 +29,9 @@ export function isImageUsage(row: Pick<ImageBillingRow, 'image_count' | 'billing
 }
 
 export function getDisplayBillingMode(row: Pick<ImageBillingRow, 'billing_mode' | 'image_count'> | null | undefined): string | null | undefined {
+  // Historical rows can arrive without an explicit billing_mode. Derive "image"
+  // from image_count so the badge / CSV / tooltip don't fall back to "token".
+  if (isImageUsage(row)) return BILLING_MODE_IMAGE
   return row?.billing_mode
 }
 
