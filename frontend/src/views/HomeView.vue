@@ -278,14 +278,41 @@
     <footer class="relative z-10 bg-white px-4 py-5 dark:bg-dark-950" dir="ltr">
       <div class="mx-auto flex max-w-6xl flex-col items-center justify-center gap-2 text-center text-sm text-slate-500 dark:text-dark-400">
         <p>© 2026 ISACAI. All rights reserved. 软件开发交流联系方式：1027890648</p>
-        <a
-          href="https://beian.miit.gov.cn"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="transition-colors hover:text-slate-800 dark:hover:text-white"
-        >
-          粤ICP备2026050877号
-        </a>
+        <div class="flex flex-wrap items-center justify-center gap-4">
+          <a
+            href="https://beian.miit.gov.cn"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="transition-colors hover:text-slate-800 dark:hover:text-white"
+          >
+            粤ICP备2026050877号
+          </a>
+          <router-link
+            v-if="publicStatusEnabled"
+            to="/status"
+            class="inline-flex items-center gap-1.5 transition-colors hover:text-slate-800 dark:hover:text-white"
+          >
+            <span class="inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
+            {{ t('publicStatus.title') }}
+          </router-link>
+          <a
+            v-if="docUrl"
+            :href="docUrl"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="transition-colors hover:text-slate-800 dark:hover:text-white"
+          >
+            {{ t('home.docs') }}
+          </a>
+          <a
+            :href="githubUrl"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="transition-colors hover:text-slate-800 dark:hover:text-white"
+          >
+            GitHub
+          </a>
+        </div>
       </div>
     </footer>
 
@@ -372,6 +399,7 @@ import { useAuthStore, useAppStore } from '@/stores'
 import LocaleSwitcher from '@/components/common/LocaleSwitcher.vue'
 import ModelIcon from '@/components/common/ModelIcon.vue'
 import Icon from '@/components/icons/Icon.vue'
+import { FeatureFlags, isFeatureFlagEnabled } from '@/utils/featureFlags'
 
 const { t, locale } = useI18n()
 
@@ -479,6 +507,9 @@ const featureCards = [
     descKey: 'home.highlights.languages.desc'
   }
 ] as const
+
+const publicStatusEnabled = computed(() => isFeatureFlagEnabled(FeatureFlags.publicStatus))
+const githubUrl = 'https://github.com/chiellini/ISACAPI'
 
 function toggleTheme() {
   isDark.value = !isDark.value

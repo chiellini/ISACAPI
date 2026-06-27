@@ -5501,6 +5501,41 @@
         <div class="card">
           <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
             <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+              {{ t('admin.settings.features.publicStatus.title') }}
+            </h2>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              {{ t('admin.settings.features.publicStatus.description') }}
+            </p>
+            <p class="mt-1.5 text-xs">
+              <a
+                href="/status"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="inline-flex items-center gap-1 text-primary-600 hover:underline dark:text-primary-400"
+              >
+                {{ t('admin.settings.features.publicStatus.previewLink') }}
+                <span aria-hidden="true">→</span>
+              </a>
+            </p>
+          </div>
+          <div class="space-y-5 p-6">
+            <div class="flex items-center justify-between">
+              <div>
+                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {{ t('admin.settings.features.publicStatus.enabled') }}
+                </label>
+                <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                  {{ t('admin.settings.features.publicStatus.enabledHint') }}
+                </p>
+              </div>
+              <Toggle v-model="form.public_status_enabled" />
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
               {{ t('admin.settings.features.riskControl.title') }}
             </h2>
             <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
@@ -7850,6 +7885,8 @@ const form = reactive<SettingsForm>({
   channel_monitor_default_interval_seconds: 60,
   // Available Channels feature switch
   available_channels_enabled: false,
+  // Public status page switch (no-auth, provider/model aggregated)
+  public_status_enabled: false,
   // Affiliate (邀请返利) feature switch
   affiliate_enabled: false,
   // Allow user view error requests
@@ -9017,6 +9054,8 @@ async function saveSettings() {
         Number(form.channel_monitor_default_interval_seconds) || 60,
       // Available Channels feature switch
       available_channels_enabled: form.available_channels_enabled,
+      // Public status page switch
+      public_status_enabled: form.public_status_enabled,
       // Affiliate (邀请返利) feature switch
       affiliate_enabled: form.affiliate_enabled,
       allow_user_view_error_requests: form.allow_user_view_error_requests,
@@ -9777,7 +9816,15 @@ async function loadProviders() {
   providersLoading.value = true;
   try {
     const res = await adminAPI.payment.getProviders();
-    providers.value = res.data || [];
+    // Normalize supported_types: backend returns null when the list is empty
+    // (Go nil slice → JSON null). Without this, ProviderCard's isSelected()
+    // throws TypeError on null.includes(), causing the card to vanish.
+    providers.value = (res.data || []).map((p) => ({
+      ...p,
+      supported_types: Array.isArray(p.supported_types)
+        ? p.supported_types
+        : [],
+    }));
   } catch (err: unknown) {
     appStore.showError(extractI18nErrorMessage(err, t, "payment.errors", t("common.error")));
   } finally {
@@ -9871,9 +9918,12 @@ async function handleToggleField(
 }
 
 async function handleToggleType(provider: ProviderInstance, type: string) {
-  const updated = provider.supported_types.includes(type)
-    ? provider.supported_types.filter((t) => t !== type)
-    : [...provider.supported_types, type];
+  const currentTypes = Array.isArray(provider.supported_types)
+    ? provider.supported_types
+    : [];
+  const updated = currentTypes.includes(type)
+    ? currentTypes.filter((t) => t !== type)
+    : [...currentTypes, type];
   const conflict = findProviderEnablementConflict({
     id: provider.id,
     provider_key: provider.provider_key,

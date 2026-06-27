@@ -233,6 +233,7 @@ export interface PublicSettings {
   channel_monitor_enabled: boolean
   channel_monitor_default_interval_seconds: number
   available_channels_enabled: boolean
+  public_status_enabled: boolean
   service_quota_enabled: boolean
   affiliate_enabled: boolean
   allow_user_view_error_requests?: boolean
@@ -1172,6 +1173,24 @@ export interface CodexSessionImportRequest {
   credential_extras?: Record<string, unknown>
   extra?: Record<string, unknown>
   update_existing?: boolean
+  skip_default_group_bind?: boolean
+  confirm_mixed_channel_risk?: boolean
+}
+
+export interface OpenAICodexPATCreateRequest {
+  access_token: string
+  name?: string
+  notes?: string | null
+  group_ids?: number[]
+  proxy_id?: number | null
+  concurrency?: number
+  priority?: number
+  rate_multiplier?: number
+  load_factor?: number | null
+  expires_at?: number | null
+  auto_pause_on_expired?: boolean
+  credential_extras?: Record<string, unknown>
+  extra?: Record<string, unknown>
   skip_default_group_bind?: boolean
   confirm_mixed_channel_risk?: boolean
 }

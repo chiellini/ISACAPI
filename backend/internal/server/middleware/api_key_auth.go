@@ -70,7 +70,7 @@ func apiKeyAuthWithSubscription(apiKeyService *service.APIKeyService, subscripti
 		apiKey, err := apiKeyService.GetByKey(c.Request.Context(), apiKeyString)
 		if err != nil {
 			if errors.Is(err, service.ErrAPIKeyNotFound) {
-				AbortWithError(c, 401, "INVALID_API_KEY", "Invalid API key")
+				AbortWithError(c, 401, "INVALID_API_KEY", invalidAPIKeyMessage(cfg, apiKeyString))
 				return
 			}
 			AbortWithError(c, 500, "INTERNAL_ERROR", "Failed to validate API key")
@@ -331,4 +331,32 @@ func validateAPIKeyGroupAvailable(apiKey *service.APIKey) (string, string, bool)
 		return "GROUP_DISABLED", "API Key 所属分组已停用", false
 	}
 	return "", "", true
+}
+
+// looksLikeJWT 粗判提交的凭证是否像 JWT / OAuth access token。
+// base64url 编码的 JSON 头 {"alg":... 几乎总以 "eyJ" 开头，且 JWS/JWE 至少含两个 "." 分隔段；
+// 网关 key 为 sk- 前缀、不含 "." 的随机串，二者都不满足，故可据此安全地给出更具指向性的提示。
+func looksLikeJWT(s string) bool {
+	return strings.HasPrefix(s, "eyJ") && strings.Count(s, ".") >= 2
+}
+
+// invalidAPIKeyMessage 在凭证形似 JWT/OAuth token 时返回更友好的提示，
+// 帮助误把后台登录态 token 或上游 OAuth token 当成网关 key 的调用方快速纠错；
+// 其余情况维持通用的 "Invalid API key"（错误码仍为 INVALID_API_KEY，不影响 Ops 归因）。
+func invalidAPIKeyMessage(cfg *config.Config, attempted string) string {
+	if !looksLikeJWT(attempted) {
+		return "Invalid API key"
+	}
+	prefix := "sk-"
+	if cfg != nil {
+		if p := strings.TrimSpace(cfg.Default.APIKeyPrefix); p != "" {
+			prefix = p
+		}
+	}
+	return fmt.Sprintf(
+		"Invalid API key: the credential looks like a JWT/OAuth token, not a gateway API key. "+
+			"Use an API key that starts with %q (created in your dashboard), "+
+			"not a login/session token or an upstream OAuth token.",
+		prefix,
+	)
 }

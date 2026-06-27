@@ -977,6 +977,53 @@
       </template>
     </BaseDialog>
 
+    <!-- CC-Switch fallback: protocol handler not detected -->
+    <BaseDialog
+      :show="showCcsFallback"
+      :title="t('keys.ccsFallback.title')"
+      width="narrow"
+      @close="closeCcsFallback"
+    >
+      <div class="space-y-4">
+        <p class="text-sm text-gray-600 dark:text-gray-400">
+          {{ t('keys.ccsFallback.description') }}
+        </p>
+        <div class="grid grid-cols-2 gap-3">
+          <button
+            @click="copyCcsFallbackKey"
+            class="flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-gray-200 dark:border-dark-600 hover:border-primary-500 dark:hover:border-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-all"
+          >
+            <Icon name="copy" size="xl" class="text-gray-600 dark:text-gray-400" />
+            <span class="font-medium text-gray-900 dark:text-white">{{
+              t('keys.ccsFallback.copyKey')
+            }}</span>
+            <span class="text-xs text-gray-500 dark:text-gray-400">{{
+              t('keys.ccsFallback.copyKeyDesc')
+            }}</span>
+          </button>
+          <button
+            @click="openCcsFallbackUseKey"
+            class="flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-gray-200 dark:border-dark-600 hover:border-primary-500 dark:hover:border-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-all"
+          >
+            <Icon name="terminal" size="xl" class="text-gray-600 dark:text-gray-400" />
+            <span class="font-medium text-gray-900 dark:text-white">{{
+              t('keys.ccsFallback.useKey')
+            }}</span>
+            <span class="text-xs text-gray-500 dark:text-gray-400">{{
+              t('keys.ccsFallback.useKeyDesc')
+            }}</span>
+          </button>
+        </div>
+      </div>
+      <template #footer>
+        <div class="flex justify-end">
+          <button @click="closeCcsFallback" class="btn btn-secondary">
+            {{ t('common.cancel') }}
+          </button>
+        </div>
+      </template>
+    </BaseDialog>
+
     <!-- Group Selector Dropdown (Teleported to body to avoid overflow clipping) -->
     <Teleport to="body">
       <div
@@ -1734,18 +1781,35 @@ const executeCcsImport = (row: ApiKey, clientType: CcSwitchClientType) => {
     usageScript
   })
 
+  // Detect whether the ccswitch:// handler actually launched. When CC-Switch
+  // (or the OS "open this app?" prompt) takes over, the page loses focus or
+  // becomes hidden — we treat that as success. The previous 100ms +
+  // document.hasFocus() check fired before the OS had even switched focus,
+  // producing a false "not installed" error for users who DO have CC-Switch.
+  // We instead watch for blur/visibilitychange over a generous window and only
+  // fall back to manual copy when nothing happened.
+  let launched = false
+  const markLaunched = () => {
+    launched = true
+  }
+  window.addEventListener('blur', markLaunched, { once: true })
+  document.addEventListener('visibilitychange', markLaunched, { once: true })
+  const cleanupLaunchListeners = () => {
+    window.removeEventListener('blur', markLaunched)
+    document.removeEventListener('visibilitychange', markLaunched)
+  }
+
   try {
     window.open(deeplink, '_self')
-
-    // Check if the protocol handler worked by detecting if we're still focused
-    setTimeout(() => {
-      if (document.hasFocus()) {
-        // Still focused means the protocol handler likely failed
-        appStore.showError(t('keys.ccSwitchNotInstalled'))
+    window.setTimeout(() => {
+      cleanupLaunchListeners()
+      if (!launched && document.hasFocus() && document.visibilityState === 'visible') {
+        openCcsFallback(row)
       }
-    }, 100)
-  } catch (error) {
-    appStore.showError(t('keys.ccSwitchNotInstalled'))
+    }, 1500)
+  } catch {
+    cleanupLaunchListeners()
+    openCcsFallback(row)
   }
 }
 
@@ -1760,6 +1824,35 @@ const handleCcsClientSelect = (clientType: CcSwitchClientType) => {
 const closeCcsClientSelect = () => {
   showCcsClientSelect.value = false
   pendingCcsRow.value = null
+}
+
+// Fallback shown when the ccswitch:// protocol handler didn't launch (CC-Switch
+// not installed / handler unregistered): let the user copy the key or open the
+// one-click install command instead of hitting a dead end.
+const showCcsFallback = ref(false)
+const ccsFallbackRow = ref<ApiKey | null>(null)
+
+const openCcsFallback = (row: ApiKey) => {
+  ccsFallbackRow.value = row
+  showCcsFallback.value = true
+}
+
+const closeCcsFallback = () => {
+  showCcsFallback.value = false
+  ccsFallbackRow.value = null
+}
+
+const copyCcsFallbackKey = async () => {
+  const row = ccsFallbackRow.value
+  if (!row) return
+  await copyToClipboard(row.key, row.id)
+  closeCcsFallback()
+}
+
+const openCcsFallbackUseKey = () => {
+  const row = ccsFallbackRow.value
+  closeCcsFallback()
+  if (row) openUseKeyModal(row)
 }
 
 function formatResetTime(resetAt: string | null): string {

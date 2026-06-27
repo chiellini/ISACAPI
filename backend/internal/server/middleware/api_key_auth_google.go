@@ -35,7 +35,7 @@ func APIKeyAuthWithSubscriptionGoogle(apiKeyService *service.APIKeyService, subs
 		apiKey, err := apiKeyService.GetByKey(c.Request.Context(), apiKeyString)
 		if err != nil {
 			if errors.Is(err, service.ErrAPIKeyNotFound) {
-				abortWithGoogleError(c, 401, "Invalid API key")
+				abortWithGoogleError(c, 401, invalidAPIKeyMessage(cfg, apiKeyString))
 				return
 			}
 			abortWithGoogleError(c, 500, "Failed to validate API key")

@@ -104,6 +104,11 @@ export const FeatureFlags = {
     mode: 'opt-in',
     label: 'Available Channels',
   }),
+  publicStatus: defineFlag({
+    key: 'public_status_enabled',
+    mode: 'opt-in',
+    label: 'Public Status Page',
+  }),
   payment: defineFlag({
     key: 'payment_enabled',
     mode: 'opt-out',

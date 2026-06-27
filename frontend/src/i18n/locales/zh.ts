@@ -930,8 +930,6 @@ export default {
     ipBlacklistPlaceholder: '1.2.3.4\n5.6.0.0/16',
     ipBlacklistHint: '每行一个 IP 或 CIDR，这些 IP 将被禁止使用此密钥',
     ipRestrictionEnabled: '已配置 IP 限制',
-    ccSwitchNotInstalled:
-      'CC-Switch 未安装或协议处理程序未注册。请先安装 CC-Switch 或手动复制 API 密钥。',
     ccsClientSelect: {
       title: '选择客户端',
       description: '请选择您要导入到 CC-Switch 的客户端类型：',
@@ -939,6 +937,15 @@ export default {
       claudeCodeDesc: '导入为 Claude Code 配置',
       geminiCli: 'Gemini CLI',
       geminiCliDesc: '导入为 Gemini CLI 配置'
+    },
+    ccsFallback: {
+      title: '没有检测到 CC-Switch',
+      description:
+        '可能未安装 CC-Switch 或未注册协议处理程序。你可以直接复制密钥，或查看一键接入命令手动配置。',
+      copyKey: '复制密钥',
+      copyKeyDesc: '复制 API 密钥到剪贴板',
+      useKey: '查看接入命令',
+      useKeyDesc: '打开一键接入 / 配置教程'
     },
     // 配额和有效期
     quotaLimit: '额度限制',
@@ -1148,6 +1155,23 @@ export default {
   },
 
   // Channel Status (user-facing read-only view)
+  publicStatus: {
+    title: '服务状态',
+    empty: '暂无可展示的状态数据。',
+    loadError: '加载服务状态失败',
+    updatedAt: '更新于 {time}',
+    windowHint: '可用率基于最近 7 天监控数据 · 自动刷新',
+    overall: {
+      operational: '全部系统正常运行',
+      degraded: '部分服务出现波动',
+      down: '服务中断',
+    },
+    status: {
+      operational: '正常',
+      degraded: '波动',
+      down: '中断',
+    },
+  },
   channelStatus: {
     title: '渠道状态',
     description: '查看渠道可用性、延迟和近期状态',
@@ -3442,6 +3466,10 @@ export default {
         api_key: 'API Key',
         cookie: 'Cookie'
       },
+      antigravityProjectIdLabel: 'GCP Project ID（可选）',
+      antigravityProjectIdPlaceholder: 'your-gcp-project-id',
+      antigravityProjectIdHint:
+        'standard-tier 且未自动返回 project_id 的 Antigravity 账号需要填写用户自带 GCP project。',
       status: {
         active: '正常',
         inactive: '停用',
@@ -4060,6 +4088,14 @@ export default {
           codexSessionImportFailed: 'Codex 账号导入失败',
           codexSessionImportSuccess: '导入完成：新增 {created}，更新 {updated}，跳过 {skipped}',
           codexSessionImportPartial: '部分成功：新增 {created}，更新 {updated}，跳过 {skipped}，失败 {failed}',
+          codexPatAuth: 'Codex Personal Access Token',
+          codexPatDesc: '输入 Codex at- Personal Access Token，系统会先调用 OpenAI whoami 校验后再创建账号。',
+          codexPatInputLabel: 'Codex PAT',
+          codexPatPlaceholder: 'at-...',
+          codexPatHint: '这是独立认证模式，不保存 refresh_token，也不会写入 OAuth access_token 过期时间。',
+          codexPatImportAndCreate: '校验并创建 Codex PAT 账号',
+          codexPatEmpty: '请输入 Codex Personal Access Token',
+          codexPatImportFailed: 'Codex PAT 账号创建失败',
           sessionTokenAuth: '手动输入 ST',
           sessionTokenDesc: '输入您已有的 Session Token，支持批量输入（每行一个），系统将自动验证并创建账号。',
           sessionTokenPlaceholder: '粘贴您的 Session Token...\n支持多个，每行一个',
@@ -5775,6 +5811,13 @@ export default {
           configureLink: '前往 渠道管理 > 渠道定价 配置模型价格',
           enabled: '启用可用渠道',
           enabledHint: '关闭后用户端侧边栏入口隐藏，接口返回空数组。',
+        },
+        publicStatus: {
+          title: '公开状态页',
+          description: '提供无需登录的 /status 服务状态页，按平台/模型聚合展示可用率，隐藏内部渠道名。默认关闭。',
+          previewLink: '在新标签页预览 /status',
+          enabled: '启用公开状态页',
+          enabledHint: '关闭后 /status 接口返回 enabled=false，不对外暴露任何数据。',
         },
         riskControl: {
           title: '风控中心',

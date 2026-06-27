@@ -927,7 +927,6 @@ export default {
     ipBlacklistPlaceholder: '1.2.3.4\n5.6.0.0/16',
     ipBlacklistHint: 'One IP or CIDR per line. These IPs will be blocked from using this key.',
     ipRestrictionEnabled: 'IP restriction enabled',
-    ccSwitchNotInstalled: 'CC-Switch is not installed or the protocol handler is not registered. Please install CC-Switch first or manually copy the API key.',
     ccsClientSelect: {
       title: 'Select Client',
       description: 'Please select the client type to import to CC-Switch:',
@@ -935,6 +934,15 @@ export default {
       claudeCodeDesc: 'Import as Claude Code configuration',
       geminiCli: 'Gemini CLI',
       geminiCliDesc: 'Import as Gemini CLI configuration',
+    },
+    ccsFallback: {
+      title: 'CC-Switch not detected',
+      description:
+        'CC-Switch may not be installed or its protocol handler is not registered. You can copy the key directly, or view the one-click install command to configure manually.',
+      copyKey: 'Copy Key',
+      copyKeyDesc: 'Copy the API key to clipboard',
+      useKey: 'Install Command',
+      useKeyDesc: 'Open one-click install / setup guide',
     },
     // Quota and expiration
     quotaLimit: 'Quota Limit',
@@ -1144,6 +1152,23 @@ export default {
   },
 
   // Channel Status (user-facing read-only view)
+  publicStatus: {
+    title: 'Service Status',
+    empty: 'No status data to display yet.',
+    loadError: 'Failed to load service status',
+    updatedAt: 'Updated {time}',
+    windowHint: 'Availability is based on the last 7 days of monitoring · auto-refresh',
+    overall: {
+      operational: 'All systems operational',
+      degraded: 'Some services are experiencing issues',
+      down: 'Service outage',
+    },
+    status: {
+      operational: 'Operational',
+      degraded: 'Degraded',
+      down: 'Down',
+    },
+  },
   channelStatus: {
     title: 'Channel Status',
     description: 'Inspect channel availability, latency and recent status',
@@ -3252,6 +3277,10 @@ export default {
         upstream: 'Upstream',
         upstreamDesc: 'Connect via Base URL + API Key'
       },
+      antigravityProjectIdLabel: 'GCP Project ID (optional)',
+      antigravityProjectIdPlaceholder: 'your-gcp-project-id',
+      antigravityProjectIdHint:
+        'Antigravity standard-tier accounts that do not receive an automatic project_id need a user-owned GCP project.',
       status: {
         active: 'Active',
         inactive: 'Inactive',
@@ -3915,6 +3944,14 @@ export default {
           codexSessionImportFailed: 'Failed to import Codex account',
           codexSessionImportSuccess: 'Import completed: created {created}, updated {updated}, skipped {skipped}',
           codexSessionImportPartial: 'Partial success: created {created}, updated {updated}, skipped {skipped}, failed {failed}',
+          codexPatAuth: 'Codex Personal Access Token',
+          codexPatDesc: 'Enter a Codex at- personal access token. The system validates it with OpenAI whoami before creating the account.',
+          codexPatInputLabel: 'Codex PAT',
+          codexPatPlaceholder: 'at-...',
+          codexPatHint: 'This is a separate auth mode. It does not save refresh_token or write an OAuth access_token expiration.',
+          codexPatImportAndCreate: 'Validate & Create Codex PAT Account',
+          codexPatEmpty: 'Please enter a Codex personal access token',
+          codexPatImportFailed: 'Failed to create Codex PAT account',
           sessionTokenAuth: 'Manual ST Input',
           sessionTokenDesc: 'Enter your existing Session Token(s). Supports batch input (one per line). The system will automatically validate and create accounts.',
           sessionTokenPlaceholder: 'Paste your Session Token...\nSupports multiple, one per line',
@@ -5615,6 +5652,13 @@ export default {
           configureLink: 'Configure model pricing in Channel Management > Channel Pricing',
           enabled: 'Enable Available Channels',
           enabledHint: 'When off, the sidebar entry is hidden and the endpoint returns an empty list.',
+        },
+        publicStatus: {
+          title: 'Public Status Page',
+          description: 'Serve a no-login /status page showing availability aggregated by provider/model, with internal channel names hidden. Disabled by default.',
+          previewLink: 'Preview /status in a new tab',
+          enabled: 'Enable public status page',
+          enabledHint: 'When off, the /status endpoint returns enabled=false and exposes no data.',
         },
         riskControl: {
           title: 'Risk Control',
