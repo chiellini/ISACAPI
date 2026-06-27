@@ -10,9 +10,26 @@ export default {
     login: '登录',
     getStarted: '立即开始',
     goToDashboard: '进入控制台',
+    nav: {
+      tagline: '统一 AI API 网关'
+    },
     // 新增：面向用户的价值主张
+    heroEyebrow: 'OpenAI 兼容接口 · 多模型统一转发',
     heroSubtitle: '一个密钥，畅用多个 AI 模型',
-    heroDescription: '无需管理多个订阅账号，一站式接入 Claude、GPT、Gemini 等主流 AI 服务',
+    heroDescription: '无需管理多个订阅账号，一站式接入 Claude、GPT、Gemini、DeepSeek、通义千问、豆包、Kimi 等主流 AI 服务',
+    stats: {
+      providers: '模型供应商',
+      languages: '站点语言',
+      compatible: '兼容协议'
+    },
+    apiCard: {
+      protocol: 'OpenAI Compatible',
+      title: '即刻接入统一 API',
+      subtitle: '复制端点，使用现有 OpenAI SDK 即可调用。',
+      endpoint: '接口端点',
+      copy: '复制',
+      copied: '已复制'
+    },
     tags: {
       subscriptionToApi: '统一 API 接入',
       stickySession: '会话保持',
@@ -90,14 +107,70 @@ export default {
       }
     },
     providers: {
-      title: '已支持的 AI 模型',
-      description: '一个 API，多种选择',
+      title: '支持众多的大模型供应商',
+      description: '覆盖国际主流模型、国内厂商与国产模型，一个 API，多种选择',
       supported: '已支持',
       soon: '即将推出',
       claude: 'Claude',
       gemini: 'Gemini',
       antigravity: 'Antigravity',
-      more: '更多'
+      more: '更多',
+      items: {
+        openai: 'OpenAI',
+        claude: 'Claude',
+        gemini: 'Gemini',
+        xai: 'xAI',
+        meta: 'Meta',
+        mistral: 'Mistral',
+        cohere: 'Cohere',
+        midjourney: 'Midjourney',
+        perplexity: 'Perplexity',
+        openrouter: 'OpenRouter',
+        deepseek: 'DeepSeek',
+        qwen: '通义千问',
+        doubao: '豆包',
+        zhipu: '智谱 GLM',
+        moonshot: 'Kimi / Moonshot',
+        baidu: '文心 ERNIE',
+        tencent: '腾讯混元',
+        iflytek: '讯飞星火',
+        minimax: 'MiniMax',
+        ai360: '360 智脑'
+      }
+    },
+    domestic: {
+      title: '国内厂商与国产模型已加入展示',
+      description: '重点展示 DeepSeek、通义千问、豆包、Kimi、智谱、文心、混元、星火等国内模型生态。'
+    },
+    highlights: {
+      gateway: {
+        title: '统一网关',
+        desc: '兼容 OpenAI 格式，将不同上游模型收敛到一套调用入口。'
+      },
+      providers: {
+        title: '多供应商',
+        desc: '参考 new-api 的多渠道理念，统一管理国际模型与国内模型供应商。'
+      },
+      billing: {
+        title: '额度可控',
+        desc: '面向 API Key、分组和模型倍率做清晰的用量与费用控制。'
+      },
+      languages: {
+        title: '多语言',
+        desc: '提供简体中文、繁体中文、日文、阿拉伯文，并保留英文兜底。'
+      }
+    },
+    notice: {
+      title: '系统公告',
+      tabNotice: '通知',
+      tabSystem: '系统公告',
+      important: '（重要）',
+      qqGroupLabel: '交流群：',
+      qqGroupSuffix: '，有问题可以进群联系站长。',
+      trust: '请认准 ISACAI 官方站点与当前 API 入口，避免使用不明来源链接。',
+      status: '当前服务入口：',
+      closeToday: '今日关闭',
+      close: '关闭公告'
     },
     // CTA 区块
     cta: {
@@ -801,6 +874,8 @@ export default {
       oneClick: {
         title: '一键安装（推荐）',
         hint: '复制下面这一条命令，粘贴到终端按回车，即可自动写入配置文件，无需手动创建。',
+        pasteWarning: '这是一条终端命令，不是 API Key。请在终端里运行，切勿粘贴到客户端的 API Key / 令牌输入框。',
+        scriptComment: '请在终端中运行；切勿粘贴到 API Key / 令牌输入框。',
         runHint: '执行后重启你的客户端（Claude Code / Codex / Gemini CLI / OpenCode）即可生效。',
         manualLabel: '或手动配置：',
         copy: '复制命令',

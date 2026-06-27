@@ -2532,9 +2532,9 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 	}
 
 	instructions := gjson.GetBytes(body, "instructions")
-	instructionsEmpty := !instructions.Exists() || instructions.Type != gjson.String || strings.TrimSpace(instructions.String()) == ""
-	if instructionsEmpty && !compatMessagesBridge {
-		markPatchSet("instructions", defaultCodexSynthInstructions(reqModel))
+	instructionsFromBody := ""
+	if instructions.Exists() && instructions.Type == gjson.String {
+		instructionsFromBody = instructions.String()
 	}
 
 	billingModel := account.GetMappedModel(reqModel)
@@ -2568,6 +2568,42 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 			markPatchSet("model", upstreamModel)
 		}
 	}
+	if !compatMessagesBridge {
+		existingInstructions := strings.TrimSpace(instructionsFromBody)
+		forcedTemplateText := ""
+		injectSecurityBoundaryInstructions := false
+		if s.cfg != nil {
+			forcedTemplateText = s.cfg.Gateway.ForcedCodexInstructionsTemplate
+			injectSecurityBoundaryInstructions = s.cfg.Gateway.InjectCodexSecurityBoundaryInstructions
+		}
+		shouldApplyTemplate := strings.TrimSpace(forcedTemplateText) != "" || injectSecurityBoundaryInstructions
+		if shouldApplyTemplate {
+			if existingInstructions == "" {
+				existingInstructions = defaultCodexSynthInstructions(reqModel)
+			}
+			instructionsAfterTemplate, err := buildCodexInstructionsFromTemplate(
+				existingInstructions,
+				forcedTemplateText,
+				injectSecurityBoundaryInstructions,
+				forcedCodexInstructionsTemplateData{
+					ExistingInstructions: existingInstructions,
+					OriginalModel:        originalModel,
+					NormalizedModel:      reqModel,
+					BillingModel:         billingModel,
+					UpstreamModel:        upstreamModel,
+				},
+			)
+			if err != nil {
+				return nil, err
+			}
+			if strings.TrimSpace(instructionsAfterTemplate) != "" {
+				markPatchSet("instructions", strings.TrimSpace(instructionsAfterTemplate))
+			}
+		} else if existingInstructions == "" {
+			markPatchSet("instructions", defaultCodexSynthInstructions(reqModel))
+		}
+	}
+
 	if strings.TrimSpace(gjson.GetBytes(body, "reasoning.effort").String()) == "minimal" {
 		markPatchSet("reasoning.effort", "none")
 		logger.LegacyPrintf("service.openai_gateway", "[OpenAI] Normalized reasoning.effort: minimal -> none (account: %s)", account.Name)

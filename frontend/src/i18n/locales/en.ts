@@ -10,9 +10,26 @@ export default {
     login: 'Login',
     getStarted: 'Get Started',
     goToDashboard: 'Go to Dashboard',
+    nav: {
+      tagline: 'Unified AI API Gateway'
+    },
     // User-focused value proposition
+    heroEyebrow: 'OpenAI-compatible · Multi-model routing',
     heroSubtitle: 'One Key, All AI Models',
-    heroDescription: 'No need to manage multiple subscriptions. Access Claude, GPT, Gemini and more with a single API key',
+    heroDescription: 'Access Claude, GPT, Gemini, DeepSeek, Qwen, Doubao, Kimi and more through one unified API key.',
+    stats: {
+      providers: 'Providers',
+      languages: 'Languages',
+      compatible: 'Protocol'
+    },
+    apiCard: {
+      protocol: 'OpenAI Compatible',
+      title: 'Connect to one unified API',
+      subtitle: 'Copy the endpoint and keep using your existing OpenAI SDK.',
+      endpoint: 'Endpoint',
+      copy: 'Copy',
+      copied: 'Copied'
+    },
     tags: {
       subscriptionToApi: 'Unified API Access',
       stickySession: 'Session Persistence',
@@ -90,14 +107,70 @@ export default {
       }
     },
     providers: {
-      title: 'Supported AI Models',
-      description: 'One API, Multiple Choices',
+      title: 'Support for many large-model providers',
+      description: 'Global providers, Chinese vendors, and domestic models through one API.',
       supported: 'Supported',
       soon: 'Soon',
       claude: 'Claude',
       gemini: 'Gemini',
       antigravity: 'Antigravity',
-      more: 'More'
+      more: 'More',
+      items: {
+        openai: 'OpenAI',
+        claude: 'Claude',
+        gemini: 'Gemini',
+        xai: 'xAI',
+        meta: 'Meta',
+        mistral: 'Mistral',
+        cohere: 'Cohere',
+        midjourney: 'Midjourney',
+        perplexity: 'Perplexity',
+        openrouter: 'OpenRouter',
+        deepseek: 'DeepSeek',
+        qwen: 'Qwen',
+        doubao: 'Doubao',
+        zhipu: 'Zhipu GLM',
+        moonshot: 'Kimi / Moonshot',
+        baidu: 'ERNIE',
+        tencent: 'Tencent Hunyuan',
+        iflytek: 'iFlytek Spark',
+        minimax: 'MiniMax',
+        ai360: '360 AI'
+      }
+    },
+    domestic: {
+      title: 'Chinese vendors and domestic models are included',
+      description: 'Highlights DeepSeek, Qwen, Doubao, Kimi, Zhipu, ERNIE, Hunyuan, Spark and more.'
+    },
+    highlights: {
+      gateway: {
+        title: 'Unified Gateway',
+        desc: 'OpenAI-compatible requests are routed to multiple upstream model providers.'
+      },
+      providers: {
+        title: 'Multi-provider',
+        desc: 'Inspired by new-api style multi-channel management for global and Chinese providers.'
+      },
+      billing: {
+        title: 'Quota Control',
+        desc: 'Track usage and cost by API key, group, and model pricing multiplier.'
+      },
+      languages: {
+        title: 'Multilingual',
+        desc: 'Simplified Chinese, Traditional Chinese, Japanese, Arabic, with English fallback.'
+      }
+    },
+    notice: {
+      title: 'System Notice',
+      tabNotice: 'Notice',
+      tabSystem: 'System',
+      important: '(Important)',
+      qqGroupLabel: 'QQ group: ',
+      qqGroupSuffix: '. Join the group to contact the site admin.',
+      trust: 'Use the official ISACAI site and current API entry to avoid unknown links.',
+      status: 'Current service entry: ',
+      closeToday: 'Close today',
+      close: 'Close notice'
     },
     // CTA section
     cta: {
@@ -802,6 +875,8 @@ export default {
       oneClick: {
         title: 'One-click install (recommended)',
         hint: 'Copy the single command below, paste it into your terminal and press Enter — it writes the config files for you, no manual file creation needed.',
+        pasteWarning: 'This is a terminal command, not an API key. Run it in your terminal — never paste it into the API key or token field of your client.',
+        scriptComment: 'Run this in your terminal. Do NOT paste it into an API key / token field.',
         runHint: 'Restart your client (Claude Code / Codex / Gemini CLI / OpenCode) afterwards to apply.',
         manualLabel: 'Or configure manually:',
         copy: 'Copy command',

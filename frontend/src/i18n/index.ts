@@ -1,19 +1,22 @@
 import { createI18n } from 'vue-i18n'
 
-type LocaleCode = 'en' | 'zh'
+type LocaleCode = 'en' | 'zh' | 'zh-Hant' | 'ja' | 'ar'
 
 type LocaleMessages = Record<string, any>
 
 const LOCALE_KEY = 'sub2api_locale'
-const DEFAULT_LOCALE: LocaleCode = 'en'
+const DEFAULT_LOCALE: LocaleCode = 'zh'
 
 const localeLoaders: Record<LocaleCode, () => Promise<{ default: LocaleMessages }>> = {
   en: () => import('./locales/en'),
-  zh: () => import('./locales/zh')
+  zh: () => import('./locales/zh'),
+  'zh-Hant': () => import('./locales/zh-Hant'),
+  ja: () => import('./locales/ja'),
+  ar: () => import('./locales/ar')
 }
 
 function isLocaleCode(value: string): value is LocaleCode {
-  return value === 'en' || value === 'zh'
+  return value === 'en' || value === 'zh' || value === 'zh-Hant' || value === 'ja' || value === 'ar'
 }
 
 function getDefaultLocale(): LocaleCode {
@@ -23,11 +26,24 @@ function getDefaultLocale(): LocaleCode {
   }
 
   const browserLang = navigator.language.toLowerCase()
+  if (browserLang === 'zh-tw' || browserLang === 'zh-hk' || browserLang === 'zh-mo') {
+    return 'zh-Hant'
+  }
   if (browserLang.startsWith('zh')) {
     return 'zh'
   }
+  if (browserLang.startsWith('ja')) {
+    return 'ja'
+  }
+  if (browserLang.startsWith('ar')) {
+    return 'ar'
+  }
 
   return DEFAULT_LOCALE
+}
+
+function syncDocumentDirection(locale: LocaleCode): void {
+  document.documentElement.setAttribute('dir', locale === 'ar' ? 'rtl' : 'ltr')
 }
 
 export const i18n = createI18n({
@@ -57,6 +73,7 @@ export async function initI18n(): Promise<void> {
   const current = getLocale()
   await loadLocaleMessages(current)
   document.documentElement.setAttribute('lang', current)
+  syncDocumentDirection(current)
 }
 
 export async function setLocale(locale: string): Promise<void> {
@@ -68,6 +85,7 @@ export async function setLocale(locale: string): Promise<void> {
   i18n.global.locale.value = locale
   localStorage.setItem(LOCALE_KEY, locale)
   document.documentElement.setAttribute('lang', locale)
+  syncDocumentDirection(locale)
 
   // 同步更新浏览器页签标题，使其跟随语言切换
   const { resolveRouteDocumentTitle } = await import('@/router/title')
@@ -92,8 +110,11 @@ export function getLocale(): LocaleCode {
 }
 
 export const availableLocales = [
-  { code: 'en', name: 'English', flag: '🇺🇸' },
-  { code: 'zh', name: '中文', flag: '🇨🇳' }
+  { code: 'zh', name: '简体中文', flag: '简' },
+  { code: 'zh-Hant', name: '繁體中文', flag: '繁' },
+  { code: 'ja', name: '日本語', flag: '日' },
+  { code: 'ar', name: 'العربية', flag: 'AR' },
+  { code: 'en', name: 'English', flag: 'EN' }
 ] as const
 
 export default i18n

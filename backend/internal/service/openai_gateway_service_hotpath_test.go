@@ -157,6 +157,49 @@ func TestOpenAIGatewayService_Forward_DecodedMutationKeepsLaterFieldDeletes(t *t
 	require.Equal(t, "png", gjson.GetBytes(upstream.lastBody, "tools.0.output_format").String())
 }
 
+func TestOpenAIGatewayService_Forward_InjectsCodexSecurityBoundaryInstructionsWhenEnabled(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	upstream := &httpUpstreamRecorder{
+		resp: &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+			Body:       io.NopCloser(strings.NewReader(`{"usage":{"input_tokens":1,"output_tokens":2}}`)),
+		},
+	}
+	cfg := &config.Config{
+		Gateway: config.GatewayConfig{
+			ForcedCodexInstructionsTemplate: "safe-boundary\n\n{{ .ExistingInstructions }}",
+			InjectCodexSecurityBoundaryInstructions: true,
+		},
+	}
+	svc := &OpenAIGatewayService{cfg: cfg, httpUpstream: upstream}
+	account := &Account{
+		ID:          1,
+		Name:        "openai-apikey",
+		Platform:    PlatformOpenAI,
+		Type:        AccountTypeAPIKey,
+		Concurrency: 1,
+		Credentials: map[string]any{
+			"api_key":  "sk-test",
+			"base_url": "https://example.com",
+		},
+		Extra: map[string]any{"use_responses_api": true},
+	}
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "/openai/v1/responses", strings.NewReader(`{"model":"gpt-5","stream":false,"reasoning":{"effort":"minimal"},"input":[{"type":"message","content":"hello"}]}`))
+	c.Request.Header.Set("Content-Type", "application/json")
+	SetOpenAIClientTransport(c, OpenAIClientTransportHTTP)
+
+	result, err := svc.Forward(context.Background(), c, account, []byte(`{"model":"gpt-5","stream":false,"reasoning":{"effort":"minimal"},"input":[{"type":"message","content":"hello"}]}`))
+	require.NoError(t, err)
+	require.NotNil(t, result)
+
+	instructions := gjson.GetBytes(upstream.lastBody, "instructions").String()
+	require.Contains(t, instructions, "safe-boundary")
+	require.Contains(t, instructions, strings.TrimSpace(defaultCodexSynthInstructions("gpt-5")))
+}
+
 func TestOpenAIGatewayService_Forward_MappedImageModelUsesImageGate(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	upstream := &httpUpstreamRecorder{

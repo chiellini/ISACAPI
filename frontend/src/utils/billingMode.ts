@@ -35,6 +35,11 @@ export function getDisplayBillingMode(row: Pick<ImageBillingRow, 'billing_mode' 
   return row?.billing_mode
 }
 
+export function isTokenBillingMode(row: Pick<ImageBillingRow, 'billing_mode' | 'image_count'> | null | undefined): boolean {
+  const mode = getDisplayBillingMode(row)
+  return !mode || mode === BILLING_MODE_TOKEN
+}
+
 export function imageUnitPrice(row: Pick<ImageBillingRow, 'image_count' | 'total_cost'> | null): number {
   if (!row || row.image_count <= 0) return 0
   const total = row.total_cost ?? 0
