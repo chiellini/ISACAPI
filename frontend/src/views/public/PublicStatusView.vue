@@ -102,6 +102,13 @@
               <div class="flex min-w-0 items-center gap-2.5">
                 <span class="inline-flex h-2 w-2 flex-shrink-0 rounded-full" :class="dotClass(model.status)"></span>
                 <span class="truncate font-mono text-sm text-gray-700 dark:text-dark-200">{{ model.model }}</span>
+                <span
+                  v-for="group in model.groups || []"
+                  :key="group"
+                  class="inline-flex flex-shrink-0 items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600 dark:bg-dark-800 dark:text-dark-300"
+                >
+                  {{ group }}
+                </span>
               </div>
               <div class="flex flex-shrink-0 items-center gap-3">
                 <span

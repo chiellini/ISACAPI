@@ -14,6 +14,8 @@ export interface PublicStatusModel {
   model: string
   status: PublicStatusValue
   availability_7d: number | null
+  /** Groups (分组) this model belongs to. May be empty. */
+  groups: string[] | null
 }
 
 export interface PublicStatusProvider {

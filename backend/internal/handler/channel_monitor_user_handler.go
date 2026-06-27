@@ -142,6 +142,7 @@ type publicStatusModel struct {
 	Model          string   `json:"model"`
 	Status         string   `json:"status"`
 	Availability7d *float64 `json:"availability_7d"`
+	Groups         []string `json:"groups"`
 }
 
 type publicStatusProvider struct {
@@ -173,6 +174,7 @@ func publicStatusToResponse(view *service.PublicServiceStatus) publicStatusRespo
 				Model:          m.Model,
 				Status:         m.Status,
 				Availability7d: availabilityPtr(m.Availability7d, m.HasAvailability),
+				Groups:         m.Groups,
 			})
 		}
 		providers = append(providers, publicStatusProvider{

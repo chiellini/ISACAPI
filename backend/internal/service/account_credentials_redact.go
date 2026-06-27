@@ -48,3 +48,29 @@ func MergePreservingSensitiveCreds(existing, incoming map[string]any) map[string
 	}
 	return out
 }
+
+// ReauthPreservedConfigKeys 列出"重新授权"时必须从旧凭据继承的非敏感配置子键。
+// 重新授权（OAuth 重新走一遍授权流程）只携带新 token，不带这些管理员手工配置的字段；
+// 若直接覆盖会丢失账号上已配置的模型白名单 / 模型映射。
+//
+// 注意：这些键仅在"重新授权"语义下保留，普通编辑（PUT /:id）仍允许通过 incoming 省略来删除，
+// 因此不能并入 SensitiveCredentialKeys 的通用合并逻辑。
+var ReauthPreservedConfigKeys = []string{"model_mapping", "compact_model_mapping"}
+
+// MergePreservingReauthConfig 在"重新授权"落库前，把旧凭据中的模型白名单 / 模型映射等
+// 非敏感配置继承到新凭据上（incoming 未显式提供时才继承）。返回新的 map，不修改入参。
+func MergePreservingReauthConfig(existing, incoming map[string]any) map[string]any {
+	out := make(map[string]any, len(incoming)+len(ReauthPreservedConfigKeys))
+	for k, v := range incoming {
+		out[k] = v
+	}
+	for _, key := range ReauthPreservedConfigKeys {
+		if _, hasIncoming := incoming[key]; hasIncoming {
+			continue
+		}
+		if existingVal, ok := existing[key]; ok {
+			out[key] = existingVal
+		}
+	}
+	return out
+}

@@ -80,6 +80,47 @@ func TestMergePreservingSensitiveCreds_NonSensitiveDeletionAllowed(t *testing.T)
 	require.NotContains(t, out, "project_id", "非敏感键 incoming 不传 = 删除")
 }
 
+func TestMergePreservingReauthConfig_PreservesModelConfigWhenIncomingMissing(t *testing.T) {
+	existing := map[string]any{
+		"refresh_token":         "rt-old",
+		"model_mapping":         map[string]any{"gpt-5.5": "gpt-5.5"},
+		"compact_model_mapping": map[string]any{"a": "b"},
+	}
+	// 重新授权只带新 token
+	incoming := map[string]any{
+		"access_token":  "at-new",
+		"refresh_token": "rt-new",
+	}
+
+	out := MergePreservingReauthConfig(existing, incoming)
+
+	require.Equal(t, "at-new", out["access_token"], "新 token 由 incoming 决定")
+	require.Equal(t, "rt-new", out["refresh_token"])
+	require.Equal(t, map[string]any{"gpt-5.5": "gpt-5.5"}, out["model_mapping"], "重新授权应继承旧模型白名单/映射")
+	require.Equal(t, map[string]any{"a": "b"}, out["compact_model_mapping"])
+}
+
+func TestMergePreservingReauthConfig_IncomingModelConfigWins(t *testing.T) {
+	existing := map[string]any{
+		"model_mapping": map[string]any{"old": "old"},
+	}
+	incoming := map[string]any{
+		"model_mapping": map[string]any{"new": "new"},
+	}
+	out := MergePreservingReauthConfig(existing, incoming)
+	require.Equal(t, map[string]any{"new": "new"}, out["model_mapping"], "incoming 显式提供应覆盖")
+}
+
+func TestMergePreservingReauthConfig_DoesNotMutateInputs(t *testing.T) {
+	existing := map[string]any{"model_mapping": map[string]any{"a": "a"}}
+	incoming := map[string]any{"access_token": "at"}
+
+	_ = MergePreservingReauthConfig(existing, incoming)
+
+	require.NotContains(t, incoming, "model_mapping")
+	require.NotContains(t, existing, "access_token")
+}
+
 func TestIsSensitiveCredentialKey(t *testing.T) {
 	require.True(t, IsSensitiveCredentialKey("refresh_token"))
 	require.True(t, IsSensitiveCredentialKey("api_key"))

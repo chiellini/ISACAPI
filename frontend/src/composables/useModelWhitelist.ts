@@ -381,6 +381,25 @@ export function getModelsByPlatform(platform: string): string[] {
   }
 }
 
+// OpenAI 新建账号的默认模型白名单：仅预置最常用的少数模型，
+// 避免一次性填入 openaiModels 全量列表。其余模型仍可在选择器中手动添加。
+export const openaiDefaultWhitelist = [
+  'codex-auto-review',
+  'gpt-5.4',
+  'gpt-5.4-mini',
+  'gpt-5.5',
+  'gpt-image-1',
+  'gpt-image-1.5',
+  'gpt-image-2'
+]
+
+// getDefaultWhitelistByPlatform 返回新建账号时默认预填的模型白名单。
+// OpenAI 使用精简的常用模型集；其它平台沿用「填充相关模型」的全量列表。
+export function getDefaultWhitelistByPlatform(platform: string): string[] {
+  if (platform === 'openai') return openaiDefaultWhitelist
+  return getModelsByPlatform(platform)
+}
+
 // 按平台获取预设映射
 export function getPresetMappingsByPlatform(platform: string) {
   if (platform === 'openai') return openaiPresetMappings

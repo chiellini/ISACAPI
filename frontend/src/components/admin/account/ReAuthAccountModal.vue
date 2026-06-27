@@ -308,6 +308,23 @@ watch(
   }
 )
 
+// 重新授权只会带回新 token；管理员此前配置的模型白名单 / 模型映射存放在 credentials 内，
+// 若不显式继承会在重新授权落库时被覆盖丢失。后端 apply-oauth-credentials 也有兜底保留，
+// 这里在前端一并继承，覆盖 Gemini/Antigravity 走通用 update 接口的路径。
+const REAUTH_PRESERVED_CRED_KEYS = ['model_mapping', 'compact_model_mapping'] as const
+const preserveModelConfig = (
+  credentials: Record<string, unknown>
+): Record<string, unknown> => {
+  const existing = (props.account?.credentials || {}) as Record<string, unknown>
+  const merged = { ...credentials }
+  for (const key of REAUTH_PRESERVED_CRED_KEYS) {
+    if (merged[key] === undefined && existing[key] !== undefined) {
+      merged[key] = existing[key]
+    }
+  }
+  return merged
+}
+
 // Methods
 const resetState = () => {
   addMethod.value = 'oauth'
@@ -367,7 +384,7 @@ const handleExchangeCode = async () => {
     if (!tokenInfo) return
 
     // Build credentials and extra info
-    const credentials = oauthClient.buildCredentials(tokenInfo)
+    const credentials = preserveModelConfig(oauthClient.buildCredentials(tokenInfo))
     const extra = oauthClient.buildExtraInfo(tokenInfo)
 
     try {
@@ -402,7 +419,7 @@ const handleExchangeCode = async () => {
     })
     if (!tokenInfo) return
 
-    const credentials = geminiOAuth.buildCredentials(tokenInfo)
+    const credentials = preserveModelConfig(geminiOAuth.buildCredentials(tokenInfo))
 
     try {
       await adminAPI.accounts.update(props.account.id, {
@@ -434,7 +451,7 @@ const handleExchangeCode = async () => {
     })
     if (!tokenInfo) return
 
-    const credentials = antigravityOAuth.buildCredentials(tokenInfo)
+    const credentials = preserveModelConfig(antigravityOAuth.buildCredentials(tokenInfo))
 
     try {
       await adminAPI.accounts.update(props.account.id, {
@@ -474,7 +491,7 @@ const handleExchangeCode = async () => {
 
       const updatedAccount = await adminAPI.accounts.applyOAuthCredentials(props.account.id, {
         type: addMethod.value as 'oauth' | 'setup-token',
-        credentials: tokenInfo as unknown as Record<string, unknown>,
+        credentials: preserveModelConfig(tokenInfo as unknown as Record<string, unknown>),
         extra
       })
 
@@ -513,7 +530,7 @@ const handleCookieAuth = async (sessionKey: string) => {
 
     const updatedAccount = await adminAPI.accounts.applyOAuthCredentials(props.account.id, {
       type: addMethod.value as 'oauth' | 'setup-token',
-      credentials: tokenInfo as unknown as Record<string, unknown>,
+      credentials: preserveModelConfig(tokenInfo as unknown as Record<string, unknown>),
       extra
     })
 

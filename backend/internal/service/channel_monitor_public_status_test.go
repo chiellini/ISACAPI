@@ -84,6 +84,31 @@ func TestBuildProviderStatus_AveragesAvailabilityAndSkipsUnknownModels(t *testin
 	}
 }
 
+func TestBuildProviderStatus_CollectsDedupedSortedGroups(t *testing.T) {
+	models := map[string]*modelStatusAccumulator{
+		// Same model seen across channels in two distinct groups (one duplicated).
+		"claude-opus": {
+			operational: 2, known: 2,
+			groups: map[string]struct{}{"vip": {}, "default": {}},
+		},
+		// Model with no group info -> Groups must be nil (omitted as label).
+		"claude-sonnet": {operational: 1, known: 1},
+	}
+
+	ps := buildProviderStatus(MonitorProviderAnthropic, models)
+
+	opus := ps.Models[0] // sorted: claude-opus first
+	if opus.Model != "claude-opus" {
+		t.Fatalf("unexpected first model %q", opus.Model)
+	}
+	if len(opus.Groups) != 2 || opus.Groups[0] != "default" || opus.Groups[1] != "vip" {
+		t.Fatalf("groups not deduped/sorted: %+v", opus.Groups)
+	}
+	if ps.Models[1].Groups != nil {
+		t.Fatalf("model without groups should have nil Groups, got %+v", ps.Models[1].Groups)
+	}
+}
+
 func TestSortProviders_KnownOrderThenAlpha(t *testing.T) {
 	providers := []PublicProviderStatus{
 		{Provider: "zeta"},

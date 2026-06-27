@@ -5,9 +5,10 @@ import (
 	"sort"
 )
 
-// 公开服务状态聚合层：把内部的 per-channel 监控视图（含渠道名/分组名）聚合成
-// 按 provider → model 的匿名化视图，供无鉴权的 /status/public 端点使用。
-// 永远不输出 Name / GroupName 等内部供给信息。
+// 公开服务状态聚合层：把内部的 per-channel 监控视图聚合成按 provider → model 的
+// 视图，供无鉴权的 /status/public 端点使用。
+// 永远不输出渠道名(Name)等内部供给信息；分组名(GroupName)会作为标签随模型暴露，
+// 方便用户在公开状态页看到自己所属的分组。
 
 // Public-facing status values. Intentionally a small, stable set decoupled from
 // the internal MonitorStatus* enum so the public contract never leaks finer
@@ -24,6 +25,7 @@ type PublicModelStatus struct {
 	Status          string
 	Availability7d  float64
 	HasAvailability bool
+	Groups          []string // 该模型所属的分组名集合（已去重排序），用于公开页展示分组标签
 }
 
 // PublicProviderStatus 单个 provider（平台）的公开可用状态，含其下模型。
@@ -51,10 +53,11 @@ var providerDisplayOrder = map[string]int{
 
 // modelStatusAccumulator 聚合同一 (provider, model) 跨多个渠道的状态与可用率。
 type modelStatusAccumulator struct {
-	operational int     // 状态为 operational 的渠道数
-	known       int     // 有明确状态（非空）的渠道数
-	availSum    float64 // 可用率之和（仅统计有可用率的渠道）
-	availCount  int     // 有可用率的渠道数
+	operational int                 // 状态为 operational 的渠道数
+	known       int                 // 有明确状态（非空）的渠道数
+	availSum    float64             // 可用率之和（仅统计有可用率的渠道）
+	availCount  int                 // 有可用率的渠道数
+	groups      map[string]struct{} // 该模型出现过的分组名集合（去重）
 }
 
 // PublicStatusView 构造无鉴权公开服务状态。
@@ -90,6 +93,7 @@ func (s *ChannelMonitorService) PublicStatusView(ctx context.Context) (*PublicSe
 		if v.PrimaryModel != "" {
 			acc := accFor(v.Provider, v.PrimaryModel)
 			acc.addStatus(v.PrimaryStatus)
+			acc.addGroup(v.GroupName)
 			acc.availSum += v.Availability7d
 			acc.availCount++
 		}
@@ -98,7 +102,9 @@ func (s *ChannelMonitorService) PublicStatusView(ctx context.Context) (*PublicSe
 			if e.Model == "" {
 				continue
 			}
-			accFor(v.Provider, e.Model).addStatus(e.Status)
+			acc := accFor(v.Provider, e.Model)
+			acc.addStatus(e.Status)
+			acc.addGroup(v.GroupName)
 		}
 	}
 
@@ -130,6 +136,30 @@ func (a *modelStatusAccumulator) addStatus(status string) {
 	}
 }
 
+// addGroup 记录该模型出现过的分组名（去重）。空分组名忽略。
+func (a *modelStatusAccumulator) addGroup(group string) {
+	if group == "" {
+		return
+	}
+	if a.groups == nil {
+		a.groups = make(map[string]struct{})
+	}
+	a.groups[group] = struct{}{}
+}
+
+// sortedGroups 把分组名集合转成去重、按字母序排序的切片。空集合返回 nil。
+func sortedGroups(set map[string]struct{}) []string {
+	if len(set) == 0 {
+		return nil
+	}
+	groups := make([]string, 0, len(set))
+	for g := range set {
+		groups = append(groups, g)
+	}
+	sort.Strings(groups)
+	return groups
+}
+
 // buildProviderStatus 由该 provider 下各模型的累积器构造 PublicProviderStatus。
 func buildProviderStatus(provider string, models map[string]*modelStatusAccumulator) PublicProviderStatus {
 	modelStatuses := make([]PublicModelStatus, 0, len(models))
@@ -142,7 +172,7 @@ func buildProviderStatus(provider string, models map[string]*modelStatusAccumula
 			continue // 无任何明确状态，跳过这个模型
 		}
 		status := aggregateStatus(acc.operational, acc.known)
-		ms := PublicModelStatus{Model: model, Status: status}
+		ms := PublicModelStatus{Model: model, Status: status, Groups: sortedGroups(acc.groups)}
 		if acc.availCount > 0 {
 			ms.Availability7d = acc.availSum / float64(acc.availCount)
 			ms.HasAvailability = true
