@@ -15,6 +15,19 @@ type forcedCodexInstructionsTemplateData struct {
 	UpstreamModel        string
 }
 
+const defaultCodexSecurityBoundaryInstructions = `
+{{- if .ExistingInstructions }}
+{{ .ExistingInstructions }}
+
+{{- end }}
+You are helping with authorized enterprise engineering and hardware-related security work, including legitimate ESP and hardware/software co-design context.
+Default to defensive, lawful, and compliance-oriented support:
+- Assist with authorized debugging, hardening, threat modeling, and incident response.
+- Prioritize prevention, monitoring, baseline configuration cleanup, and policy-compliant operations.
+- For suspicious or clearly harmful intent, refuse the harmful action and offer safer alternatives.
+When uncertainty exists, request explicit authorization and clarify legal/compliance constraints first.
+`
+
 func applyForcedCodexInstructionsTemplate(
 	reqBody map[string]any,
 	templateText string,
@@ -52,4 +65,40 @@ func renderForcedCodexInstructionsTemplate(
 	}
 
 	return strings.TrimSpace(buf.String()), nil
+}
+
+func resolveCodexInstructionsTemplateText(templateText string, injectSafeDefault bool) string {
+	trimmedTemplate := strings.TrimSpace(templateText)
+	if trimmedTemplate != "" {
+		return trimmedTemplate
+	}
+	if !injectSafeDefault {
+		return ""
+	}
+	return strings.TrimSpace(defaultCodexSecurityBoundaryInstructions)
+}
+
+func buildCodexInstructionsFromTemplate(
+	existingInstructions string,
+	templateText string,
+	injectSafeDefault bool,
+	data forcedCodexInstructionsTemplateData,
+) (string, error) {
+	resolvedTemplate := resolveCodexInstructionsTemplateText(templateText, injectSafeDefault)
+	if strings.TrimSpace(resolvedTemplate) == "" {
+		return strings.TrimSpace(existingInstructions), nil
+	}
+	if strings.TrimSpace(data.ExistingInstructions) == "" {
+		data.ExistingInstructions = strings.TrimSpace(existingInstructions)
+	}
+	reqBody := map[string]any{"instructions": existingInstructions}
+	updated, err := applyForcedCodexInstructionsTemplate(reqBody, resolvedTemplate, data)
+	if err != nil {
+		return "", err
+	}
+	if !updated {
+		return strings.TrimSpace(data.ExistingInstructions), nil
+	}
+	value, _ := reqBody["instructions"].(string)
+	return strings.TrimSpace(value), nil
 }

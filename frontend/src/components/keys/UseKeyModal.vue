@@ -94,6 +94,15 @@
             {{ t('keys.useKeyModal.oneClick.hint') }}
           </p>
 
+          <div class="mt-3 flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 dark:border-amber-700/60 dark:bg-amber-900/20">
+            <svg class="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+            </svg>
+            <p class="text-xs font-medium text-amber-700 dark:text-amber-300">
+              {{ t('keys.useKeyModal.oneClick.pasteWarning') }}
+            </p>
+          </div>
+
           <div class="mt-3 overflow-hidden rounded-xl bg-gray-900 dark:bg-dark-900">
             <div class="flex items-center justify-between border-b border-gray-700 bg-gray-800 px-4 py-2 dark:border-dark-700 dark:bg-dark-800">
               <span class="font-mono text-xs text-gray-400">
@@ -624,6 +633,11 @@ const oneClickScript = computed(() => {
   if (files.length === 0) return ''
   const lines: string[] = []
   const dirs = Array.from(new Set(files.map(f => f.dir)))
+
+  // Leading guidance comment — valid in both bash and PowerShell (#). Keeps the
+  // script self-documenting, and if it's mis-pasted into an API-key field the
+  // submitted value starts with this comment instead of a bare `mkdir -p`.
+  lines.push(`# ${t('keys.useKeyModal.oneClick.scriptComment')}`)
 
   if (oneClickOs.value === 'unix') {
     const EOF = 'SUB2API_EOF'

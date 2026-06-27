@@ -159,8 +159,10 @@ func (s *OpenAIGatewayService) ForwardAsAnthropic(
 			PreserveToolCallIDs:     true,
 		})
 		forcedTemplateText := ""
+		injectSecurityBoundaryInstructions := false
 		if s.cfg != nil {
 			forcedTemplateText = s.cfg.Gateway.ForcedCodexInstructionsTemplate
+			injectSecurityBoundaryInstructions = s.cfg.Gateway.InjectCodexSecurityBoundaryInstructions
 		}
 		templateUpstreamModel := upstreamModel
 		if codexResult.NormalizedModel != "" {
@@ -170,14 +172,23 @@ func (s *OpenAIGatewayService) ForwardAsAnthropic(
 		if strings.TrimSpace(existingInstructions) == "" {
 			existingInstructions = extractPromptLikeInstructionsFromInput(reqBody)
 		}
-		if _, err := applyForcedCodexInstructionsTemplate(reqBody, forcedTemplateText, forcedCodexInstructionsTemplateData{
-			ExistingInstructions: strings.TrimSpace(existingInstructions),
-			OriginalModel:        originalModel,
-			NormalizedModel:      normalizedModel,
-			BillingModel:         billingModel,
-			UpstreamModel:        templateUpstreamModel,
-		}); err != nil {
-			return nil, err
+		if strings.TrimSpace(forcedTemplateText) != "" || injectSecurityBoundaryInstructions {
+			instructions, err := buildCodexInstructionsFromTemplate(
+				existingInstructions,
+				forcedTemplateText,
+				injectSecurityBoundaryInstructions,
+				forcedCodexInstructionsTemplateData{
+					ExistingInstructions: strings.TrimSpace(existingInstructions),
+					OriginalModel:        originalModel,
+					NormalizedModel:      normalizedModel,
+					BillingModel:         billingModel,
+					UpstreamModel:        templateUpstreamModel,
+				},
+			)
+			if err != nil {
+				return nil, err
+			}
+			reqBody["instructions"] = strings.TrimSpace(instructions)
 		}
 		ensureCodexOAuthInstructionsField(reqBody)
 		if shouldAutoInjectPromptCacheKeyForCompat(upstreamModel) {

@@ -242,6 +242,7 @@ gateway:
   forced_codex_instructions_template_file: ""
   # OpenAI 透传模式是否放行客户端超时头（如 x-stainless-timeout）
   # 默认 false：过滤超时头，降低上游提前断流风险。
+  inject_codex_security_boundary_instructions: false
   openai_passthrough_allow_timeout_headers: false
   # OpenAI Responses WebSocket 配置（默认开启，可按需回滚到 HTTP）
   openai_ws:
