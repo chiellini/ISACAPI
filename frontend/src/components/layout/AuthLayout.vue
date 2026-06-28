@@ -1,62 +1,110 @@
 <template>
-  <div class="relative flex min-h-screen items-center justify-center overflow-hidden p-4">
-    <!-- Background -->
-    <div
-      class="absolute inset-0 bg-gradient-to-br from-gray-50 via-primary-50/30 to-gray-100 dark:from-dark-950 dark:via-dark-900 dark:to-dark-950"
-    ></div>
-
-    <!-- Decorative Elements -->
+  <div
+    class="relative min-h-screen overflow-hidden bg-slate-50 px-4 py-8 text-slate-950 dark:bg-dark-950 dark:text-white sm:px-6 lg:px-8"
+  >
     <div class="pointer-events-none absolute inset-0 overflow-hidden">
-      <!-- Gradient Orbs -->
       <div
-        class="absolute -right-40 -top-40 h-80 w-80 rounded-full bg-primary-400/20 blur-3xl"
+        class="absolute inset-0 bg-[linear-gradient(135deg,rgba(14,165,233,0.14)_0%,transparent_34%),linear-gradient(225deg,rgba(16,185,129,0.12)_0%,transparent_38%),linear-gradient(180deg,#f8fafc_0%,#edf2f7_100%)] dark:bg-[linear-gradient(135deg,rgba(14,165,233,0.16)_0%,transparent_34%),linear-gradient(225deg,rgba(16,185,129,0.10)_0%,transparent_38%),linear-gradient(180deg,#020617_0%,#111827_100%)]"
       ></div>
       <div
-        class="absolute -bottom-40 -left-40 h-80 w-80 rounded-full bg-primary-500/15 blur-3xl"
+        class="absolute inset-0 bg-[linear-gradient(rgba(15,23,42,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(15,23,42,0.05)_1px,transparent_1px)] bg-[size:48px_48px] opacity-70 dark:bg-[linear-gradient(rgba(148,163,184,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(148,163,184,0.08)_1px,transparent_1px)]"
       ></div>
       <div
-        class="absolute left-1/2 top-1/2 h-96 w-96 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary-300/10 blur-3xl"
+        class="absolute -left-28 top-16 h-[520px] w-[58vw] rotate-[-8deg] border-y border-sky-200/60 bg-white/35 dark:border-sky-900/40 dark:bg-white/[0.03]"
       ></div>
-
-      <!-- Grid Pattern -->
       <div
-        class="absolute inset-0 bg-[linear-gradient(rgba(20,184,166,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(20,184,166,0.03)_1px,transparent_1px)] bg-[size:64px_64px]"
+        class="absolute bottom-0 right-0 h-64 w-full bg-[linear-gradient(0deg,rgba(15,23,42,0.08),transparent)] dark:bg-[linear-gradient(0deg,rgba(8,47,73,0.24),transparent)]"
       ></div>
     </div>
 
-    <!-- Content Container -->
-    <div class="relative z-10 w-full max-w-md">
-      <!-- Logo/Brand -->
-      <div class="mb-8 text-center">
-        <!-- Custom Logo or Default Logo -->
-        <template v-if="settingsLoaded">
-          <div
-            class="mb-4 inline-flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl shadow-lg shadow-primary-500/30"
-          >
-            <img :src="siteLogo || '/logo.png'" alt="Logo" class="h-full w-full object-contain" />
+    <div
+      class="relative z-10 mx-auto grid min-h-[calc(100vh-4rem)] w-full max-w-6xl items-center gap-8 lg:grid-cols-[minmax(0,1fr)_440px]"
+    >
+      <section class="hidden lg:block">
+        <div class="max-w-xl">
+          <template v-if="settingsLoaded">
+            <div
+              class="mb-6 inline-flex h-16 w-16 items-center justify-center overflow-hidden rounded-lg bg-white/80 shadow-lg shadow-sky-500/10 ring-1 ring-slate-200/80 dark:bg-white/10 dark:ring-white/10"
+            >
+              <img :src="siteLogo || '/logo.png'" alt="Logo" class="h-full w-full object-contain" />
+            </div>
+            <h1 class="text-gradient mb-3 text-4xl font-bold">
+              {{ siteName }}
+            </h1>
+            <p class="max-w-lg text-base leading-7 text-slate-600 dark:text-slate-300">
+              {{ siteSubtitle }}
+            </p>
+          </template>
+
+          <div class="mt-10 grid max-w-lg grid-cols-3 gap-3">
+            <div
+              v-for="item in authHighlights"
+              :key="item.label"
+              class="rounded-lg border border-white/70 bg-white/60 p-4 shadow-sm backdrop-blur dark:border-white/10 dark:bg-white/5"
+            >
+              <p class="text-xs text-slate-500 dark:text-slate-400">
+                {{ item.label }}
+              </p>
+              <p class="mt-2 text-sm font-semibold text-slate-900 dark:text-white">
+                {{ item.value }}
+              </p>
+            </div>
           </div>
-          <h1 class="text-gradient mb-2 text-3xl font-bold">
-            {{ siteName }}
-          </h1>
-          <p class="text-sm text-gray-500 dark:text-dark-400">
-            {{ siteSubtitle }}
-          </p>
-        </template>
-      </div>
 
-      <!-- Card Container -->
-      <div class="card-glass rounded-2xl p-8 shadow-glass">
-        <slot />
-      </div>
+          <div
+            class="mt-8 max-w-lg border-l-4 border-sky-500 bg-white/50 px-5 py-4 text-sm leading-6 text-slate-600 backdrop-blur dark:bg-white/[0.04] dark:text-slate-300"
+          >
+            支持多模型供应商接入，提供统一 API 管理、用量统计和软件开发交流支持。
+          </div>
+        </div>
+      </section>
 
-      <!-- Footer Links -->
-      <div class="mt-6 text-center text-sm">
-        <slot name="footer" />
-      </div>
+      <div class="mx-auto w-full max-w-md">
+        <div class="mb-8 text-center lg:hidden">
+          <template v-if="settingsLoaded">
+            <div
+              class="mb-4 inline-flex h-16 w-16 items-center justify-center overflow-hidden rounded-lg bg-white/80 shadow-lg shadow-sky-500/10 ring-1 ring-slate-200/80 dark:bg-white/10 dark:ring-white/10"
+            >
+              <img :src="siteLogo || '/logo.png'" alt="Logo" class="h-full w-full object-contain" />
+            </div>
+            <h1 class="text-gradient mb-2 text-3xl font-bold">
+              {{ siteName }}
+            </h1>
+            <p class="text-sm text-slate-500 dark:text-slate-400">
+              {{ siteSubtitle }}
+            </p>
+          </template>
+        </div>
 
-      <!-- Copyright -->
-      <div class="mt-8 text-center text-xs text-gray-400 dark:text-dark-500">
-        &copy; {{ currentYear }} ISACAPI. All rights reserved.
+        <div class="card-glass rounded-lg p-8 shadow-glass">
+          <slot />
+        </div>
+
+        <div class="mt-6 text-center text-sm">
+          <slot name="footer" />
+        </div>
+
+        <div
+          class="mt-5 rounded-lg border border-slate-200/80 bg-white/75 px-4 py-3 text-center text-xs text-slate-600 shadow-sm backdrop-blur dark:border-white/10 dark:bg-white/[0.06] dark:text-slate-300"
+        >
+          <span>软件开发交流 QQ 群：</span>
+          <span class="font-semibold text-slate-900 dark:text-white">{{ qqGroup }}</span>
+        </div>
+
+        <div
+          class="mt-5 space-y-2 text-center text-xs text-slate-500 dark:text-slate-400"
+          dir="ltr"
+        >
+          <p>&copy; 2026 ISACAI. All rights reserved. 软件开发交流联系方式：{{ qqGroup }}</p>
+          <a
+            href="https://beian.miit.gov.cn"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="inline-flex text-slate-500 transition-colors hover:text-primary-600 dark:text-slate-400 dark:hover:text-primary-300"
+          >
+            粤ICP备2026050877号
+          </a>
+        </div>
       </div>
     </div>
   </div>
@@ -69,12 +117,17 @@ import { sanitizeUrl } from '@/utils/url'
 
 const appStore = useAppStore()
 
-const siteName = computed(() => appStore.siteName || 'ISACAPI')
+const siteName = computed(() => appStore.siteName || 'ISACAI')
 const siteLogo = computed(() => sanitizeUrl(appStore.siteLogo || '', { allowRelative: true, allowDataUrl: true }))
 const siteSubtitle = computed(() => appStore.cachedPublicSettings?.site_subtitle || 'AI API Service Platform')
 const settingsLoaded = computed(() => appStore.publicSettingsLoaded)
 
-const currentYear = computed(() => new Date().getFullYear())
+const qqGroup = '1027890648'
+const authHighlights = [
+  { label: '统一接口', value: 'OpenAI Compatible' },
+  { label: '模型供应商', value: '30+' },
+  { label: '开发交流', value: `QQ ${qqGroup}` },
+]
 
 onMounted(() => {
   appStore.fetchPublicSettings()
