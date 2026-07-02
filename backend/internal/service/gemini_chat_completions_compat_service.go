@@ -455,6 +455,11 @@ func (s *GeminiMessagesCompatService) handleChatCompletionsNonStreamingResponseF
 	if err != nil {
 		return nil, s.writeChatCompletionsError(c, http.StatusBadGateway, "upstream_error", "Failed to parse upstream response")
 	}
+	if s != nil && s.cfg != nil && s.cfg.ConversationArchive.Enabled {
+		if body, err := json.Marshal(chatResp); err == nil {
+			captureOpenAIChatCompletionsResponseFromJSON(c, body)
+		}
+	}
 
 	responseheaders.WriteFilteredHeaders(c.Writer.Header(), resp.Header, s.responseHeaderFilter)
 	c.JSON(http.StatusOK, chatResp)
@@ -783,6 +788,9 @@ func (s *GeminiMessagesCompatService) handleChatCompletionsStreamingResponseFrom
 
 	_, _ = io.WriteString(c.Writer, "data: [DONE]\n\n")
 	flusher.Flush()
+	if s != nil && s.cfg != nil && s.cfg.ConversationArchive.Enabled {
+		capturePlainAssistantText(c, seenText, messageID, stopReason)
+	}
 
 	return &geminiStreamResult{usage: &usage, firstTokenMs: firstTokenMs}, nil
 }

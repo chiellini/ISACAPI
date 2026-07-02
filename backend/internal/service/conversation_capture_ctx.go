@@ -7,24 +7,20 @@ import (
 	"github.com/tidwall/gjson"
 )
 
-// openAICapturedResponseKey 是暂存采集到的 assistant 响应的 gin.Context 键。
 const openAICapturedResponseKey = "conv_openai_captured_response"
 
-// OpenAICapturedResponse 是从响应（流式聚合或非流式 JSON）提取的 assistant 输出。
-// 仅用于对话存档旁路；与转发/计费无关。
+// OpenAICapturedResponse is assistant output captured on the forwarding path.
+// It is used only by conversation archival and does not affect billing.
 type OpenAICapturedResponse struct {
 	Text         string
 	ResponseID   string
 	FinishReason string
 }
 
-// conversationCaptureEnabled 报告是否启用对话存档（用于在转发路径上廉价短路）。
 func (s *OpenAIGatewayService) conversationCaptureEnabled() bool {
 	return s != nil && s.cfg != nil && s.cfg.ConversationArchive.Enabled
 }
 
-// openAIResponseAccumulator 在流式转发时旁路聚合 assistant 文本与 response id。
-// 仅追加，不影响向客户端的写出。
 type openAIResponseAccumulator struct {
 	text         strings.Builder
 	responseID   string
@@ -35,7 +31,6 @@ func newOpenAIResponseAccumulator() *openAIResponseAccumulator {
 	return &openAIResponseAccumulator{}
 }
 
-// observeSSE 观察一条 SSE data 负载，累积输出文本并捕获 response id/状态。
 func (a *openAIResponseAccumulator) observeSSE(data []byte) {
 	if a == nil || len(data) == 0 {
 		return
@@ -52,11 +47,64 @@ func (a *openAIResponseAccumulator) observeSSE(data []byte) {
 		if st := gjson.GetBytes(data, "response.status").String(); st != "" {
 			a.finishReason = st
 		}
-		// 终止事件若无增量文本（罕见），从最终 response.output 兜底提取。
 		if a.text.Len() == 0 {
 			if text := openAITextFromResponseOutput(data); text != "" {
 				a.text.WriteString(text)
 			}
+		}
+	}
+}
+
+func (a *openAIResponseAccumulator) observeChatCompletionsSSE(data []byte) {
+	if a == nil || len(data) == 0 {
+		return
+	}
+	if id := gjson.GetBytes(data, "id").String(); id != "" {
+		a.responseID = id
+	}
+	gjson.GetBytes(data, "choices").ForEach(func(_, choice gjson.Result) bool {
+		if d := choice.Get("delta.content").String(); d != "" {
+			a.text.WriteString(d)
+		}
+		if t := choice.Get("message.content").String(); t != "" && a.text.Len() == 0 {
+			a.text.WriteString(t)
+		}
+		if fr := choice.Get("finish_reason").String(); fr != "" {
+			a.finishReason = fr
+		}
+		return true
+	})
+}
+
+func (a *openAIResponseAccumulator) observeAnthropicSSE(data []byte) {
+	if a == nil || len(data) == 0 {
+		return
+	}
+	switch strings.TrimSpace(gjson.GetBytes(data, "type").String()) {
+	case "message_start":
+		if id := gjson.GetBytes(data, "message.id").String(); id != "" {
+			a.responseID = id
+		}
+		if a.text.Len() == 0 {
+			if text := anthropicTextFromContent(gjson.GetBytes(data, "message.content")); text != "" {
+				a.text.WriteString(text)
+			}
+		}
+	case "content_block_start":
+		if text := gjson.GetBytes(data, "content_block.text").String(); text != "" {
+			a.text.WriteString(text)
+		}
+	case "content_block_delta":
+		if text := gjson.GetBytes(data, "delta.text").String(); text != "" {
+			a.text.WriteString(text)
+		}
+	case "message_delta":
+		if fr := gjson.GetBytes(data, "delta.stop_reason").String(); fr != "" {
+			a.finishReason = fr
+		}
+	case "message_stop":
+		if a.finishReason == "" {
+			a.finishReason = "end_turn"
 		}
 	}
 }
@@ -72,7 +120,6 @@ func (a *openAIResponseAccumulator) result() OpenAICapturedResponse {
 	}
 }
 
-// openAITextFromResponseOutput 从 {response:{output:[{content:[{type:output_text,text}]}]}} 提取文本。
 func openAITextFromResponseOutput(data []byte) string {
 	var b strings.Builder
 	gjson.GetBytes(data, "response.output").ForEach(func(_, item gjson.Result) bool {
@@ -92,7 +139,23 @@ func openAITextFromResponseOutput(data []byte) string {
 	return strings.TrimSpace(b.String())
 }
 
-// SetOpenAICapturedResponseAccumulator 在流式路径上暂存聚合器指针（同一请求 goroutine 上稍后读取其结果）。
+func anthropicTextFromContent(content gjson.Result) string {
+	var b strings.Builder
+	content.ForEach(func(_, c gjson.Result) bool {
+		if c.Get("type").String() != "text" {
+			return true
+		}
+		if t := c.Get("text").String(); t != "" {
+			if b.Len() > 0 {
+				b.WriteString("\n")
+			}
+			b.WriteString(t)
+		}
+		return true
+	})
+	return strings.TrimSpace(b.String())
+}
+
 func SetOpenAICapturedResponseAccumulator(c *gin.Context, acc *openAIResponseAccumulator) {
 	if c == nil || acc == nil {
 		return
@@ -100,7 +163,6 @@ func SetOpenAICapturedResponseAccumulator(c *gin.Context, acc *openAIResponseAcc
 	c.Set(openAICapturedResponseKey, acc)
 }
 
-// SetOpenAICapturedResponse 在非流式路径上直接暂存已提取的结果。
 func SetOpenAICapturedResponse(c *gin.Context, r OpenAICapturedResponse) {
 	if c == nil {
 		return
@@ -108,24 +170,91 @@ func SetOpenAICapturedResponse(c *gin.Context, r OpenAICapturedResponse) {
 	c.Set(openAICapturedResponseKey, r)
 }
 
-// captureOpenAIResponseFromJSON 从非流式最终 JSON 响应体提取 assistant 输出并暂存进 context。
+func setCapturedAssistantText(c *gin.Context, text, responseID, finishReason string) {
+	text = strings.TrimSpace(text)
+	if text == "" && strings.TrimSpace(responseID) == "" {
+		return
+	}
+	SetOpenAICapturedResponse(c, OpenAICapturedResponse{
+		Text:         text,
+		ResponseID:   strings.TrimSpace(responseID),
+		FinishReason: strings.TrimSpace(finishReason),
+	})
+}
+
 func captureOpenAIResponseFromJSON(c *gin.Context, body []byte) {
 	ext := ExtractOpenAIResponsesResponse(body)
 	text := ""
 	if len(ext.AssistantEvents) > 0 {
 		text = ext.AssistantEvents[0].Content
 	}
-	if text == "" && ext.ResponseID == "" {
-		return
-	}
-	SetOpenAICapturedResponse(c, OpenAICapturedResponse{
-		Text:         text,
-		ResponseID:   ext.ResponseID,
-		FinishReason: ext.FinishReason,
-	})
+	setCapturedAssistantText(c, text, ext.ResponseID, ext.FinishReason)
 }
 
-// GetOpenAICapturedResponse 取出采集到的 assistant 响应（兼容流式聚合器与非流式结果）。
+func captureOpenAIChatCompletionsResponseFromJSON(c *gin.Context, body []byte) {
+	var b strings.Builder
+	gjson.GetBytes(body, "choices").ForEach(func(_, choice gjson.Result) bool {
+		if t := choice.Get("message.content").String(); t != "" {
+			if b.Len() > 0 {
+				b.WriteString("\n")
+			}
+			b.WriteString(t)
+		}
+		return true
+	})
+	finishReason := ""
+	gjson.GetBytes(body, "choices").ForEach(func(_, choice gjson.Result) bool {
+		if fr := choice.Get("finish_reason").String(); fr != "" {
+			finishReason = fr
+			return false
+		}
+		return true
+	})
+	setCapturedAssistantText(c, b.String(), gjson.GetBytes(body, "id").String(), finishReason)
+}
+
+func captureAnthropicResponseFromJSON(c *gin.Context, body []byte) {
+	ext := ExtractAnthropicMessagesResponse(body)
+	text := ""
+	if len(ext.AssistantEvents) > 0 {
+		text = ext.AssistantEvents[0].Content
+	}
+	setCapturedAssistantText(c, text, ext.ResponseID, ext.FinishReason)
+}
+
+func captureGeminiResponseFromJSON(c *gin.Context, body []byte) {
+	root := gjson.ParseBytes(body)
+	if response := root.Get("response"); response.Exists() {
+		root = response
+	}
+	var b strings.Builder
+	root.Get("candidates").ForEach(func(_, candidate gjson.Result) bool {
+		candidate.Get("content.parts").ForEach(func(_, part gjson.Result) bool {
+			if t := part.Get("text").String(); t != "" {
+				if b.Len() > 0 {
+					b.WriteString("\n")
+				}
+				b.WriteString(t)
+			}
+			return true
+		})
+		return true
+	})
+	finishReason := ""
+	root.Get("candidates").ForEach(func(_, candidate gjson.Result) bool {
+		if fr := candidate.Get("finishReason").String(); fr != "" {
+			finishReason = fr
+			return false
+		}
+		return true
+	})
+	setCapturedAssistantText(c, b.String(), firstNonEmptyString(root.Get("responseId").String(), root.Get("modelVersion").String()), finishReason)
+}
+
+func capturePlainAssistantText(c *gin.Context, text, responseID, finishReason string) {
+	setCapturedAssistantText(c, text, responseID, finishReason)
+}
+
 func GetOpenAICapturedResponse(c *gin.Context) (OpenAICapturedResponse, bool) {
 	if c == nil {
 		return OpenAICapturedResponse{}, false

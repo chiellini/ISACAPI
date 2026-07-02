@@ -206,6 +206,13 @@ gateway:
   #
   # 注意：开启后会影响所有客户端的行为（不仅限于 VS Code / Codex CLI），请谨慎开启。
   force_codex_cli: false
+  # Local heuristic routing for requests likely to trigger cyber-abuse policy.
+  # 本地启发式检测可能触发 cyber abuse 的客户请求；命中时仅改写 model，不绕过上游安全策略。
+  cyber_risk_model_routing:
+    enabled: false
+    source_model: "gpt-5.5"
+    target_model: "gpt-5.3"
+    min_score: 4
   # Enable Codex image-generation bridge injection for /openai/v1/responses.
   # 是否为 Codex /responses 请求自动注入 image_generation 工具与桥接指令。
   #

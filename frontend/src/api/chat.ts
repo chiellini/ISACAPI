@@ -30,7 +30,14 @@ export interface StreamHandlers {
 
 interface ImageGenerationItem {
   b64_json?: string
+  result?: string
+  base64?: string
+  image_base64?: string
   url?: string
+  mime_type?: string
+  mimeType?: string
+  content_type?: string
+  output_format?: string
 }
 
 type UnknownRecord = Record<string, unknown>
@@ -48,11 +55,30 @@ function responseErrorMessage(detail: string, status: number, fallback: string):
   return trimmed
 }
 
+function firstTrimmedString(...values: unknown[]): string {
+  for (const value of values) {
+    if (typeof value !== 'string') continue
+    const trimmed = value.trim()
+    if (trimmed) return trimmed
+  }
+  return ''
+}
+
+function imageMimeType(item: ImageGenerationItem): string {
+  const explicit = firstTrimmedString(item.mime_type, item.mimeType, item.content_type)
+  if (explicit.toLowerCase().startsWith('image/')) return explicit
+
+  const format = firstTrimmedString(item.output_format).toLowerCase()
+  if (!format) return 'image/png'
+  if (format === 'jpg') return 'image/jpeg'
+  return `image/${format}`
+}
+
 function imageItemToSrc(item: ImageGenerationItem): string {
-  const b64 = item.b64_json?.trim()
+  const b64 = firstTrimmedString(item.b64_json, item.result, item.base64, item.image_base64)
   if (b64) {
     if (b64.startsWith('data:image/')) return b64
-    return `data:image/png;base64,${b64}`
+    return `data:${imageMimeType(item)};base64,${b64}`
   }
   return item.url?.trim() || ''
 }
@@ -82,6 +108,20 @@ function collectImagesFromPayload(payload: unknown, out: string[], eventName = '
   if (streamKind.includes('partial_image')) return
   if (streamKind && !streamKind.includes('completed') && !streamKind.includes('output_item.done')) return
   addImageSrc(out, obj as ImageGenerationItem)
+
+  const item = asRecord(obj.item)
+  if (item) addImageSrc(out, item as ImageGenerationItem)
+
+  const response = asRecord(obj.response)
+  const output = Array.isArray(obj.output)
+    ? obj.output
+    : Array.isArray(response?.output)
+      ? response.output
+      : []
+  for (const candidate of output) {
+    const image = asRecord(candidate)
+    if (image) addImageSrc(out, image as ImageGenerationItem)
+  }
 }
 
 function imageStreamError(payload: unknown, eventName = ''): string {

@@ -6267,6 +6267,9 @@ func (s *GatewayService) handleNonStreamingResponseAnthropicAPIKeyPassthrough(
 		contentType = "application/json"
 	}
 	body = reverseToolNamesIfPresent(c, body)
+	if s != nil && s.cfg != nil && s.cfg.ConversationArchive.Enabled {
+		captureAnthropicResponseFromJSON(c, body)
+	}
 	c.Data(resp.StatusCode, contentType, body)
 	return usage, nil
 }
@@ -8211,6 +8214,11 @@ func (s *GatewayService) handleStreamingResponse(ctx context.Context, resp *http
 	needModelReplace := originalModel != mappedModel
 	clientDisconnected := false // 客户端断开标志，断开后继续读取上游以获取完整usage
 	sawTerminalEvent := false
+	var captureAcc *openAIResponseAccumulator
+	if s != nil && s.cfg != nil && s.cfg.ConversationArchive.Enabled {
+		captureAcc = newOpenAIResponseAccumulator()
+		SetOpenAICapturedResponseAccumulator(c, captureAcc)
+	}
 
 	pendingEventLines := make([]string, 0, 4)
 
@@ -8248,6 +8256,9 @@ func (s *GatewayService) handleStreamingResponse(ctx context.Context, resp *http
 			}
 			block += "data: " + dataLine + "\n\n"
 			return []string{block}, dataLine, nil, nil
+		}
+		if captureAcc != nil {
+			captureAcc.observeAnthropicSSE([]byte(dataLine))
 		}
 
 		var event map[string]any
@@ -8773,6 +8784,9 @@ func (s *GatewayService) handleNonStreamingResponse(ctx context.Context, resp *h
 	body = reverseToolNamesIfPresent(c, body)
 
 	// 写入响应
+	if s != nil && s.cfg != nil && s.cfg.ConversationArchive.Enabled {
+		captureAnthropicResponseFromJSON(c, body)
+	}
 	c.Data(resp.StatusCode, contentType, body)
 
 	return &response.Usage, nil

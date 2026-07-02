@@ -309,6 +309,7 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 				)
 			}
 		})
+		h.captureChatCompletionsConversation(c, body, result, apiKey, subject.UserID, account)
 		return
 	}
 }

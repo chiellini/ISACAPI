@@ -697,6 +697,15 @@ type ImageConcurrencyConfig struct {
 	MaxWaitingRequests int `mapstructure:"max_waiting_requests"`
 }
 
+// CyberRiskModelRoutingConfig controls local pre-routing for requests that look
+// likely to trigger upstream cyber-abuse policy handling.
+type CyberRiskModelRoutingConfig struct {
+	Enabled     bool   `mapstructure:"enabled"`
+	SourceModel string `mapstructure:"source_model"`
+	TargetModel string `mapstructure:"target_model"`
+	MinScore    int    `mapstructure:"min_score"`
+}
+
 const (
 	ImageConcurrencyOverflowModeReject = "reject"
 	ImageConcurrencyOverflowModeWait   = "wait"
@@ -745,6 +754,8 @@ type GatewayConfig struct {
 	OpenAIHTTP2 GatewayOpenAIHTTP2Config `mapstructure:"openai_http2"`
 	// ImageConcurrency: 图片生成独立并发限制配置（默认关闭）
 	ImageConcurrency ImageConcurrencyConfig `mapstructure:"image_concurrency"`
+	// CyberRiskModelRouting locally routes high cyber-risk OpenAI requests to a fallback model.
+	CyberRiskModelRouting CyberRiskModelRoutingConfig `mapstructure:"cyber_risk_model_routing"`
 
 	// HTTP 上游连接池配置（性能优化：支持高并发场景调优）
 	// MaxIdleConns: 所有主机的最大空闲连接总数
@@ -1996,6 +2007,10 @@ func setDefaults() {
 	viper.SetDefault("gateway.image_concurrency.overflow_mode", ImageConcurrencyOverflowModeReject)
 	viper.SetDefault("gateway.image_concurrency.wait_timeout_seconds", 30)
 	viper.SetDefault("gateway.image_concurrency.max_waiting_requests", 100)
+	viper.SetDefault("gateway.cyber_risk_model_routing.enabled", false)
+	viper.SetDefault("gateway.cyber_risk_model_routing.source_model", "gpt-5.5")
+	viper.SetDefault("gateway.cyber_risk_model_routing.target_model", "gpt-5.3")
+	viper.SetDefault("gateway.cyber_risk_model_routing.min_score", 4)
 	viper.SetDefault("gateway.antigravity_fallback_cooldown_minutes", 1)
 	viper.SetDefault("gateway.antigravity_extra_retries", 10)
 	viper.SetDefault("gateway.max_body_size", int64(256*1024*1024))
@@ -2590,6 +2605,22 @@ func (c *Config) Validate() error {
 	}
 	if c.Gateway.ImageConcurrency.MaxWaitingRequests < 0 {
 		return fmt.Errorf("gateway.image_concurrency.max_waiting_requests must be non-negative")
+	}
+	if c.Gateway.CyberRiskModelRouting.MinScore < 0 {
+		return fmt.Errorf("gateway.cyber_risk_model_routing.min_score must be non-negative")
+	}
+	if c.Gateway.CyberRiskModelRouting.Enabled {
+		sourceModel := strings.TrimSpace(c.Gateway.CyberRiskModelRouting.SourceModel)
+		targetModel := strings.TrimSpace(c.Gateway.CyberRiskModelRouting.TargetModel)
+		if sourceModel == "" {
+			return fmt.Errorf("gateway.cyber_risk_model_routing.source_model is required when enabled")
+		}
+		if targetModel == "" {
+			return fmt.Errorf("gateway.cyber_risk_model_routing.target_model is required when enabled")
+		}
+		if strings.EqualFold(sourceModel, targetModel) {
+			return fmt.Errorf("gateway.cyber_risk_model_routing.target_model must differ from source_model")
+		}
 	}
 	if c.Gateway.MaxIdleConns <= 0 {
 		return fmt.Errorf("gateway.max_idle_conns must be positive")

@@ -37,3 +37,30 @@ func TestOpenAITextFromResponseOutput(t *testing.T) {
 		t.Fatalf("got %q", got)
 	}
 }
+
+func TestOpenAIResponseAccumulator_ChatCompletions(t *testing.T) {
+	acc := newOpenAIResponseAccumulator()
+	acc.observeChatCompletionsSSE([]byte(`{"id":"chatcmpl_1","choices":[{"delta":{"content":"Hel"}}]}`))
+	acc.observeChatCompletionsSSE([]byte(`{"id":"chatcmpl_1","choices":[{"delta":{"content":"lo"},"finish_reason":"stop"}]}`))
+	got := acc.result()
+	if got.Text != "Hello" {
+		t.Fatalf("text = %q, want Hello", got.Text)
+	}
+	if got.ResponseID != "chatcmpl_1" || got.FinishReason != "stop" {
+		t.Fatalf("got %+v", got)
+	}
+}
+
+func TestOpenAIResponseAccumulator_Anthropic(t *testing.T) {
+	acc := newOpenAIResponseAccumulator()
+	acc.observeAnthropicSSE([]byte(`{"type":"message_start","message":{"id":"msg_1","content":[]}}`))
+	acc.observeAnthropicSSE([]byte(`{"type":"content_block_delta","delta":{"type":"text_delta","text":"Hi"}}`))
+	acc.observeAnthropicSSE([]byte(`{"type":"message_delta","delta":{"stop_reason":"end_turn"}}`))
+	got := acc.result()
+	if got.Text != "Hi" {
+		t.Fatalf("text = %q, want Hi", got.Text)
+	}
+	if got.ResponseID != "msg_1" || got.FinishReason != "end_turn" {
+		t.Fatalf("got %+v", got)
+	}
+}

@@ -1590,6 +1590,9 @@ func (s *GeminiMessagesCompatService) ForwardNative(ctx context.Context, c *gin.
 				return nil, s.writeGoogleError(c, http.StatusBadGateway, "Failed to read upstream stream")
 			}
 			b, _ := json.Marshal(collected)
+			if s != nil && s.cfg != nil && s.cfg.ConversationArchive.Enabled {
+				captureGeminiResponseFromJSON(c, b)
+			}
 			c.Data(http.StatusOK, "application/json", b)
 			usage = usageObj
 		} else {
@@ -1960,6 +1963,11 @@ func (s *GeminiMessagesCompatService) handleNonStreamingResponse(c *gin.Context,
 	}
 
 	claudeResp, usage := convertGeminiToClaudeMessage(geminiResp, originalModel, unwrappedBody)
+	if s != nil && s.cfg != nil && s.cfg.ConversationArchive.Enabled {
+		if body, err := json.Marshal(claudeResp); err == nil {
+			captureAnthropicResponseFromJSON(c, body)
+		}
+	}
 	c.JSON(http.StatusOK, claudeResp)
 
 	return usage, nil
@@ -2230,6 +2238,9 @@ func (s *GeminiMessagesCompatService) handleStreamingResponse(c *gin.Context, re
 		"type": "message_stop",
 	})
 	flusher.Flush()
+	if s != nil && s.cfg != nil && s.cfg.ConversationArchive.Enabled {
+		capturePlainAssistantText(c, seenText, messageID, stopReason)
+	}
 
 	return &geminiStreamResult{usage: &usage, firstTokenMs: firstTokenMs}, nil
 }
@@ -2529,6 +2540,9 @@ func (s *GeminiMessagesCompatService) handleNativeNonStreamingResponse(c *gin.Co
 	if contentType == "" {
 		contentType = "application/json"
 	}
+	if s != nil && s.cfg != nil && s.cfg.ConversationArchive.Enabled {
+		captureGeminiResponseFromJSON(c, respBody)
+	}
 	c.Data(resp.StatusCode, contentType, respBody)
 
 	if u := extractGeminiUsage(respBody); u != nil {
@@ -2571,6 +2585,9 @@ func (s *GeminiMessagesCompatService) handleNativeStreamingResponse(c *gin.Conte
 	reader := bufio.NewReader(resp.Body)
 	usage := &ClaudeUsage{}
 	var firstTokenMs *int
+	seenText := ""
+	responseID := ""
+	finishReason := ""
 
 	for {
 		line, err := reader.ReadString('\n')
@@ -2600,6 +2617,21 @@ func (s *GeminiMessagesCompatService) handleNativeStreamingResponse(c *gin.Conte
 					if u := extractGeminiUsage(rawBytes); u != nil {
 						usage = u
 					}
+					var geminiResp map[string]any
+					if err := json.Unmarshal(rawBytes, &geminiResp); err == nil {
+						if fr := extractGeminiFinishReason(geminiResp); fr != "" {
+							finishReason = fr
+						}
+						if id := gjson.GetBytes(rawBytes, "responseId").String(); id != "" {
+							responseID = id
+						}
+						for _, part := range extractGeminiParts(geminiResp) {
+							if text, ok := part["text"].(string); ok && text != "" {
+								_, newSeen := computeGeminiTextDelta(seenText, text)
+								seenText = newSeen
+							}
+						}
+					}
 
 					if firstTokenMs == nil {
 						ms := int(time.Since(startTime).Milliseconds())
@@ -2627,6 +2659,9 @@ func (s *GeminiMessagesCompatService) handleNativeStreamingResponse(c *gin.Conte
 		if err != nil {
 			return nil, err
 		}
+	}
+	if s != nil && s.cfg != nil && s.cfg.ConversationArchive.Enabled {
+		capturePlainAssistantText(c, seenText, responseID, finishReason)
 	}
 
 	return &geminiNativeStreamResult{usage: usage, firstTokenMs: firstTokenMs}, nil

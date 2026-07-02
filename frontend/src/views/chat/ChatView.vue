@@ -192,6 +192,7 @@ interface UiMessage {
   role: 'user' | 'assistant'
   content: string
   images?: string[]
+  imageRefs?: string[]
   attachments?: Attachment[]
 }
 // 侧栏只保留会话元数据；消息按需从服务端拉取。
@@ -200,6 +201,25 @@ interface SessionMeta {
   title: string
   model: string
 }
+
+interface StoredChatImage {
+  id: string
+  sessionId: number
+  dataUrl: string
+  createdAt: number
+}
+
+interface StoredImageMessagePayload {
+  type: typeof IMAGE_MESSAGE_PAYLOAD_TYPE
+  version: 1
+  content?: string
+  imageRefs?: string[]
+}
+
+const IMAGE_MESSAGE_PAYLOAD_TYPE = 'isac-chat-local-images'
+const CHAT_IMAGE_DB_NAME = 'isac-chat-images'
+const CHAT_IMAGE_STORE = 'images'
+let chatImageDBPromise: Promise<IDBDatabase> | null = null
 
 const sessions = ref<SessionMeta[]>([])
 const currentId = ref(0)
@@ -219,6 +239,139 @@ const canSend = computed(
 
 function isImageModel(id: string): boolean {
   return id.startsWith('gpt-image-')
+}
+
+function openChatImageDB(): Promise<IDBDatabase> {
+  if (chatImageDBPromise) return chatImageDBPromise
+  const promise = new Promise<IDBDatabase>((resolve, reject) => {
+    if (typeof indexedDB === 'undefined') {
+      reject(new Error('IndexedDB unavailable'))
+      return
+    }
+    const req = indexedDB.open(CHAT_IMAGE_DB_NAME, 1)
+    req.onupgradeneeded = () => {
+      const db = req.result
+      if (!db.objectStoreNames.contains(CHAT_IMAGE_STORE)) {
+        const store = db.createObjectStore(CHAT_IMAGE_STORE, { keyPath: 'id' })
+        store.createIndex('sessionId', 'sessionId', { unique: false })
+      }
+    }
+    req.onsuccess = () => resolve(req.result)
+    req.onerror = () => reject(req.error || new Error('open image store failed'))
+  }).catch((err) => {
+    chatImageDBPromise = null
+    throw err
+  })
+  chatImageDBPromise = promise
+  return promise
+}
+
+function newLocalImageId(sessionId: number): string {
+  const random = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`
+  return `chat-image:${sessionId}:${random}`
+}
+
+async function putLocalImage(sessionId: number, dataUrl: string): Promise<string> {
+  const trimmed = dataUrl.trim()
+  if (!trimmed) return ''
+  if (!trimmed.startsWith('data:image/')) return trimmed
+  const id = newLocalImageId(sessionId)
+  const db = await openChatImageDB()
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(CHAT_IMAGE_STORE, 'readwrite')
+    tx.objectStore(CHAT_IMAGE_STORE).put({
+      id,
+      sessionId,
+      dataUrl: trimmed,
+      createdAt: Date.now(),
+    } satisfies StoredChatImage)
+    tx.oncomplete = () => resolve()
+    tx.onerror = () => reject(tx.error || new Error('save image failed'))
+    tx.onabort = () => reject(tx.error || new Error('save image aborted'))
+  })
+  return id
+}
+
+async function getLocalImage(ref: string): Promise<string> {
+  const trimmed = ref.trim()
+  if (!trimmed || trimmed.startsWith('data:image/') || /^https?:\/\//i.test(trimmed)) return trimmed
+  const db = await openChatImageDB()
+  return new Promise((resolve) => {
+    const tx = db.transaction(CHAT_IMAGE_STORE, 'readonly')
+    const req = tx.objectStore(CHAT_IMAGE_STORE).get(trimmed)
+    req.onsuccess = () => resolve((req.result as StoredChatImage | undefined)?.dataUrl || '')
+    req.onerror = () => resolve('')
+  })
+}
+
+async function saveLocalImages(sessionId: number, images: string[]): Promise<string[]> {
+  const refs: string[] = []
+  for (const src of images) {
+    try {
+      const ref = await putLocalImage(sessionId, src)
+      if (ref) refs.push(ref)
+    } catch {
+      if (src.trim()) refs.push(src.trim())
+    }
+  }
+  return refs
+}
+
+async function loadLocalImages(refs: string[] = []): Promise<string[]> {
+  const images: string[] = []
+  for (const ref of refs) {
+    try {
+      const src = await getLocalImage(ref)
+      if (src) images.push(src)
+    } catch {
+      if (ref.startsWith('data:image/') || /^https?:\/\//i.test(ref)) images.push(ref)
+    }
+  }
+  return images
+}
+
+function parseStoredImageMessage(content: string): StoredImageMessagePayload | null {
+  if (!content.trim().startsWith('{')) return null
+  try {
+    const payload = JSON.parse(content) as Partial<StoredImageMessagePayload>
+    if (payload.type !== IMAGE_MESSAGE_PAYLOAD_TYPE || payload.version !== 1) return null
+    return {
+      type: IMAGE_MESSAGE_PAYLOAD_TYPE,
+      version: 1,
+      content: typeof payload.content === 'string' ? payload.content : '',
+      imageRefs: Array.isArray(payload.imageRefs)
+        ? payload.imageRefs.filter((ref): ref is string => typeof ref === 'string' && !!ref.trim())
+        : [],
+    }
+  } catch {
+    return null
+  }
+}
+
+function serializeServerContent(message: UiMessage): string {
+  if (message.imageRefs?.length) {
+    const payload: StoredImageMessagePayload = {
+      type: IMAGE_MESSAGE_PAYLOAD_TYPE,
+      version: 1,
+      content: message.content,
+      imageRefs: message.imageRefs,
+    }
+    return JSON.stringify(payload)
+  }
+  return message.content
+}
+
+async function fromServerMessage(message: ServerMessage): Promise<UiMessage> {
+  const payload = parseStoredImageMessage(message.content)
+  if (!payload) return { role: message.role, content: message.content }
+
+  const images = await loadLocalImages(payload.imageRefs)
+  return {
+    role: message.role,
+    content: payload.content || (images.length ? '' : t('chat.noImage')),
+    images: images.length ? images : undefined,
+    imageRefs: payload.imageRefs,
+  }
 }
 
 // ───────── 友好错误映射 ─────────
@@ -245,13 +398,13 @@ function friendlyError(err: Error): string {
   return msg || t('chat.errGeneric')
 }
 
-// ───────── 历史持久化（服务端，跨设备同步；图片不落库） ─────────
+// ───────── 历史持久化（服务端保存文本，本地保存生成图） ─────────
 
-// 仅保存文本消息（占位/纯图片消息跳过），与服务端"图片不持久化"一致。
+// 服务端只保存文本和本地图片引用；图片 data URL 放在浏览器 IndexedDB。
 function toServerMessages(): ServerMessage[] {
   return messages.value
-    .filter((m) => m.content)
-    .map((m) => ({ role: m.role, content: m.content }))
+    .filter((m) => m.content || m.imageRefs?.length)
+    .map((m) => ({ role: m.role, content: serializeServerContent(m) }))
 }
 
 function currentMeta(): SessionMeta | undefined {
@@ -307,7 +460,7 @@ async function switchSession(id: number) {
   try {
     const s = await apiGetSession(id)
     currentId.value = id
-    messages.value = (s.messages || []).map((m) => ({ role: m.role, content: m.content }))
+    messages.value = await Promise.all((s.messages || []).map(fromServerMessage))
     selectedModel.value = s.model || models[0].id
   } catch (e) {
     errorMsg.value = friendlyError(e as Error)
@@ -429,6 +582,7 @@ async function runAssistant() {
     try {
       const imgs = await generateImage({ model: selectedModel.value, prompt: lastUser?.content || '' }, controller.signal)
       assistant.images = imgs
+      assistant.imageRefs = await saveLocalImages(currentId.value, imgs)
       if (!imgs.length) assistant.content = t('chat.noImage')
     } catch (err) {
       errorMsg.value = friendlyError(err as Error)
@@ -441,7 +595,9 @@ async function runAssistant() {
     return
   }
 
-  const apiMessages: ChatMessage[] = history.map((m) => ({ role: m.role, content: toApiContent(m) }))
+  const apiMessages: ChatMessage[] = history
+    .filter((m) => m.content || m.attachments?.length)
+    .map((m) => ({ role: m.role, content: toApiContent(m) }))
   await streamChat(
     { model: selectedModel.value, messages: apiMessages },
     {

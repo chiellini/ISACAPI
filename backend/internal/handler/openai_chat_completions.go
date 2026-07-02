@@ -105,6 +105,23 @@ func (h *OpenAIGatewayHandler) ChatCompletions(c *gin.Context) {
 		}
 	}
 
+	// Route locally high-risk cyber-looking requests to a configured fallback model before account selection.
+	if h.cfg != nil {
+		if routedBody, routeDecision, routed := service.ApplyCyberRiskModelRouting(body, service.ContentModerationProtocolOpenAIChat, h.cfg.Gateway.CyberRiskModelRouting); routed {
+			body = routedBody
+			reqModel = routeDecision.TargetModel
+			setOpsRequestContext(c, reqModel, reqStream)
+			reqLog = reqLog.With(
+				zap.Bool("cyber_risk_model_routed", true),
+				zap.Int("cyber_risk_score", routeDecision.Risk.Score),
+				zap.Strings("cyber_risk_reasons", routeDecision.Risk.Reasons),
+				zap.String("cyber_risk_source_model", routeDecision.SourceModel),
+				zap.String("cyber_risk_target_model", routeDecision.TargetModel),
+			)
+			reqLog.Info("openai_chat_completions.cyber_risk_model_routed")
+		}
+	}
+
 	// 解析渠道级模型映射
 	channelMapping, _ := h.gatewayService.ResolveChannelMappingAndRestrict(c.Request.Context(), apiKey.GroupID, reqModel)
 
@@ -337,6 +354,7 @@ func (h *OpenAIGatewayHandler) ChatCompletions(c *gin.Context) {
 				).Error("openai_chat_completions.record_usage_failed", zap.Error(err))
 			}
 		})
+		h.captureChatCompletionsConversation(c, body, result, apiKey, subject.UserID)
 		reqLog.Debug("openai_chat_completions.request_completed",
 			zap.Int64("account_id", account.ID),
 			zap.Int("switch_count", switchCount),

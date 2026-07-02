@@ -288,6 +288,7 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 				)
 			}
 		})
+		h.captureGatewayResponsesConversation(c, body, result, apiKey, subject.UserID, account)
 		return
 	}
 }

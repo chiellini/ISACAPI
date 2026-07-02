@@ -292,6 +292,23 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 		}
 	}
 
+	// Route locally high-risk cyber-looking requests to a configured fallback model before account selection.
+	if h.cfg != nil {
+		if routedBody, routeDecision, routed := service.ApplyCyberRiskModelRouting(body, service.ContentModerationProtocolOpenAIResponses, h.cfg.Gateway.CyberRiskModelRouting); routed {
+			body = routedBody
+			reqModel = routeDecision.TargetModel
+			setOpsRequestContext(c, reqModel, reqStream)
+			reqLog = reqLog.With(
+				zap.Bool("cyber_risk_model_routed", true),
+				zap.Int("cyber_risk_score", routeDecision.Risk.Score),
+				zap.Strings("cyber_risk_reasons", routeDecision.Risk.Reasons),
+				zap.String("cyber_risk_source_model", routeDecision.SourceModel),
+				zap.String("cyber_risk_target_model", routeDecision.TargetModel),
+			)
+			reqLog.Info("openai.cyber_risk_model_routed")
+		}
+	}
+
 	// 解析渠道级模型映射
 	channelMapping, _ := h.gatewayService.ResolveChannelMappingAndRestrict(c.Request.Context(), apiKey.GroupID, reqModel)
 	forwardBody := openAIModelMappedBody(body, channelMapping.Mapped, channelMapping.MappedModel, h.gatewayService.ReplaceModelInBody)

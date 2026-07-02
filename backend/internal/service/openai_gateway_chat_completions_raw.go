@@ -317,6 +317,11 @@ func (s *OpenAIGatewayService) streamRawChatCompletions(
 	clientOutputStarted := false
 	pendingLines := make([]string, 0, 8)
 	refusalDetector := newOpenAIChatSilentRefusalDetector(requestBodyLen)
+	var captureAcc *openAIResponseAccumulator
+	if s.conversationCaptureEnabled() {
+		captureAcc = newOpenAIResponseAccumulator()
+		SetOpenAICapturedResponseAccumulator(c, captureAcc)
+	}
 
 	writeLine := func(line string) {
 		if clientDisconnected {
@@ -356,6 +361,9 @@ func (s *OpenAIGatewayService) streamRawChatCompletions(
 		if payload, ok := extractOpenAISSEDataLine(line); ok {
 			trimmedPayload := strings.TrimSpace(payload)
 			if trimmedPayload != "[DONE]" {
+				if captureAcc != nil {
+					captureAcc.observeChatCompletionsSSE([]byte(trimmedPayload))
+				}
 				usageOnlyChunk := isOpenAIChatUsageOnlyStreamChunk(payload)
 				if u := extractCCStreamUsage(payload); u != nil {
 					usage = *u
@@ -493,6 +501,9 @@ func (s *OpenAIGatewayService) bufferRawChatCompletions(
 		if ccResp.Usage.PromptTokensDetails != nil {
 			usage.CacheReadInputTokens = ccResp.Usage.PromptTokensDetails.CachedTokens
 		}
+	}
+	if s.conversationCaptureEnabled() {
+		captureOpenAIChatCompletionsResponseFromJSON(c, respBody)
 	}
 
 	if s.responseHeaderFilter != nil {

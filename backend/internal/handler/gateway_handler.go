@@ -50,6 +50,7 @@ type GatewayHandler struct {
 	usageRecordWorkerPool     *service.UsageRecordWorkerPool
 	errorPassthroughService   *service.ErrorPassthroughService
 	contentModerationService  *service.ContentModerationService
+	captureSink               service.CaptureSink
 	concurrencyHelper         *ConcurrencyHelper
 	userMsgQueueHelper        *UserMsgQueueHelper
 	maxAccountSwitches        int
@@ -72,6 +73,7 @@ func NewGatewayHandler(
 	errorPassthroughService *service.ErrorPassthroughService,
 	contentModerationService *service.ContentModerationService,
 	userMsgQueueService *service.UserMessageQueueService,
+	captureSink service.CaptureSink,
 	cfg *config.Config,
 	settingService *service.SettingService,
 ) *GatewayHandler {
@@ -105,6 +107,7 @@ func NewGatewayHandler(
 		usageRecordWorkerPool:     usageRecordWorkerPool,
 		errorPassthroughService:   errorPassthroughService,
 		contentModerationService:  contentModerationService,
+		captureSink:               captureSink,
 		concurrencyHelper:         NewConcurrencyHelper(concurrencyService, SSEPingFormatClaude, pingInterval),
 		userMsgQueueHelper:        umqHelper,
 		maxAccountSwitches:        maxAccountSwitches,
@@ -548,6 +551,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 					).Error("gateway.record_usage_failed", zap.Error(err))
 				}
 			})
+			h.captureAnthropicMessagesConversation(c, body, result, apiKey, subject.UserID, account)
 			return
 		}
 	}
@@ -978,6 +982,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 					).Error("gateway.record_usage_failed", zap.Error(err))
 				}
 			})
+			h.captureAnthropicMessagesConversation(c, attemptParsedReq.Body.Bytes(), result, currentAPIKey, subject.UserID, account)
 			return
 		}
 		if !retryWithFallback {

@@ -227,6 +227,42 @@ func TestLoadOpenAIResponseHeaderTimeoutFromEnv(t *testing.T) {
 	require.Equal(t, 1800, cfg.Gateway.OpenAIResponseHeaderTimeout)
 }
 
+func TestLoadDefaultCyberRiskModelRouting(t *testing.T) {
+	resetViperWithJWTSecret(t)
+
+	cfg, err := Load()
+	require.NoError(t, err)
+	require.False(t, cfg.Gateway.CyberRiskModelRouting.Enabled)
+	require.Equal(t, "gpt-5.5", cfg.Gateway.CyberRiskModelRouting.SourceModel)
+	require.Equal(t, "gpt-5.3", cfg.Gateway.CyberRiskModelRouting.TargetModel)
+	require.Equal(t, 4, cfg.Gateway.CyberRiskModelRouting.MinScore)
+}
+
+func TestLoadCyberRiskModelRoutingFromEnv(t *testing.T) {
+	resetViperWithJWTSecret(t)
+	t.Setenv("GATEWAY_CYBER_RISK_MODEL_ROUTING_ENABLED", "true")
+	t.Setenv("GATEWAY_CYBER_RISK_MODEL_ROUTING_SOURCE_MODEL", "gpt-5.5")
+	t.Setenv("GATEWAY_CYBER_RISK_MODEL_ROUTING_TARGET_MODEL", "gpt-5.3")
+	t.Setenv("GATEWAY_CYBER_RISK_MODEL_ROUTING_MIN_SCORE", "7")
+
+	cfg, err := Load()
+	require.NoError(t, err)
+	require.True(t, cfg.Gateway.CyberRiskModelRouting.Enabled)
+	require.Equal(t, "gpt-5.5", cfg.Gateway.CyberRiskModelRouting.SourceModel)
+	require.Equal(t, "gpt-5.3", cfg.Gateway.CyberRiskModelRouting.TargetModel)
+	require.Equal(t, 7, cfg.Gateway.CyberRiskModelRouting.MinScore)
+}
+
+func TestLoadCyberRiskModelRoutingRejectsSameModel(t *testing.T) {
+	resetViperWithJWTSecret(t)
+	t.Setenv("GATEWAY_CYBER_RISK_MODEL_ROUTING_ENABLED", "true")
+	t.Setenv("GATEWAY_CYBER_RISK_MODEL_ROUTING_SOURCE_MODEL", "gpt-5.5")
+	t.Setenv("GATEWAY_CYBER_RISK_MODEL_ROUTING_TARGET_MODEL", "gpt-5.5")
+
+	_, err := Load()
+	require.ErrorContains(t, err, "gateway.cyber_risk_model_routing.target_model must differ from source_model")
+}
+
 func TestLoadOpenAIWSStickyTTLCompatibility(t *testing.T) {
 	resetViperWithJWTSecret(t)
 	t.Setenv("GATEWAY_OPENAI_WS_STICKY_RESPONSE_ID_TTL_SECONDS", "0")

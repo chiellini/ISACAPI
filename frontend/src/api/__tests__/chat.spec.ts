@@ -70,6 +70,38 @@ describe('chat api', () => {
     expect(images).toEqual(['data:image/png;base64,ZmluYWw='])
   })
 
+  it('parses Responses image results nested under response output', async () => {
+    fetchMock.mockResolvedValue(new Response(
+      [
+        'data: {"type":"response.completed","response":{"output":[{"type":"image_generation_call","result":"d2VicA==","output_format":"webp"}]}}',
+        '',
+        'data: [DONE]',
+        '',
+      ].join('\n'),
+      { status: 200, headers: { 'Content-Type': 'text/event-stream' } },
+    ))
+
+    const images = await generateImage({ model: 'gpt-image-2', prompt: 'draw a cat' })
+
+    expect(images).toEqual(['data:image/webp;base64,d2VicA=='])
+  })
+
+  it('parses Responses output_item.done image results', async () => {
+    fetchMock.mockResolvedValue(new Response(
+      [
+        'data: {"type":"response.output_item.done","item":{"type":"image_generation_call","result":"anBn","output_format":"jpg"}}',
+        '',
+        'data: [DONE]',
+        '',
+      ].join('\n'),
+      { status: 200, headers: { 'Content-Type': 'text/event-stream' } },
+    ))
+
+    const images = await generateImage({ model: 'gpt-image-2', prompt: 'draw a cat' })
+
+    expect(images).toEqual(['data:image/jpeg;base64,anBn'])
+  })
+
   it('normalizes HTML gateway timeout errors', async () => {
     fetchMock.mockResolvedValue(new Response(
       '<html><body><h1>504 Gateway Time-out</h1></body></html>',

@@ -316,6 +316,11 @@ func (s *GatewayService) handleCCBufferedFromAnthropic(
 	}
 
 	// Chain: Anthropic → Responses → Chat Completions
+	if s != nil && s.cfg != nil && s.cfg.ConversationArchive.Enabled {
+		if body, err := json.Marshal(finalResp); err == nil {
+			captureAnthropicResponseFromJSON(c, body)
+		}
+	}
 	responsesResp := apicompat.AnthropicToResponsesResponse(finalResp)
 	ccResp := apicompat.ResponsesToChatCompletions(responsesResp, originalModel)
 
@@ -380,6 +385,11 @@ func (s *GatewayService) handleCCStreamingFromAnthropic(
 	var usage ClaudeUsage
 	var firstTokenMs *int
 	firstChunk := true
+	var captureAcc *openAIResponseAccumulator
+	if s != nil && s.cfg != nil && s.cfg.ConversationArchive.Enabled {
+		captureAcc = newOpenAIResponseAccumulator()
+		SetOpenAICapturedResponseAccumulator(c, captureAcc)
+	}
 
 	scanner := bufio.NewScanner(resp.Body)
 	maxLineSize := defaultMaxLineSize
@@ -463,6 +473,9 @@ func (s *GatewayService) handleCCStreamingFromAnthropic(
 		var event apicompat.AnthropicStreamEvent
 		if err := json.Unmarshal([]byte(payload), &event); err != nil {
 			continue
+		}
+		if captureAcc != nil {
+			captureAcc.observeAnthropicSSE([]byte(payload))
 		}
 
 		if processAnthropicEvent(&event) {

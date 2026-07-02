@@ -113,6 +113,56 @@ func extractOpenAIContentText(content json.RawMessage) string {
 	return strings.TrimSpace(b.String())
 }
 
+// --- OpenAI Chat Completions ---
+
+type openaiChatCompletionsRequest struct {
+	Model    string `json:"model"`
+	Messages []struct {
+		Role    string          `json:"role"`
+		Content json.RawMessage `json:"content"`
+	} `json:"messages"`
+}
+
+// ExtractOpenAIChatCompletionsRequest extracts the newest user turn from an
+// OpenAI Chat Completions request body.
+func ExtractOpenAIChatCompletionsRequest(body []byte) ConversationRequestExtract {
+	var out ConversationRequestExtract
+	var req openaiChatCompletionsRequest
+	if err := json.Unmarshal(body, &req); err != nil {
+		return out
+	}
+	out.Model = req.Model
+
+	var systemTexts []string
+	userText := ""
+	for i := range req.Messages {
+		role := strings.TrimSpace(req.Messages[i].Role)
+		text := extractOpenAIContentText(req.Messages[i].Content)
+		if text == "" {
+			continue
+		}
+		switch role {
+		case ConversationRoleSystem, "developer":
+			systemTexts = append(systemTexts, text)
+		case ConversationRoleUser, "":
+			userText = text
+		}
+	}
+	systemText := strings.TrimSpace(strings.Join(systemTexts, "\n"))
+	if systemText != "" {
+		out.UserEvents = append(out.UserEvents, NormalizedEvent{
+			Role: ConversationRoleSystem, Kind: ConversationKindMessage, Content: systemText,
+		})
+	}
+	if userText != "" {
+		out.UserEvents = append(out.UserEvents, NormalizedEvent{
+			Role: ConversationRoleUser, Kind: ConversationKindMessage, Content: userText,
+		})
+	}
+	out.Signals.ContentSeed = strings.TrimSpace(systemText + "\n" + userText)
+	return out
+}
+
 type openaiResponsesResponse struct {
 	ID     string `json:"id"`
 	Model  string `json:"model"`
@@ -283,4 +333,71 @@ func ExtractAnthropicMessagesResponse(body []byte) ConversationResponseExtract {
 		})
 	}
 	return out
+}
+
+// --- Gemini GenerateContent ---
+
+type geminiContent struct {
+	Role  string `json:"role"`
+	Parts []struct {
+		Text string `json:"text"`
+	} `json:"parts"`
+}
+
+type geminiGenerateContentRequest struct {
+	Model             string        `json:"model"`
+	Contents          []geminiContent `json:"contents"`
+	SystemInstruction geminiContent `json:"systemInstruction"`
+	SessionID         string        `json:"sessionId"`
+}
+
+// ExtractGeminiGenerateContentRequest extracts the newest user content from a
+// Gemini generateContent / streamGenerateContent request body.
+func ExtractGeminiGenerateContentRequest(body []byte) ConversationRequestExtract {
+	var out ConversationRequestExtract
+	var req geminiGenerateContentRequest
+	if err := json.Unmarshal(body, &req); err != nil {
+		return out
+	}
+	out.Model = req.Model
+	out.Signals.SessionID = strings.TrimSpace(req.SessionID)
+
+	systemText := geminiContentText(req.SystemInstruction)
+	if systemText != "" {
+		out.UserEvents = append(out.UserEvents, NormalizedEvent{
+			Role: ConversationRoleSystem, Kind: ConversationKindMessage, Content: systemText,
+		})
+	}
+	userText := ""
+	for i := len(req.Contents) - 1; i >= 0; i-- {
+		role := strings.TrimSpace(req.Contents[i].Role)
+		if role != "" && role != ConversationRoleUser {
+			continue
+		}
+		if text := geminiContentText(req.Contents[i]); text != "" {
+			userText = text
+			break
+		}
+	}
+	if userText != "" {
+		out.UserEvents = append(out.UserEvents, NormalizedEvent{
+			Role: ConversationRoleUser, Kind: ConversationKindMessage, Content: userText,
+		})
+	}
+	out.Signals.ContentSeed = strings.TrimSpace(systemText + "\n" + userText)
+	return out
+}
+
+func geminiContentText(content geminiContent) string {
+	var b strings.Builder
+	for _, part := range content.Parts {
+		if part.Text == "" {
+			continue
+		}
+		if b.Len() > 0 {
+			b.WriteString("\n")
+		}
+		b.WriteString(part.Text)
+	}
+	return strings.TrimSpace(b.String())
 }

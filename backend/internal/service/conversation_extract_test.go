@@ -34,6 +34,31 @@ func TestExtractOpenAIResponsesRequest_StringInput(t *testing.T) {
 	}
 }
 
+func TestExtractOpenAIChatCompletionsRequest(t *testing.T) {
+	body := []byte(`{
+		"model":"gpt-5",
+		"messages":[
+			{"role":"system","content":"sys"},
+			{"role":"user","content":"old"},
+			{"role":"assistant","content":"reply"},
+			{"role":"user","content":[{"type":"text","text":"latest"}]}
+		]
+	}`)
+	got := ExtractOpenAIChatCompletionsRequest(body)
+	if got.Model != "gpt-5" {
+		t.Fatalf("model = %q", got.Model)
+	}
+	if len(got.UserEvents) != 2 {
+		t.Fatalf("events = %+v", got.UserEvents)
+	}
+	if got.UserEvents[0].Role != ConversationRoleSystem || got.UserEvents[0].Content != "sys" {
+		t.Fatalf("system event = %+v", got.UserEvents[0])
+	}
+	if got.UserEvents[1].Role != ConversationRoleUser || got.UserEvents[1].Content != "latest" {
+		t.Fatalf("user event = %+v", got.UserEvents[1])
+	}
+}
+
 func TestExtractOpenAIResponsesResponse(t *testing.T) {
 	body := []byte(`{
 		"id":"resp_123","model":"gpt-5","status":"completed",
@@ -92,9 +117,36 @@ func TestExtractAnthropicMessagesResponse(t *testing.T) {
 	}
 }
 
+func TestExtractGeminiGenerateContentRequest(t *testing.T) {
+	body := []byte(`{
+		"sessionId":"gem-session",
+		"systemInstruction":{"parts":[{"text":"be brief"}]},
+		"contents":[
+			{"role":"user","parts":[{"text":"old"}]},
+			{"role":"model","parts":[{"text":"answer"}]},
+			{"role":"user","parts":[{"text":"latest"},{"text":"question"}]}
+		]
+	}`)
+	got := ExtractGeminiGenerateContentRequest(body)
+	if got.Signals.SessionID != "gem-session" {
+		t.Fatalf("session id = %q", got.Signals.SessionID)
+	}
+	if len(got.UserEvents) != 2 {
+		t.Fatalf("events = %+v", got.UserEvents)
+	}
+	if got.UserEvents[0].Role != ConversationRoleSystem || got.UserEvents[0].Content != "be brief" {
+		t.Fatalf("system event = %+v", got.UserEvents[0])
+	}
+	if got.UserEvents[1].Role != ConversationRoleUser || got.UserEvents[1].Content != "latest\nquestion" {
+		t.Fatalf("user event = %+v", got.UserEvents[1])
+	}
+}
+
 func TestExtract_GarbageDoesNotPanic(t *testing.T) {
 	_ = ExtractOpenAIResponsesRequest([]byte(`not json`))
 	_ = ExtractOpenAIResponsesResponse([]byte(``))
+	_ = ExtractOpenAIChatCompletionsRequest([]byte(`not json`))
 	_ = ExtractAnthropicMessagesRequest([]byte(`{`))
 	_ = ExtractAnthropicMessagesResponse([]byte(`[]`))
+	_ = ExtractGeminiGenerateContentRequest([]byte(`{`))
 }

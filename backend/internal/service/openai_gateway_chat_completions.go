@@ -456,6 +456,11 @@ func (s *OpenAIGatewayService) handleChatBufferedStreamingResponse(
 	// When the terminal event has an empty output array, reconstruct from
 	// accumulated delta events so the client receives the full content.
 	acc.SupplementResponseOutput(finalResponse)
+	if s.conversationCaptureEnabled() {
+		if body, err := json.Marshal(finalResponse); err == nil {
+			captureOpenAIResponseFromJSON(c, body)
+		}
+	}
 
 	chatResp := apicompat.ResponsesToChatCompletions(finalResponse, originalModel)
 
@@ -524,6 +529,11 @@ func (s *OpenAIGatewayService) handleChatStreamingResponse(
 	pendingSSE := make([]string, 0, 4)
 	refusalDetector := newOpenAIChatSilentRefusalDetector(requestBodyLen)
 	var streamFailoverErr *UpstreamFailoverError
+	var captureAcc *openAIResponseAccumulator
+	if s.conversationCaptureEnabled() {
+		captureAcc = newOpenAIResponseAccumulator()
+		SetOpenAICapturedResponseAccumulator(c, captureAcc)
+	}
 
 	scanner := bufio.NewScanner(resp.Body)
 	maxLineSize := defaultMaxLineSize
@@ -573,6 +583,9 @@ func (s *OpenAIGatewayService) handleChatStreamingResponse(
 				zap.String("request_id", requestID),
 			)
 			return false
+		}
+		if captureAcc != nil {
+			captureAcc.observeSSE([]byte(payload))
 		}
 		refusalDetector.ObservePayload([]byte(payload))
 
