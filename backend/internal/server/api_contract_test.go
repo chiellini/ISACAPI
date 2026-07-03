@@ -678,6 +678,7 @@ func TestAPIContracts(t *testing.T) {
 					"email_verify_enabled": false,
 					"registration_email_suffix_whitelist": [],
 					"promo_code_enabled": true,
+					"public_status_enabled": false,
 					"password_reset_enabled": false,
 						"frontend_url": "",
 						"totp_enabled": false,
@@ -960,6 +961,7 @@ func TestAPIContracts(t *testing.T) {
 					"email_verify_enabled": false,
 					"registration_email_suffix_whitelist": [],
 					"promo_code_enabled": true,
+					"public_status_enabled": false,
 					"password_reset_enabled": false,
 					"frontend_url": "",
 						"invitation_code_enabled": false,
@@ -2128,6 +2130,10 @@ func (r *stubApiKeyRepo) GetByKey(ctx context.Context, key string) (*service.API
 
 func (r *stubApiKeyRepo) GetByKeyForAuth(ctx context.Context, key string) (*service.APIKey, error) {
 	return r.GetByKey(ctx, key)
+}
+
+func (r *stubApiKeyRepo) FindInternalChatKey(ctx context.Context, userID int64) (*service.APIKey, error) {
+	return nil, service.ErrAPIKeyNotFound
 }
 
 func (r *stubApiKeyRepo) Update(ctx context.Context, key *service.APIKey) error {

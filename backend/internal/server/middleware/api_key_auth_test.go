@@ -1046,6 +1046,10 @@ func (r *stubApiKeyRepo) GetByKeyForAuth(ctx context.Context, key string) (*serv
 	return r.GetByKey(ctx, key)
 }
 
+func (r *stubApiKeyRepo) FindInternalChatKey(ctx context.Context, userID int64) (*service.APIKey, error) {
+	return nil, service.ErrAPIKeyNotFound
+}
+
 func (r *stubApiKeyRepo) Update(ctx context.Context, key *service.APIKey) error {
 	return errors.New("not implemented")
 }

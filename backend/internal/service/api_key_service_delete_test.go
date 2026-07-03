@@ -73,6 +73,10 @@ func (s *apiKeyRepoStub) GetByKeyForAuth(ctx context.Context, key string) (*APIK
 	panic("unexpected GetByKeyForAuth call")
 }
 
+func (s *apiKeyRepoStub) FindInternalChatKey(ctx context.Context, userID int64) (*APIKey, error) {
+	panic("unexpected FindInternalChatKey call")
+}
+
 func (s *apiKeyRepoStub) Update(ctx context.Context, key *APIKey) error {
 	panic("unexpected Update call")
 }

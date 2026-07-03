@@ -45,6 +45,10 @@ func (s *authRepoStub) GetByKeyForAuth(ctx context.Context, key string) (*APIKey
 	return s.getByKeyForAuth(ctx, key)
 }
 
+func (s *authRepoStub) FindInternalChatKey(ctx context.Context, userID int64) (*APIKey, error) {
+	panic("unexpected FindInternalChatKey call")
+}
+
 func (s *authRepoStub) Update(ctx context.Context, key *APIKey) error {
 	panic("unexpected Update call")
 }
