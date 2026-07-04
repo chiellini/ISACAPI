@@ -479,6 +479,7 @@ export default {
     chat: '聊天',
     announcements: '公告',
     apiKeys: 'API 密钥',
+    ccSwitchDownload: '下载 CC-Switch',
     usage: '使用记录',
     redeem: '兑换',
     affiliate: '邀请返利',
@@ -873,10 +874,10 @@ export default {
         '此 API 密钥尚未分配分组，请先在密钥列表中点击分组列进行分配，然后才能查看使用配置。',
       oneClick: {
         title: '一键安装（推荐）',
-        hint: '复制下面这一条命令，粘贴到终端按回车，即可自动写入配置文件，无需手动创建。',
+        hint: '复制下面这一条命令，粘贴到终端按回车，即可自动写入客户端配置、Shell 启动文件和 VS Code 终端环境。',
         pasteWarning: '这是一条终端命令，不是 API Key。请在终端里运行，切勿粘贴到客户端的 API Key / 令牌输入框。',
         scriptComment: '请在终端中运行；切勿粘贴到 API Key / 令牌输入框。',
-        runHint: '执行后重启你的客户端（Claude Code / Codex / Gemini CLI / OpenCode）即可生效。',
+        runHint: '执行后重启你的客户端（Claude Code / Codex / Gemini CLI / OpenCode）和 VS Code 终端即可生效。',
         manualLabel: '或手动配置：',
         copy: '复制命令',
         copied: '已复制'

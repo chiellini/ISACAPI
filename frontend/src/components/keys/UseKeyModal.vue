@@ -539,6 +539,8 @@ interface OneClickFile {
   content: string
 }
 
+type OneClickEnvVars = Record<string, string>
+
 const oneClickKind = computed<'claude' | 'codex' | 'gemini' | 'opencode' | null>(() => {
   switch (activeClientTab.value) {
     case 'claude':
@@ -625,14 +627,251 @@ GEMINI_MODEL=gemini-2.0-flash`
   }
 }
 
+function buildOneClickEnvVars(): OneClickEnvVars {
+  const apiKey = props.apiKey
+  const { rawBase, apiBase, geminiBase } = oneClickBases()
+  switch (oneClickKind.value) {
+    case 'claude': {
+      const claudeBase = props.platform === 'antigravity' ? `${rawBase}/antigravity` : rawBase
+      return {
+        ANTHROPIC_BASE_URL: claudeBase,
+        ANTHROPIC_AUTH_TOKEN: apiKey,
+        ANTHROPIC_API_KEY: apiKey,
+        CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1',
+        CLAUDE_CODE_ATTRIBUTION_HEADER: '0'
+      }
+    }
+    case 'codex':
+      return {
+        OPENAI_API_KEY: apiKey,
+        OPENAI_BASE_URL: apiBase,
+        OPENAI_API_BASE: apiBase
+      }
+    case 'gemini': {
+      const geminiEnvBase = props.platform === 'antigravity' ? `${rawBase}/antigravity` : rawBase
+      return {
+        GOOGLE_GEMINI_BASE_URL: geminiEnvBase,
+        GEMINI_API_KEY: apiKey,
+        GEMINI_MODEL: 'gemini-2.0-flash'
+      }
+    }
+    case 'opencode':
+      switch (props.platform) {
+        case 'gemini':
+          return {
+            GOOGLE_GEMINI_BASE_URL: geminiBase,
+            GEMINI_API_KEY: apiKey,
+            GEMINI_MODEL: 'gemini-2.0-flash'
+          }
+        case 'openai':
+          return {
+            OPENAI_API_KEY: apiKey,
+            OPENAI_BASE_URL: apiBase,
+            OPENAI_API_BASE: apiBase
+          }
+        default:
+          return {
+            ANTHROPIC_BASE_URL: apiBase,
+            ANTHROPIC_AUTH_TOKEN: apiKey,
+            ANTHROPIC_API_KEY: apiKey
+          }
+      }
+    default:
+      return {}
+  }
+}
+
 const oneClickFiles = computed(() => buildOneClickFiles())
+const oneClickEnvVars = computed(() => buildOneClickEnvVars())
 const oneClickSupported = computed(() => oneClickFiles.value.length > 0)
+
+const VSCODE_SETTINGS_NODE_SCRIPT = String.raw`const fs = require('fs');
+const os = require('os');
+const path = require('path');
+
+function stripJsonc(input) {
+  let out = '';
+  let inString = false;
+  let escaped = false;
+  let lineComment = false;
+  let blockComment = false;
+  for (let i = 0; i < input.length; i += 1) {
+    const ch = input[i];
+    const next = input[i + 1];
+    if (lineComment) {
+      if (ch === '\n') {
+        lineComment = false;
+        out += ch;
+      }
+      continue;
+    }
+    if (blockComment) {
+      if (ch === '*' && next === '/') {
+        blockComment = false;
+        i += 1;
+      }
+      continue;
+    }
+    if (inString) {
+      out += ch;
+      if (escaped) {
+        escaped = false;
+      } else if (ch === '\\') {
+        escaped = true;
+      } else if (ch === '"') {
+        inString = false;
+      }
+      continue;
+    }
+    if (ch === '"') {
+      inString = true;
+      out += ch;
+      continue;
+    }
+    if (ch === '/' && next === '/') {
+      lineComment = true;
+      i += 1;
+      continue;
+    }
+    if (ch === '/' && next === '*') {
+      blockComment = true;
+      i += 1;
+      continue;
+    }
+    out += ch;
+  }
+  return out.replace(/,\s*([}\]])/g, '$1');
+}
+
+const env = JSON.parse(process.env.ISACAPI_VSCODE_ENV_JSON || '{}');
+const home = os.homedir();
+const settingsPath = process.platform === 'win32'
+  ? path.join(process.env.APPDATA || path.join(home, 'AppData', 'Roaming'), 'Code', 'User', 'settings.json')
+  : process.platform === 'darwin'
+    ? path.join(home, 'Library', 'Application Support', 'Code', 'User', 'settings.json')
+    : path.join(home, '.config', 'Code', 'User', 'settings.json');
+const envKey = process.platform === 'win32'
+  ? 'terminal.integrated.env.windows'
+  : process.platform === 'darwin'
+    ? 'terminal.integrated.env.osx'
+    : 'terminal.integrated.env.linux';
+
+let settings = {};
+if (fs.existsSync(settingsPath)) {
+  const raw = fs.readFileSync(settingsPath, 'utf8').trim();
+  if (raw) {
+    try {
+      settings = JSON.parse(stripJsonc(raw));
+    } catch (err) {
+      const snippetPath = settingsPath + '.isacapi-snippet.json';
+      fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
+      fs.writeFileSync(snippetPath, JSON.stringify({ [envKey]: env }, null, 2) + '\n');
+      console.log('[WARN] Existing VS Code settings.json could not be parsed; wrote snippet: ' + snippetPath);
+      process.exit(0);
+    }
+  }
+}
+
+const existing = settings[envKey] && typeof settings[envKey] === 'object' && !Array.isArray(settings[envKey])
+  ? settings[envKey]
+  : {};
+settings[envKey] = { ...existing, ...env };
+fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
+fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + '\n');
+console.log('[OK] VS Code terminal env updated: ' + settingsPath);`
+
+function shellSingleQuote(value: string): string {
+  return `'${value.replace(/'/g, `'\\''`)}'`
+}
+
+function powershellSingleQuote(value: string): string {
+  return `'${value.replace(/'/g, "''")}'`
+}
+
+function buildUnixEnvBlock(envVars: OneClickEnvVars): string {
+  const exports = Object.entries(envVars)
+    .map(([key, value]) => `export ${key}=${shellSingleQuote(value)}`)
+    .join('\n')
+  return `# >>> ISACAPI API env >>>
+${exports}
+# <<< ISACAPI API env <<<`
+}
+
+function appendUnixProfileSetup(lines: string[], envVars: OneClickEnvVars) {
+  if (Object.keys(envVars).length === 0) return
+  const EOF = 'SUB2API_ENV_EOF'
+  lines.push(`ISACAPI_ENV_BLOCK=$(cat <<'${EOF}'`)
+  lines.push(buildUnixEnvBlock(envVars))
+  lines.push(EOF)
+  lines.push(')')
+  lines.push(`for rc in "$HOME/.bashrc" "$HOME/.bash_profile" "$HOME/.zshrc" "$HOME/.profile"; do`)
+  lines.push('  touch "$rc"')
+  lines.push(`  awk 'BEGIN{skip=0} /^# >>> ISACAPI API env >>>$/{skip=1; next} /^# <<< ISACAPI API env <<<$/{skip=0; next} !skip{print}' "$rc" > "$rc.tmp" && mv "$rc.tmp" "$rc"`)
+  lines.push('  printf "\\n%s\\n" "$ISACAPI_ENV_BLOCK" >> "$rc"')
+  lines.push('done')
+  for (const [key, value] of Object.entries(envVars)) {
+    lines.push(`export ${key}=${shellSingleQuote(value)}`)
+  }
+}
+
+function appendPowerShellEnvSetup(lines: string[], envVars: OneClickEnvVars) {
+  if (Object.keys(envVars).length === 0) return
+  lines.push('$isacapiEnvBlock = @\'')
+  lines.push('# >>> ISACAPI API env >>>')
+  for (const [key, value] of Object.entries(envVars)) {
+    lines.push(`$env:${key}=${powershellSingleQuote(value)}`)
+    lines.push(`[Environment]::SetEnvironmentVariable(${powershellSingleQuote(key)}, ${powershellSingleQuote(value)}, 'User')`)
+  }
+  lines.push('# <<< ISACAPI API env <<<')
+  lines.push("'@")
+  lines.push('$profileTargets = @($PROFILE.CurrentUserAllHosts, $PROFILE.CurrentUserCurrentHost) | Where-Object { $_ } | Select-Object -Unique')
+  lines.push('foreach ($profilePath in $profileTargets) {')
+  lines.push('  $profileDir = Split-Path -Parent $profilePath')
+  lines.push('  if ($profileDir) { New-Item -ItemType Directory -Force -Path $profileDir | Out-Null }')
+  lines.push('  if (!(Test-Path $profilePath)) { New-Item -ItemType File -Force -Path $profilePath | Out-Null }')
+  lines.push('  $profileContent = [string](Get-Content -Raw -Path $profilePath -ErrorAction SilentlyContinue)')
+  lines.push('  $profileContent = [regex]::Replace($profileContent, "(?ms)^# >>> ISACAPI API env >>>.*?^# <<< ISACAPI API env <<<\\r?\\n?", "")')
+  lines.push('  Set-Content -Path $profilePath -Value ($profileContent.TrimEnd() + "`r`n`r`n" + $isacapiEnvBlock + "`r`n") -Encoding utf8')
+  lines.push('}')
+  for (const [key, value] of Object.entries(envVars)) {
+    lines.push(`$env:${key}=${powershellSingleQuote(value)}`)
+    lines.push(`[Environment]::SetEnvironmentVariable(${powershellSingleQuote(key)}, ${powershellSingleQuote(value)}, 'User')`)
+  }
+}
+
+function appendUnixVscodeSetup(lines: string[], envVars: OneClickEnvVars) {
+  if (Object.keys(envVars).length === 0) return
+  lines.push(`export ISACAPI_VSCODE_ENV_JSON=${shellSingleQuote(JSON.stringify(envVars))}`)
+  lines.push(`if command -v node >/dev/null 2>&1; then`)
+  lines.push(`node <<'SUB2API_VSCODE_NODE'`)
+  lines.push(VSCODE_SETTINGS_NODE_SCRIPT)
+  lines.push('SUB2API_VSCODE_NODE')
+  lines.push('else')
+  lines.push('  echo "[WARN] Node.js not found; skipped VS Code settings merge."')
+  lines.push('fi')
+}
+
+function appendPowerShellVscodeSetup(lines: string[], envVars: OneClickEnvVars) {
+  if (Object.keys(envVars).length === 0) return
+  lines.push('$env:ISACAPI_VSCODE_ENV_JSON = @\'')
+  lines.push(JSON.stringify(envVars))
+  lines.push("'@")
+  lines.push('$nodeCmd = Get-Command node -ErrorAction SilentlyContinue')
+  lines.push('if ($nodeCmd) {')
+  lines.push("@'")
+  lines.push(VSCODE_SETTINGS_NODE_SCRIPT)
+  lines.push("'@ | node")
+  lines.push('} else {')
+  lines.push('  Write-Warning "Node.js not found; skipped VS Code settings merge."')
+  lines.push('}')
+}
 
 const oneClickScript = computed(() => {
   const files = oneClickFiles.value
   if (files.length === 0) return ''
   const lines: string[] = []
   const dirs = Array.from(new Set(files.map(f => f.dir)))
+  const envVars = oneClickEnvVars.value
 
   // Leading guidance comment — valid in both bash and PowerShell (#). Keeps the
   // script self-documenting, and if it's mis-pasted into an API-key field the
@@ -648,6 +887,8 @@ const oneClickScript = computed(() => {
       lines.push(f.content)
       lines.push(EOF)
     }
+    appendUnixProfileSetup(lines, envVars)
+    appendUnixVscodeSetup(lines, envVars)
     lines.push('echo "[OK] Configured. Restart your client to apply."')
     return lines.join('\n')
   }
@@ -663,6 +904,8 @@ const oneClickScript = computed(() => {
     lines.push(f.content)
     lines.push(`'@ | Set-Content -Path "$env:USERPROFILE\\${winPath}" -Encoding utf8`)
   }
+  appendPowerShellEnvSetup(lines, envVars)
+  appendPowerShellVscodeSetup(lines, envVars)
   lines.push('Write-Host "[OK] Configured. Restart your client to apply."')
   return lines.join('\n')
 })

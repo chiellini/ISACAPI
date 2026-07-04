@@ -2,6 +2,32 @@ import en from './en'
 
 export default {
   ...en,
+  nav: {
+    ...en.nav,
+    ccSwitchDownload: 'تنزيل CC-Switch'
+  },
+  keys: {
+    ...en.keys,
+    useKeyModal: {
+      ...en.keys.useKeyModal,
+      oneClick: {
+        ...en.keys.useKeyModal.oneClick,
+        hint:
+          'انسخ الأمر الواحد أدناه والصقه في الطرفية ثم اضغط Enter. سيكتب إعدادات العميل وملفات بدء تشغيل الصدفة وإعدادات بيئة طرفية VS Code.',
+        runHint:
+          'أعد تشغيل العميل (Claude Code / Codex / Gemini CLI / OpenCode) وطرفية VS Code بعد ذلك لتطبيق الإعدادات.'
+      }
+    },
+    ccsFallback: {
+      ...en.keys.ccsFallback,
+      downloadTitle: 'تنزيل CC-Switch',
+      downloadDescription:
+        'استخدم القنوات الرسمية فقط. افتح صفحة التنزيل الرسمية لاختيار Windows ARM64 أو النسخة المحمولة أو ملفات التحقق.',
+      windowsDownload: 'Windows MSI',
+      macosDownload: 'macOS DMG',
+      releasePage: 'صفحة التنزيل الرسمية'
+    }
+  },
   home: {
     ...en.home,
     viewOnGithub: 'عرض على GitHub',

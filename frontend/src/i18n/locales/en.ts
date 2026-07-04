@@ -479,6 +479,7 @@ export default {
     chat: 'Chat',
     announcements: 'Announcements',
     apiKeys: 'API Keys',
+    ccSwitchDownload: 'Download CC-Switch',
     usage: 'Usage',
     redeem: 'Redeem',
     affiliate: 'Affiliate Rebates',
@@ -874,10 +875,10 @@ export default {
       noGroupDescription: 'This API key has not been assigned to a group. Please click the group column in the key list to assign one before viewing the configuration.',
       oneClick: {
         title: 'One-click install (recommended)',
-        hint: 'Copy the single command below, paste it into your terminal and press Enter — it writes the config files for you, no manual file creation needed.',
+        hint: 'Copy the single command below, paste it into your terminal and press Enter. It writes client config, shell startup files, and VS Code terminal environment settings.',
         pasteWarning: 'This is a terminal command, not an API key. Run it in your terminal — never paste it into the API key or token field of your client.',
         scriptComment: 'Run this in your terminal. Do NOT paste it into an API key / token field.',
-        runHint: 'Restart your client (Claude Code / Codex / Gemini CLI / OpenCode) afterwards to apply.',
+        runHint: 'Restart your client (Claude Code / Codex / Gemini CLI / OpenCode) and VS Code terminal afterwards to apply.',
         manualLabel: 'Or configure manually:',
         copy: 'Copy command',
         copied: 'Copied'
