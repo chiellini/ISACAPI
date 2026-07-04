@@ -988,6 +988,52 @@
         <p class="text-sm text-gray-600 dark:text-gray-400">
           {{ t('keys.ccsFallback.description') }}
         </p>
+        <div class="rounded-xl border border-blue-100 bg-blue-50/70 p-3 dark:border-blue-900/40 dark:bg-blue-900/10">
+          <div class="flex items-start gap-3">
+            <div class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-blue-600 shadow-sm dark:bg-dark-800 dark:text-blue-400">
+              <Icon name="download" size="sm" />
+            </div>
+            <div class="min-w-0 flex-1 space-y-3">
+              <div>
+                <p class="text-sm font-medium text-gray-900 dark:text-white">
+                  {{ t('keys.ccsFallback.downloadTitle') }}
+                </p>
+                <p class="mt-1 text-xs leading-5 text-gray-600 dark:text-gray-400">
+                  {{ t('keys.ccsFallback.downloadDescription') }}
+                </p>
+              </div>
+              <div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                <a
+                  :href="CC_SWITCH_DOWNLOAD_LINKS.windows"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-blue-200 bg-white px-3 py-2 text-xs font-medium text-blue-700 transition-colors hover:border-blue-300 hover:bg-blue-50 dark:border-blue-800 dark:bg-dark-800 dark:text-blue-300 dark:hover:bg-blue-900/30"
+                >
+                  <Icon name="download" size="xs" :stroke-width="2" />
+                  {{ t('keys.ccsFallback.windowsDownload') }}
+                </a>
+                <a
+                  :href="CC_SWITCH_DOWNLOAD_LINKS.macos"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-blue-200 bg-white px-3 py-2 text-xs font-medium text-blue-700 transition-colors hover:border-blue-300 hover:bg-blue-50 dark:border-blue-800 dark:bg-dark-800 dark:text-blue-300 dark:hover:bg-blue-900/30"
+                >
+                  <Icon name="download" size="xs" :stroke-width="2" />
+                  {{ t('keys.ccsFallback.macosDownload') }}
+                </a>
+                <a
+                  :href="CC_SWITCH_DOWNLOAD_LINKS.releases"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-700 transition-colors hover:border-gray-300 hover:bg-gray-50 dark:border-dark-600 dark:bg-dark-800 dark:text-gray-300 dark:hover:bg-dark-700"
+                >
+                  <Icon name="externalLink" size="xs" :stroke-width="2" />
+                  {{ t('keys.ccsFallback.releasePage') }}
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
         <div class="grid grid-cols-2 gap-3">
           <button
             @click="copyCcsFallbackKey"
@@ -1121,6 +1167,7 @@ import type { BatchApiKeyUsageStats } from '@/api/usage'
 import { formatDateTime } from '@/utils/format'
 import { maskApiKey } from '@/utils/maskApiKey'
 import {
+  CC_SWITCH_DOWNLOAD_LINKS,
   buildCcSwitchImportDeeplink,
   type CcSwitchClientType
 } from '@/utils/ccswitchImport'

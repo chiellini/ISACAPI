@@ -942,6 +942,11 @@ export default {
       title: '没有检测到 CC-Switch',
       description:
         '可能未安装 CC-Switch 或未注册协议处理程序。你可以直接复制密钥，或查看一键接入命令手动配置。',
+      downloadTitle: '下载 CC-Switch',
+      downloadDescription: '请仅通过官方渠道下载。Windows ARM64、便携版或校验文件请打开官方下载页选择对应资产。',
+      windowsDownload: 'Windows MSI',
+      macosDownload: 'macOS DMG',
+      releasePage: '官方下载页',
       copyKey: '复制密钥',
       copyKeyDesc: '复制 API 密钥到剪贴板',
       useKey: '查看接入命令',

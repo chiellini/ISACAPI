@@ -939,6 +939,11 @@ export default {
       title: 'CC-Switch not detected',
       description:
         'CC-Switch may not be installed or its protocol handler is not registered. You can copy the key directly, or view the one-click install command to configure manually.',
+      downloadTitle: 'Download CC-Switch',
+      downloadDescription: 'Use official channels only. Open the official download page for Windows ARM64, portable builds, or checksum files.',
+      windowsDownload: 'Windows MSI',
+      macosDownload: 'macOS DMG',
+      releasePage: 'Download page',
       copyKey: 'Copy Key',
       copyKeyDesc: 'Copy the API key to clipboard',
       useKey: 'Install Command',

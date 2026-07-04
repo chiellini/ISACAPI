@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  CC_SWITCH_DOWNLOAD_LINKS,
   OPENAI_CC_SWITCH_CODEX_MODEL,
   buildCcSwitchImportDeeplink
 } from '@/utils/ccswitchImport'
@@ -13,6 +14,17 @@ function paramsFromDeeplink(deeplink: string): URLSearchParams {
 describe('ccswitchImport utils', () => {
   it('defaults OpenAI CC Switch imports to the current Codex model', () => {
     expect(OPENAI_CC_SWITCH_CODEX_MODEL).toBe('gpt-5.5')
+  })
+
+  it('keeps CC-Switch download links on official channels', () => {
+    expect(CC_SWITCH_DOWNLOAD_LINKS.officialSite).toBe('https://ccswitch.io/')
+    expect(CC_SWITCH_DOWNLOAD_LINKS.releases).toBe('https://github.com/farion1231/cc-switch/releases/latest')
+    expect(CC_SWITCH_DOWNLOAD_LINKS.windows).toMatch(
+      /^https:\/\/github\.com\/farion1231\/cc-switch\/releases\/download\/v[\d.]+\/CC-Switch-v[\d.]+-Windows\.msi$/
+    )
+    expect(CC_SWITCH_DOWNLOAD_LINKS.macos).toMatch(
+      /^https:\/\/github\.com\/farion1231\/cc-switch\/releases\/download\/v[\d.]+\/CC-Switch-v[\d.]+-macOS\.dmg$/
+    )
   })
 
   const baseInput = {
