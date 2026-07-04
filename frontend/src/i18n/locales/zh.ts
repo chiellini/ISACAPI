@@ -499,6 +499,7 @@ export default {
     announcements: '公告',
     apiKeys: 'API 密钥',
     ccSwitchDownload: '下载 CC-Switch',
+    ccSwitchGuide: 'CC-Switch 教程',
     usage: '使用记录',
     redeem: '兑换',
     affiliate: '邀请返利',
@@ -539,6 +540,174 @@ export default {
     channelStatus: '渠道状态',
     riskControl: '风控中心',
     conversations: '对话存档',
+  },
+
+  ccSwitchGuide: {
+    heroBadge: '本机与远程配置',
+    title: 'CC-Switch 使用教程',
+    description:
+      '导入 API Key 前先选对场景：如果 Claude Code、Codex 或 Gemini CLI 跑在你当前电脑上，就用本机 CC-Switch；如果它们跑在 VS Code Remote SSH 连接的服务器里，就要在远程终端里执行一键配置命令。',
+    actions: {
+      openKeys: '打开 API 密钥',
+      releasePage: '官方 Release'
+    },
+    remoteWarning: {
+      title: '远程 SSH 和本机桌面不是一回事',
+      body:
+        '在你的笔记本安装 CC-Switch，不能写入 VS Code Remote SSH 服务器里的 ~/.claude 或 ~/.codex。远程 Codex / Claude Code 应该打开已连接服务器的 VS Code 终端，把 API 密钥弹窗里的安装命令粘贴进去执行。'
+    },
+    scenarios: {
+      local: {
+        badge: '本机桌面',
+        title: '在当前电脑使用 CC-Switch',
+        body:
+          '适合 Claude Code、Codex、Gemini CLI 就运行在本机 Windows 或 macOS 的情况。浏览器、CC-Switch 和客户端配置文件都在同一台机器上。',
+        points: [
+          '推荐用于日常本机开发，尤其是 Windows / macOS 桌面环境。',
+          '在 API 密钥页点击导入，让 CC-Switch 接收并写入配置。',
+          '导入后重启本机 CLI 或编辑器终端，让客户端读取新配置。'
+        ]
+      },
+      remote: {
+        badge: '远程 SSH',
+        title: '配置 VS Code Remote SSH 里的终端',
+        body:
+          '适合 VS Code 通过 SSH 连接到服务器，并且 Codex 或 Claude Code 实际在那台服务器上运行的情况。',
+        points: [
+          '不要指望本机 CC-Switch 桌面应用去修改远程服务器文件。',
+          '从密钥弹窗复制一键安装命令，粘贴到 VS Code 的远程终端执行。',
+          '命令会在远程主机写入客户端配置、Shell 启动变量和 VS Code 终端环境。'
+        ]
+      }
+    },
+    download: {
+      title: 'CC-Switch 官方下载',
+      body:
+        '请只使用官方来源。Windows ARM64、便携版和校验文件可以在 Release 页面选择对应资产。',
+      officialSite: '官方网站',
+      windows: 'Windows MSI',
+      macos: 'macOS DMG',
+      release: 'Release 页面'
+    },
+    local: {
+      eyebrow: '路径 A',
+      title: '本机 CC-Switch 配置',
+      body:
+        '当 AI 编程客户端运行在当前电脑上时，这是最省心的路径。',
+      steps: [
+        {
+          title: '安装 CC-Switch',
+          body:
+            '从官方网站或 Release 页面下载 CC-Switch。Windows 安装 MSI，macOS 安装 DMG，然后至少启动一次 CC-Switch，让系统注册 ccswitch:// 协议。',
+          bullets: [
+            '从浏览器导入时保持 CC-Switch 正在运行。',
+            '浏览器询问是否打开 CC-Switch 时，选择允许。',
+            '需要 ARM64 或便携版时，到 Release 页面选择对应文件。'
+          ]
+        },
+        {
+          title: '从 API 密钥页导入',
+          body:
+            '打开 API 密钥，选择要使用的密钥，点击 CC-Switch 导入操作。根据你的工具选择客户端类型。',
+          bullets: [
+            'Claude Code 会使用 Anthropic 兼容端点。',
+            'Codex 会使用 OpenAI 兼容端点和模型映射。',
+            'Gemini CLI 会使用 Gemini 兼容端点。'
+          ]
+        },
+        {
+          title: '激活并在本机验证',
+          body:
+            '在 CC-Switch 里确认刚导入的 Provider 已设为当前配置。然后重启 Claude Code、Codex、Gemini CLI 或编辑器终端。',
+          bullets: [
+            '先发一个小请求验证密钥和端点是否正常。',
+            '如果导入没有拉起 CC-Switch，重新安装 CC-Switch，或者改用安装命令。',
+            '本机 CC-Switch 只会更新本机客户端配置。'
+          ]
+        }
+      ]
+    },
+    remote: {
+      eyebrow: '路径 B',
+      title: '远程 SSH / VS Code / Codex / Claude Code 配置',
+      body:
+        '当命令实际运行在服务器上时，用这条路径。浏览器可以继续开在你的电脑上，但生成的命令必须粘贴到远程终端执行。',
+      steps: [
+        {
+          title: '在 VS Code 连接服务器',
+          body:
+            '打开 VS Code，通过 Remote SSH 连接服务器，并确认终端提示符确实在远程主机上。',
+          bullets: [
+            '看 VS Code 状态栏里的 SSH 主机名。',
+            '运行 pwd、hostname 或 whoami，确认不是本机终端。',
+            '如果服务器还没有 Codex / Claude Code，先在远程服务器安装。'
+          ]
+        },
+        {
+          title: '从本站复制安装命令',
+          body:
+            '在网页后台打开 API 密钥，点击对应密钥，选择安装命令，再切到 Codex、Claude Code、Gemini CLI 或 OpenCode 标签。',
+          bullets: [
+            '选择远程服务器的系统标签，不是你笔记本的系统。',
+            '大多数 SSH 服务器使用 Linux/macOS 命令。',
+            '命令里包含当前密钥，请像保管密钥一样保管它。'
+          ]
+        },
+        {
+          title: '粘贴到远程终端执行',
+          body:
+            '把复制的命令粘贴到 VS Code Remote SSH 终端执行。它会为远程用户写入客户端配置文件和持久化 Shell 环境变量。',
+          bullets: [
+            'Claude Code 会写入 ~/.claude/settings.json 和 ANTHROPIC_* 环境变量。',
+            'Codex 会写入 ~/.codex/config.toml、~/.codex/auth.json 和 OPENAI_* 环境变量。',
+            '如果远程有 Node.js，还会把 VS Code terminal env 合并到远程 User settings.json。'
+          ]
+        },
+        {
+          title: '重启并测试',
+          body:
+            '关闭已有远程终端，重新打开一个 VS Code 远程终端，然后从新终端启动 Codex 或 Claude Code。',
+          bullets: [
+            '更新 profile 后，环境变量通常只会出现在新的 Shell 会话里。',
+            '如果 VS Code 终端变量没有生效，重新打开 Remote SSH 窗口。',
+            '正式长任务前，先用一个小 prompt 测试。'
+          ]
+        }
+      ],
+      filesTitle: '安装命令会修改的文件和变量',
+      verifyTitle: '快速验证命令',
+      files: [
+        'Claude Code：~/.claude/settings.json，以及 ANTHROPIC_BASE_URL / ANTHROPIC_API_KEY。',
+        'Codex：~/.codex/config.toml、~/.codex/auth.json，以及 OPENAI_BASE_URL、OPENAI_API_BASE、OPENAI_API_KEY。',
+        'Shell profile：~/.bashrc、~/.bash_profile、~/.zshrc、~/.profile，或 PowerShell profile。',
+        'VS Code 终端环境：terminal.integrated.env.linux / osx / windows。'
+      ]
+    },
+    troubleshooting: {
+      title: '常见检查',
+      items: [
+        {
+          title: '浏览器没有拉起 CC-Switch',
+          body:
+            '先手动启动一次 CC-Switch，再重试导入。如果协议仍然没有注册，从官方 Release 页面重新安装。'
+        },
+        {
+          title: '远程 Codex 仍然使用旧端点',
+          body:
+            '确认安装命令是在 Remote SSH 终端执行的，不是在本机终端执行的。命令完成后重新打开远程终端。'
+        },
+        {
+          title: 'Claude Code 找不到密钥',
+          body:
+            '检查 ~/.claude/settings.json，并在新的终端会话里确认存在 ANTHROPIC_AUTH_TOKEN 或 ANTHROPIC_API_KEY。'
+        },
+        {
+          title: 'VS Code 终端环境变量缺失',
+          body:
+            '在远程主机安装 Node.js 后重新执行安装命令；或者手动把变量加入 VS Code User settings 的 terminal.integrated.env.linux、osx 或 windows。'
+        }
+      ]
+    }
   },
 
   // Auth
@@ -973,7 +1142,9 @@ export default {
       copyKey: '复制密钥',
       copyKeyDesc: '复制 API 密钥到剪贴板',
       useKey: '查看接入命令',
-      useKeyDesc: '打开一键接入 / 配置教程'
+      useKeyDesc: '打开一键接入 / 配置教程',
+      guide: '完整教程',
+      guideDesc: '本机 CC-Switch 与远程 SSH 配置'
     },
     // 配额和有效期
     quotaLimit: '额度限制',

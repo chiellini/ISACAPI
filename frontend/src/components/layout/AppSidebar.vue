@@ -205,7 +205,6 @@ import { useAdminSettingsStore, useAppStore, useAuthStore, useOnboardingStore } 
 import VersionBadge from '@/components/common/VersionBadge.vue'
 import { sanitizeSvg } from '@/utils/sanitize'
 import { FeatureFlags, makeSidebarFlag } from '@/utils/featureFlags'
-import { CC_SWITCH_DOWNLOAD_LINKS } from '@/utils/ccswitchImport'
 
 interface NavItem {
   path: string
@@ -739,10 +738,9 @@ function buildSelfNavItems(withDashboard: boolean): NavItem[] {
 function buildUserNavItems(): NavItem[] {
   const items = buildSelfNavItems(true)
   const downloadItem: NavItem = {
-    path: 'cc-switch-download',
-    label: t('nav.ccSwitchDownload'),
+    path: '/cc-switch',
+    label: t('nav.ccSwitchGuide'),
     icon: DownloadIcon,
-    externalUrl: CC_SWITCH_DOWNLOAD_LINKS.releases,
   }
   const keyIndex = items.findIndex((item) => item.path === '/keys')
   items.splice(keyIndex === -1 ? items.length : keyIndex + 1, 0, downloadItem)

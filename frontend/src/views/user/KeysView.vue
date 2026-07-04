@@ -1078,7 +1078,7 @@
             </div>
           </div>
         </div>
-        <div class="grid grid-cols-2 gap-3">
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <button
             @click="copyCcsFallbackKey"
             class="flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-gray-200 dark:border-dark-600 hover:border-primary-500 dark:hover:border-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-all"
@@ -1103,6 +1103,19 @@
               t('keys.ccsFallback.useKeyDesc')
             }}</span>
           </button>
+          <RouterLink
+            to="/cc-switch"
+            class="flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-gray-200 dark:border-dark-600 hover:border-primary-500 dark:hover:border-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-all"
+            @click="closeCcsFallback"
+          >
+            <Icon name="book" size="xl" class="text-gray-600 dark:text-gray-400" />
+            <span class="font-medium text-gray-900 dark:text-white">{{
+              t('keys.ccsFallback.guide')
+            }}</span>
+            <span class="text-xs text-gray-500 dark:text-gray-400">{{
+              t('keys.ccsFallback.guideDesc')
+            }}</span>
+          </RouterLink>
         </div>
       </div>
       <template #footer>

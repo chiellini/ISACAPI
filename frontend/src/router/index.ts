@@ -226,6 +226,18 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/cc-switch',
+    name: 'CcSwitchGuide',
+    component: () => import('@/views/user/CcSwitchGuideView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: false,
+      title: 'CC-Switch Guide',
+      titleKey: 'ccSwitchGuide.title',
+      descriptionKey: 'ccSwitchGuide.description'
+    }
+  },
+  {
     path: '/usage',
     name: 'Usage',
     component: () => import('@/views/user/UsageView.vue'),
