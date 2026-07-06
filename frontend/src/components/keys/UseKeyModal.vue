@@ -584,6 +584,7 @@ function buildOneClickFiles(): OneClickFile[] {
           env: {
             ANTHROPIC_BASE_URL: claudeBase,
             ANTHROPIC_AUTH_TOKEN: apiKey,
+            ANTHROPIC_API_KEY: apiKey,
             CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1',
             CLAUDE_CODE_ATTRIBUTION_HEADER: '0'
           }
@@ -929,6 +930,7 @@ function generateAnthropicFiles(baseUrl: string, apiKey: string): FileConfig[] {
       path = 'Terminal'
       content = `export ANTHROPIC_BASE_URL="${baseUrl}"
 export ANTHROPIC_AUTH_TOKEN="${apiKey}"
+export ANTHROPIC_API_KEY="${apiKey}"
 export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
 export CLAUDE_CODE_ATTRIBUTION_HEADER=0`
       break
@@ -936,6 +938,7 @@ export CLAUDE_CODE_ATTRIBUTION_HEADER=0`
       path = 'Command Prompt'
       content = `set ANTHROPIC_BASE_URL=${baseUrl}
 set ANTHROPIC_AUTH_TOKEN=${apiKey}
+set ANTHROPIC_API_KEY=${apiKey}
 set CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
 set CLAUDE_CODE_ATTRIBUTION_HEADER=0`
       break
@@ -943,6 +946,7 @@ set CLAUDE_CODE_ATTRIBUTION_HEADER=0`
       path = 'PowerShell'
       content = `$env:ANTHROPIC_BASE_URL="${baseUrl}"
 $env:ANTHROPIC_AUTH_TOKEN="${apiKey}"
+$env:ANTHROPIC_API_KEY="${apiKey}"
 $env:CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
 $env:CLAUDE_CODE_ATTRIBUTION_HEADER=0`
       break
@@ -959,6 +963,7 @@ $env:CLAUDE_CODE_ATTRIBUTION_HEADER=0`
   "env": {
     "ANTHROPIC_BASE_URL": "${baseUrl}",
     "ANTHROPIC_AUTH_TOKEN": "${apiKey}",
+    "ANTHROPIC_API_KEY": "${apiKey}",
     "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
     "CLAUDE_CODE_ATTRIBUTION_HEADER": "0"
   }

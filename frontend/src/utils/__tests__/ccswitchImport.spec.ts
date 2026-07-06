@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest'
 import {
   CC_SWITCH_DOWNLOAD_LINKS,
   OPENAI_CC_SWITCH_CODEX_MODEL,
-  buildCcSwitchImportDeeplink
+  buildCcSwitchImportDeeplink,
+  getCcSwitchProtocolFallbackDelayMs,
+  isAppleLikePlatform
 } from '@/utils/ccswitchImport'
 import type { GroupPlatform } from '@/types'
 
@@ -25,6 +27,24 @@ describe('ccswitchImport utils', () => {
     expect(CC_SWITCH_DOWNLOAD_LINKS.macos).toMatch(
       /^https:\/\/github\.com\/farion1231\/cc-switch\/releases\/download\/v[\d.]+\/CC-Switch-v[\d.]+-macOS\.dmg$/
     )
+  })
+
+  it('uses a longer protocol fallback delay for Apple browsers', () => {
+    expect(isAppleLikePlatform({
+      platform: 'MacIntel',
+      userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)',
+      maxTouchPoints: 0
+    })).toBe(true)
+    expect(getCcSwitchProtocolFallbackDelayMs({
+      platform: 'MacIntel',
+      userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)',
+      maxTouchPoints: 0
+    })).toBe(5000)
+    expect(getCcSwitchProtocolFallbackDelayMs({
+      platform: 'Win32',
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+      maxTouchPoints: 0
+    })).toBe(1800)
   })
 
   const baseInput = {

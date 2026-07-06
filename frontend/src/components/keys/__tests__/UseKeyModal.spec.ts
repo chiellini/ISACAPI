@@ -149,6 +149,7 @@ describe('UseKeyModal', () => {
     expect(script).toContain(`cat > "$HOME/.claude/settings.json" <<'SUB2API_EOF'`)
     expect(script).toContain('"ANTHROPIC_BASE_URL": "https://example.com"')
     expect(script).toContain('"ANTHROPIC_AUTH_TOKEN": "sk-test"')
+    expect(script).toContain('"ANTHROPIC_API_KEY": "sk-test"')
     expect(script).toContain('for rc in "$HOME/.bashrc" "$HOME/.bash_profile" "$HOME/.zshrc" "$HOME/.profile"; do')
     expect(script).toContain('# >>> ISACAPI API env >>>')
     expect(script).toContain("export ANTHROPIC_API_KEY='sk-test'")

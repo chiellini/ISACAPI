@@ -1134,11 +1134,15 @@ export default {
       title: '没有检测到 CC-Switch',
       description:
         '可能未安装 CC-Switch 或未注册协议处理程序。你可以直接复制密钥，或查看一键接入命令手动配置。',
+      macosHint:
+        'macOS：安装 DMG 后请先手动打开一次 CC-Switch；如果系统拦截，请到系统设置里允许打开。然后回到这里点击“重新打开”。',
       downloadTitle: '下载 CC-Switch',
       downloadDescription: '请仅通过官方渠道下载。Windows ARM64、便携版或校验文件请打开官方下载页选择对应资产。',
       windowsDownload: 'Windows MSI',
       macosDownload: 'macOS DMG',
       releasePage: '官方下载页',
+      retryOpen: '重新打开',
+      retryOpenDesc: '再次触发 ccswitch:// 导入',
       copyKey: '复制密钥',
       copyKeyDesc: '复制 API 密钥到剪贴板',
       useKey: '查看接入命令',

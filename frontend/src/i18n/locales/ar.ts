@@ -27,6 +27,10 @@ export default {
       windowsDownload: 'Windows MSI',
       macosDownload: 'macOS DMG',
       releasePage: 'صفحة التنزيل الرسمية',
+      macosHint:
+        'macOS: بعد تثبيت ملف DMG، افتح CC-Switch يدويا مرة واحدة. إذا منعه Gatekeeper، اسمح له من إعدادات النظام، ثم ارجع واضغط فتح مرة أخرى.',
+      retryOpen: 'فتح مرة أخرى',
+      retryOpenDesc: 'إعادة محاولة استيراد ccswitch://',
       guide: 'الدليل الكامل',
       guideDesc: 'إعداد CC-Switch المحلي و Remote SSH'
     }

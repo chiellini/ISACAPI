@@ -13,6 +13,7 @@ export const CC_SWITCH_DOWNLOAD_LINKS = {
 } as const
 
 export type CcSwitchClientType = 'claude' | 'gemini'
+export type CcSwitchNavigatorSnapshot = Pick<Navigator, 'platform' | 'userAgent' | 'maxTouchPoints'>
 
 export interface CcSwitchImportConfig {
   app: string
@@ -79,4 +80,38 @@ export function buildCcSwitchImportDeeplink(input: CcSwitchImportDeeplinkInput):
   }
 
   return `ccswitch://v1/import?${new URLSearchParams(entries).toString()}`
+}
+
+function getCurrentNavigator(): CcSwitchNavigatorSnapshot | undefined {
+  return typeof navigator === 'undefined' ? undefined : navigator
+}
+
+export function isAppleLikePlatform(nav: CcSwitchNavigatorSnapshot | undefined = getCurrentNavigator()): boolean {
+  if (!nav) return false
+  const platform = nav.platform || ''
+  const userAgent = nav.userAgent || ''
+  return /Mac|iPhone|iPad|iPod/i.test(platform) || (/Macintosh/i.test(userAgent) && nav.maxTouchPoints > 1)
+}
+
+export function getCcSwitchProtocolFallbackDelayMs(nav: CcSwitchNavigatorSnapshot | undefined = getCurrentNavigator()): number {
+  return isAppleLikePlatform(nav) ? 5000 : 1800
+}
+
+export function openCcSwitchDeeplink(deeplink: string): void {
+  if (typeof window === 'undefined') return
+
+  if (typeof document === 'undefined' || !document.body) {
+    window.location.assign(deeplink)
+    return
+  }
+
+  const anchor = document.createElement('a')
+  anchor.href = deeplink
+  anchor.style.display = 'none'
+  anchor.setAttribute('aria-hidden', 'true')
+  document.body.appendChild(anchor)
+  anchor.click()
+  window.setTimeout(() => {
+    anchor.remove()
+  }, 0)
 }

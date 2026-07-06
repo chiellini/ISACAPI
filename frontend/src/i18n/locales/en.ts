@@ -1131,11 +1131,15 @@ export default {
       title: 'CC-Switch not detected',
       description:
         'CC-Switch may not be installed or its protocol handler is not registered. You can copy the key directly, or view the one-click install command to configure manually.',
+      macosHint:
+        'macOS: after installing the DMG, open CC-Switch once and allow it in System Settings if Gatekeeper blocks it. Then return here and click Open Again.',
       downloadTitle: 'Download CC-Switch',
       downloadDescription: 'Use official channels only. Open the official download page for Windows ARM64, portable builds, or checksum files.',
       windowsDownload: 'Windows MSI',
       macosDownload: 'macOS DMG',
       releasePage: 'Download page',
+      retryOpen: 'Open Again',
+      retryOpenDesc: 'Retry the ccswitch:// import',
       copyKey: 'Copy Key',
       copyKeyDesc: 'Copy the API key to clipboard',
       useKey: 'Install Command',

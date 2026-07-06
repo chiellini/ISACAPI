@@ -27,6 +27,10 @@ export default {
       windowsDownload: 'Windows MSI',
       macosDownload: 'macOS DMG',
       releasePage: '公式ダウンロードページ',
+      macosHint:
+        'macOS: DMG をインストールしたら CC-Switch を一度手動で開き、Gatekeeper に止められた場合はシステム設定で許可してください。その後この画面で「もう一度開く」を押します。',
+      retryOpen: 'もう一度開く',
+      retryOpenDesc: 'ccswitch:// インポートを再試行',
       guide: '完全ガイド',
       guideDesc: 'ローカル CC-Switch と Remote SSH の設定'
     }
