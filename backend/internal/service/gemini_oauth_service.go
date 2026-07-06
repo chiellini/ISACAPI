@@ -589,17 +589,13 @@ func (s *GeminiOAuthService) ExchangeCode(ctx context.Context, input *GeminiExch
 	case "google_one":
 		logger.LegacyPrintf("service.gemini_oauth", "[GeminiOAuth] Processing google_one OAuth type")
 
-		// Google One accounts use cloudaicompanion API, which requires a project_id.
-		// For personal accounts, Google auto-assigns a project_id via the LoadCodeAssist API.
+		// Google One personal accounts should not be blocked by project_id
+		// discovery. Some accounts complete OAuth and Drive tier detection but
+		// Code Assist onboarding returns no cloudaicompanionProject. Preserve a
+		// user-provided project_id when present, otherwise create the account
+		// without one and let the Google One gateway path handle quota by tier.
 		if projectID == "" {
-			logger.LegacyPrintf("service.gemini_oauth", "[GeminiOAuth] No project_id provided, attempting to fetch from LoadCodeAssist API...")
-			var err error
-			projectID, _, err = s.fetchProjectID(ctx, tokenResp.AccessToken, proxyURL)
-			if err != nil {
-				logger.LegacyPrintf("service.gemini_oauth", "[GeminiOAuth] ERROR: Failed to fetch project_id: %v", err)
-				return nil, fmt.Errorf("google One accounts require a project_id, failed to auto-detect: %w", err)
-			}
-			logger.LegacyPrintf("service.gemini_oauth", "[GeminiOAuth] Successfully fetched project_id: %s", projectID)
+			logger.LegacyPrintf("service.gemini_oauth", "[GeminiOAuth] No project_id provided for google_one; continuing without Code Assist project discovery")
 		}
 
 		logger.LegacyPrintf("service.gemini_oauth", "[GeminiOAuth] Attempting to fetch Google One tier from Drive API...")
