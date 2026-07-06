@@ -338,6 +338,9 @@ func (s *GeminiMessagesCompatService) buildGeminiChatCompletionsUpstreamRequestF
 			}
 
 			projectID := strings.TrimSpace(account.GetCredential("project_id"))
+			if projectID == "" && isGeminiCodeAssistScopedOAuth(account) {
+				return nil, "", geminiCodeAssistOAuthRequiresProjectIDError(account)
+			}
 			action := "generateContent"
 			if useUpstreamStream {
 				action = "streamGenerateContent"

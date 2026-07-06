@@ -1118,6 +1118,11 @@ func (s *AccountTestService) buildGeminiAPIKeyRequest(ctx context.Context, accou
 
 // buildGeminiOAuthRequest builds request for Gemini OAuth accounts
 func (s *AccountTestService) buildGeminiOAuthRequest(ctx context.Context, account *Account, modelID string, payload []byte) (*http.Request, error) {
+	projectID := strings.TrimSpace(account.GetCredential("project_id"))
+	if projectID == "" && isGeminiCodeAssistScopedOAuth(account) {
+		return nil, geminiCodeAssistOAuthRequiresProjectIDError(account)
+	}
+
 	if s.geminiTokenProvider == nil {
 		return nil, fmt.Errorf("gemini token provider not configured")
 	}
@@ -1128,7 +1133,6 @@ func (s *AccountTestService) buildGeminiOAuthRequest(ctx context.Context, accoun
 		return nil, fmt.Errorf("failed to get access token: %w", err)
 	}
 
-	projectID := strings.TrimSpace(account.GetCredential("project_id"))
 	if projectID == "" {
 		// AI Studio OAuth mode (no project_id): call generativelanguage API directly with Bearer token.
 		baseURL := account.GetCredential("base_url")

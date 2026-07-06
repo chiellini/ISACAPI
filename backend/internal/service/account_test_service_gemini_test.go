@@ -3,6 +3,7 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"strings"
 	"testing"
@@ -91,6 +92,27 @@ func TestResolveGeminiAccountTestModel_NormalizesMappedOAuthImageModel(t *testin
 	}
 
 	require.Equal(t, "gemini-3-pro-image-preview", resolveGeminiAccountTestModel(account, "gemini-3-pro-image"))
+}
+
+func TestBuildGeminiOAuthRequest_GoogleOneWithoutProjectIDRejectsAIStudioDirect(t *testing.T) {
+	t.Parallel()
+
+	svc := &AccountTestService{}
+	account := &Account{
+		Platform: PlatformGemini,
+		Type:     AccountTypeOAuth,
+		Credentials: map[string]any{
+			"oauth_type":   "google_one",
+			"access_token": "ya29.test-token",
+		},
+	}
+
+	req, err := svc.buildGeminiOAuthRequest(context.Background(), account, "gemini-2.5-flash", createGeminiTestPayload("gemini-2.5-flash", "hi"))
+	require.Nil(t, req)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "Google One OAuth token uses Gemini CLI / Code Assist scopes")
+	require.Contains(t, err.Error(), "project_id")
+	require.Contains(t, err.Error(), "AI Studio OAuth/API-key")
 }
 
 func TestProcessGeminiStream_EmitsImageEvent(t *testing.T) {

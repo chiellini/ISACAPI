@@ -308,8 +308,8 @@ func (s *AccountTestService) buildGeminiUpstreamModelsRequest(ctx context.Contex
 		}
 		req.Header.Set("x-goog-api-key", apiKey)
 	case AccountTypeOAuth:
-		if strings.TrimSpace(account.GetCredential("project_id")) != "" {
-			return nil, newUpstreamModelSyncUnsupportedError("Gemini Code Assist model listing is not supported by this sync button", nil)
+		if isGeminiCodeAssistScopedOAuth(account) {
+			return nil, newUpstreamModelSyncUnsupportedError("Gemini Code Assist / Google One OAuth model listing is not supported by this sync button; use the curated Gemini model list or an AI Studio OAuth/API-key account", nil)
 		}
 		if s.geminiTokenProvider == nil {
 			return nil, newUpstreamModelSyncConfigError("Gemini token provider is not configured", nil)

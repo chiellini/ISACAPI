@@ -664,6 +664,9 @@ func (s *GeminiMessagesCompatService) Forward(ctx context.Context, c *gin.Contex
 			}
 
 			projectID := strings.TrimSpace(account.GetCredential("project_id"))
+			if projectID == "" && isGeminiCodeAssistScopedOAuth(account) {
+				return nil, "", geminiCodeAssistOAuthRequiresProjectIDError(account)
+			}
 
 			action := "generateContent"
 			if useUpstreamStream {
@@ -1200,6 +1203,9 @@ func (s *GeminiMessagesCompatService) ForwardNative(ctx context.Context, c *gin.
 			}
 
 			projectID := strings.TrimSpace(account.GetCredential("project_id"))
+			if (projectID == "" || forceAIStudio) && isGeminiCodeAssistScopedOAuth(account) {
+				return nil, "", geminiCodeAssistOAuthRequiresProjectIDError(account)
+			}
 
 			// Two modes for OAuth:
 			// 1. With project_id -> Code Assist API (wrapped request)
