@@ -116,6 +116,33 @@ func TestBuildGeminiOAuthRequest_GoogleOneWithoutProjectIDRejectsAIStudioDirect(
 	require.Contains(t, err.Error(), "AI Studio OAuth/API-key")
 }
 
+func TestFormatGeminiAccountTestAPIError_ValidationRequired(t *testing.T) {
+	t.Parallel()
+
+	body := []byte(`{
+		"error": {
+			"code": 403,
+			"message": "Verify your account to continue.",
+			"status": "PERMISSION_DENIED",
+			"details": [
+				{
+					"@type": "type.googleapis.com/google.rpc.ErrorInfo",
+					"reason": "VALIDATION_REQUIRED",
+					"domain": "cloudcode-pa.googleapis.com",
+					"metadata": {
+						"validation_url": "https://accounts.google.com/signin/continue?test=1"
+					}
+				}
+			]
+		}
+	}`)
+
+	got := formatGeminiAccountTestAPIError(403, body)
+	require.Contains(t, got, "Google account verification required")
+	require.Contains(t, got, "https://accounts.google.com/signin/continue?test=1")
+	require.NotContains(t, got, "\"details\"")
+}
+
 func TestBuildGeminiOAuthRequest_LegacyCodeAssistScopeWithoutProjectIDRejectsAIStudioDirect(t *testing.T) {
 	t.Parallel()
 

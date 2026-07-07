@@ -57,6 +57,38 @@ const (
 	defaultOpenAIImageTestPrompt = "Generate a cute orange cat astronaut sticker on a clean pastel background."
 )
 
+func formatGeminiAccountTestAPIError(statusCode int, body []byte) string {
+	var parsed struct {
+		Error struct {
+			Message string `json:"message"`
+			Details []struct {
+				Reason   string            `json:"reason"`
+				Domain   string            `json:"domain"`
+				Metadata map[string]string `json:"metadata"`
+			} `json:"details"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal(body, &parsed); err != nil {
+		return fmt.Sprintf("API returned %d: %s", statusCode, string(body))
+	}
+
+	for _, detail := range parsed.Error.Details {
+		if detail.Reason != "VALIDATION_REQUIRED" {
+			continue
+		}
+		validationURL := strings.TrimSpace(detail.Metadata["validation_url"])
+		if validationURL != "" {
+			return fmt.Sprintf("API returned %d: Google account verification required. Open this link with the same Google account, finish verification, then retry the test. Verification URL: %s", statusCode, validationURL)
+		}
+		if parsed.Error.Message != "" {
+			return fmt.Sprintf("API returned %d: Google account verification required: %s", statusCode, parsed.Error.Message)
+		}
+		return fmt.Sprintf("API returned %d: Google account verification required", statusCode)
+	}
+
+	return fmt.Sprintf("API returned %d: %s", statusCode, string(body))
+}
+
 // isOpenAIImageModel checks if the model is an OpenAI image generation model (e.g. gpt-image-2).
 func isOpenAIImageModel(model string) bool {
 	return strings.HasPrefix(strings.ToLower(model), "gpt-image-")
@@ -1001,7 +1033,7 @@ func (s *AccountTestService) testGeminiAccountConnection(c *gin.Context, account
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return s.sendErrorAndEnd(c, fmt.Sprintf("API returned %d: %s", resp.StatusCode, string(body)))
+		return s.sendErrorAndEnd(c, formatGeminiAccountTestAPIError(resp.StatusCode, body))
 	}
 
 	// Process SSE stream
