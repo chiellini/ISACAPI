@@ -39,6 +39,16 @@ func TestGeminiOAuthService_GenerateAuthURL_RedirectURIStrategy(t *testing.T) {
 
 	tests := []testCase{
 		{
+			name: "google_one requires project_id",
+			cfg: &config.Config{
+				Gemini: config.GeminiConfig{
+					OAuth: config.GeminiOAuthConfig{},
+				},
+			},
+			oauthType:     "google_one",
+			wantErrSubstr: "Project ID is required",
+		},
+		{
 			name: "google_one uses built-in client when not configured and redirects to upstream",
 			cfg: &config.Config{
 				Gemini: config.GeminiConfig{
@@ -46,10 +56,11 @@ func TestGeminiOAuthService_GenerateAuthURL_RedirectURIStrategy(t *testing.T) {
 				},
 			},
 			oauthType:     "google_one",
+			projectID:     "my-gcp-project",
 			wantClientID:  geminicli.GeminiCLIOAuthClientID,
 			wantRedirect:  geminicli.GeminiCLIRedirectURI,
 			wantScope:     geminicli.DefaultCodeAssistScopes,
-			wantProjectID: "",
+			wantProjectID: "my-gcp-project",
 		},
 		{
 			name: "google_one always forces built-in client even when custom client configured",
@@ -62,10 +73,11 @@ func TestGeminiOAuthService_GenerateAuthURL_RedirectURIStrategy(t *testing.T) {
 				},
 			},
 			oauthType:     "google_one",
+			projectID:     "my-gcp-project",
 			wantClientID:  geminicli.GeminiCLIOAuthClientID,
 			wantRedirect:  geminicli.GeminiCLIRedirectURI,
 			wantScope:     geminicli.DefaultCodeAssistScopes,
-			wantProjectID: "",
+			wantProjectID: "my-gcp-project",
 		},
 		{
 			name: "code_assist always forces built-in client even when custom client configured",
@@ -1467,32 +1479,16 @@ func TestGeminiOAuthService_ExchangeCode_EmptyState(t *testing.T) {
 	}
 }
 
-func TestGeminiOAuthService_ExchangeCode_GoogleOne_AllowsMissingProjectID(t *testing.T) {
+func TestGeminiOAuthService_ExchangeCode_GoogleOne_RequiresProjectID(t *testing.T) {
 	t.Parallel()
 
 	client := &mockGeminiOAuthClient{
 		exchangeCodeFunc: func(ctx context.Context, oauthType, code, codeVerifier, redirectURI, proxyURL string) (*geminicli.TokenResponse, error) {
-			if oauthType != "google_one" {
-				t.Fatalf("oauthType = %q, want google_one", oauthType)
-			}
-			if code != "code" {
-				t.Fatalf("code = %q, want code", code)
-			}
-			return &geminicli.TokenResponse{
-				AccessToken:  "at",
-				RefreshToken: "rt",
-				TokenType:    "Bearer",
-				ExpiresIn:    3600,
-				Scope:        "scope",
-			}, nil
+			t.Fatal("ExchangeCode should not call OAuth client when google_one project_id is missing")
+			return nil, nil
 		},
 	}
-	drive := &mockDriveClient{
-		getStorageQuotaFunc: func(ctx context.Context, accessToken, proxyURL string) (*geminicli.DriveStorageInfo, error) {
-			return nil, fmt.Errorf("drive unavailable")
-		},
-	}
-	svc := NewGeminiOAuthService(&mockGeminiProxyRepo{}, client, nil, drive, &config.Config{})
+	svc := NewGeminiOAuthService(&mockGeminiProxyRepo{}, client, nil, nil, &config.Config{})
 	defer svc.Stop()
 
 	svc.sessionStore.Set("test-session", &geminicli.OAuthSession{
@@ -1509,17 +1505,11 @@ func TestGeminiOAuthService_ExchangeCode_GoogleOne_AllowsMissingProjectID(t *tes
 		Code:      "code",
 		OAuthType: "google_one",
 	})
-	if err != nil {
-		t.Fatalf("ExchangeCode returned error: %v", err)
+	if err == nil {
+		t.Fatalf("expected error, got info=%#v", info)
 	}
-	if info.ProjectID != "" {
-		t.Fatalf("ProjectID = %q, want empty for google_one without user-provided project_id", info.ProjectID)
-	}
-	if info.OAuthType != "google_one" {
-		t.Fatalf("OAuthType = %q, want google_one", info.OAuthType)
-	}
-	if info.TierID != GeminiTierGoogleOneFree {
-		t.Fatalf("TierID = %q, want %q", info.TierID, GeminiTierGoogleOneFree)
+	if !strings.Contains(err.Error(), "Project ID is required") {
+		t.Fatalf("expected Project ID error, got: %v", err)
 	}
 }
 

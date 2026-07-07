@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Wei-Shaw/sub2api/internal/pkg/geminicli"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )
@@ -113,6 +114,41 @@ func TestBuildGeminiOAuthRequest_GoogleOneWithoutProjectIDRejectsAIStudioDirect(
 	require.Contains(t, err.Error(), "Google One OAuth token uses Gemini CLI / Code Assist scopes")
 	require.Contains(t, err.Error(), "project_id")
 	require.Contains(t, err.Error(), "AI Studio OAuth/API-key")
+}
+
+func TestBuildGeminiOAuthRequest_LegacyCodeAssistScopeWithoutProjectIDRejectsAIStudioDirect(t *testing.T) {
+	t.Parallel()
+
+	svc := &AccountTestService{}
+	account := &Account{
+		Platform: PlatformGemini,
+		Type:     AccountTypeOAuth,
+		Credentials: map[string]any{
+			"access_token": "ya29.test-token",
+			"scope":        geminicli.DefaultCodeAssistScopes,
+		},
+	}
+
+	req, err := svc.buildGeminiOAuthRequest(context.Background(), account, "gemini-2.5-flash", createGeminiTestPayload("gemini-2.5-flash", "hi"))
+	require.Nil(t, req)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "Gemini Code Assist OAuth token uses Gemini CLI / Code Assist scopes")
+	require.Contains(t, err.Error(), "project_id")
+}
+
+func TestAccountGeminiOAuthType_LegacyAIStudioScopeStaysAIStudio(t *testing.T) {
+	t.Parallel()
+
+	account := &Account{
+		Platform: PlatformGemini,
+		Type:     AccountTypeOAuth,
+		Credentials: map[string]any{
+			"scope": geminicli.DefaultAIStudioScopes,
+		},
+	}
+
+	require.Equal(t, "ai_studio", account.GeminiOAuthType())
+	require.False(t, isGeminiCodeAssistScopedOAuth(account))
 }
 
 func TestProcessGeminiStream_EmitsImageEvent(t *testing.T) {

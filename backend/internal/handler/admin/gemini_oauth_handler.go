@@ -28,8 +28,9 @@ func (h *GeminiOAuthHandler) GetCapabilities(c *gin.Context) {
 type GeminiGenerateAuthURLRequest struct {
 	ProxyID   *int64 `json:"proxy_id"`
 	ProjectID string `json:"project_id"`
-	// OAuth 类型: "code_assist" (需要 project_id) 或 "ai_studio" (不需要 project_id)
-	// 默认为 "code_assist" 以保持向后兼容
+	// OAuth type: "code_assist", "google_one", or "ai_studio".
+	// code_assist/google_one require project_id; ai_studio does not.
+	// Defaults to "code_assist" for backward compatibility.
 	OAuthType string `json:"oauth_type"`
 	// TierID is a user-selected tier to be used when auto detection is unavailable or fails.
 	TierID string `json:"tier_id"`
@@ -51,6 +52,10 @@ func (h *GeminiOAuthHandler) GenerateAuthURL(c *gin.Context) {
 	}
 	if oauthType != "code_assist" && oauthType != "google_one" && oauthType != "ai_studio" {
 		response.BadRequest(c, "Invalid oauth_type: must be 'code_assist', 'google_one', or 'ai_studio'")
+		return
+	}
+	if service.GeminiOAuthTypeRequiresProjectID(oauthType) && strings.TrimSpace(req.ProjectID) == "" {
+		response.BadRequest(c, "Project ID is required for "+oauthType+" OAuth. Create or select a Google Cloud project, enable Gemini for Google Cloud API, then paste the Project ID before generating the auth URL")
 		return
 	}
 
@@ -81,7 +86,7 @@ type GeminiExchangeCodeRequest struct {
 	State     string `json:"state" binding:"required"`
 	Code      string `json:"code" binding:"required"`
 	ProxyID   *int64 `json:"proxy_id"`
-	// OAuth 类型: "code_assist" 或 "ai_studio"，需要与 GenerateAuthURL 时的类型一致
+	// OAuth type: "code_assist", "google_one", or "ai_studio"; must match GenerateAuthURL.
 	OAuthType string `json:"oauth_type"`
 	// TierID is a user-selected tier to be used when auto detection is unavailable or fails.
 	// This field is optional; when omitted, the server uses the tier stored in the OAuth session.

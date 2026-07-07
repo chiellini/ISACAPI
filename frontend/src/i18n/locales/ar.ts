@@ -35,6 +35,37 @@ export default {
       guideDesc: 'إعداد CC-Switch المحلي و Remote SSH'
     }
   },
+  admin: {
+    ...en.admin,
+    accounts: {
+      ...en.admin.accounts,
+      oauth: {
+        ...en.admin.accounts.oauth,
+        gemini: {
+          ...en.admin.accounts.oauth.gemini,
+          projectIdLabel: 'Project ID (مطلوب)',
+          projectIdHint:
+            'مطلوب لاستخدام OAuth عبر Code Assist و Google One. أنشئ أو اختر مشروع Google Cloud، فعّل Gemini for Google Cloud API، ثم أدخل Project ID.',
+          missingProjectId:
+            'Project ID مطلوب لاستخدام OAuth عبر Code Assist / Google One. أنشئ أو اختر مشروع Google Cloud، فعّل Gemini for Google Cloud API، وتأكد أن هذا الحساب يملك صلاحية الوصول قبل إنشاء رابط التفويض.',
+          needsProjectId: 'OAuth مدمج (Code Assist / Google One)',
+          needsProjectIdDesc: 'يتطلب Project ID مع تفعيل Gemini for Google Cloud API'
+        }
+      },
+      gemini: {
+        ...en.admin.accounts.gemini,
+        oauthType: {
+          ...en.admin.accounts.gemini.oauthType,
+          googleOneDesc: 'حساب Google شخصي، ويتطلب Google Cloud Project ID',
+          codeAssistDesc: 'مخصص للمؤسسات، ويتطلب Google Cloud Project ID',
+          badges: {
+            ...en.admin.accounts.gemini.oauthType.badges,
+            noGcp: 'Project ID مطلوب'
+          }
+        }
+      }
+    }
+  },
   ccSwitchGuide: {
     heroBadge: 'إعداد محلي وعن بعد',
     title: 'دليل إعداد CC-Switch',

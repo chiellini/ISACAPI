@@ -35,6 +35,37 @@ export default {
       guideDesc: 'ローカル CC-Switch と Remote SSH の設定'
     }
   },
+  admin: {
+    ...en.admin,
+    accounts: {
+      ...en.admin.accounts,
+      oauth: {
+        ...en.admin.accounts.oauth,
+        gemini: {
+          ...en.admin.accounts.oauth.gemini,
+          projectIdLabel: 'Project ID（必須）',
+          projectIdHint:
+            'Code Assist と Google One OAuth では必須です。Google Cloud プロジェクトを作成または選択し、Gemini for Google Cloud API を有効化してから Project ID を入力してください。',
+          missingProjectId:
+            'Code Assist / Google One OAuth には Project ID が必要です。Google Cloud プロジェクトを作成または選択し、Gemini for Google Cloud API を有効化し、この Google アカウントにアクセス権があることを確認してから認可 URL を生成してください。',
+          needsProjectId: '組み込み OAuth（Code Assist / Google One）',
+          needsProjectIdDesc: 'Gemini for Google Cloud API が有効な Project ID が必要です'
+        }
+      },
+      gemini: {
+        ...en.admin.accounts.gemini,
+        oauthType: {
+          ...en.admin.accounts.gemini.oauthType,
+          googleOneDesc: '個人の Google アカウント。Google Cloud Project ID が必要です',
+          codeAssistDesc: 'エンタープライズ向け。Google Cloud Project ID が必要です',
+          badges: {
+            ...en.admin.accounts.gemini.oauthType.badges,
+            noGcp: 'Project ID が必要'
+          }
+        }
+      }
+    }
+  },
   ccSwitchGuide: {
     heroBadge: 'ローカルとリモートの設定',
     title: 'CC-Switch 設定ガイド',

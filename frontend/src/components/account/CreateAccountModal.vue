@@ -3060,7 +3060,7 @@
         :show-codex-session-import-option="form.platform === 'openai'"
         :show-codex-pat-option="form.platform === 'openai'"
         :platform="form.platform"
-        :show-project-id="geminiOAuthType === 'code_assist'"
+        :show-project-id="geminiOAuthType !== 'ai_studio'"
         @generate-url="handleGenerateUrl"
         @cookie-auth="handleCookieAuth"
         @validate-refresh-token="handleValidateRefreshToken"
