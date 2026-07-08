@@ -98,6 +98,30 @@ func TestInstanceSupportsType(t *testing.T) {
 	}
 }
 
+func TestEasyPayDefaultUpstreamType(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name           string
+		supportedTypes string
+		want           PaymentType
+	}{
+		{name: "empty defaults to alipay", supportedTypes: "", want: TypeAlipay},
+		{name: "alipay preferred when both are available", supportedTypes: "wxpay,alipay", want: TypeAlipay},
+		{name: "wxpay used when alipay is unavailable", supportedTypes: "wxpay", want: TypeWxpay},
+		{name: "first custom method is used as fallback", supportedTypes: "usdt_trc20,ldc", want: "usdt_trc20"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			if got := EasyPayDefaultUpstreamType(tt.supportedTypes); got != tt.want {
+				t.Fatalf("EasyPayDefaultUpstreamType(%q) = %q, want %q", tt.supportedTypes, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestGetInstanceChannelLimitsFallsBackToLegacyDirectAliases(t *testing.T) {
 	t.Parallel()
 
@@ -111,6 +135,13 @@ func TestGetInstanceChannelLimitsFallsBackToLegacyDirectAliases(t *testing.T) {
 	wxGot := getInstanceChannelLimits(wxInst, TypeWxpay)
 	if wxGot.SingleMin != 8 {
 		t.Fatalf("getInstanceChannelLimits() = %+v, want SingleMin=8", wxGot)
+	}
+
+	epInst := testInstance(3, TypeEasyPay, makeLimitsJSON(TypeWxpay, ChannelLimits{SingleMax: 88}))
+	epInst.SupportedTypes = TypeWxpay
+	epGot := getInstanceChannelLimits(epInst, TypeEasyPay)
+	if epGot.SingleMax != 88 {
+		t.Fatalf("getInstanceChannelLimits() = %+v, want EasyPay upstream SingleMax=88", epGot)
 	}
 }
 

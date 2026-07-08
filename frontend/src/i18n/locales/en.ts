@@ -7595,7 +7595,7 @@ export default {
       easypay: 'EasyPay',
       alipay: 'Alipay',
       wxpay: 'WeChat Pay',
-      stripe: 'Stripe',
+      stripe: 'International Card',
       airwallex: 'Airwallex',
       card: 'Card',
       link: 'Link',

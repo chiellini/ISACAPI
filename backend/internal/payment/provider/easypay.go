@@ -101,7 +101,7 @@ func (e *EasyPay) apiBase() string {
 func (e *EasyPay) Name() string        { return "EasyPay" }
 func (e *EasyPay) ProviderKey() string { return payment.TypeEasyPay }
 func (e *EasyPay) SupportedTypes() []payment.PaymentType {
-	types := []payment.PaymentType{payment.TypeAlipay, payment.TypeWxpay}
+	types := []payment.PaymentType{payment.TypeEasyPay, payment.TypeAlipay, payment.TypeWxpay}
 	for _, method := range e.customMethods() {
 		if method.Type != "" {
 			types = append(types, method.Type)
@@ -136,7 +136,7 @@ func (e *EasyPay) CreatePayment(ctx context.Context, req payment.CreatePaymentRe
 // TradeNo is empty; it arrives via the notify callback after payment.
 func (e *EasyPay) createRedirectPayment(req payment.CreatePaymentRequest) (*payment.CreatePaymentResponse, error) {
 	notifyURL, returnURL := e.resolveURLs(req)
-	paymentType := e.upstreamPaymentType(req.PaymentType)
+	paymentType := e.upstreamPaymentType(req.PaymentType, req.InstanceSubMethods)
 	params := map[string]string{
 		"pid": e.config["pid"], "type": paymentType,
 		"out_trade_no": req.OrderID, "notify_url": notifyURL,
@@ -163,7 +163,7 @@ func (e *EasyPay) createRedirectPayment(req payment.CreatePaymentRequest) (*paym
 // createAPIPayment calls mapi.php to get payurl/qrcode (existing behavior).
 func (e *EasyPay) createAPIPayment(ctx context.Context, req payment.CreatePaymentRequest) (*payment.CreatePaymentResponse, error) {
 	notifyURL, returnURL := e.resolveURLs(req)
-	paymentType := e.upstreamPaymentType(req.PaymentType)
+	paymentType := e.upstreamPaymentType(req.PaymentType, req.InstanceSubMethods)
 	params := map[string]string{
 		"pid": e.config["pid"], "type": paymentType,
 		"out_trade_no": req.OrderID, "notify_url": notifyURL,
@@ -243,8 +243,11 @@ func (e *EasyPay) customMethods() []easyPayCustomMethod {
 	return result
 }
 
-func (e *EasyPay) upstreamPaymentType(paymentType string) string {
+func (e *EasyPay) upstreamPaymentType(paymentType string, instanceSubMethods string) string {
 	paymentType = strings.TrimSpace(paymentType)
+	if paymentType == payment.TypeEasyPay {
+		paymentType = payment.EasyPayDefaultUpstreamType(instanceSubMethods)
+	}
 	for _, method := range e.customMethods() {
 		if paymentType == method.Type {
 			return method.UpstreamType

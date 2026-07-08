@@ -2,7 +2,10 @@
 // registry, load balancing, and shared utilities for the payment subsystem.
 package payment
 
-import "context"
+import (
+	"context"
+	"strings"
+)
 
 // PaymentType represents a supported payment method.
 type PaymentType = string
@@ -95,6 +98,27 @@ func GetBasePaymentType(t string) string {
 	default:
 		return t
 	}
+}
+
+// EasyPayDefaultUpstreamType resolves the concrete EasyPay channel used by the
+// generic "easypay" checkout button. Prefer Alipay because it has the broadest
+// desktop QR support, then WeChat Pay, then the first custom EasyPay method.
+func EasyPayDefaultUpstreamType(supportedTypes string) PaymentType {
+	supportedTypes = strings.TrimSpace(supportedTypes)
+	if supportedTypes == "" || InstanceSupportsType(supportedTypes, TypeAlipay) {
+		return TypeAlipay
+	}
+	if InstanceSupportsType(supportedTypes, TypeWxpay) {
+		return TypeWxpay
+	}
+	for _, raw := range strings.Split(supportedTypes, ",") {
+		candidate := strings.TrimSpace(raw)
+		if candidate == "" || candidate == TypeEasyPay {
+			continue
+		}
+		return candidate
+	}
+	return TypeAlipay
 }
 
 // CreatePaymentRequest holds the parameters for creating a new payment.

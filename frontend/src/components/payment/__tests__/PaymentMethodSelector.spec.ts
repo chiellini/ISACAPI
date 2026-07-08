@@ -9,6 +9,23 @@ vi.mock('vue-i18n', () => ({
 }))
 
 describe('PaymentMethodSelector', () => {
+  it('sorts EasyPay before local wallets and Stripe', () => {
+    const wrapper = mount(PaymentMethodSelector, {
+      props: {
+        selected: 'easypay',
+        methods: [
+          { type: 'stripe', fee_rate: 0, available: true },
+          { type: 'wxpay', fee_rate: 0, available: true },
+          { type: 'easypay', fee_rate: 0, available: true },
+          { type: 'alipay', fee_rate: 0, available: true },
+        ],
+      },
+    })
+
+    const labels = wrapper.findAll('button').map(button => button.text())
+    expect(labels).toEqual(['easypay', 'alipay', 'wxpay', 'stripe'])
+  })
+
   it('shows the configured display name for custom EasyPay methods', () => {
     const wrapper = mount(PaymentMethodSelector, {
       props: {
