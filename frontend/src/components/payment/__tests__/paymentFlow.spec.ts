@@ -35,6 +35,7 @@ function createOrderResult(overrides: Partial<CreateOrderResult> = {}): CreateOr
 describe('getVisibleMethods', () => {
   it('normalizes provider aliases and keeps stripe as a top-level method', () => {
     const visible = getVisibleMethods({
+      easypay: methodLimit({ single_min: 1 }),
       alipay_direct: methodLimit({ single_min: 5 }),
       wxpay: methodLimit({ single_max: 100 }),
       stripe: methodLimit({ fee_rate: 3 }),
@@ -42,6 +43,7 @@ describe('getVisibleMethods', () => {
     })
 
     expect(visible).toEqual({
+      easypay: methodLimit({ single_min: 1 }),
       alipay: methodLimit({ single_min: 5 }),
       wxpay: methodLimit({ single_max: 100 }),
       stripe: methodLimit({ fee_rate: 3 }),
@@ -300,6 +302,22 @@ describe('buildCreateOrderPayload', () => {
       return_url: 'https://app.example.com/payment/result',
       is_mobile: false,
       payment_source: 'wechat_in_app_resume',
+    })
+  })
+
+  it('passes the generic EasyPay method through to order creation', () => {
+    expect(buildCreateOrderPayload({
+      amount: 68,
+      paymentType: 'easypay',
+      orderType: 'balance',
+      origin: 'https://app.example.com',
+      isMobile: false,
+      isWechatBrowser: false,
+    })).toMatchObject({
+      amount: 68,
+      payment_type: 'easypay',
+      order_type: 'balance',
+      payment_source: 'hosted_redirect',
     })
   })
 

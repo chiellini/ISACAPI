@@ -1052,10 +1052,73 @@
         <p class="text-sm text-gray-600 dark:text-gray-400">
           {{ t('keys.ccsFallback.description') }}
         </p>
-        <div class="grid grid-cols-2 gap-3">
+        <p
+          v-if="showCcsAppleHint"
+          class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800 dark:border-amber-900/50 dark:bg-amber-900/20 dark:text-amber-200"
+        >
+          {{ t('keys.ccsFallback.macosHint') }}
+        </p>
+        <div class="rounded-xl border border-blue-100 bg-blue-50/70 p-3 dark:border-blue-900/40 dark:bg-blue-900/10">
+          <div class="flex items-start gap-3">
+            <div class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-blue-600 shadow-sm dark:bg-dark-800 dark:text-blue-400">
+              <Icon name="download" size="sm" />
+            </div>
+            <div class="min-w-0 flex-1 space-y-3">
+              <div>
+                <p class="text-sm font-medium text-gray-900 dark:text-white">
+                  {{ t('keys.ccsFallback.downloadTitle') }}
+                </p>
+                <p class="mt-1 text-xs leading-5 text-gray-600 dark:text-gray-400">
+                  {{ t('keys.ccsFallback.downloadDescription') }}
+                </p>
+              </div>
+              <div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                <a
+                  :href="CC_SWITCH_DOWNLOAD_LINKS.windows"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-blue-200 bg-white px-3 py-2 text-xs font-medium text-blue-700 transition-colors hover:border-blue-300 hover:bg-blue-50 dark:border-blue-800 dark:bg-dark-800 dark:text-blue-300 dark:hover:bg-blue-900/30"
+                >
+                  <Icon name="download" size="xs" :stroke-width="2" />
+                  {{ t('keys.ccsFallback.windowsDownload') }}
+                </a>
+                <a
+                  :href="CC_SWITCH_DOWNLOAD_LINKS.macos"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-blue-200 bg-white px-3 py-2 text-xs font-medium text-blue-700 transition-colors hover:border-blue-300 hover:bg-blue-50 dark:border-blue-800 dark:bg-dark-800 dark:text-blue-300 dark:hover:bg-blue-900/30"
+                >
+                  <Icon name="download" size="xs" :stroke-width="2" />
+                  {{ t('keys.ccsFallback.macosDownload') }}
+                </a>
+                <a
+                  :href="CC_SWITCH_DOWNLOAD_LINKS.releases"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-700 transition-colors hover:border-gray-300 hover:bg-gray-50 dark:border-dark-600 dark:bg-dark-800 dark:text-gray-300 dark:hover:bg-dark-700"
+                >
+                  <Icon name="externalLink" size="xs" :stroke-width="2" />
+                  {{ t('keys.ccsFallback.releasePage') }}
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <button
+            v-if="ccsFallbackDeeplink"
+            @click="retryCcsFallbackLaunch"
+            class="flex min-h-[112px] flex-col items-center gap-2 p-4 rounded-xl border-2 border-primary-200 bg-primary-50 text-primary-700 hover:border-primary-500 hover:bg-primary-100 dark:border-primary-900/60 dark:bg-primary-900/20 dark:text-primary-300 dark:hover:border-primary-500 dark:hover:bg-primary-900/30 transition-all"
+          >
+            <Icon name="externalLink" size="xl" class="text-primary-600 dark:text-primary-300" />
+            <span class="font-medium">{{ t('keys.ccsFallback.retryOpen') }}</span>
+            <span class="text-xs text-primary-700/80 dark:text-primary-200/80">{{
+              t('keys.ccsFallback.retryOpenDesc')
+            }}</span>
+          </button>
           <button
             @click="copyCcsFallbackKey"
-            class="flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-gray-200 dark:border-dark-600 hover:border-primary-500 dark:hover:border-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-all"
+            class="flex min-h-[112px] flex-col items-center gap-2 p-4 rounded-xl border-2 border-gray-200 dark:border-dark-600 hover:border-primary-500 dark:hover:border-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-all"
           >
             <Icon name="copy" size="xl" class="text-gray-600 dark:text-gray-400" />
             <span class="font-medium text-gray-900 dark:text-white">{{
@@ -1067,7 +1130,7 @@
           </button>
           <button
             @click="openCcsFallbackUseKey"
-            class="flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-gray-200 dark:border-dark-600 hover:border-primary-500 dark:hover:border-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-all"
+            class="flex min-h-[112px] flex-col items-center gap-2 p-4 rounded-xl border-2 border-gray-200 dark:border-dark-600 hover:border-primary-500 dark:hover:border-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-all"
           >
             <Icon name="terminal" size="xl" class="text-gray-600 dark:text-gray-400" />
             <span class="font-medium text-gray-900 dark:text-white">{{
@@ -1077,6 +1140,19 @@
               t('keys.ccsFallback.useKeyDesc')
             }}</span>
           </button>
+          <RouterLink
+            to="/cc-switch"
+            class="flex min-h-[112px] flex-col items-center gap-2 p-4 rounded-xl border-2 border-gray-200 dark:border-dark-600 hover:border-primary-500 dark:hover:border-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-all"
+            @click="closeCcsFallback"
+          >
+            <Icon name="book" size="xl" class="text-gray-600 dark:text-gray-400" />
+            <span class="font-medium text-gray-900 dark:text-white">{{
+              t('keys.ccsFallback.guide')
+            }}</span>
+            <span class="text-xs text-gray-500 dark:text-gray-400">{{
+              t('keys.ccsFallback.guideDesc')
+            }}</span>
+          </RouterLink>
         </div>
       </div>
       <template #footer>
@@ -1189,9 +1265,14 @@ import type { BatchApiKeyUsageStats } from '@/api/usage'
 import { formatDateTime } from '@/utils/format'
 import { maskApiKey } from '@/utils/maskApiKey'
 import {
+  CC_SWITCH_DOWNLOAD_LINKS,
   buildCcSwitchImportDeeplink,
+  getCcSwitchProtocolFallbackDelayMs,
+  openCcSwitchDeeplink,
   type CcSwitchClientType
 } from '@/utils/ccswitchImport'
+
+const showCcsAppleHint = getCcSwitchProtocolFallbackDelayMs() > 1800
 
 // Helper to format date for datetime-local input
 const formatDateTimeLocal = (isoDate: string): string => {
@@ -1962,24 +2043,31 @@ const executeCcsImport = (row: ApiKey, clientType: CcSwitchClientType) => {
   const markLaunched = () => {
     launched = true
   }
+  const markHidden = () => {
+    if (document.visibilityState === 'hidden') {
+      launched = true
+    }
+  }
   window.addEventListener('blur', markLaunched, { once: true })
-  document.addEventListener('visibilitychange', markLaunched, { once: true })
+  window.addEventListener('pagehide', markLaunched, { once: true })
+  document.addEventListener('visibilitychange', markHidden, { once: true })
   const cleanupLaunchListeners = () => {
     window.removeEventListener('blur', markLaunched)
-    document.removeEventListener('visibilitychange', markLaunched)
+    window.removeEventListener('pagehide', markLaunched)
+    document.removeEventListener('visibilitychange', markHidden)
   }
 
   try {
-    window.open(deeplink, '_self')
+    openCcSwitchDeeplink(deeplink)
     window.setTimeout(() => {
       cleanupLaunchListeners()
       if (!launched && document.hasFocus() && document.visibilityState === 'visible') {
-        openCcsFallback(row)
+        openCcsFallback(row, deeplink)
       }
-    }, 1500)
+    }, getCcSwitchProtocolFallbackDelayMs())
   } catch {
     cleanupLaunchListeners()
-    openCcsFallback(row)
+    openCcsFallback(row, deeplink)
   }
 }
 
@@ -2001,15 +2089,18 @@ const closeCcsClientSelect = () => {
 // one-click install command instead of hitting a dead end.
 const showCcsFallback = ref(false)
 const ccsFallbackRow = ref<ApiKey | null>(null)
+const ccsFallbackDeeplink = ref('')
 
-const openCcsFallback = (row: ApiKey) => {
+const openCcsFallback = (row: ApiKey, deeplink = '') => {
   ccsFallbackRow.value = row
+  ccsFallbackDeeplink.value = deeplink
   showCcsFallback.value = true
 }
 
 const closeCcsFallback = () => {
   showCcsFallback.value = false
   ccsFallbackRow.value = null
+  ccsFallbackDeeplink.value = ''
 }
 
 const copyCcsFallbackKey = async () => {
@@ -2023,6 +2114,11 @@ const openCcsFallbackUseKey = () => {
   const row = ccsFallbackRow.value
   closeCcsFallback()
   if (row) openUseKeyModal(row)
+}
+
+const retryCcsFallbackLaunch = () => {
+  if (!ccsFallbackDeeplink.value) return
+  openCcSwitchDeeplink(ccsFallbackDeeplink.value)
 }
 
 function formatResetTime(resetAt: string | null): string {

@@ -149,6 +149,12 @@ describe('UseKeyModal', () => {
     expect(script).toContain(`cat > "$HOME/.claude/settings.json" <<'SUB2API_EOF'`)
     expect(script).toContain('"ANTHROPIC_BASE_URL": "https://example.com"')
     expect(script).toContain('"ANTHROPIC_AUTH_TOKEN": "sk-test"')
+    expect(script).toContain('"ANTHROPIC_API_KEY": "sk-test"')
+    expect(script).toContain('for rc in "$HOME/.bashrc" "$HOME/.bash_profile" "$HOME/.zshrc" "$HOME/.profile"; do')
+    expect(script).toContain('# >>> ISACAPI API env >>>')
+    expect(script).toContain("export ANTHROPIC_API_KEY='sk-test'")
+    expect(script).toContain('terminal.integrated.env.osx')
+    expect(script).toContain('terminal.integrated.env.linux')
   })
 
   it('builds a one-click install command writing both Codex files for OpenAI', () => {
@@ -172,6 +178,9 @@ describe('UseKeyModal', () => {
     expect(script).toContain('.codex/auth.json')
     expect(script).toContain('"OPENAI_API_KEY": "sk-test"')
     expect(script).toContain('model_provider = "OpenAI"')
+    expect(script).toContain("export OPENAI_BASE_URL='https://example.com/v1'")
+    expect(script).toContain("export OPENAI_API_BASE='https://example.com/v1'")
+    expect(script).toContain('VS Code terminal env updated')
   })
 
   it('switches the one-click command to PowerShell on Windows', async () => {
@@ -198,6 +207,9 @@ describe('UseKeyModal', () => {
     expect(script).toBeDefined()
     expect(script).toContain('$env:USERPROFILE\\.claude\\settings.json')
     expect(script).toContain('New-Item -ItemType Directory -Force')
+    expect(script).toContain('[Environment]::SetEnvironmentVariable')
+    expect(script).toContain('$PROFILE.CurrentUserAllHosts')
+    expect(script).toContain('terminal.integrated.env.windows')
   })
 
   it('renders Claude Fable 5 OpenCode config with adaptive thinking', async () => {

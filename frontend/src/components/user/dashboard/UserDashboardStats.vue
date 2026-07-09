@@ -17,7 +17,7 @@
             <button
               type="button"
               class="inline-flex items-center gap-0.5 rounded-full bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-400"
-              @click="showRechargeDialog = true"
+              @click="goToRecharge"
             >
               <Icon name="plus" size="xs" :stroke-width="2.5" />
               {{ t('common.recharge') }}
@@ -231,7 +231,7 @@
     </div>
   </div>
 
-  <!-- Recharge: contact admin -->
+  <!-- Recharge fallback when internal payment is disabled -->
   <BaseDialog
     :show="showRechargeDialog"
     :title="t('common.recharge')"
@@ -247,11 +247,13 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import Icon from '@/components/icons/Icon.vue'
+import { useRouter } from 'vue-router'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import OwnerContactInfo from '@/components/common/OwnerContactInfo.vue'
+import Icon from '@/components/icons/Icon.vue'
 import type { UserDashboardStats as UserStatsType } from '@/api/usage'
 import type { PlatformQuotaItem } from '@/types'
+import { FeatureFlags, isFeatureFlagEnabled } from '@/utils/featureFlags'
 
 interface FusedPlatformCard {
   platform: string
@@ -270,8 +272,16 @@ const props = defineProps<{
   platformQuotas?: PlatformQuotaItem[] | null
 }>()
 const { t } = useI18n()
-
+const router = useRouter()
 const showRechargeDialog = ref(false)
+
+function goToRecharge() {
+  if (!isFeatureFlagEnabled(FeatureFlags.payment)) {
+    showRechargeDialog.value = true
+    return
+  }
+  router.push({ path: '/purchase', query: { tab: 'recharge' } })
+}
 
 const PLATFORM_LABELS: Record<string, string> = {
   anthropic: 'Claude',

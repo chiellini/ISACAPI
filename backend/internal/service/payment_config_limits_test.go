@@ -147,6 +147,16 @@ func TestPcAggregateMethodLimits(t *testing.T) {
 			t.Fatalf("DailyLimit = %v, want 1000 (highest cap)", ml.DailyLimit)
 		}
 	})
+
+	t.Run("generic easypay uses default upstream limits", func(t *testing.T) {
+		t.Parallel()
+		inst := makeInstance(1, payment.TypeEasyPay, "alipay,wxpay",
+			`{"alipay":{"singleMin":6,"singleMax":66},"wxpay":{"singleMin":8,"singleMax":88}}`)
+		ml := pcAggregateMethodLimits(payment.TypeEasyPay, []*dbent.PaymentProviderInstance{inst})
+		if ml.SingleMin != 6 || ml.SingleMax != 66 {
+			t.Fatalf("easypay limits = min:%v max:%v, want alipay min:6 max:66", ml.SingleMin, ml.SingleMax)
+		}
+	})
 }
 
 func TestPcGroupByPaymentType(t *testing.T) {
@@ -171,6 +181,9 @@ func TestPcGroupByPaymentType(t *testing.T) {
 		if len(groups[payment.TypeWxpay]) != 1 || groups[payment.TypeWxpay][0].ID != 2 {
 			t.Fatalf("wxpay group should contain only easypay instance, got %v", groups[payment.TypeWxpay])
 		}
+		if len(groups[payment.TypeEasyPay]) != 1 || groups[payment.TypeEasyPay][0].ID != 2 {
+			t.Fatalf("easypay group should contain the easypay instance, got %v", groups[payment.TypeEasyPay])
+		}
 	})
 
 	t.Run("multiple easypay instances in same groups", func(t *testing.T) {
@@ -185,6 +198,9 @@ func TestPcGroupByPaymentType(t *testing.T) {
 		}
 		if len(groups[payment.TypeWxpay]) != 2 {
 			t.Fatalf("wxpay group should have 2 instances, got %d", len(groups[payment.TypeWxpay]))
+		}
+		if len(groups[payment.TypeEasyPay]) != 2 {
+			t.Fatalf("easypay group should have 2 instances, got %d", len(groups[payment.TypeEasyPay]))
 		}
 	})
 
@@ -275,6 +291,30 @@ func TestGetAvailableMethodLimitsIncludesEasyPayCustomMethodDisplayName(t *testi
 	limits, ok := resp.Methods["ldc"]
 	require.True(t, ok, "expected custom EasyPay method limits to be visible")
 	require.Equal(t, "LDC Pay", limits.DisplayName)
+}
+
+func TestGetAvailableMethodLimitsIncludesGenericEasyPayMethod(t *testing.T) {
+	ctx := context.Background()
+	client := newPaymentConfigServiceTestClient(t)
+
+	_, err := client.PaymentProviderInstance.Create().
+		SetProviderKey(payment.TypeEasyPay).
+		SetName("EasyPay").
+		SetConfig("{}").
+		SetSupportedTypes("alipay,wxpay").
+		SetLimits(`{"alipay":{"singleMin":12,"singleMax":120},"wxpay":{"singleMin":20,"singleMax":200}}`).
+		SetEnabled(true).
+		Save(ctx)
+	require.NoError(t, err)
+
+	svc := &PaymentConfigService{entClient: client}
+	resp, err := svc.GetAvailableMethodLimits(ctx)
+	require.NoError(t, err)
+
+	limits, ok := resp.Methods[payment.TypeEasyPay]
+	require.True(t, ok, "expected generic EasyPay method to be visible")
+	require.Equal(t, 12.0, limits.SingleMin)
+	require.Equal(t, 120.0, limits.SingleMax)
 }
 
 func TestPcComputeGlobalRange(t *testing.T) {

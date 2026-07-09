@@ -53,3 +53,13 @@ describe('AppSidebar header styles', () => {
     expect(sidebarBrandBlockMatch?.[0]).not.toContain('overflow: hidden;')
   })
 })
+
+describe('AppSidebar CC-Switch guide entry', () => {
+  it('adds the guide entry only to regular user navigation', () => {
+    expect(componentSource).toContain("path: '/cc-switch'")
+    expect(componentSource).toContain("label: t('nav.ccSwitchGuide')")
+    expect(componentSource).not.toContain("import { CC_SWITCH_DOWNLOAD_LINKS } from '@/utils/ccswitchImport'")
+    expect(componentSource).toContain('const userNavItems = computed((): NavItem[] => finalizeNav(buildUserNavItems()))')
+    expect(componentSource).toContain('const personalNavItems = computed((): NavItem[] => finalizeNav(buildSelfNavItems(false)))')
+  })
+})

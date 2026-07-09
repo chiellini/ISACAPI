@@ -105,9 +105,11 @@ func (p *GeminiTokenProvider) GetAccessToken(ctx context.Context, account *Accou
 		return "", errors.New("access_token not found in credentials")
 	}
 
-	// project_id is optional now:
-	// - If present: use Code Assist API (requires project_id)
-	// - If absent: use AI Studio API with OAuth token.
+	// project_id is optional only for AI Studio OAuth:
+	// - If present: Code Assist-compatible callers can use the internal gateway.
+	// - If absent: only AI Studio OAuth callers can use the Gemini API directly.
+	// Code Assist / Google One tokens use Gemini CLI scopes and are rejected by
+	// request builders before they reach generativelanguage.googleapis.com.
 	projectID := strings.TrimSpace(account.GetCredential("project_id"))
 	autoDetectProjectID := account.GetCredential("auto_detect_project_id") == "true"
 

@@ -65,6 +65,7 @@ const emit = defineEmits<{
 const { t } = useI18n()
 
 const METHOD_ICONS: Record<string, string> = {
+  easypay: paymentIcon,
   alipay: alipayIcon,
   wxpay: wxpayIcon,
   stripe: stripeIcon,

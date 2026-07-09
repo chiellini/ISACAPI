@@ -226,6 +226,7 @@ const mountView = async () => {
         EndpointPopover: true,
         GroupBadge: true,
         GroupOptionItem: true,
+        RouterLink: { template: '<a><slot /></a>' },
         Teleport: true,
       },
     },

@@ -104,6 +104,12 @@ type GeminiAuthURLResult struct {
 }
 
 func (s *GeminiOAuthService) GenerateAuthURL(ctx context.Context, proxyID *int64, redirectURI, projectID, oauthType, tierID string) (*GeminiAuthURLResult, error) {
+	oauthType = strings.TrimSpace(oauthType)
+	projectID = strings.TrimSpace(projectID)
+	if GeminiOAuthTypeRequiresProjectID(oauthType) && projectID == "" {
+		return nil, fmt.Errorf("Project ID is required for %s OAuth. Create or select a Google Cloud project, enable Gemini for Google Cloud API, then paste the Project ID before generating the auth URL", oauthType)
+	}
+
 	state, err := geminicli.GenerateState()
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate state: %w", err)
@@ -146,7 +152,7 @@ func (s *GeminiOAuthService) GenerateAuthURL(ctx context.Context, proxyID *int64
 		CodeVerifier: codeVerifier,
 		ProxyURL:     proxyURL,
 		RedirectURI:  redirectURI,
-		ProjectID:    strings.TrimSpace(projectID),
+		ProjectID:    projectID,
 		TierID:       canonicalGeminiTierIDForOAuthType(oauthType, tierID),
 		OAuthType:    oauthType,
 		CreatedAt:    time.Now(),
@@ -487,6 +493,10 @@ func (s *GeminiOAuthService) ExchangeCode(ctx context.Context, input *GeminiExch
 	logger.LegacyPrintf("service.gemini_oauth", "[GeminiOAuth] OAuth Type: %s", oauthType)
 	logger.LegacyPrintf("service.gemini_oauth", "[GeminiOAuth] Project ID from session: %s", session.ProjectID)
 
+	if GeminiOAuthTypeRequiresProjectID(oauthType) && strings.TrimSpace(session.ProjectID) == "" {
+		return nil, fmt.Errorf("Project ID is required for %s OAuth. Create or select a Google Cloud project, enable Gemini for Google Cloud API, then regenerate the auth URL with Project ID", oauthType)
+	}
+
 	// If the session was created for AI Studio OAuth, ensure a custom OAuth client is configured.
 	if oauthType == "ai_studio" {
 		effectiveCfg, err := geminicli.EffectiveOAuthConfig(geminicli.OAuthConfig{
@@ -540,9 +550,8 @@ func (s *GeminiOAuthService) ExchangeCode(ctx context.Context, input *GeminiExch
 	logger.LegacyPrintf("service.gemini_oauth", "[GeminiOAuth] ========== Account Type Detection START ==========")
 	logger.LegacyPrintf("service.gemini_oauth", "[GeminiOAuth] OAuth Type: %s", oauthType)
 
-	// 对于 code_assist 模式，project_id 是必需的，需要调用 Code Assist API
-	// 对于 google_one 模式，使用个人 Google 账号，不需要 project_id，配额由 Google 网关自动识别
-	// 对于 ai_studio 模式，project_id 是可选的（不影响使用 AI Studio API）
+	// code_assist/google_one use Gemini CLI / Code Assist scopes and require
+	// a Cloud Project ID. AI Studio OAuth does not require project_id.
 	switch oauthType {
 	case "code_assist":
 		logger.LegacyPrintf("service.gemini_oauth", "[GeminiOAuth] Processing code_assist OAuth type")
@@ -571,7 +580,7 @@ func (s *GeminiOAuthService) ExchangeCode(ctx context.Context, input *GeminiExch
 		}
 		if strings.TrimSpace(projectID) == "" {
 			logger.LegacyPrintf("service.gemini_oauth", "[GeminiOAuth] ERROR: Missing project_id for Code Assist OAuth")
-			return nil, fmt.Errorf("missing project_id for Code Assist OAuth: please fill Project ID (optional field) and regenerate the auth URL, or ensure your Google account has an ACTIVE GCP project")
+			return nil, fmt.Errorf("missing project_id for Code Assist OAuth: please fill Project ID and regenerate the auth URL, or ensure your Google account has an ACTIVE Google Cloud project")
 		}
 		// Prefer auto-detected tier; fall back to user-selected tier.
 		tierID = canonicalGeminiTierIDForOAuthType(oauthType, tierID)
@@ -588,19 +597,7 @@ func (s *GeminiOAuthService) ExchangeCode(ctx context.Context, input *GeminiExch
 
 	case "google_one":
 		logger.LegacyPrintf("service.gemini_oauth", "[GeminiOAuth] Processing google_one OAuth type")
-
-		// Google One accounts use cloudaicompanion API, which requires a project_id.
-		// For personal accounts, Google auto-assigns a project_id via the LoadCodeAssist API.
-		if projectID == "" {
-			logger.LegacyPrintf("service.gemini_oauth", "[GeminiOAuth] No project_id provided, attempting to fetch from LoadCodeAssist API...")
-			var err error
-			projectID, _, err = s.fetchProjectID(ctx, tokenResp.AccessToken, proxyURL)
-			if err != nil {
-				logger.LegacyPrintf("service.gemini_oauth", "[GeminiOAuth] ERROR: Failed to fetch project_id: %v", err)
-				return nil, fmt.Errorf("google One accounts require a project_id, failed to auto-detect: %w", err)
-			}
-			logger.LegacyPrintf("service.gemini_oauth", "[GeminiOAuth] Successfully fetched project_id: %s", projectID)
-		}
+		logger.LegacyPrintf("service.gemini_oauth", "[GeminiOAuth] User provided project_id for google_one: %s", projectID)
 
 		logger.LegacyPrintf("service.gemini_oauth", "[GeminiOAuth] Attempting to fetch Google One tier from Drive API...")
 		// Attempt to fetch Drive storage tier
@@ -807,7 +804,8 @@ func (s *GeminiOAuthService) RefreshAccountToken(ctx context.Context, account *A
 	// 尝试从账号凭证获取 tierID（向后兼容）
 	existingTierID := strings.TrimSpace(account.GetCredential("tier_id"))
 
-	// For Code Assist, project_id is required. Auto-detect if missing.
+	// Code Assist / Google One OAuth accounts must keep a project_id for runtime requests.
+	// Code Assist can still try auto-detection for legacy accounts during refresh.
 	// For AI Studio OAuth, project_id is optional and should not block refresh.
 	switch oauthType {
 	case "code_assist":

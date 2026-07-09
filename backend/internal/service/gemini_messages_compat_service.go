@@ -496,9 +496,8 @@ func (s *GeminiMessagesCompatService) HasAntigravityAccounts(ctx context.Context
 //
 // Preference order:
 // 1) API key accounts (AI Studio)
-// 2) OAuth accounts without project_id (AI Studio OAuth)
-// 3) OAuth accounts explicitly marked as ai_studio
-// 4) Any remaining Gemini accounts (fallback)
+// 2) OAuth accounts explicitly marked as ai_studio or carrying AI Studio scopes
+// 3) Any remaining Gemini accounts (fallback)
 func (s *GeminiMessagesCompatService) SelectAccountForAIStudioEndpoints(ctx context.Context, groupID *int64) (*Account, error) {
 	accounts, err := s.listSchedulableAccountsOnce(ctx, groupID, PlatformGemini, true)
 	if err != nil {
@@ -519,7 +518,7 @@ func (s *GeminiMessagesCompatService) SelectAccountForAIStudioEndpoints(ctx cont
 			}
 			return 9
 		case AccountTypeOAuth:
-			if strings.TrimSpace(a.GetCredential("project_id")) == "" {
+			if strings.TrimSpace(a.GetCredential("project_id")) == "" && !isGeminiCodeAssistScopedOAuth(a) {
 				return 1
 			}
 			if strings.TrimSpace(a.GetCredential("oauth_type")) == "ai_studio" {
@@ -664,6 +663,9 @@ func (s *GeminiMessagesCompatService) Forward(ctx context.Context, c *gin.Contex
 			}
 
 			projectID := strings.TrimSpace(account.GetCredential("project_id"))
+			if projectID == "" && isGeminiCodeAssistScopedOAuth(account) {
+				return nil, "", geminiCodeAssistOAuthRequiresProjectIDError(account)
+			}
 
 			action := "generateContent"
 			if useUpstreamStream {
@@ -1200,6 +1202,9 @@ func (s *GeminiMessagesCompatService) ForwardNative(ctx context.Context, c *gin.
 			}
 
 			projectID := strings.TrimSpace(account.GetCredential("project_id"))
+			if (projectID == "" || forceAIStudio) && isGeminiCodeAssistScopedOAuth(account) {
+				return nil, "", geminiCodeAssistOAuthRequiresProjectIDError(account)
+			}
 
 			// Two modes for OAuth:
 			// 1. With project_id -> Code Assist API (wrapped request)

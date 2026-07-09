@@ -244,11 +244,20 @@ func (a *Account) GeminiOAuthType() string {
 	if a.Platform != PlatformGemini || a.Type != AccountTypeOAuth {
 		return ""
 	}
-	oauthType := strings.TrimSpace(a.GetCredential("oauth_type"))
-	if oauthType == "" && strings.TrimSpace(a.GetCredential("project_id")) != "" {
+	oauthType := strings.ToLower(strings.TrimSpace(a.GetCredential("oauth_type")))
+	if oauthType != "" {
+		return oauthType
+	}
+	if strings.TrimSpace(a.GetCredential("project_id")) != "" {
 		return "code_assist"
 	}
-	return oauthType
+	if geminiOAuthScopeHasAIStudioAccess(a.GetCredential("scope")) {
+		return "ai_studio"
+	}
+	// Legacy Gemini OAuth accounts were issued by the built-in Gemini CLI / Code Assist
+	// client unless explicitly marked otherwise. Treat ambiguous legacy tokens as
+	// Code Assist-scoped so they do not fall through to generativelanguage.googleapis.com.
+	return "code_assist"
 }
 
 func (a *Account) GeminiTierID() string {
@@ -264,7 +273,7 @@ func (a *Account) IsGeminiCodeAssist() bool {
 	if oauthType == "" {
 		return strings.TrimSpace(a.GetCredential("project_id")) != ""
 	}
-	return oauthType == "code_assist"
+	return strings.EqualFold(oauthType, "code_assist")
 }
 
 func (a *Account) CanGetUsage() bool {

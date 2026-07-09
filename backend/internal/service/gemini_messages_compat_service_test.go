@@ -117,6 +117,36 @@ func TestGeminiForwardAsChatCompletions_OAuthRoutesToGeminiAndReturnsChatFormat(
 	require.Equal(t, float64(10), usage["total_tokens"])
 }
 
+func TestGeminiChatCompletionsBuildRequestRejectsGoogleOneWithoutProjectID(t *testing.T) {
+	svc := &GeminiMessagesCompatService{
+		tokenProvider: &GeminiTokenProvider{},
+		cfg:           &config.Config{},
+	}
+	account := &Account{
+		ID:       103,
+		Platform: PlatformGemini,
+		Type:     AccountTypeOAuth,
+		Credentials: map[string]any{
+			"oauth_type":   "google_one",
+			"access_token": "ya29.test-token",
+		},
+	}
+
+	buildReq, _ := svc.buildGeminiChatCompletionsUpstreamRequestFunc(
+		account,
+		"gemini-2.5-flash",
+		[]byte(`{"contents":[{"role":"user","parts":[{"text":"hi"}]}]}`),
+		true,
+		true,
+	)
+
+	req, _, err := buildReq(context.Background())
+	require.Nil(t, req)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "Google One OAuth token uses Gemini CLI / Code Assist scopes")
+	require.Contains(t, err.Error(), "project_id")
+}
+
 func TestGeminiForwardAsChatCompletions_StreamsOpenAIChunksFromGeminiSSE(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 

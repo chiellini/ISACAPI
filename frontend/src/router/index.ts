@@ -13,6 +13,7 @@ import { useRoutePrefetch } from '@/composables/useRoutePrefetch'
 import { getSetupStatus } from '@/api/setup'
 import { resolveCompletedSetupRedirectPath } from './setupRedirect'
 import { resolveRouteDocumentTitle } from './title'
+import { FeatureFlags, isFeatureFlagEnabled } from '@/utils/featureFlags'
 
 /**
  * Route definitions with lazy loading
@@ -236,6 +237,18 @@ const routes: RouteRecordRaw[] = [
       title: 'Batch Image Guide',
       titleKey: 'batchImageGuide.title',
       descriptionKey: 'batchImageGuide.description'
+    }
+  },
+  {
+    path: '/cc-switch',
+    name: 'CcSwitchGuide',
+    component: () => import('@/views/user/CcSwitchGuideView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: false,
+      title: 'CC-Switch Guide',
+      titleKey: 'ccSwitchGuide.title',
+      descriptionKey: 'ccSwitchGuide.description'
     }
   },
   {
@@ -871,8 +884,7 @@ router.beforeEach(async (to, _from, next) => {
 
   // Check payment requirement (internal payment system only)
   if (to.meta.requiresPayment) {
-    const paymentEnabled = appStore.cachedPublicSettings?.payment_enabled
-    if (!paymentEnabled) {
+    if (!isFeatureFlagEnabled(FeatureFlags.payment)) {
       next(authStore.isAdmin ? '/admin/dashboard' : '/dashboard')
       return
     }

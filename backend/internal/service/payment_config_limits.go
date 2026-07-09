@@ -86,6 +86,10 @@ func (s *PaymentConfigService) GetMethodLimits(ctx context.Context, types []stri
 	for _, pt := range types {
 		var matching []*dbent.PaymentProviderInstance
 		for _, inst := range instances {
+			if inst.ProviderKey == payment.TypeEasyPay && pt == payment.TypeEasyPay {
+				matching = append(matching, inst)
+				continue
+			}
 			if payment.InstanceSupportsType(inst.SupportedTypes, pt) {
 				matching = append(matching, inst)
 			}
@@ -235,6 +239,9 @@ func pcGroupByPaymentType(instances []*dbent.PaymentProviderInstance) map[string
 			add(payment.TypeStripe, inst)
 			continue
 		}
+		if inst.ProviderKey == payment.TypeEasyPay {
+			add(payment.TypeEasyPay, inst)
+		}
 		for _, t := range splitTypes(inst.SupportedTypes) {
 			add(t, inst)
 		}
@@ -253,7 +260,14 @@ func pcInstanceTypeLimits(inst *dbent.PaymentProviderInstance, pt string) (payme
 	if err := json.Unmarshal([]byte(inst.Limits), &limits); err != nil {
 		return payment.ChannelLimits{}, false
 	}
-	cl, ok := limits[pt]
+	lookupType := pt
+	if inst.ProviderKey == payment.TypeEasyPay && pt == payment.TypeEasyPay {
+		lookupType = payment.EasyPayDefaultUpstreamType(inst.SupportedTypes)
+	}
+	cl, ok := limits[lookupType]
+	if !ok && lookupType != pt {
+		cl, ok = limits[pt]
+	}
 	return cl, ok
 }
 

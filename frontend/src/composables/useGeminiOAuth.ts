@@ -51,6 +51,11 @@ export function useGeminiOAuth() {
       const payload: Record<string, unknown> = {}
       if (proxyId) payload.proxy_id = proxyId
       const trimmedProjectID = projectId?.trim()
+      if ((oauthType === 'code_assist' || oauthType === 'google_one') && !trimmedProjectID) {
+        error.value = t('admin.accounts.oauth.gemini.missingProjectId')
+        appStore.showError(error.value)
+        return false
+      }
       if (trimmedProjectID) payload.project_id = trimmedProjectID
       if (oauthType) payload.oauth_type = oauthType
       const trimmedTierID = tierId?.trim()
@@ -102,8 +107,9 @@ export function useGeminiOAuth() {
       return tokenInfo as GeminiTokenInfo
     } catch (err: any) {
       // Check for specific missing project_id error
-      const errorMessage = err.message || err.response?.data?.message || ''
-      if (errorMessage.includes('missing project_id')) {
+      const errorMessage =
+        err.response?.data?.detail || err.response?.data?.message || err.message || ''
+      if (errorMessage.includes('missing project_id') || errorMessage.includes('Project ID is required')) {
         error.value = t('admin.accounts.oauth.gemini.missingProjectId')
       } else {
         error.value = errorMessage || t('admin.accounts.oauth.gemini.failedToExchangeCode')
