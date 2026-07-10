@@ -270,6 +270,17 @@ export default {
       antigravity: 'Antigravity',
       more: 'More'
     },
+    pricing: {
+      eyebrow: 'Pricing',
+      title: 'How top-ups and token prices are calculated',
+      description: 'Account balance is shown in USD credits. Top-ups use the internal credit rate, and model token prices are displayed after converting official OAI token prices.',
+      rechargeLabel: 'Top-up rate',
+      rechargeValue: '1 CNY = {usd} USD',
+      rechargeHint: 'Your payment amount is credited with this multiplier, and the checkout page previews the credited balance.',
+      tokenLabel: 'Internal token price',
+      tokenValue: 'Official OAI price ÷ {divisor}',
+      tokenHint: 'Token prices in Available Channels already use this formula so they match the balance deduction view.'
+    },
     // CTA section
     cta: {
       title: 'Ready to Get Started?',

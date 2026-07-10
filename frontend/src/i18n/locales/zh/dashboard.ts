@@ -530,7 +530,8 @@ export default {
       perRequestPrice: '每次请求',
       intervals: '阶梯定价',
       unitPerMillion: '/ 1M token',
-      unitPerRequest: '/ 次'
+      unitPerRequest: '/ 次',
+      internalRateHint: '页面显示内部 token 价：官方 OAI token 价格 ÷ {divisor}'
     }
   },
 

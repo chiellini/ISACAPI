@@ -1,3 +1,6 @@
+export const INTERNAL_TOKEN_PRICE_DIVISOR = 42
+export const PUBLIC_RECHARGE_USD_PER_CNY = 6
+
 /**
  * formatScaled formats a per-token (or per-request) USD price scaled by `scale`.
  *
@@ -10,4 +13,19 @@
 export function formatScaled(value: number | null, scale: number): string {
   if (value == null) return '-'
   return `$${(value * scale).toPrecision(10).replace(/\.?0+$/, '')}`
+}
+
+export function applyInternalTokenPriceRate(value: number | null): number | null {
+  if (value == null) return null
+  return value / INTERNAL_TOKEN_PRICE_DIVISOR
+}
+
+export function formatInternalTokenPrice(value: number | null, scale: number): string {
+  return formatScaled(applyInternalTokenPriceRate(value), scale)
+}
+
+export function formatCompactNumber(value: number, fractionDigits = 2): string {
+  return value
+    .toFixed(fractionDigits)
+    .replace(/\.?0+$/, '')
 }
