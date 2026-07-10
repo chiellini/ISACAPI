@@ -337,7 +337,7 @@ func ExtractAnthropicMessagesResponse(body []byte) ConversationResponseExtract {
 
 // --- Gemini GenerateContent ---
 
-type geminiContent struct {
+type geminiArchiveContent struct {
 	Role  string `json:"role"`
 	Parts []struct {
 		Text string `json:"text"`
@@ -345,10 +345,10 @@ type geminiContent struct {
 }
 
 type geminiGenerateContentRequest struct {
-	Model             string        `json:"model"`
-	Contents          []geminiContent `json:"contents"`
-	SystemInstruction geminiContent `json:"systemInstruction"`
-	SessionID         string        `json:"sessionId"`
+	Model             string                 `json:"model"`
+	Contents          []geminiArchiveContent `json:"contents"`
+	SystemInstruction geminiArchiveContent   `json:"systemInstruction"`
+	SessionID         string                 `json:"sessionId"`
 }
 
 // ExtractGeminiGenerateContentRequest extracts the newest user content from a
@@ -388,7 +388,7 @@ func ExtractGeminiGenerateContentRequest(body []byte) ConversationRequestExtract
 	return out
 }
 
-func geminiContentText(content geminiContent) string {
+func geminiContentText(content geminiArchiveContent) string {
 	var b strings.Builder
 	for _, part := range content.Parts {
 		if part.Text == "" {

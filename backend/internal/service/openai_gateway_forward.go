@@ -321,6 +321,42 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		}
 	}
 
+	forcedTemplateText := ""
+	injectSecurityBoundaryInstructions := false
+	if s.cfg != nil {
+		forcedTemplateText = s.cfg.Gateway.ForcedCodexInstructionsTemplate
+		injectSecurityBoundaryInstructions = s.cfg.Gateway.InjectCodexSecurityBoundaryInstructions
+	}
+	if strings.TrimSpace(forcedTemplateText) != "" || injectSecurityBoundaryInstructions {
+		decoded, decodeErr := ensureReqBody()
+		if decodeErr != nil {
+			return nil, decodeErr
+		}
+		existingInstructions, _ := decoded["instructions"].(string)
+		if strings.TrimSpace(existingInstructions) == "" {
+			existingInstructions = extractPromptLikeInstructionsFromInput(decoded)
+		}
+		instructions, templateErr := buildCodexInstructionsFromTemplate(
+			existingInstructions,
+			forcedTemplateText,
+			injectSecurityBoundaryInstructions,
+			forcedCodexInstructionsTemplateData{
+				ExistingInstructions: strings.TrimSpace(existingInstructions),
+				OriginalModel:        originalModel,
+				NormalizedModel:      reqModel,
+				BillingModel:         billingModel,
+				UpstreamModel:        upstreamModel,
+			},
+		)
+		if templateErr != nil {
+			return nil, templateErr
+		}
+		if strings.TrimSpace(instructions) != strings.TrimSpace(existingInstructions) {
+			decoded["instructions"] = strings.TrimSpace(instructions)
+			markDecodedModified()
+		}
+	}
+
 	if !SupportsVerbosity(upstreamModel) && gjson.GetBytes(body, "text.verbosity").Exists() {
 		markPatchDelete("text.verbosity")
 	}
