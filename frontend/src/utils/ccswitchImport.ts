@@ -12,7 +12,7 @@ export const CC_SWITCH_DOWNLOAD_LINKS = {
   macos: `${CC_SWITCH_RELEASE_BASE}/CC-Switch-${CC_SWITCH_LATEST_VERSION}-macOS.dmg`
 } as const
 
-export type CcSwitchClientType = 'claude' | 'gemini'
+export type CcSwitchClientType = 'claude' | 'claude-desktop' | 'gemini'
 export type CcSwitchNavigatorSnapshot = Pick<Navigator, 'platform' | 'userAgent' | 'maxTouchPoints'>
 
 export interface CcSwitchImportConfig {
@@ -38,7 +38,7 @@ export function resolveCcSwitchImportConfig(
   switch (platform || 'anthropic') {
     case 'antigravity':
       return {
-        app: clientType === 'gemini' ? 'gemini' : 'claude',
+        app: clientType === 'gemini' ? 'gemini' : clientType,
         endpoint: `${baseUrl}/antigravity`
       }
     case 'openai':
@@ -54,7 +54,7 @@ export function resolveCcSwitchImportConfig(
       }
     default:
       return {
-        app: 'claude',
+        app: clientType === 'claude-desktop' ? 'claude-desktop' : 'claude',
         endpoint: baseUrl
       }
   }
@@ -69,6 +69,7 @@ export function buildCcSwitchImportDeeplink(input: CcSwitchImportDeeplinkInput):
     ['homepage', input.baseUrl],
     ['endpoint', config.endpoint],
     ['apiKey', input.apiKey],
+    ['enabled', 'true'],
     ['configFormat', 'json'],
     ['usageEnabled', 'true'],
     ['usageScript', btoa(input.usageScript)],

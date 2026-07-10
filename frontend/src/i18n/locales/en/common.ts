@@ -151,6 +151,7 @@ export default {
     announcements: 'Announcements',
     apiKeys: 'API Keys',
     batchImage: 'Batch Images',
+    ccSwitchDownload: 'Download CC-Switch',
     ccSwitchGuide: 'CC-Switch Guide',
     usage: 'Usage',
     redeem: 'Redeem',

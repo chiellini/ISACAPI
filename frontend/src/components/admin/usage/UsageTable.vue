@@ -450,7 +450,6 @@ import {
   firstTokenSeverity,
 } from '@/utils/latencyHealth'
 import {
-  BILLING_MODE_TOKEN,
   getBillingModeLabel,
   getBillingModeBadgeClass,
   isImageUsage,

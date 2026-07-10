@@ -356,3 +356,24 @@ export async function streamChat(
     onError(err as Error)
   }
 }
+
+/**
+ * 非流式对话：内部复用 streamChat 的 SSE 解析，把增量拼成整段文本返回。
+ * 用于「Agent 提示词规划」等一次性需要完整结果、不需要逐字上屏的场景。
+ */
+export function completeChat(
+  body: { model: string; messages: ChatMessage[] },
+  signal?: AbortSignal,
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    let text = ''
+    streamChat(body, {
+      signal,
+      onDelta: (delta) => {
+        text += delta
+      },
+      onDone: () => resolve(text),
+      onError: (err) => reject(err),
+    })
+  })
+}

@@ -135,6 +135,18 @@ export default {
       noGroupTitle: '请先分配分组',
       noGroupDescription:
         '此 API 密钥尚未分配分组，请先在密钥列表中点击分组列进行分配，然后才能查看使用配置。',
+      oneClick: {
+        title: '一键配置命令',
+        hint:
+          '复制下面的一条命令到终端并按 Enter。它会写入客户端配置、Shell 启动文件和 VS Code 终端环境设置。',
+        pasteWarning: '只运行你信任的网站生成的配置命令。此命令包含你的 API 密钥。',
+        copy: '复制',
+        copied: '已复制',
+        runHint:
+          '完成后请重启客户端（Claude Code / Codex / Gemini CLI / OpenCode）和 VS Code 终端，让配置生效。',
+        manualLabel: '手动配置',
+        scriptComment: 'ISACAPI 一键客户端配置'
+      },
       openai: {
         description: '将以下配置文件添加到 Codex CLI 配置目录中。',
         configTomlHint: '请确保以下内容位于 config.toml 文件的开头部分',
@@ -191,8 +203,31 @@ export default {
       description: '请选择您要导入到 CC-Switch 的客户端类型：',
       claudeCode: 'Claude Code',
       claudeCodeDesc: '导入为 Claude Code 配置',
+      claudeDesktop: 'Claude Desktop',
+      claudeDesktopDesc: '导入为 Claude Desktop 配置',
       geminiCli: 'Gemini CLI',
       geminiCliDesc: '导入为 Gemini CLI 配置'
+    },
+    ccsFallback: {
+      title: '打开 CC-Switch',
+      description:
+        'CC-Switch 没有自动打开。请先安装后重试导入，或者复制密钥并手动配置。',
+      macosHint:
+        'macOS：安装 DMG 后请手动打开一次 CC-Switch。如果被 Gatekeeper 阻止，请在系统设置中允许，然后回来重试。',
+      downloadTitle: '下载 CC-Switch',
+      downloadDescription:
+        '请只使用官方渠道。Windows ARM64、便携版或校验文件请到官方 Release 页面选择。',
+      windowsDownload: 'Windows MSI',
+      macosDownload: 'macOS DMG',
+      releasePage: '官方 Release 页面',
+      retryOpen: '再次打开',
+      retryOpenDesc: '重试 ccswitch:// 导入',
+      copyKey: '复制密钥',
+      copyKeyDesc: '粘贴到 CC-Switch 或客户端配置中',
+      useKey: '使用密钥',
+      useKeyDesc: '打开手动终端配置命令',
+      guide: '完整指南',
+      guideDesc: '本地 CC-Switch 和 Remote SSH 配置'
     },
     // 配额和有效期
     quotaLimit: '额度限制',

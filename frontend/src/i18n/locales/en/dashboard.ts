@@ -135,6 +135,18 @@ export default {
       note: 'These environment variables will be active in the current terminal session. For permanent configuration, add them to ~/.bashrc, ~/.zshrc, or the appropriate configuration file.',
       noGroupTitle: 'Please assign a group first',
       noGroupDescription: 'This API key has not been assigned to a group. Please click the group column in the key list to assign one before viewing the configuration.',
+      oneClick: {
+        title: 'One-click setup command',
+        hint:
+          'Copy the command below into your terminal and press Enter. It writes client config files, shell startup variables, and VS Code terminal environment settings.',
+        pasteWarning: 'Only run setup commands from sites you trust. This command contains your API key.',
+        copy: 'Copy',
+        copied: 'Copied',
+        runHint:
+          'Restart your client (Claude Code / Codex / Gemini CLI / OpenCode) and VS Code terminal afterward so the settings take effect.',
+        manualLabel: 'Manual setup',
+        scriptComment: 'ISACAPI one-click client setup'
+      },
       openai: {
         description: 'Add the following configuration files to your Codex CLI config directory.',
         configTomlHint: 'Make sure the following content is at the beginning of the config.toml file',
@@ -186,8 +198,31 @@ export default {
       description: 'Please select the client type to import to CC-Switch:',
       claudeCode: 'Claude Code',
       claudeCodeDesc: 'Import as Claude Code configuration',
+      claudeDesktop: 'Claude Desktop',
+      claudeDesktopDesc: 'Import as Claude Desktop configuration',
       geminiCli: 'Gemini CLI',
       geminiCliDesc: 'Import as Gemini CLI configuration',
+    },
+    ccsFallback: {
+      title: 'Open CC-Switch',
+      description:
+        'CC-Switch did not open automatically. Install it, retry the import, or copy the key and configure it manually.',
+      macosHint:
+        'macOS: after installing the DMG, open CC-Switch manually once. If Gatekeeper blocks it, allow it in System Settings, then return and retry.',
+      downloadTitle: 'Download CC-Switch',
+      downloadDescription:
+        'Use official channels only. Open the release page for Windows ARM64, portable builds, or checksum files.',
+      windowsDownload: 'Windows MSI',
+      macosDownload: 'macOS DMG',
+      releasePage: 'Official release page',
+      retryOpen: 'Open again',
+      retryOpenDesc: 'Retry the ccswitch:// import',
+      copyKey: 'Copy key',
+      copyKeyDesc: 'Paste it into CC-Switch or your client config',
+      useKey: 'Use key',
+      useKeyDesc: 'Open manual terminal setup commands',
+      guide: 'Full guide',
+      guideDesc: 'Local CC-Switch and Remote SSH setup'
     },
     // Quota and expiration
     quotaLimit: 'Quota Limit',
