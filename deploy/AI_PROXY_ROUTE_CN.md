@@ -4,7 +4,9 @@
 
 ## 机器2要求
 
-机器2需要开放一个代理端口，例如：
+机器2需要开放一个代理端口。本仓库的一键脚本会安装并配置 `Squid` HTTP/HTTPS CONNECT 代理，默认监听 `7890`。
+
+如果你不用一键脚本，也可以使用其它 HTTP/SOCKS 代理，例如：
 
 - CCProxy HTTP 代理：常见端口 `808`
 - Clash / mihomo mixed-port：常见端口 `7890`
@@ -26,7 +28,7 @@ chmod +x deploy/setup-machine2-ai-proxy-server.sh
 sudo ./deploy/setup-machine2-ai-proxy-server.sh --allow-client 机器1IP --proxy-port 7890
 ```
 
-这个脚本会安装并配置 `tinyproxy`，只允许 `--allow-client` 指定的机器1 IP/CIDR 访问代理，避免机器2变成公网开放代理。
+这个脚本会安装并配置 `Squid`，只允许 `--allow-client` 指定的机器1 IP/CIDR 访问代理，避免机器2变成公网开放代理。
 
 如果机器2有防火墙，并且你希望脚本自动开放端口：
 
@@ -40,25 +42,23 @@ sudo ./deploy/setup-machine2-ai-proxy-server.sh --allow-client 机器1IP --proxy
 sudo ./deploy/setup-machine2-ai-proxy-server.sh --allow-client 机器1IP --proxy-port 7890 --check
 ```
 
-### 机器2安装 tinyproxy 失败
+### 机器2安装 Squid 失败
 
 如果机器2是 RHEL / CentOS / Alibaba Cloud Linux / Amazon Linux 这类 dnf/yum 系统，可能遇到类似问题：
 
 ```text
 Errors during downloading metadata for repository 'docker-ce-stable'
-No match for argument: tinyproxy
 ```
 
 这通常不是脚本参数错，而是系统包源问题：
 
 - `docker-ce-stable` 仓库地址失效或不支持当前系统版本。
-- 当前系统默认仓库没有 `tinyproxy`，需要 EPEL 或其它扩展仓库。
+- 当前系统默认仓库不可用或元数据缓存异常，导致 `squid` 安装失败。
 
-脚本会在 dnf/yum 系统上自动临时跳过 `docker-ce-stable`，并尝试安装 `epel-release` 后重试 tinyproxy。如果仍失败，可以先手动安装 tinyproxy，再跳过安装步骤：
+脚本会在 dnf/yum 系统上自动临时跳过 `docker-ce-stable`。如果仍失败，可以先手动安装 Squid，再跳过安装步骤：
 
 ```bash
-sudo dnf --disablerepo=docker-ce-stable install -y epel-release
-sudo dnf --disablerepo=docker-ce-stable install -y tinyproxy
+sudo dnf --disablerepo=docker-ce-stable install -y squid
 sudo ./deploy/setup-machine2-ai-proxy-server.sh --allow-client 机器1IP --proxy-port 7890 --open-firewall --check --no-install
 ```
 
