@@ -99,6 +99,7 @@ type AccountTestService struct {
 	accountRepo               AccountRepository
 	geminiTokenProvider       *GeminiTokenProvider
 	claudeTokenProvider       *ClaudeTokenProvider
+	openaiTokenProvider       *OpenAITokenProvider
 	grokTokenProvider         *GrokTokenProvider
 	antigravityGatewayService *AntigravityGatewayService
 	httpUpstream              HTTPUpstream
@@ -111,6 +112,7 @@ func NewAccountTestService(
 	accountRepo AccountRepository,
 	geminiTokenProvider *GeminiTokenProvider,
 	claudeTokenProvider *ClaudeTokenProvider,
+	openaiTokenProvider *OpenAITokenProvider,
 	grokTokenProvider *GrokTokenProvider,
 	antigravityGatewayService *AntigravityGatewayService,
 	httpUpstream HTTPUpstream,
@@ -121,6 +123,7 @@ func NewAccountTestService(
 		accountRepo:               accountRepo,
 		geminiTokenProvider:       geminiTokenProvider,
 		claudeTokenProvider:       claudeTokenProvider,
+		openaiTokenProvider:       openaiTokenProvider,
 		grokTokenProvider:         grokTokenProvider,
 		antigravityGatewayService: antigravityGatewayService,
 		httpUpstream:              httpUpstream,

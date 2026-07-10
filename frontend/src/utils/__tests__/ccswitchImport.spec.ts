@@ -73,7 +73,7 @@ describe('ccswitchImport utils', () => {
 
   it.each([
     { platform: 'anthropic' as GroupPlatform, clientType: 'claude' as const, app: 'claude' },
-    { platform: 'anthropic' as GroupPlatform, clientType: 'claude-desktop' as const, app: 'claude-desktop' },
+    { platform: 'anthropic' as GroupPlatform, clientType: 'claude-desktop' as const, app: 'claude' },
     { platform: 'gemini' as GroupPlatform, clientType: 'gemini' as const, app: 'gemini' }
   ])('does not add a model parameter for $platform imports', ({ platform, clientType, app }) => {
     const params = paramsFromDeeplink(
@@ -92,7 +92,7 @@ describe('ccswitchImport utils', () => {
 
   it.each([
     { clientType: 'claude' as const, app: 'claude' },
-    { clientType: 'claude-desktop' as const, app: 'claude-desktop' },
+    { clientType: 'claude-desktop' as const, app: 'claude' },
     { clientType: 'gemini' as const, app: 'gemini' }
   ])('keeps Antigravity $app imports on the selected client endpoint without a model parameter', ({ clientType, app }) => {
     const params = paramsFromDeeplink(

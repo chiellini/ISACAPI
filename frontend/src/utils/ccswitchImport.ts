@@ -30,6 +30,10 @@ export interface CcSwitchImportDeeplinkInput {
   usageScript: string
 }
 
+function resolveCcSwitchAppType(clientType: CcSwitchClientType): string {
+  return clientType === 'claude-desktop' ? 'claude' : clientType
+}
+
 export function resolveCcSwitchImportConfig(
   platform: GroupPlatform | undefined | null,
   clientType: CcSwitchClientType,
@@ -38,7 +42,7 @@ export function resolveCcSwitchImportConfig(
   switch (platform || 'anthropic') {
     case 'antigravity':
       return {
-        app: clientType === 'gemini' ? 'gemini' : clientType,
+        app: resolveCcSwitchAppType(clientType),
         endpoint: `${baseUrl}/antigravity`
       }
     case 'openai':
@@ -54,7 +58,7 @@ export function resolveCcSwitchImportConfig(
       }
     default:
       return {
-        app: clientType === 'claude-desktop' ? 'claude-desktop' : 'claude',
+        app: 'claude',
         endpoint: baseUrl
       }
   }

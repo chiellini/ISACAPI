@@ -38,11 +38,13 @@ func setupAvailableModelsRouter(adminSvc service.AdminService) *gin.Engine {
 }
 
 type syncUpstreamHTTPUpstream struct {
-	resp *http.Response
-	err  error
+	resp    *http.Response
+	err     error
+	lastReq *http.Request
 }
 
 func (u *syncUpstreamHTTPUpstream) Do(req *http.Request, proxyURL string, accountID int64, accountConcurrency int) (*http.Response, error) {
+	u.lastReq = req
 	if u.err != nil {
 		return nil, u.err
 	}
@@ -57,6 +59,7 @@ func setupSyncUpstreamModelsRouter(adminSvc service.AdminService, upstream servi
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
 	accountTestSvc := service.NewAccountTestService(
+		nil,
 		nil,
 		nil,
 		nil,
@@ -308,4 +311,47 @@ func TestAccountHandlerSyncUpstreamModels_UpstreamErrorDoesNotExposeBody(t *test
 	require.Equal(t, http.StatusBadGateway, rec.Code)
 	require.Contains(t, rec.Body.String(), "Upstream model list request failed with HTTP 502")
 	require.NotContains(t, rec.Body.String(), "SECRET_TOKEN")
+}
+
+func TestAccountHandlerSyncUpstreamModels_OpenAIOAuthUsesCodexModelsManifest(t *testing.T) {
+	svc := &availableModelsAdminService{
+		stubAdminService: newStubAdminService(),
+		account: service.Account{
+			ID:       46,
+			Name:     "openai-oauth",
+			Platform: service.PlatformOpenAI,
+			Type:     service.AccountTypeOAuth,
+			Status:   service.StatusActive,
+			Credentials: map[string]any{
+				"access_token":       "openai-oauth-token",
+				"chatgpt_account_id": "acc-123",
+			},
+		},
+	}
+	upstream := &syncUpstreamHTTPUpstream{resp: &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body:       io.NopCloser(strings.NewReader(`{"models":[{"slug":"gpt-5.3-codex-spark"},{"slug":"gpt-5.5"},{"id":"gpt-image-2"}]}`)),
+	}}
+	router := setupSyncUpstreamModelsRouter(svc, upstream)
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/admin/accounts/46/models/sync-upstream", nil)
+	router.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	var resp struct {
+		Data struct {
+			Models []string `json:"models"`
+		} `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	require.Equal(t, []string{"gpt-5.3-codex-spark", "gpt-5.5", "gpt-image-2"}, resp.Data.Models)
+	require.NotNil(t, upstream.lastReq)
+	require.Equal(t, "https://chatgpt.com/backend-api/codex/models", upstream.lastReq.URL.Scheme+"://"+upstream.lastReq.URL.Host+upstream.lastReq.URL.Path)
+	require.Equal(t, "0.125.0", upstream.lastReq.URL.Query().Get("client_version"))
+	require.Equal(t, "Bearer openai-oauth-token", upstream.lastReq.Header.Get("Authorization"))
+	require.Equal(t, "acc-123", upstream.lastReq.Header.Get("chatgpt-account-id"))
+	require.Equal(t, "codex_cli_rs", upstream.lastReq.Header.Get("Originator"))
 }
