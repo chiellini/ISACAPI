@@ -45,6 +45,12 @@
               <span class="flex items-center gap-2">
                 <component :is="tab.icon" class="w-4 h-4" />
                 {{ tab.label }}
+                <span
+                  v-if="isCodexClientTab(tab.id)"
+                  class="rounded border border-primary-200 bg-primary-50 px-1.5 py-0.5 font-mono text-[10px] leading-none text-primary-700 dark:border-primary-800 dark:bg-primary-900/30 dark:text-primary-300"
+                >
+                  {{ OPENAI_CODEX_DEFAULT_MODEL }}
+                </span>
               </span>
             </button>
           </nav>
@@ -60,6 +66,12 @@
               <Icon name="terminal" size="md" class="text-primary-600 dark:text-primary-400" />
               <span class="text-sm font-semibold text-primary-700 dark:text-primary-300">
                 {{ t('keys.useKeyModal.oneClick.title') }}
+              </span>
+              <span
+                v-if="activeCodexModel"
+                class="rounded border border-primary-200 bg-white px-2 py-0.5 font-mono text-[11px] font-medium text-primary-700 dark:border-primary-800 dark:bg-dark-800 dark:text-primary-300"
+              >
+                Codex {{ activeCodexModel }}
               </span>
             </div>
             <div class="inline-flex overflow-hidden rounded-lg border border-primary-200 dark:border-primary-700">
@@ -228,6 +240,7 @@ import { useI18n } from 'vue-i18n'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { useClipboard } from '@/composables/useClipboard'
+import { OPENAI_CODEX_DEFAULT_MODEL } from '@/constants/codex'
 import type { GroupPlatform } from '@/types'
 
 interface Props {
@@ -389,6 +402,14 @@ const clientTabs = computed((): TabConfig[] => {
       ]
   }
 })
+
+const isCodexClientTab = (tabId: string) => tabId === 'codex' || tabId === 'codex-ws'
+
+const activeCodexModel = computed(() =>
+  props.platform === 'openai' && isCodexClientTab(activeClientTab.value)
+    ? OPENAI_CODEX_DEFAULT_MODEL
+    : ''
+)
 
 // Shell tabs (3 types for environment variable based configs)
 const shellTabs: TabConfig[] = [
@@ -877,7 +898,10 @@ const oneClickScript = computed(() => {
   // Leading guidance comment — valid in both bash and PowerShell (#). Keeps the
   // script self-documenting, and if it's mis-pasted into an API-key field the
   // submitted value starts with this comment instead of a bare `mkdir -p`.
-  lines.push(`# ${t('keys.useKeyModal.oneClick.scriptComment')}`)
+  const scriptComment = activeCodexModel.value
+    ? `${t('keys.useKeyModal.oneClick.scriptComment')} (Codex: ${activeCodexModel.value})`
+    : t('keys.useKeyModal.oneClick.scriptComment')
+  lines.push(`# ${scriptComment}`)
 
   if (oneClickOs.value === 'unix') {
     const EOF = 'SUB2API_EOF'
@@ -1023,9 +1047,10 @@ ${keyword('$env:')}${variable('GEMINI_MODEL')}${operator('=')}${string(`"${model
 // Shared Codex config.toml builder so the manual blocks and the one-click
 // install command never drift apart.
 function buildCodexConfigToml(baseUrl: string, ws: boolean): string {
-  return `model_provider = "OpenAI"
-model = "gpt-5.5"
-review_model = "gpt-5.5"
+  return `# ISACAPI Codex default model: ${OPENAI_CODEX_DEFAULT_MODEL}
+model_provider = "OpenAI"
+model = "${OPENAI_CODEX_DEFAULT_MODEL}"
+review_model = "${OPENAI_CODEX_DEFAULT_MODEL}"
 model_reasoning_effort = "xhigh"
 disable_response_storage = true
 network_access = "enabled"

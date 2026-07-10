@@ -1019,19 +1019,6 @@
 	            }}</span>
 	          </button>
 	          <button
-	            v-if="showCcsClientType('claude-desktop')"
-	            @click="handleCcsClientSelect('claude-desktop')"
-	            class="flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-gray-200 dark:border-dark-600 hover:border-primary-500 dark:hover:border-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-all"
-	          >
-	            <Icon name="monitor" size="xl" class="text-gray-600 dark:text-gray-400" />
-	            <span class="font-medium text-gray-900 dark:text-white">{{
-	              t('keys.ccsClientSelect.claudeDesktop')
-	            }}</span>
-	            <span class="text-xs text-gray-500 dark:text-gray-400">{{
-	              t('keys.ccsClientSelect.claudeDesktopDesc')
-	            }}</span>
-	          </button>
-	          <button
 	            v-if="showCcsClientType('gemini')"
 	            @click="handleCcsClientSelect('gemini')"
 	            class="flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-gray-200 dark:border-dark-600 hover:border-primary-500 dark:hover:border-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-all"
@@ -2016,8 +2003,8 @@ const importToCcswitch = (row: ApiKey) => {
 
 const ccsSelectableClients = computed<CcSwitchClientType[]>(() => {
   const platform = pendingCcsRow.value?.group?.platform || 'anthropic'
-  if (platform === 'antigravity') return ['claude', 'claude-desktop', 'gemini']
-  return ['claude', 'claude-desktop']
+  if (platform === 'antigravity') return ['claude', 'gemini']
+  return ['claude']
 })
 
 const showCcsClientType = (clientType: CcSwitchClientType) => ccsSelectableClients.value.includes(clientType)

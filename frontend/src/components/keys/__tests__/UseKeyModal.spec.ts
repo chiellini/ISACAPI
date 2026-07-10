@@ -17,7 +17,7 @@ vi.mock('@/composables/useClipboard', () => ({
 import UseKeyModal from '../UseKeyModal.vue'
 
 describe('UseKeyModal', () => {
-  it('renders GPT-5.5 and goals feature in OpenAI Codex config', () => {
+  it('renders GPT-5.6 and goals feature in OpenAI Codex config', () => {
     const wrapper = mount(UseKeyModal, {
       props: {
         show: true,
@@ -41,15 +41,18 @@ describe('UseKeyModal', () => {
     const configToml = codeBlocks.find((content) => content.includes('model_provider = "OpenAI"'))
 
     expect(configToml).toBeDefined()
-    expect(configToml).toContain('model = "gpt-5.5"')
-    expect(configToml).toContain('review_model = "gpt-5.5"')
+    expect(configToml).toContain('# ISACAPI Codex default model: gpt-5.6-sol')
+    expect(configToml).toContain('model = "gpt-5.6-sol"')
+    expect(configToml).toContain('review_model = "gpt-5.6-sol"')
+    expect(configToml).not.toContain('model = "gpt-5.5"')
+    expect(wrapper.text()).toContain('gpt-5.6-sol')
     expect(configToml).not.toContain('model = "gpt-5.4"')
     expect(configToml).not.toContain('model_context_window')
     expect(configToml).not.toContain('model_auto_compact_token_limit')
     expect(configToml).toContain('[features]\ngoals = true')
   })
 
-  it('renders GPT-5.5 and goals feature in OpenAI Codex WebSocket config', async () => {
+  it('renders GPT-5.6 and goals feature in OpenAI Codex WebSocket config', async () => {
     const wrapper = mount(UseKeyModal, {
       props: {
         show: true,
@@ -81,8 +84,10 @@ describe('UseKeyModal', () => {
     const configToml = codeBlocks.find((content) => content.includes('supports_websockets = true'))
 
     expect(configToml).toBeDefined()
-    expect(configToml).toContain('model = "gpt-5.5"')
-    expect(configToml).toContain('review_model = "gpt-5.5"')
+    expect(configToml).toContain('# ISACAPI Codex default model: gpt-5.6-sol')
+    expect(configToml).toContain('model = "gpt-5.6-sol"')
+    expect(configToml).toContain('review_model = "gpt-5.6-sol"')
+    expect(configToml).not.toContain('model = "gpt-5.5"')
     expect(configToml).not.toContain('model = "gpt-5.4"')
     expect(configToml).not.toContain('model_context_window')
     expect(configToml).not.toContain('model_auto_compact_token_limit')
@@ -174,10 +179,15 @@ describe('UseKeyModal', () => {
       .find((content) => content.includes('.codex/config.toml'))
 
     expect(script).toBeDefined()
+    expect(script).toContain('# keys.useKeyModal.oneClick.scriptComment (Codex: gpt-5.6-sol)')
     expect(script).toContain('.codex/config.toml')
     expect(script).toContain('.codex/auth.json')
     expect(script).toContain('"OPENAI_API_KEY": "sk-test"')
     expect(script).toContain('model_provider = "OpenAI"')
+    expect(script).toContain('# ISACAPI Codex default model: gpt-5.6-sol')
+    expect(script).toContain('model = "gpt-5.6-sol"')
+    expect(script).toContain('review_model = "gpt-5.6-sol"')
+    expect(script).not.toContain('model = "gpt-5.5"')
     expect(script).toContain("export OPENAI_BASE_URL='https://example.com/v1'")
     expect(script).toContain("export OPENAI_API_BASE='https://example.com/v1'")
     expect(script).toContain('VS Code terminal env updated')

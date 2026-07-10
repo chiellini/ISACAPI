@@ -1,6 +1,7 @@
 import type { GroupPlatform } from '@/types'
+import { OPENAI_CODEX_DEFAULT_MODEL } from '@/constants/codex'
 
-export const OPENAI_CC_SWITCH_CODEX_MODEL = 'gpt-5.6-sol'
+export const OPENAI_CC_SWITCH_CODEX_MODEL = OPENAI_CODEX_DEFAULT_MODEL
 
 const CC_SWITCH_LATEST_VERSION = 'v3.16.5'
 const CC_SWITCH_RELEASE_BASE = `https://github.com/farion1231/cc-switch/releases/download/${CC_SWITCH_LATEST_VERSION}`
@@ -12,7 +13,7 @@ export const CC_SWITCH_DOWNLOAD_LINKS = {
   macos: `${CC_SWITCH_RELEASE_BASE}/CC-Switch-${CC_SWITCH_LATEST_VERSION}-macOS.dmg`
 } as const
 
-export type CcSwitchClientType = 'claude' | 'claude-desktop' | 'gemini'
+export type CcSwitchClientType = 'claude' | 'gemini'
 export type CcSwitchNavigatorSnapshot = Pick<Navigator, 'platform' | 'userAgent' | 'maxTouchPoints'>
 
 export interface CcSwitchImportConfig {
@@ -31,11 +32,6 @@ export interface CcSwitchImportDeeplinkInput {
 }
 
 function resolveCcSwitchAppType(clientType: CcSwitchClientType): string {
-  // CcSwitchClientType values map 1:1 to CC-Switch's own `app` identifiers
-  // ('claude' = Claude Code, 'claude-desktop' = Claude Desktop, 'gemini').
-  // Claude Desktop MUST stay 'claude-desktop': CC-Switch only writes to the
-  // Desktop config when the deeplink carries app=claude-desktop — collapsing it
-  // to 'claude' silently routes the import into Claude Code (terminal) instead.
   return clientType
 }
 

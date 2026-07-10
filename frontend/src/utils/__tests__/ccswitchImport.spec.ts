@@ -73,7 +73,6 @@ describe('ccswitchImport utils', () => {
 
   it.each([
     { platform: 'anthropic' as GroupPlatform, clientType: 'claude' as const, app: 'claude' },
-    { platform: 'anthropic' as GroupPlatform, clientType: 'claude-desktop' as const, app: 'claude-desktop' },
     { platform: 'gemini' as GroupPlatform, clientType: 'gemini' as const, app: 'gemini' }
   ])('does not add a model parameter for $platform imports', ({ platform, clientType, app }) => {
     const params = paramsFromDeeplink(
@@ -90,22 +89,8 @@ describe('ccswitchImport utils', () => {
     expect(params.has('model')).toBe(false)
   })
 
-  it('routes Claude Desktop imports to a distinct app so CC-Switch does not fall back to Claude Code', () => {
-    const claudeCode = paramsFromDeeplink(
-      buildCcSwitchImportDeeplink({ ...baseInput, platform: 'anthropic', clientType: 'claude' })
-    )
-    const claudeDesktop = paramsFromDeeplink(
-      buildCcSwitchImportDeeplink({ ...baseInput, platform: 'anthropic', clientType: 'claude-desktop' })
-    )
-
-    expect(claudeCode.get('app')).toBe('claude')
-    expect(claudeDesktop.get('app')).toBe('claude-desktop')
-    expect(claudeDesktop.get('app')).not.toBe(claudeCode.get('app'))
-  })
-
   it.each([
     { clientType: 'claude' as const, app: 'claude' },
-    { clientType: 'claude-desktop' as const, app: 'claude-desktop' },
     { clientType: 'gemini' as const, app: 'gemini' }
   ])('keeps Antigravity $app imports on the selected client endpoint without a model parameter', ({ clientType, app }) => {
     const params = paramsFromDeeplink(

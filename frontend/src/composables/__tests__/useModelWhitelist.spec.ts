@@ -38,6 +38,7 @@ describe('useModelWhitelist', () => {
 
     expect(models).toEqual([
       'codex-auto-review',
+      'gpt-5.6-sol',
       'gpt-5.4',
       'gpt-5.4-mini',
       'gpt-5.5',

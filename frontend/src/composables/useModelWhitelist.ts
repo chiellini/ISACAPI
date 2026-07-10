@@ -1,3 +1,5 @@
+import { OPENAI_CODEX_DEFAULT_MODEL } from '@/constants/codex'
+
 // =====================
 // 模型列表（硬编码，与 new-api 一致）
 // =====================
@@ -432,6 +434,7 @@ export function getModelsByPlatform(platform: string): string[] {
 // 避免一次性填入 openaiModels 全量列表。其余模型仍可在选择器中手动添加。
 export const openaiDefaultWhitelist = [
   'codex-auto-review',
+  OPENAI_CODEX_DEFAULT_MODEL,
   'gpt-5.4',
   'gpt-5.4-mini',
   'gpt-5.5',

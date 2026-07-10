@@ -187,6 +187,7 @@ import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { onKeyStroke } from '@vueuse/core'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/components/layout/AppLayout.vue'
+import { OPENAI_CODEX_DEFAULT_MODEL } from '@/constants/codex'
 import { renderMarkdown } from '@/utils/markdown'
 import {
   generateImage,
@@ -205,7 +206,7 @@ import {
 const { t } = useI18n()
 
 const models: Array<{ id: string; label: string }> = [
-  { id: 'gpt-5.5', label: 'gpt-5.5' },
+  { id: OPENAI_CODEX_DEFAULT_MODEL, label: OPENAI_CODEX_DEFAULT_MODEL },
   { id: 'gpt-image-2', label: 'GPT Image 2' },
 ]
 const selectedModel = ref(models[0].id)
@@ -629,7 +630,7 @@ onKeyStroke('Escape', () => {
 // 当成全新请求。这里的兜底把本会话历史里的「用户指令」按顺序拼进 prompt。
 const IMAGE_CONTEXT_MAX_TURNS = 8
 const IMAGE_CONTEXT_MAX_CHARS = 1800
-const PROMPT_AGENT_MODEL = 'gpt-5.5'
+const PROMPT_AGENT_MODEL = OPENAI_CODEX_DEFAULT_MODEL
 
 function userPromptsOf(history: UiMessage[]): string[] {
   return history.filter((m) => m.role === 'user' && m.content.trim()).map((m) => m.content.trim())
