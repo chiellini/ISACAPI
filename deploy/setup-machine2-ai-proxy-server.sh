@@ -113,6 +113,58 @@ require_root_if_needed() {
   fi
 }
 
+has_yum_repo() {
+  local repo="$1"
+  grep -Rqs "^\[${repo}\]" /etc/yum.repos.d 2>/dev/null
+}
+
+rpm_install_package() {
+  local pm="$1"
+  shift
+  local opts=()
+
+  if has_yum_repo "docker-ce-stable"; then
+    opts+=(--disablerepo=docker-ce-stable)
+  fi
+
+  "$pm" "${opts[@]}" install -y "$@"
+}
+
+enable_epel_if_possible() {
+  local pm="$1"
+
+  if command -v rpm >/dev/null 2>&1 && rpm -q epel-release >/dev/null 2>&1; then
+    return 0
+  fi
+
+  if command -v amazon-linux-extras >/dev/null 2>&1; then
+    if amazon-linux-extras install -y epel; then
+      return 0
+    fi
+  fi
+
+  rpm_install_package "$pm" epel-release
+}
+
+install_tinyproxy_rpm() {
+  local pm="$1"
+
+  if rpm_install_package "$pm" tinyproxy; then
+    return 0
+  fi
+
+  warn "tinyproxy was not found in enabled ${pm} repositories; trying EPEL"
+  if enable_epel_if_possible "$pm"; then
+    if rpm_install_package "$pm" tinyproxy; then
+      return 0
+    fi
+  else
+    warn "could not enable/install epel-release automatically"
+  fi
+
+  die "tinyproxy is not available from current ${pm} repositories. Enable EPEL or install tinyproxy manually, then rerun with --no-install. If docker-ce-stable is broken, the script already tries to ignore it temporarily."
+}
+
 install_tinyproxy() {
   [[ "$INSTALL_PACKAGE" -eq 1 ]] || return 0
 
@@ -130,9 +182,9 @@ install_tinyproxy() {
     apt-get update
     DEBIAN_FRONTEND=noninteractive apt-get install -y tinyproxy
   elif command -v dnf >/dev/null 2>&1; then
-    dnf install -y tinyproxy
+    install_tinyproxy_rpm dnf
   elif command -v yum >/dev/null 2>&1; then
-    yum install -y tinyproxy
+    install_tinyproxy_rpm yum
   elif command -v zypper >/dev/null 2>&1; then
     zypper --non-interactive install tinyproxy
   elif command -v pacman >/dev/null 2>&1; then

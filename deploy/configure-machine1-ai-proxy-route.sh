@@ -13,11 +13,13 @@ WRITE_CLAUDE_SETTINGS=1
 WRITE_PAC=1
 OFFICIAL_UPSTREAM=0
 CLEAR_CLAUDE_AUTH=0
+WRITE_DOCKER_DAEMON=0
 CHECK_PROXY=0
 DRY_RUN=0
 
 BEGIN_MARK="# >>> ISACAPI AI proxy route >>>"
 END_MARK="# <<< ISACAPI AI proxy route <<<"
+DOCKER_DAEMON_CONFIG_FILE="/etc/systemd/system/docker.service.d/isacapi-proxy.conf"
 
 AI_PROXY_DOMAINS=(
   "anthropic.com"
@@ -44,13 +46,70 @@ AI_PROXY_DOMAINS=(
   "oaiusercontent.com"
 )
 
+DEV_PROXY_DOMAINS=(
+  "github.com"
+  "api.github.com"
+  "gist.github.com"
+  "githubusercontent.com"
+  "raw.githubusercontent.com"
+  "objects.githubusercontent.com"
+  "githubassets.com"
+  "github.io"
+  "githubcopilot.com"
+  "ghcr.io"
+  "pkg.github.com"
+  "docker.com"
+  "docker.io"
+  "registry-1.docker.io"
+  "index.docker.io"
+  "auth.docker.io"
+  "production.cloudflare.docker.com"
+  "dockerstatic.com"
+  "anaconda.com"
+  "anaconda.org"
+  "repo.anaconda.com"
+  "conda.anaconda.org"
+  "pypi.org"
+  "files.pythonhosted.org"
+  "pythonhosted.org"
+  "python.org"
+  "npmjs.com"
+  "npmjs.org"
+  "registry.npmjs.org"
+  "nodejs.org"
+  "yarnpkg.com"
+  "pnpm.io"
+  "go.dev"
+  "golang.org"
+  "proxy.golang.org"
+  "sum.golang.org"
+  "goproxy.io"
+  "rust-lang.org"
+  "crates.io"
+  "static.crates.io"
+  "maven.org"
+  "repo.maven.apache.org"
+  "repo1.maven.org"
+  "gradle.org"
+  "services.gradle.org"
+  "plugins.gradle.org"
+  "huggingface.co"
+  "hf.co"
+  "visualstudio.com"
+  "marketplace.visualstudio.com"
+  "gallerycdn.vsassets.io"
+  "vscode-unpkg.net"
+  "packages.microsoft.com"
+)
+
 usage() {
   cat <<USAGE
 Usage:
   ${SCRIPT_NAME} --machine2-ip <IP> [options]
   ${SCRIPT_NAME} <IP> [options]
 
-This configures machine 1 to use machine 2 as the proxy exit for AI traffic.
+This configures machine 1 to use machine 2 as the proxy exit for AI and
+developer traffic.
 Machine 2 must already be running an HTTP or SOCKS proxy, for example CCProxy,
 Clash/mihomo, sing-box, Squid, or 3proxy.
 
@@ -67,6 +126,8 @@ Options:
                            uses official Anthropic endpoints through the proxy.
   --clear-claude-auth      Also remove ANTHROPIC_AUTH_TOKEN/ANTHROPIC_API_KEY from
                            Claude settings. Use only if they are old gateway keys.
+  --docker-daemon          Also configure the systemd Docker daemon proxy.
+                           Requires sudo and restarts Docker.
   --no-shell-profile       Do not add source block to ~/.bashrc or ~/.zshrc
   --no-claude              Do not update Claude Code settings.json
   --no-pac                 Do not write PAC file
@@ -78,6 +139,7 @@ Examples:
   ${SCRIPT_NAME} --machine2-ip 10.0.0.2
   ${SCRIPT_NAME} 10.0.0.2 --proxy-port 808 --proxy-type http
   ${SCRIPT_NAME} 10.0.0.2 --proxy-port 1080 --proxy-type socks5h --official-upstream
+  ${SCRIPT_NAME} 10.0.0.2 --proxy-port 7890 --proxy-type http --docker-daemon
 USAGE
 }
 
@@ -198,6 +260,15 @@ write_env_file() {
     emit_export no_proxy "$no_proxy"
     printf '\n'
 
+    printf '# Common developer tools. Most also honor HTTP_PROXY/HTTPS_PROXY above.\n'
+    emit_export npm_config_proxy "$proxy"
+    emit_export npm_config_https_proxy "$proxy"
+    emit_export NPM_CONFIG_PROXY "$proxy"
+    emit_export NPM_CONFIG_HTTPS_PROXY "$proxy"
+    emit_export YARN_HTTP_PROXY "$proxy"
+    emit_export YARN_HTTPS_PROXY "$proxy"
+    printf '\n'
+
     emit_export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC "1"
     emit_export CLAUDE_CODE_ATTRIBUTION_HEADER "0"
   } >"$tmp"
@@ -229,12 +300,13 @@ write_pac_file() {
     printf '  var domains = [\n'
     local i
     local comma
-    for i in "${!AI_PROXY_DOMAINS[@]}"; do
+    local domains=("${AI_PROXY_DOMAINS[@]}" "${DEV_PROXY_DOMAINS[@]}")
+    for i in "${!domains[@]}"; do
       comma=","
-      if (( i == ${#AI_PROXY_DOMAINS[@]} - 1 )); then
+      if (( i == ${#domains[@]} - 1 )); then
         comma=""
       fi
-      printf '    "%s"%s\n' "${AI_PROXY_DOMAINS[$i]}" "$comma"
+      printf '    "%s"%s\n' "${domains[$i]}" "$comma"
     done
     printf '  ];\n'
     printf '  for (var i = 0; i < domains.length; i++) {\n'
@@ -364,6 +436,52 @@ PY
   fi
 }
 
+configure_docker_daemon() {
+  local proxy="$1"
+  local no_proxy="127.0.0.1,localhost,::1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
+
+  [[ "$WRITE_DOCKER_DAEMON" -eq 1 ]] || return 0
+
+  if [[ "$PROXY_TYPE" != "http" ]]; then
+    warn "Docker daemon proxy is best configured with --proxy-type http. Current type: ${PROXY_TYPE}"
+  fi
+
+  if ! command -v systemctl >/dev/null 2>&1 || [[ ! -d /run/systemd/system ]]; then
+    warn "systemd is not available; skipped Docker daemon proxy config"
+    warn "If this is Docker Desktop/WSL, configure Docker Desktop proxy settings manually: ${proxy}"
+    return 0
+  fi
+
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    info "Would write Docker daemon proxy config: ${DOCKER_DAEMON_CONFIG_FILE}"
+    info "Would run: systemctl daemon-reload && systemctl restart docker"
+    return 0
+  fi
+
+  local sudo_cmd=()
+  if [[ "${EUID}" -ne 0 ]]; then
+    if ! command -v sudo >/dev/null 2>&1; then
+      warn "sudo not found; skipped Docker daemon proxy config"
+      return 0
+    fi
+    sudo_cmd=(sudo)
+  fi
+
+  local tmp="/tmp/isacapi-docker-proxy.$$"
+  {
+    printf '[Service]\n'
+    printf 'Environment="HTTP_PROXY=%s"\n' "$proxy"
+    printf 'Environment="HTTPS_PROXY=%s"\n' "$proxy"
+    printf 'Environment="NO_PROXY=%s"\n' "$no_proxy"
+  } >"$tmp"
+
+  "${sudo_cmd[@]}" install -D -m 0644 "$tmp" "$DOCKER_DAEMON_CONFIG_FILE"
+  rm -f "$tmp"
+  "${sudo_cmd[@]}" systemctl daemon-reload
+  "${sudo_cmd[@]}" systemctl restart docker
+  info "Updated Docker daemon proxy: ${DOCKER_DAEMON_CONFIG_FILE}"
+}
+
 check_proxy() {
   local proxy="$1"
   [[ "$CHECK_PROXY" -eq 1 ]] || return 0
@@ -378,6 +496,13 @@ check_proxy() {
     info "Proxy check passed"
   else
     warn "Proxy check failed. Verify machine 2 proxy service, port, firewall, and proxy type."
+  fi
+
+  info "Checking developer proxy with https://github.com/"
+  if curl -fsS --max-time 10 --proxy "$proxy" https://github.com/ >/dev/null; then
+    info "Developer proxy check passed"
+  else
+    warn "Developer proxy check failed. Verify machine 2 can access GitHub and that the proxy accepts CONNECT."
   fi
 }
 
@@ -419,6 +544,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --clear-claude-auth)
       CLEAR_CLAUDE_AUTH=1
+      shift
+      ;;
+    --docker-daemon)
+      WRITE_DOCKER_DAEMON=1
       shift
       ;;
     --no-shell-profile)
@@ -472,6 +601,7 @@ info "Proxy port: ${PROXY_PORT}"
 write_env_file "$PROXY_URL"
 write_pac_file
 update_claude_settings "$PROXY_URL"
+configure_docker_daemon "$PROXY_URL"
 append_profile_block "${HOME}/.bashrc"
 if [[ -f "${HOME}/.zshrc" ]]; then
   append_profile_block "${HOME}/.zshrc"
