@@ -316,11 +316,18 @@ func (s *GatewayService) buildUpstreamRequestAnthropicAPIKeyPassthrough(
 	if c != nil && c.Request != nil {
 		clientBeta = getHeaderRaw(c.Request.Header, "anthropic-beta")
 	}
-	// 账号覆写了 anthropic-beta 时，覆写值即最终上游值：净化以覆写值为准
+	betaShouldSet := clientBeta != ""
 	if beta, ok := account.HeaderOverrideValue("anthropic-beta"); ok {
 		clientBeta = beta
+		betaShouldSet = true
 	}
-	if sanitized, changed := sanitizeAnthropicBodyForBetaTokens(body, clientBeta); changed {
+	modelID := gjson.GetBytes(body, "model").String()
+	policy := s.evaluateBetaPolicy(ctx, clientBeta, account, modelID)
+	if policy.blockErr != nil {
+		return nil, nil, policy.blockErr
+	}
+	finalBeta := stripBetaTokensWithSet(clientBeta, mergeDropSets(policy.filterSet))
+	if sanitized, changed := sanitizeAnthropicBodyForBetaTokens(body, finalBeta); changed {
 		body = sanitized
 	}
 
@@ -358,6 +365,12 @@ func (s *GatewayService) buildUpstreamRequestAnthropicAPIKeyPassthrough(
 
 	// 账号级请求头覆写（最终生效，覆盖上面所有来源的同名头）
 	account.ApplyHeaderOverrides(req.Header)
+	if betaShouldSet {
+		deleteHeaderAllForms(req.Header, "anthropic-beta")
+		if finalBeta != "" {
+			setHeaderRaw(req.Header, "anthropic-beta", finalBeta)
+		}
+	}
 
 	return req, body, nil
 }

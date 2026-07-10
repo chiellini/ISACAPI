@@ -108,7 +108,7 @@ func (s *GatewayService) buildUpstreamRequest(ctx context.Context, c *gin.Contex
 	// 账号覆写了 anthropic-beta 时，覆写值即最终上游值（由下方 ApplyHeaderOverrides 写入）：
 	// body 能力净化必须以覆写值为准，否则 header/body 不对称会被上游 400。
 	if beta, ok := account.HeaderOverrideValue("anthropic-beta"); ok {
-		finalBetaHeader, finalBetaShouldSet = beta, true
+		finalBetaHeader, finalBetaShouldSet = stripBetaTokensWithSet(beta, effectiveDropSet), true
 	}
 
 	// 能力维度 body sanitize：与最终 anthropic-beta header 对称
@@ -185,8 +185,12 @@ func (s *GatewayService) buildUpstreamRequest(ctx context.Context, c *gin.Contex
 	}
 
 	// 账号级请求头覆写（仅 anthropic/openai api_key 账号启用时生效；OAuth 路径 no-op）。
-	// 放在所有 header 逻辑之后，确保配置值对同名头拥有最终决定权。
+	// anthropic-beta 随后会重新写入经过 Beta Policy 过滤后的最终值。
 	account.ApplyHeaderOverrides(req.Header)
+	deleteHeaderAllForms(req.Header, "anthropic-beta")
+	if finalBetaShouldSet && finalBetaHeader != "" {
+		setHeaderRaw(req.Header, "anthropic-beta", finalBetaHeader)
+	}
 
 	// === DEBUG: 打印上游转发请求（headers + body 摘要），与 CLIENT_ORIGINAL 对比 ===
 	s.debugLogGatewaySnapshot("UPSTREAM_FORWARD", req.Header, body, map[string]string{
@@ -713,8 +717,12 @@ func betaPolicyScopeMatches(scope string, isOAuth bool, isBedrock bool) bool {
 // matchModelWhitelist checks if a model matches any pattern in the whitelist.
 // Reuses matchModelPattern from group.go which supports exact and wildcard prefix matching.
 func matchModelWhitelist(model string, whitelist []string) bool {
+	normalizedModel := claude.StripModelCapabilitySuffix(model)
 	for _, pattern := range whitelist {
 		if matchModelPattern(pattern, model) {
+			return true
+		}
+		if normalizedModel != model && matchModelPattern(pattern, normalizedModel) {
 			return true
 		}
 	}

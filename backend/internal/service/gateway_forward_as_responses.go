@@ -66,6 +66,11 @@ func (s *GatewayService) ForwardAsResponses(
 		if normalized != originalModel {
 			mappedModel = normalized
 		}
+	} else if mappedModel == originalModel && account.Platform == PlatformAnthropic && account.Type == AccountTypeAPIKey {
+		normalized := claude.StripModelCapabilitySuffix(originalModel)
+		if normalized != originalModel {
+			mappedModel = normalized
+		}
 	} else if mappedModel == originalModel && account.Platform == PlatformAnthropic && account.Type != AccountTypeAPIKey {
 		normalized := claude.NormalizeModelID(originalModel)
 		if normalized != originalModel {

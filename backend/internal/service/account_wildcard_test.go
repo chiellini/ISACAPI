@@ -258,6 +258,16 @@ func TestAccountGetMappedModel(t *testing.T) {
 			requestedModel: "claude-sonnet-4-5",
 			expected:       "target-model",
 		},
+		{
+			name: "claude context suffix resolves through base model mapping",
+			credentials: map[string]any{
+				"model_mapping": map[string]any{
+					"claude-opus-4-8": "claude-opus-4-8",
+				},
+			},
+			requestedModel: "claude-opus-4-8[1m]",
+			expected:       "claude-opus-4-8",
+		},
 
 		// 通配符匹配（最长优先）
 		{
@@ -450,6 +460,17 @@ func TestAccountResolveMappedModel(t *testing.T) {
 			},
 			requestedModel: "gemini-3.1-pro-preview-customtools",
 			expectedModel:  "gemini-3.1-pro-preview",
+			expectedMatch:  true,
+		},
+		{
+			name: "claude context suffix reports normalized match",
+			credentials: map[string]any{
+				"model_mapping": map[string]any{
+					"claude-opus-4-8": "claude-opus-4-8",
+				},
+			},
+			requestedModel: "claude-opus-4-8[1m]",
+			expectedModel:  "claude-opus-4-8",
 			expectedMatch:  true,
 		},
 		{

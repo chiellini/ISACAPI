@@ -102,7 +102,11 @@ func (s *GatewayService) Forward(ctx context.Context, c *gin.Context, account *A
 		passthroughBody := parsed.Body.Bytes()
 		passthroughModel := parsed.Model
 		if passthroughModel != "" {
-			if mappedModel := account.GetMappedModel(passthroughModel); mappedModel != passthroughModel {
+			mappedModel := account.GetMappedModel(passthroughModel)
+			if mappedModel == passthroughModel {
+				mappedModel = claude.StripModelCapabilitySuffix(passthroughModel)
+			}
+			if mappedModel != passthroughModel {
 				passthroughBody = s.replaceModelInBody(passthroughBody, mappedModel)
 				logger.LegacyPrintf("service.gateway", "Passthrough model mapping: %s -> %s (account: %s)", parsed.Model, mappedModel, account.Name)
 				passthroughModel = mappedModel
@@ -258,6 +262,13 @@ func (s *GatewayService) Forward(ctx context.Context, c *gin.Context, account *A
 		mappedModel = account.GetMappedModel(reqModel)
 		if mappedModel != reqModel {
 			mappingSource = "account"
+		}
+	}
+	if mappingSource == "" && account.Platform == PlatformAnthropic && account.Type == AccountTypeAPIKey {
+		normalized := claude.StripModelCapabilitySuffix(reqModel)
+		if normalized != reqModel {
+			mappedModel = normalized
+			mappingSource = "capability_suffix"
 		}
 	}
 	if mappingSource == "" && account.Platform == PlatformAnthropic && account.Type == AccountTypeServiceAccount {

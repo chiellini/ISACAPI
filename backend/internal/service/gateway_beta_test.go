@@ -272,6 +272,7 @@ func TestDefaultBetaPolicy_Context1M_Sonnet5Whitelist(t *testing.T) {
 	}{
 		// —— 直连 Anthropic API —— sonnet-5 系列应放行
 		{"claude-sonnet-5", BetaPolicyActionPass, "sonnet-5 canonical"},
+		{"claude-sonnet-5[1m]", BetaPolicyActionPass, "sonnet-5 context suffix matches canonical whitelist"},
 		{"claude-sonnet-5-20260701", BetaPolicyActionPass, "sonnet-5 dated variant matches wildcard"},
 		{"claude-sonnet-5-thinking", BetaPolicyActionPass, "sonnet-5 thinking variant matches wildcard"},
 		// —— Vertex AI 归一化后的 sonnet-5 —— 也应放行
@@ -295,6 +296,7 @@ func TestDefaultBetaPolicy_Context1M_Sonnet5Whitelist(t *testing.T) {
 		{"us.anthropic.claude-sonnet-4-5-20250929-v1:0", BetaPolicyActionFilter, "bedrock us. sonnet-4.5 must be filtered"},
 		// —— Opus / Haiku 必须过滤（无 1M） ——
 		{"claude-opus-4-8", BetaPolicyActionFilter, "opus must be filtered"},
+		{"claude-opus-4-8[1m]", BetaPolicyActionFilter, "opus context suffix must still be filtered"},
 		{"claude-opus-4-7", BetaPolicyActionFilter, "opus 4.7 must be filtered"},
 		{"us.anthropic.claude-opus-4-8-v1", BetaPolicyActionFilter, "bedrock opus 4.8 must be filtered"},
 		{"claude-haiku-4-5", BetaPolicyActionFilter, "haiku must be filtered"},

@@ -1,6 +1,8 @@
 // Package claude provides constants and helpers for Claude API integration.
 package claude
 
+import "strings"
+
 // Claude Code 客户端相关常量
 
 // Beta header 常量
@@ -184,6 +186,23 @@ func DefaultModelIDs() []string {
 // DefaultTestModel 测试时使用的默认模型
 const DefaultTestModel = "claude-sonnet-4-5-20250929"
 
+// StripModelCapabilitySuffix removes Claude Code display/capability suffixes
+// from model IDs before gateway routing. For example, Claude Code may present
+// the 1M context variant as "claude-opus-4-8[1m]", while upstream APIs and
+// account model_mapping entries use the base model ID plus beta headers.
+func StripModelCapabilitySuffix(id string) string {
+	trimmed := strings.TrimSpace(id)
+	if trimmed == "" {
+		return trimmed
+	}
+	lower := strings.ToLower(trimmed)
+	const context1MSuffix = "[1m]"
+	if strings.HasPrefix(lower, "claude-") && strings.HasSuffix(lower, context1MSuffix) {
+		return strings.TrimSpace(trimmed[:len(trimmed)-len(context1MSuffix)])
+	}
+	return trimmed
+}
+
 // ModelIDOverrides Claude OAuth 请求需要的模型 ID 映射
 var ModelIDOverrides = map[string]string{
 	"claude-sonnet-4-5": "claude-sonnet-4-5-20250929",
@@ -203,6 +222,7 @@ func NormalizeModelID(id string) string {
 	if id == "" {
 		return id
 	}
+	id = StripModelCapabilitySuffix(id)
 	if mapped, ok := ModelIDOverrides[id]; ok {
 		return mapped
 	}

@@ -14,6 +14,7 @@ import (
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/domain"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/claude"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/xai"
 )
 
@@ -724,6 +725,7 @@ func normalizeRequestedModelForLookup(platform, requestedModel string) string {
 	if trimmed == "" {
 		return ""
 	}
+	trimmed = claude.StripModelCapabilitySuffix(trimmed)
 	if platform != PlatformGemini && platform != PlatformAntigravity {
 		return trimmed
 	}

@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/Wei-Shaw/sub2api/internal/domain"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/claude"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
@@ -121,7 +122,7 @@ func isLikelyBedrockModelID(modelID string) bool {
 }
 
 func normalizeBedrockModelID(modelID string) (normalized string, shouldAdjustRegion bool, ok bool) {
-	modelID = strings.TrimSpace(modelID)
+	modelID = claude.StripModelCapabilitySuffix(modelID)
 	if modelID == "" {
 		return "", false, false
 	}
