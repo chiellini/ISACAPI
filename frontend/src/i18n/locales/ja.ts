@@ -1,5 +1,9 @@
 import en from './en'
 
+type LocaleMessages = Record<string, any>
+
+const base = en as LocaleMessages
+
 export default {
   ...en,
   nav: {
@@ -12,7 +16,7 @@ export default {
     useKeyModal: {
       ...en.keys.useKeyModal,
       oneClick: {
-        ...en.keys.useKeyModal.oneClick,
+        ...(base.keys.useKeyModal.oneClick ?? {}),
         hint:
           '以下の 1 つのコマンドをコピーしてターミナルに貼り付け、Enter を押してください。クライアント設定、シェル起動ファイル、VS Code のターミナル環境設定を書き込みます。',
         runHint:
@@ -20,7 +24,7 @@ export default {
       }
     },
     ccsFallback: {
-      ...en.keys.ccsFallback,
+      ...(base.keys.ccsFallback ?? {}),
       downloadTitle: 'CC-Switch をダウンロード',
       downloadDescription:
         '公式チャネルのみを使用してください。Windows ARM64、ポータブル版、チェックサムファイルは公式ダウンロードページで該当アセットを選択してください。',

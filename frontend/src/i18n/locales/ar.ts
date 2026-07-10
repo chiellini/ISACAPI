@@ -1,5 +1,9 @@
 import en from './en'
 
+type LocaleMessages = Record<string, any>
+
+const base = en as LocaleMessages
+
 export default {
   ...en,
   nav: {
@@ -12,7 +16,7 @@ export default {
     useKeyModal: {
       ...en.keys.useKeyModal,
       oneClick: {
-        ...en.keys.useKeyModal.oneClick,
+        ...(base.keys.useKeyModal.oneClick ?? {}),
         hint:
           'انسخ الأمر الواحد أدناه والصقه في الطرفية ثم اضغط Enter. سيكتب إعدادات العميل وملفات بدء تشغيل الصدفة وإعدادات بيئة طرفية VS Code.',
         runHint:
@@ -20,7 +24,7 @@ export default {
       }
     },
     ccsFallback: {
-      ...en.keys.ccsFallback,
+      ...(base.keys.ccsFallback ?? {}),
       downloadTitle: 'تنزيل CC-Switch',
       downloadDescription:
         'استخدم القنوات الرسمية فقط. افتح صفحة التنزيل الرسمية لاختيار Windows ARM64 أو النسخة المحمولة أو ملفات التحقق.',
