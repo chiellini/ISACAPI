@@ -408,7 +408,7 @@ export default {
     amountNoMethod: '该金额没有可用的支付方式',
     rechargePricingTitle: '充值与内部计价说明',
     rechargePricingRate: '当前充值：1 元到账 {usd} USD 余额，到账余额 = 充值金额 × {usd}。',
-    rechargePricingTokenFormula: 'Token 价格按官方 OAI token 价格 ÷ {divisor} 折算展示。',
+    rechargePricingTokenFormula: 'Token 价格按原始定价 ÷ {divisor} 折算展示，使用 USD 计费。',
     rechargeRatePreview: '充值 1 元到账 {usd} USD 余额，本次到账 = 支付金额 × {usd}',
     refundReason: '退款原因',
     refundReasonPlaceholder: '请描述您的退款原因',

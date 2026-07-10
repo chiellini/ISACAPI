@@ -384,7 +384,7 @@ export default {
     amountNoMethod: 'No payment method available for this amount',
     rechargePricingTitle: 'Top-up and internal pricing',
     rechargePricingRate: 'Current top-up: 1 CNY credits {usd} USD balance. Credited balance = payment amount × {usd}.',
-    rechargePricingTokenFormula: 'Token prices are displayed as official OAI token price ÷ {divisor}.',
+    rechargePricingTokenFormula: 'Token prices are displayed as original price ÷ {divisor}, billed in USD.',
     rechargeRatePreview: '1 CNY credits {usd} USD balance. This credit = payment amount × {usd}',
     refundReason: 'Refund Reason',
     refundReasonPlaceholder: 'Please describe your refund reason',

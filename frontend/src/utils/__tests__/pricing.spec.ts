@@ -7,7 +7,7 @@ import {
 } from '../pricing'
 
 describe('pricing utilities', () => {
-  it('converts official token prices with the internal divisor', () => {
+  it('converts original token prices with the internal divisor', () => {
     expect(INTERNAL_TOKEN_PRICE_DIVISOR).toBe(42)
     expect(applyInternalTokenPriceRate(0.000042)).toBeCloseTo(0.000001)
     expect(formatInternalTokenPrice(0.000042, 1_000_000)).toBe('$1')

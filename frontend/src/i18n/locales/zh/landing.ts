@@ -273,13 +273,13 @@ export default {
     pricing: {
       eyebrow: '价格说明',
       title: '充值与 token 价格这样计算',
-      description: '账户余额使用 USD 额度展示，充值时按固定内部汇率入账；模型 token 单价按官方 OAI token 价格折算后展示。',
+      description: '账户余额使用 USD 额度展示，充值时按固定内部汇率入账；模型 token 单价按原始定价折算后展示。',
       rechargeLabel: '充值汇率',
       rechargeValue: '1 元 = {usd} USD',
       rechargeHint: '充值金额会按该倍率转入余额，实际到账可在支付确认页预览。',
       tokenLabel: 'Token 内部价',
-      tokenValue: '官方 OAI 价格 ÷ {divisor}',
-      tokenHint: '可用渠道里的 token 价格已按该公式换算，便于和余额扣费口径一致。'
+      tokenValue: '原始定价 ÷ {divisor}',
+      tokenHint: '可用渠道里的 token 价格已按该公式换算，并按 USD 计费，便于和余额扣费口径一致。'
     },
     // CTA 区块
     cta: {

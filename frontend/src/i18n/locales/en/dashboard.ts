@@ -526,7 +526,7 @@ export default {
       intervals: 'Tiered Pricing',
       unitPerMillion: '/ 1M tokens',
       unitPerRequest: '/ request',
-      internalRateHint: 'Internal token price shown here: official OAI token price ÷ {divisor}'
+      internalRateHint: 'Internal token price shown here: original price ÷ {divisor}, billed in USD'
     }
   },
 

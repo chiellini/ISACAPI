@@ -531,7 +531,7 @@ export default {
       intervals: '阶梯定价',
       unitPerMillion: '/ 1M token',
       unitPerRequest: '/ 次',
-      internalRateHint: '页面显示内部 token 价：官方 OAI token 价格 ÷ {divisor}'
+      internalRateHint: '页面显示内部 token 价：原始定价 ÷ {divisor}，按 USD 计费'
     }
   },
 
