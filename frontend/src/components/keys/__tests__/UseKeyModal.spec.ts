@@ -133,6 +133,40 @@ describe('UseKeyModal', () => {
     Icon: { template: '<span />' }
   }
 
+  it('renders GPT-5.6 alias and max variants in OpenCode config', async () => {
+    const wrapper = mount(UseKeyModal, {
+      props: {
+        show: true,
+        apiKey: 'sk-test',
+        baseUrl: 'https://example.com/v1',
+        platform: 'openai'
+      },
+      global: { stubs: oneClickStubs }
+    })
+
+    const opencodeTab = wrapper.findAll('button').find((button) =>
+      button.text().includes('keys.useKeyModal.cliTabs.opencode')
+    )
+    expect(opencodeTab).toBeDefined()
+    await opencodeTab!.trigger('click')
+    await nextTick()
+
+    const config = wrapper
+      .findAll('pre code')
+      .map((code) => code.text())
+      .find((content) => content.trim().startsWith('{') && content.includes('"gpt-5.6-sol"'))
+
+    expect(config).toBeDefined()
+    const parsed = JSON.parse(config!)
+    const models = parsed.provider.openai.models
+    for (const model of ['gpt-5.6', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna']) {
+      expect(models[model]).toBeDefined()
+      expect(models[model].variants).toHaveProperty('max')
+      expect(models[model].variants).toHaveProperty('xhigh')
+    }
+    expect(models['gpt-5.6'].name).toBe('GPT-5.6 (Sol)')
+  })
+
   it('builds a one-click install command writing ~/.claude/settings.json for Anthropic', () => {
     const wrapper = mount(UseKeyModal, {
       props: {
