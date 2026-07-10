@@ -23,10 +23,17 @@
       <section class="hidden lg:block">
         <div class="max-w-xl">
           <template v-if="settingsLoaded">
-            <div
-              class="mb-6 inline-flex h-16 w-16 items-center justify-center overflow-hidden rounded-lg bg-white/80 shadow-lg shadow-sky-500/10 ring-1 ring-slate-200/80 dark:bg-white/10 dark:ring-white/10"
-            >
-              <img :src="siteLogo || '/logo.png'" alt="Logo" class="h-full w-full object-contain" />
+            <div class="mb-6 flex items-center gap-3">
+              <div
+                class="inline-flex h-16 w-16 items-center justify-center overflow-hidden rounded-lg bg-white/80 shadow-lg shadow-sky-500/10 ring-1 ring-slate-200/80 dark:bg-white/10 dark:ring-white/10"
+              >
+                <img :src="siteLogo || '/logo.png'" alt="Logo" class="h-full w-full object-contain" />
+              </div>
+              <div
+                class="inline-flex h-16 w-16 items-center justify-center overflow-hidden rounded-lg bg-white/80 shadow-lg shadow-sky-500/10 ring-1 ring-slate-200/80 dark:bg-white/10 dark:ring-white/10"
+              >
+                <img :src="companyIconUrl" alt="ISACAI" class="h-full w-full object-contain" />
+              </div>
             </div>
             <h1 class="text-gradient mb-3 text-4xl font-bold">
               {{ siteName }}
@@ -34,6 +41,11 @@
             <p class="max-w-lg text-base leading-7 text-slate-600 dark:text-slate-300">
               {{ siteSubtitle }}
             </p>
+            <div
+              class="mt-6 max-w-sm overflow-hidden rounded-lg border border-white/70 bg-white/60 p-3 shadow-sm backdrop-blur dark:border-white/10 dark:bg-white/5"
+            >
+              <img :src="companyIconUrl" alt="ISACAI" class="mx-auto h-28 w-full object-contain" />
+            </div>
           </template>
 
           <div class="mt-10 grid max-w-lg grid-cols-3 gap-3">
@@ -62,10 +74,17 @@
       <div class="mx-auto w-full max-w-md">
         <div class="mb-8 text-center lg:hidden">
           <template v-if="settingsLoaded">
-            <div
-              class="mb-4 inline-flex h-16 w-16 items-center justify-center overflow-hidden rounded-lg bg-white/80 shadow-lg shadow-sky-500/10 ring-1 ring-slate-200/80 dark:bg-white/10 dark:ring-white/10"
-            >
-              <img :src="siteLogo || '/logo.png'" alt="Logo" class="h-full w-full object-contain" />
+            <div class="mb-4 flex justify-center gap-3">
+              <div
+                class="inline-flex h-16 w-16 items-center justify-center overflow-hidden rounded-lg bg-white/80 shadow-lg shadow-sky-500/10 ring-1 ring-slate-200/80 dark:bg-white/10 dark:ring-white/10"
+              >
+                <img :src="siteLogo || '/logo.png'" alt="Logo" class="h-full w-full object-contain" />
+              </div>
+              <div
+                class="inline-flex h-16 w-16 items-center justify-center overflow-hidden rounded-lg bg-white/80 shadow-lg shadow-sky-500/10 ring-1 ring-slate-200/80 dark:bg-white/10 dark:ring-white/10"
+              >
+                <img :src="companyIconUrl" alt="ISACAI" class="h-full w-full object-contain" />
+              </div>
             </div>
             <h1 class="text-gradient mb-2 text-3xl font-bold">
               {{ siteName }}
@@ -73,6 +92,7 @@
             <p class="text-sm text-slate-500 dark:text-slate-400">
               {{ siteSubtitle }}
             </p>
+            <img :src="companyIconUrl" alt="ISACAI" class="mx-auto mt-4 h-20 w-20 rounded-lg object-contain" />
           </template>
         </div>
 
@@ -85,10 +105,13 @@
         </div>
 
         <div
-          class="mt-5 rounded-lg border border-slate-200/80 bg-white/75 px-4 py-3 text-center text-xs text-slate-600 shadow-sm backdrop-blur dark:border-white/10 dark:bg-white/[0.06] dark:text-slate-300"
+          class="mt-5 flex items-center justify-center gap-3 rounded-lg border border-slate-200/80 bg-white/75 px-4 py-3 text-center text-xs text-slate-600 shadow-sm backdrop-blur dark:border-white/10 dark:bg-white/[0.06] dark:text-slate-300"
         >
-          <span>软件开发交流 QQ 群：</span>
-          <span class="font-semibold text-slate-900 dark:text-white">{{ qqGroup }}</span>
+          <img :src="companyIconUrl" alt="ISACAI" class="h-8 w-8 shrink-0 rounded-md object-contain" />
+          <span>
+            <span>软件开发交流 QQ 群：</span>
+            <span class="font-semibold text-slate-900 dark:text-white">{{ qqGroup }}</span>
+          </span>
         </div>
 
         <div
@@ -121,6 +144,7 @@ const siteName = computed(() => appStore.siteName || 'ISACAI')
 const siteLogo = computed(() => sanitizeUrl(appStore.siteLogo || '', { allowRelative: true, allowDataUrl: true }))
 const siteSubtitle = computed(() => appStore.cachedPublicSettings?.site_subtitle || 'AI API Service Platform')
 const settingsLoaded = computed(() => appStore.publicSettingsLoaded)
+const companyIconUrl = '/company-icon.jpeg'
 
 const qqGroup = '1027890648'
 const authHighlights = [

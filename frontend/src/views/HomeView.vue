@@ -11,6 +11,7 @@
     <div v-else class="flex-1" v-html="homeContent"></div>
     <footer class="bg-white px-4 py-5 dark:bg-dark-950" dir="ltr">
       <div class="mx-auto flex max-w-6xl flex-col items-center justify-center gap-2 text-center text-sm text-slate-500 dark:text-dark-400">
+        <img :src="companyIconUrl" alt="ISACAI" class="h-10 w-10 rounded-lg object-contain" />
         <p>© 2026 ISACAI. All rights reserved. 软件开发交流联系方式：1027890648</p>
         <a
           href="https://beian.miit.gov.cn"
@@ -34,6 +35,9 @@
         <div class="flex min-w-0 items-center gap-3">
           <div class="h-10 w-10 shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-dark-700 dark:bg-dark-900">
             <img :src="siteLogo || '/logo.png'" alt="ISACAI" class="h-full w-full object-contain" />
+          </div>
+          <div class="hidden h-10 w-10 shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-dark-700 dark:bg-dark-900 sm:block">
+            <img :src="companyIconUrl" alt="ISACAI" class="h-full w-full object-contain" />
           </div>
           <div class="min-w-0">
             <p class="truncate text-sm font-semibold text-slate-950 dark:text-white">
@@ -95,6 +99,7 @@
         <div class="mx-auto grid max-w-6xl gap-10 px-4 py-12 md:px-6 md:py-16 lg:grid-cols-[1.02fr_0.98fr] lg:items-center lg:gap-14">
           <div :class="['text-center lg:text-left', isRtl ? 'lg:text-right' : '']">
             <div class="mb-5 inline-flex items-center gap-2 rounded-lg border border-sky-200 bg-white px-3 py-2 text-xs font-medium text-sky-700 shadow-sm dark:border-sky-900/60 dark:bg-dark-900 dark:text-sky-300">
+              <img :src="companyIconUrl" alt="ISACAI" class="h-7 w-7 rounded-md object-contain" />
               <Icon name="sparkles" size="sm" />
               {{ t('home.heroEyebrow') }}
             </div>
@@ -153,13 +158,18 @@
 
               <div class="space-y-5 p-5">
                 <div class="flex items-start justify-between gap-4">
-                  <div>
-                    <p class="text-sm font-semibold text-slate-950 dark:text-white">
-                      {{ t('home.apiCard.title') }}
-                    </p>
-                    <p class="mt-1 text-xs text-slate-500 dark:text-dark-400">
-                      {{ t('home.apiCard.subtitle') }}
-                    </p>
+                  <div class="flex min-w-0 items-start gap-3">
+                    <div class="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-white dark:border-dark-700 dark:bg-dark-950">
+                      <img :src="companyIconUrl" alt="ISACAI" class="h-full w-full object-contain" />
+                    </div>
+                    <div class="min-w-0">
+                      <p class="text-sm font-semibold text-slate-950 dark:text-white">
+                        {{ t('home.apiCard.title') }}
+                      </p>
+                      <p class="mt-1 text-xs text-slate-500 dark:text-dark-400">
+                        {{ t('home.apiCard.subtitle') }}
+                      </p>
+                    </div>
                   </div>
                   <span class="rounded-md bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
                     200 OK
@@ -277,6 +287,7 @@
 
     <footer class="relative z-10 bg-white px-4 py-5 dark:bg-dark-950" dir="ltr">
       <div class="mx-auto flex max-w-6xl flex-col items-center justify-center gap-2 text-center text-sm text-slate-500 dark:text-dark-400">
+        <img :src="companyIconUrl" alt="ISACAI" class="h-10 w-10 rounded-lg object-contain" />
         <p>© 2026 ISACAI. All rights reserved. 软件开发交流联系方式：1027890648</p>
         <div class="flex flex-wrap items-center justify-center gap-4">
           <a
@@ -367,7 +378,7 @@
 
             <div class="hidden justify-center md:flex">
               <div class="flex h-36 w-36 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-dark-700 dark:bg-dark-950">
-                <img :src="siteLogo || '/logo.png'" alt="ISACAI" class="max-h-full max-w-full object-contain" />
+                <img :src="companyIconUrl" alt="ISACAI" class="max-h-full max-w-full object-contain" />
               </div>
             </div>
           </div>
@@ -413,6 +424,7 @@ const siteLogo = computed(() => sanitizeUrl(appStore.cachedPublicSettings?.site_
 const siteSubtitle = computed(() => appStore.cachedPublicSettings?.site_subtitle || 'AI API Gateway Platform')
 const docUrl = computed(() => sanitizeUrl(appStore.cachedPublicSettings?.doc_url || appStore.docUrl || ''))
 const homeContent = computed(() => appStore.cachedPublicSettings?.home_content || '')
+const companyIconUrl = '/company-icon.jpeg'
 
 const isHomeContentUrl = computed(() => {
   const content = homeContent.value.trim()

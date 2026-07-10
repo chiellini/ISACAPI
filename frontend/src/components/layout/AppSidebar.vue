@@ -167,6 +167,17 @@
 
     <!-- Bottom Section -->
     <div class="mt-auto border-t border-gray-100 p-3 dark:border-dark-800">
+      <div
+        class="mb-3 overflow-hidden rounded-lg border border-gray-100 bg-white shadow-sm dark:border-dark-800 dark:bg-dark-900"
+        :class="sidebarCollapsed ? 'flex justify-center p-1.5' : 'p-2'"
+      >
+        <img
+          :src="companyIconUrl"
+          alt="ISACAI"
+          :class="sidebarCollapsed ? 'h-8 w-8 rounded-lg object-contain' : 'h-16 w-full rounded-md object-contain'"
+        />
+      </div>
+
       <!-- Theme Toggle -->
       <button
         @click="toggleTheme"
@@ -279,6 +290,7 @@ const siteName = computed(() => appStore.siteName)
 const siteLogo = computed(() => sanitizeUrl(appStore.siteLogo || '', { allowRelative: true, allowDataUrl: true }))
 const siteVersion = computed(() => appStore.siteVersion)
 const settingsLoaded = computed(() => appStore.publicSettingsLoaded)
+const companyIconUrl = '/company-icon.jpeg'
 
 // SVG Icon Components
 const DashboardIcon = {
