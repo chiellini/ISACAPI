@@ -31,7 +31,12 @@ export interface CcSwitchImportDeeplinkInput {
 }
 
 function resolveCcSwitchAppType(clientType: CcSwitchClientType): string {
-  return clientType === 'claude-desktop' ? 'claude' : clientType
+  // CcSwitchClientType values map 1:1 to CC-Switch's own `app` identifiers
+  // ('claude' = Claude Code, 'claude-desktop' = Claude Desktop, 'gemini').
+  // Claude Desktop MUST stay 'claude-desktop': CC-Switch only writes to the
+  // Desktop config when the deeplink carries app=claude-desktop — collapsing it
+  // to 'claude' silently routes the import into Claude Code (terminal) instead.
+  return clientType
 }
 
 export function resolveCcSwitchImportConfig(
@@ -58,7 +63,7 @@ export function resolveCcSwitchImportConfig(
       }
     default:
       return {
-        app: 'claude',
+        app: resolveCcSwitchAppType(clientType),
         endpoint: baseUrl
       }
   }
