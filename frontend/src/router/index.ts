@@ -882,7 +882,10 @@ router.beforeEach(async (to, _from, next) => {
     }
   }
 
-  // Check payment requirement (internal payment system only)
+  // Check payment requirement (internal payment system only). Routes to the
+  // FeatureFlags registry (opt-out): a route is disabled only when public
+  // settings explicitly report payment_enabled === false; a transient/unloaded
+  // settings state leaves the route enabled.
   if (to.meta.requiresPayment) {
     if (!isFeatureFlagEnabled(FeatureFlags.payment)) {
       next(authStore.isAdmin ? '/admin/dashboard' : '/dashboard')
@@ -890,12 +893,13 @@ router.beforeEach(async (to, _from, next) => {
     }
   }
 
-  if (to.meta.requiresRiskControl) {
-    const riskControlEnabled = appStore.cachedPublicSettings?.risk_control_enabled === true
-    if (!riskControlEnabled) {
-      next(authStore.isAdmin ? '/admin/settings' : '/dashboard')
-      return
-    }
+  if (
+    to.meta.requiresRiskControl &&
+    appStore.publicSettingsLoaded &&
+    appStore.cachedPublicSettings?.risk_control_enabled === false
+  ) {
+    next(authStore.isAdmin ? '/admin/settings' : '/dashboard')
+    return
   }
 
   // 简易模式下限制访问某些页面

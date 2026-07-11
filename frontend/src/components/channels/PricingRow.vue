@@ -7,7 +7,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { formatScaled } from '@/utils/pricing'
+import { formatInternalTokenPrice, formatScaled } from '@/utils/pricing'
 
 const props = withDefaults(
   defineProps<{
@@ -15,11 +15,16 @@ const props = withDefaults(
     value: number | null
     unit: string
     scale: number
+    internalTokenRate?: boolean
   }>(),
-  { value: null }
+  { value: null, internalTokenRate: false }
 )
 
-const display = computed(() =>
-  props.value == null ? '-' : `${formatScaled(props.value, props.scale)} ${props.unit}`
-)
+const display = computed(() => {
+  if (props.value == null) return '-'
+  const price = props.internalTokenRate
+    ? formatInternalTokenPrice(props.value, props.scale)
+    : formatScaled(props.value, props.scale)
+  return `${price} ${props.unit}`
+})
 </script>

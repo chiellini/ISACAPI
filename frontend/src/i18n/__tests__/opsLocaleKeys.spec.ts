@@ -36,3 +36,22 @@ describe('groups locale key completeness', () => {
     expect(enKeys).toContain('admin.groups.failedToSave')
   })
 })
+
+describe('conversation archive locale key completeness', () => {
+  const requiredKeys = [
+    'nav.conversations',
+    'admin.conversations.title',
+    'admin.conversations.description',
+    'admin.conversations.filters.userId',
+    'admin.conversations.columns.actions',
+    'admin.conversations.exportAll',
+    'admin.conversations.view'
+  ]
+
+  for (const key of requiredKeys) {
+    it(`en locale has ${key}`, () => {
+      const enKeys = flattenKeys(en)
+      expect(enKeys).toContain(key)
+    })
+  }
+})

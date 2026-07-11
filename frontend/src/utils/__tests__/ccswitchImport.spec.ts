@@ -15,7 +15,7 @@ function paramsFromDeeplink(deeplink: string): URLSearchParams {
 
 describe('ccswitchImport utils', () => {
   it('defaults OpenAI CC Switch imports to the current Codex model', () => {
-    expect(OPENAI_CC_SWITCH_CODEX_MODEL).toBe('gpt-5.5')
+    expect(OPENAI_CC_SWITCH_CODEX_MODEL).toBe('gpt-5.6-sol')
   })
 
   it('keeps CC-Switch download links on official channels', () => {
@@ -67,6 +67,7 @@ describe('ccswitchImport utils', () => {
     expect(params.get('app')).toBe('codex')
     expect(params.get('endpoint')).toBe(baseInput.baseUrl)
     expect(params.get('model')).toBe(OPENAI_CC_SWITCH_CODEX_MODEL)
+    expect(params.get('enabled')).toBe('true')
     expect(atob(params.get('usageScript') || '')).toBe(baseInput.usageScript)
   })
 
@@ -84,20 +85,25 @@ describe('ccswitchImport utils', () => {
 
     expect(params.get('app')).toBe(app)
     expect(params.get('endpoint')).toBe(baseInput.baseUrl)
+    expect(params.get('enabled')).toBe('true')
     expect(params.has('model')).toBe(false)
   })
 
-  it('keeps Antigravity imports on the selected client endpoint without a model parameter', () => {
+  it.each([
+    { clientType: 'claude' as const, app: 'claude' },
+    { clientType: 'gemini' as const, app: 'gemini' }
+  ])('keeps Antigravity $app imports on the selected client endpoint without a model parameter', ({ clientType, app }) => {
     const params = paramsFromDeeplink(
       buildCcSwitchImportDeeplink({
         ...baseInput,
         platform: 'antigravity',
-        clientType: 'gemini'
+        clientType
       })
     )
 
-    expect(params.get('app')).toBe('gemini')
+    expect(params.get('app')).toBe(app)
     expect(params.get('endpoint')).toBe(`${baseInput.baseUrl}/antigravity`)
+    expect(params.get('enabled')).toBe('true')
     expect(params.has('model')).toBe(false)
   })
 })

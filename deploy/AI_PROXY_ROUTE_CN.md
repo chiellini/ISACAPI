@@ -1,10 +1,12 @@
-# 机器1通过机器2代理访问 AI 上游
+# 机器1通过机器2代理访问 AI 和开发上游
 
-这个脚本用于在**机器1**上配置代理出口，让 Claude / Anthropic、Grok / xAI、Gemini / Google、OpenAI 等客户端请求通过**机器2**出去。机器2需要已经能自然访问这些上游域名，并且已经运行 HTTP 或 SOCKS 代理服务。
+这个脚本用于在**机器1**上配置代理出口，让 Claude / Anthropic、Grok / xAI、Gemini / Google、OpenAI，以及常用开发工具请求通过**机器2**出去。机器2需要已经能自然访问这些上游域名，并且已经运行 HTTP 或 SOCKS 代理服务。
 
 ## 机器2要求
 
-机器2需要开放一个代理端口，例如：
+机器2需要开放一个代理端口。本仓库的一键脚本会安装并配置 `Squid` HTTP/HTTPS CONNECT 代理，默认监听 `7890`。
+
+如果你不用一键脚本，也可以使用其它 HTTP/SOCKS 代理，例如：
 
 - CCProxy HTTP 代理：常见端口 `808`
 - Clash / mihomo mixed-port：常见端口 `7890`
@@ -26,7 +28,7 @@ chmod +x deploy/setup-machine2-ai-proxy-server.sh
 sudo ./deploy/setup-machine2-ai-proxy-server.sh --allow-client 机器1IP --proxy-port 7890
 ```
 
-这个脚本会安装并配置 `tinyproxy`，只允许 `--allow-client` 指定的机器1 IP/CIDR 访问代理，避免机器2变成公网开放代理。
+这个脚本会安装并配置 `Squid`，只允许 `--allow-client` 指定的机器1 IP/CIDR 访问代理，避免机器2变成公网开放代理。
 
 如果机器2有防火墙，并且你希望脚本自动开放端口：
 
@@ -38,6 +40,26 @@ sudo ./deploy/setup-machine2-ai-proxy-server.sh --allow-client 机器1IP --proxy
 
 ```bash
 sudo ./deploy/setup-machine2-ai-proxy-server.sh --allow-client 机器1IP --proxy-port 7890 --check
+```
+
+### 机器2安装 Squid 失败
+
+如果机器2是 RHEL / CentOS / Alibaba Cloud Linux / Amazon Linux 这类 dnf/yum 系统，可能遇到类似问题：
+
+```text
+Errors during downloading metadata for repository 'docker-ce-stable'
+```
+
+这通常不是脚本参数错，而是系统包源问题：
+
+- `docker-ce-stable` 仓库地址失效或不支持当前系统版本。
+- 当前系统默认仓库不可用或元数据缓存异常，导致 `squid` 安装失败。
+
+脚本会在 dnf/yum 系统上自动临时跳过 `docker-ce-stable`。如果仍失败，可以先手动安装 Squid，再跳过安装步骤：
+
+```bash
+sudo dnf --disablerepo=docker-ce-stable install -y squid
+sudo ./deploy/setup-machine2-ai-proxy-server.sh --allow-client 机器1IP --proxy-port 7890 --open-firewall --check --no-install
 ```
 
 ## 一键配置机器1
@@ -60,6 +82,30 @@ chmod +x deploy/configure-machine1-ai-proxy-route.sh
 ```bash
 ./deploy/configure-machine1-ai-proxy-route.sh --machine2-ip 机器2IP --proxy-port 1080 --proxy-type socks5h
 ```
+
+## 开发环境流量
+
+机器1脚本会写入 `HTTP_PROXY` / `HTTPS_PROXY` / `ALL_PROXY`，所以在加载环境变量后的终端里，常见命令行工具会通过机器2出站，例如：
+
+- `git` / `curl` / `wget`
+- `conda` / `pip`
+- `npm` / `pnpm` / `yarn`
+- `go` / `cargo` / `maven` / `gradle`
+- GitHub / Docker Hub / GHCR / Google / PyPI / npm registry / Conda registry 等上游
+
+Docker 比较特殊：`docker pull` 通常是 Docker daemon 出网，不只读当前 Shell 的代理变量。如果要让 Docker daemon 也走机器2，在机器1运行：
+
+```bash
+./deploy/configure-machine1-ai-proxy-route.sh --machine2-ip 机器2IP --proxy-port 7890 --proxy-type http --docker-daemon
+```
+
+这会写入：
+
+```text
+/etc/systemd/system/docker.service.d/isacapi-proxy.conf
+```
+
+并执行 `systemctl daemon-reload` 和 `systemctl restart docker`。因此它需要 `sudo`，并且会重启 Docker。
 
 ## Claude Code 注意
 
@@ -107,6 +153,6 @@ source ~/.config/isacapi/ai-proxy-env.sh
 ~/.config/isacapi/ai-proxy.pac
 ```
 
-支持 PAC 的应用可以使用这个文件做域名分流：匹配 AI 相关域名走机器2，其它域名直连。
+支持 PAC 的应用可以使用这个文件做域名分流：匹配 AI 和开发相关域名走机器2，其它域名直连。
 
 命令行工具通常不读取 PAC，而是读取 `HTTP_PROXY` / `HTTPS_PROXY` / `ALL_PROXY` 环境变量。

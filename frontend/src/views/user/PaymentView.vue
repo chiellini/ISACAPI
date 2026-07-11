@@ -41,6 +41,19 @@
               <p class="text-gray-500 dark:text-gray-400">{{ t('payment.notAvailable') }}</p>
             </div>
             <template v-else>
+            <div
+              v-if="balanceRechargeMultiplier !== 1"
+              class="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800 dark:border-emerald-900/60 dark:bg-emerald-950/20 dark:text-emerald-200"
+            >
+              <div class="flex gap-3">
+                <Icon name="calculator" size="md" class="mt-0.5 shrink-0 text-emerald-600 dark:text-emerald-300" />
+                <div class="space-y-1">
+                  <p class="font-semibold">{{ t('payment.rechargePricingTitle') }}</p>
+                  <p>{{ t('payment.rechargePricingRate', { usd: formatCompactNumber(balanceRechargeMultiplier) }) }}</p>
+                  <p>{{ t('payment.rechargePricingTokenFormula', { divisor: INTERNAL_TOKEN_PRICE_DIVISOR }) }}</p>
+                </div>
+              </div>
+            </div>
             <div class="card p-6">
               <AmountInput
                 v-model="amount"
@@ -76,7 +89,7 @@
                   <span class="text-gray-900 dark:text-white">${{ creditedAmount.toFixed(2) }}</span>
                 </div>
                 <p v-if="balanceRechargeMultiplier !== 1" class="border-t border-gray-200 pt-2 text-xs text-gray-500 dark:border-dark-600 dark:text-gray-400">
-                  {{ t('payment.rechargeRatePreview', { usd: balanceRechargeMultiplier.toFixed(2) }) }}
+                  {{ t('payment.rechargeRatePreview', { usd: formatCompactNumber(balanceRechargeMultiplier) }) }}
                 </p>
               </div>
             </div>
@@ -287,6 +300,7 @@ import { DEFAULT_PAYMENT_CURRENCY, formatPaymentAmount, normalizePaymentCurrency
 import type { PaymentMethodOption } from '@/components/payment/PaymentMethodSelector.vue'
 import { buildPaymentErrorToastMessage, describePaymentScenarioError } from './paymentUx'
 import { hasWechatResumeQuery, parseWechatResumeRoute, stripWechatResumeQuery } from './paymentWechatResume'
+import { INTERNAL_TOKEN_PRICE_DIVISOR, formatCompactNumber } from '@/utils/pricing'
 
 const i18n = useI18n()
 const { t } = i18n

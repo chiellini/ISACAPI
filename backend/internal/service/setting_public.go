@@ -220,6 +220,7 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		SettingKeyChannelMonitorEnabled,
 		SettingKeyChannelMonitorDefaultIntervalSeconds,
 		SettingKeyAvailableChannelsEnabled,
+		SettingKeyPublicStatusEnabled,
 		SettingKeyAffiliateEnabled,
 		SettingKeyRiskControlEnabled,
 		SettingKeyAllowUserViewErrorRequests,
@@ -332,6 +333,8 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 
 		AvailableChannelsEnabled: settings[SettingKeyAvailableChannelsEnabled] == "true",
 
+		PublicStatusEnabled: settings[SettingKeyPublicStatusEnabled] == "true",
+
 		AffiliateEnabled: settings[SettingKeyAffiliateEnabled] == "true",
 
 		RiskControlEnabled: settings[SettingKeyRiskControlEnabled] == "true",
@@ -411,6 +414,25 @@ func (s *SettingService) GetAvailableChannelsRuntime(ctx context.Context) Availa
 	}
 	return AvailableChannelsRuntime{
 		Enabled: vals[SettingKeyAvailableChannelsEnabled] == "true",
+	}
+}
+
+// PublicStatusRuntime is the lightweight view of the public status feature
+// switch consumed by the no-auth status handler.
+type PublicStatusRuntime struct {
+	Enabled bool
+}
+
+// GetPublicStatusRuntime reads the public status feature switch directly from
+// the settings store. Fail-closed: on error returns Enabled=false, matching
+// the opt-in default.
+func (s *SettingService) GetPublicStatusRuntime(ctx context.Context) PublicStatusRuntime {
+	vals, err := s.settingRepo.GetMultiple(ctx, []string{SettingKeyPublicStatusEnabled})
+	if err != nil {
+		return PublicStatusRuntime{Enabled: false}
+	}
+	return PublicStatusRuntime{
+		Enabled: vals[SettingKeyPublicStatusEnabled] == "true",
 	}
 }
 
@@ -494,6 +516,7 @@ type PublicSettingsInjectionPayload struct {
 	ChannelMonitorEnabled                bool `json:"channel_monitor_enabled"`
 	ChannelMonitorDefaultIntervalSeconds int  `json:"channel_monitor_default_interval_seconds"`
 	AvailableChannelsEnabled             bool `json:"available_channels_enabled"`
+	PublicStatusEnabled                  bool `json:"public_status_enabled"`
 	AffiliateEnabled                     bool `json:"affiliate_enabled"`
 	RiskControlEnabled                   bool `json:"risk_control_enabled"`
 	AllowUserViewErrorRequests           bool `json:"allow_user_view_error_requests"`
@@ -559,6 +582,7 @@ func (s *SettingService) GetPublicSettingsForInjection(ctx context.Context) (any
 		ChannelMonitorEnabled:                settings.ChannelMonitorEnabled,
 		ChannelMonitorDefaultIntervalSeconds: settings.ChannelMonitorDefaultIntervalSeconds,
 		AvailableChannelsEnabled:             settings.AvailableChannelsEnabled,
+		PublicStatusEnabled:                  settings.PublicStatusEnabled,
 		AffiliateEnabled:                     settings.AffiliateEnabled,
 		RiskControlEnabled:                   settings.RiskControlEnabled,
 		AllowUserViewErrorRequests:           settings.AllowUserViewErrorRequests,

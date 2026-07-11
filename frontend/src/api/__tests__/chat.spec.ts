@@ -11,7 +11,7 @@ vi.mock('@/api/client', () => ({
   apiClient,
 }))
 
-import { generateImage } from '@/api/chat'
+import { completeChat, generateImage } from '@/api/chat'
 
 describe('chat api', () => {
   const fetchMock = vi.fn()
@@ -110,5 +110,36 @@ describe('chat api', () => {
 
     await expect(generateImage({ model: 'gpt-image-2', prompt: 'draw a cat' }))
       .rejects.toThrow('image request failed: 504')
+  })
+
+  it('completeChat accumulates streamed deltas into the full reply', async () => {
+    localStorage.setItem('auth_token', 'jwt-token')
+    fetchMock.mockResolvedValue(new Response(
+      [
+        'data: {"choices":[{"delta":{"content":"Hello"}}]}',
+        '',
+        'data: {"choices":[{"delta":{"content":", "}}]}',
+        '',
+        'data: {"choices":[{"delta":{"content":"world"}}]}',
+        '',
+        'data: [DONE]',
+        '',
+      ].join('\n'),
+      { status: 200, headers: { 'Content-Type': 'text/event-stream' } },
+    ))
+
+    const text = await completeChat({
+      model: 'gpt-5.5',
+      messages: [{ role: 'user', content: 'hi' }],
+    })
+
+    expect(text).toBe('Hello, world')
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/v1/chat/v1/chat/completions',
+      expect.objectContaining({ method: 'POST' }),
+    )
+    const requestBody = JSON.parse(String(fetchMock.mock.calls[0][1].body))
+    expect(requestBody.stream).toBe(true)
+    expect(requestBody.messages).toEqual([{ role: 'user', content: 'hi' }])
   })
 })

@@ -65,30 +65,41 @@
               <span>{{ billingModeLabel }}</span>
             </div>
 
+            <div
+              v-if="model.pricing.billing_mode === BILLING_MODE_TOKEN"
+              class="rounded-md bg-emerald-50 px-2 py-1.5 text-[11px] leading-5 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300"
+            >
+              {{ t(prefixKey('internalRateHint'), { divisor: INTERNAL_TOKEN_PRICE_DIVISOR }) }}
+            </div>
+
             <template v-if="model.pricing.billing_mode === BILLING_MODE_TOKEN">
               <PricingRow
                 :label="t(prefixKey('inputPrice'))"
                 :value="model.pricing.input_price"
                 :unit="t(prefixKey('unitPerMillion'))"
                 :scale="perMillionScale"
+                internal-token-rate
               />
               <PricingRow
                 :label="t(prefixKey('outputPrice'))"
                 :value="model.pricing.output_price"
                 :unit="t(prefixKey('unitPerMillion'))"
                 :scale="perMillionScale"
+                internal-token-rate
               />
               <PricingRow
                 :label="t(prefixKey('cacheWritePrice'))"
                 :value="model.pricing.cache_write_price"
                 :unit="t(prefixKey('unitPerMillion'))"
                 :scale="perMillionScale"
+                internal-token-rate
               />
               <PricingRow
                 :label="t(prefixKey('cacheReadPrice'))"
                 :value="model.pricing.cache_read_price"
                 :unit="t(prefixKey('unitPerMillion'))"
                 :scale="perMillionScale"
+                internal-token-rate
               />
               <PricingRow
                 v-if="model.pricing.image_output_price != null && model.pricing.image_output_price > 0"
@@ -96,6 +107,7 @@
                 :value="model.pricing.image_output_price"
                 :unit="t(prefixKey('unitPerMillion'))"
                 :scale="perMillionScale"
+                internal-token-rate
               />
             </template>
 
@@ -154,7 +166,7 @@
 import { computed, nextTick, onBeforeUnmount, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import PricingRow from './PricingRow.vue'
-import { formatScaled } from '@/utils/pricing'
+import { INTERNAL_TOKEN_PRICE_DIVISOR, formatInternalTokenPrice, formatScaled } from '@/utils/pricing'
 import {
   BILLING_MODE_TOKEN,
   BILLING_MODE_PER_REQUEST,
@@ -236,8 +248,8 @@ function formatInterval(iv: UserPricingInterval, mode: BillingMode): string {
   if (mode === BILLING_MODE_PER_REQUEST || mode === BILLING_MODE_IMAGE) {
     return formatScaled(iv.per_request_price, 1)
   }
-  const input = formatScaled(iv.input_price, perMillionScale)
-  const output = formatScaled(iv.output_price, perMillionScale)
+  const input = formatInternalTokenPrice(iv.input_price, perMillionScale)
+  const output = formatInternalTokenPrice(iv.output_price, perMillionScale)
   return `${input} / ${output}`
 }
 

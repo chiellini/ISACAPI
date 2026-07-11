@@ -94,6 +94,8 @@ type Config struct {
 	Update                  UpdateConfig                  `mapstructure:"update"`
 	Idempotency             IdempotencyConfig             `mapstructure:"idempotency"`
 	BatchImage              BatchImageConfig              `mapstructure:"batch_image"`
+	ConversationArchive     ConversationArchiveConfig     `mapstructure:"conversation_archive"`
+	ModelAliases            []ModelAliasConfig            `mapstructure:"model_aliases"`
 }
 
 type LogConfig struct {
@@ -1339,6 +1341,15 @@ type DefaultConfig struct {
 	UserBalance     float64 `mapstructure:"user_balance"`
 	APIKeyPrefix    string  `mapstructure:"api_key_prefix"`
 	RateMultiplier  float64 `mapstructure:"rate_multiplier"`
+}
+
+type ModelAliasConfig struct {
+	Alias           string  `mapstructure:"alias"`
+	TargetModel     string  `mapstructure:"target_model"`
+	ReasoningEffort string  `mapstructure:"reasoning_effort"`
+	ServiceTier     string  `mapstructure:"service_tier"`
+	RateMultiplier  float64 `mapstructure:"rate_multiplier"`
+	Platform        string  `mapstructure:"platform"`
 }
 
 type RateLimitConfig struct {

@@ -38,13 +38,13 @@ const statusOptions = computed(() => [
 ])
 
 const columns = computed<Column[]>(() => [
-  { key: 'last_active_at', label: t('admin.conversations.columns.lastActive') },
-  { key: 'user_id', label: t('admin.conversations.columns.user') },
-  { key: 'context_domain', label: t('admin.conversations.columns.contextDomain') },
-  { key: 'request_count', label: t('admin.conversations.columns.requests') },
-  { key: 'tokens', label: t('admin.conversations.columns.tokens') },
-  { key: 'status', label: t('admin.conversations.columns.status') },
-  { key: 'actions', label: t('admin.conversations.columns.actions') }
+  { key: 'last_active_at', label: t('admin.conversations.columns.lastActive'), class: 'w-44 min-w-44' },
+  { key: 'user_id', label: t('admin.conversations.columns.user'), class: 'w-24 min-w-24' },
+  { key: 'context_domain', label: t('admin.conversations.columns.contextDomain'), class: 'w-48 min-w-48' },
+  { key: 'request_count', label: t('admin.conversations.columns.requests'), class: 'w-28 min-w-28 text-right' },
+  { key: 'tokens', label: t('admin.conversations.columns.tokens'), class: 'w-44 min-w-44 text-right' },
+  { key: 'status', label: t('admin.conversations.columns.status'), class: 'w-28 min-w-28' },
+  { key: 'actions', label: t('admin.conversations.columns.actions'), class: 'w-44 min-w-44' }
 ])
 
 function formatTime(value: string): string {
@@ -214,11 +214,11 @@ onMounted(load)
             v-model="filters.user_id"
             type="text"
             inputmode="numeric"
-            class="input"
+            class="input filter-user"
             :placeholder="t('admin.conversations.filters.userId')"
             @keyup.enter="applyFilters"
           />
-          <div class="w-40">
+          <div class="filter-status">
             <Select v-model="filters.status" :options="statusOptions" />
           </div>
           <button class="btn btn-primary" @click="applyFilters">
@@ -240,14 +240,14 @@ onMounted(load)
               <span class="text-sm">{{ row.total_input_tokens }} / {{ row.total_output_tokens }}</span>
             </template>
             <template #cell-status="{ value }">
-              <span class="badge">{{ t(`admin.conversations.status.${value}`, value) }}</span>
+              <span class="status-badge">{{ t(`admin.conversations.status.${value}`, value) }}</span>
             </template>
             <template #cell-actions="{ row }">
               <div class="actions">
-                <button class="btn btn-sm" @click="openDetail(row)">
+                <button type="button" class="btn btn-sm" @click="openDetail(row)">
                   {{ t('admin.conversations.view') }}
                 </button>
-                <button class="btn btn-sm btn-danger" @click="askDelete(row)">
+                <button type="button" class="btn btn-sm btn-danger" @click="askDelete(row)">
                   {{ t('common.delete') }}
                 </button>
               </div>
@@ -322,9 +322,31 @@ onMounted(load)
   align-items: center;
   flex-wrap: wrap;
 }
+.filter-user {
+  min-width: 18rem;
+  flex: 1 1 18rem;
+}
+.filter-status {
+  width: 10rem;
+  flex: 0 0 10rem;
+}
 .actions {
   display: flex;
   gap: 0.5rem;
+  align-items: center;
+  justify-content: flex-start;
+  white-space: nowrap;
+}
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 9999px;
+  background: rgba(20, 184, 166, 0.12);
+  color: #0f766e;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1rem;
+  padding: 0.125rem 0.5rem;
 }
 .detail-meta {
   display: flex;
@@ -382,5 +404,17 @@ onMounted(load)
   word-break: break-word;
   font-size: 0.85rem;
   margin: 0;
+}
+
+@media (max-width: 640px) {
+  .filter-row {
+    align-items: stretch;
+  }
+  .filter-user,
+  .filter-status,
+  .filter-row :deep(.btn) {
+    width: 100%;
+    flex: 1 1 100%;
+  }
 }
 </style>

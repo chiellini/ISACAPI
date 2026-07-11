@@ -11,6 +11,7 @@
     <div v-else class="flex-1" v-html="homeContent"></div>
     <footer class="bg-white px-4 py-5 dark:bg-dark-950" dir="ltr">
       <div class="mx-auto flex max-w-6xl flex-col items-center justify-center gap-2 text-center text-sm text-slate-500 dark:text-dark-400">
+        <img :src="companyIconUrl" alt="ISACAI" class="h-10 w-10 rounded-lg object-contain" />
         <p>© 2026 ISACAI. All rights reserved. 软件开发交流联系方式：1027890648</p>
         <a
           href="https://beian.miit.gov.cn"
@@ -260,6 +261,50 @@
         </div>
       </section>
 
+      <section class="border-y border-slate-200 bg-white px-4 py-12 dark:border-dark-800 dark:bg-dark-950 md:px-6 md:py-14">
+        <div class="mx-auto max-w-6xl">
+          <div class="grid gap-6 lg:grid-cols-[0.95fr_1.05fr] lg:items-center">
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-300">
+                {{ t('home.pricing.eyebrow') }}
+              </p>
+              <h2 class="mt-2 text-2xl font-semibold text-slate-950 dark:text-white md:text-3xl">
+                {{ t('home.pricing.title') }}
+              </h2>
+              <p class="mt-3 max-w-2xl text-sm leading-6 text-slate-500 dark:text-dark-400">
+                {{ t('home.pricing.description') }}
+              </p>
+            </div>
+            <div class="grid gap-3 sm:grid-cols-2">
+              <div class="rounded-lg border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-900/60 dark:bg-emerald-950/20">
+                <div class="flex items-center gap-2 text-sm font-semibold text-emerald-800 dark:text-emerald-200">
+                  <Icon name="creditCard" size="sm" />
+                  {{ t('home.pricing.rechargeLabel') }}
+                </div>
+                <p class="mt-3 text-2xl font-bold text-slate-950 dark:text-white">
+                  {{ t('home.pricing.rechargeValue', { usd: formatCompactNumber(PUBLIC_RECHARGE_USD_PER_CNY) }) }}
+                </p>
+                <p class="mt-2 text-xs leading-5 text-emerald-800/80 dark:text-emerald-200/80">
+                  {{ t('home.pricing.rechargeHint') }}
+                </p>
+              </div>
+              <div class="rounded-lg border border-sky-200 bg-sky-50 p-4 dark:border-sky-900/60 dark:bg-sky-950/20">
+                <div class="flex items-center gap-2 text-sm font-semibold text-sky-800 dark:text-sky-200">
+                  <Icon name="calculator" size="sm" />
+                  {{ t('home.pricing.tokenLabel') }}
+                </div>
+                <p class="mt-3 text-2xl font-bold text-slate-950 dark:text-white">
+                  {{ t('home.pricing.tokenValue', { divisor: INTERNAL_TOKEN_PRICE_DIVISOR }) }}
+                </p>
+                <p class="mt-2 text-xs leading-5 text-sky-800/80 dark:text-sky-200/80">
+                  {{ t('home.pricing.tokenHint') }}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section class="border-y border-slate-200 bg-slate-50 px-4 py-12 dark:border-dark-800 dark:bg-dark-900/40 md:px-6 md:py-16">
         <div class="mx-auto max-w-6xl">
           <div class="mx-auto max-w-2xl text-center">
@@ -292,6 +337,7 @@
 
     <footer class="relative z-10 bg-white px-4 py-5 dark:bg-dark-950" dir="ltr">
       <div class="mx-auto flex max-w-6xl flex-col items-center justify-center gap-2 text-center text-sm text-slate-500 dark:text-dark-400">
+        <img :src="companyIconUrl" alt="ISACAI" class="h-10 w-10 rounded-lg object-contain" />
         <p>© 2026 ISACAI. All rights reserved. 软件开发交流联系方式：1027890648</p>
         <div class="flex flex-wrap items-center justify-center gap-4">
           <a
@@ -382,7 +428,7 @@
 
             <div class="hidden justify-center md:flex">
               <div class="flex h-36 w-36 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-dark-700 dark:bg-dark-950">
-                <img :src="siteLogo || '/logo.png'" alt="ISACAI" class="max-h-full max-w-full object-contain" />
+                <img :src="companyIconUrl" alt="ISACAI" class="max-h-full max-w-full object-contain" />
               </div>
             </div>
           </div>
@@ -416,6 +462,7 @@ import ModelIcon from '@/components/common/ModelIcon.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { FeatureFlags, isFeatureFlagEnabled } from '@/utils/featureFlags'
 import { CC_SWITCH_DOWNLOAD_LINKS } from '@/utils/ccswitchImport'
+import { INTERNAL_TOKEN_PRICE_DIVISOR, PUBLIC_RECHARGE_USD_PER_CNY, formatCompactNumber } from '@/utils/pricing'
 import { sanitizeUrl } from '@/utils/url'
 
 const { t, locale } = useI18n()
@@ -429,6 +476,7 @@ const siteLogo = computed(() => sanitizeUrl(appStore.cachedPublicSettings?.site_
 const siteSubtitle = computed(() => appStore.cachedPublicSettings?.site_subtitle || 'AI API Gateway Platform')
 const docUrl = computed(() => sanitizeUrl(appStore.cachedPublicSettings?.doc_url || appStore.docUrl || ''))
 const homeContent = computed(() => appStore.cachedPublicSettings?.home_content || '')
+const companyIconUrl = '/logo.png'
 
 const isHomeContentUrl = computed(() => {
   const content = homeContent.value.trim()

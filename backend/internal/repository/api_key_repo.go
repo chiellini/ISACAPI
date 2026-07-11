@@ -218,6 +218,20 @@ func (r *apiKeyRepository) GetByKeyForAuth(ctx context.Context, key string) (*se
 	return apiKeyEntityToService(m), nil
 }
 
+func (r *apiKeyRepository) FindInternalChatKey(ctx context.Context, userID int64) (*service.APIKey, error) {
+	m, err := r.activeQuery().
+		Where(apikey.UserIDEQ(userID), apikey.NameEQ(service.InternalChatKeyName)).
+		WithGroup().
+		Only(ctx)
+	if err != nil {
+		if dbent.IsNotFound(err) {
+			return nil, service.ErrAPIKeyNotFound
+		}
+		return nil, err
+	}
+	return apiKeyEntityToService(m), nil
+}
+
 func (r *apiKeyRepository) Update(ctx context.Context, key *service.APIKey) error {
 	// 使用原子操作：将软删除检查与更新合并到同一语句，避免竞态条件。
 	// 之前的实现先检查 Exist 再 UpdateOneID，若在两步之间发生软删除，

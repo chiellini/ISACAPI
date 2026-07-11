@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"sort"
 	"strings"
 
@@ -254,6 +255,9 @@ func (s *AccountTestService) buildAntigravityAPIKeyModelsRequest(ctx context.Con
 }
 
 func (s *AccountTestService) buildOpenAIUpstreamModelsRequest(ctx context.Context, account *Account) (*http.Request, error) {
+	if account.Type == AccountTypeOAuth {
+		return s.buildOpenAIOAuthUpstreamModelsRequest(ctx, account)
+	}
 	if account.Type != AccountTypeAPIKey {
 		return nil, newUpstreamModelSyncUnsupportedError(
 			fmt.Sprintf("Unsupported OpenAI account type for upstream model sync: %s", account.Type), nil,
@@ -281,6 +285,49 @@ func (s *AccountTestService) buildOpenAIUpstreamModelsRequest(ctx context.Contex
 	req.Header.Set("Authorization", "Bearer "+apiKey)
 	// 账号级请求头覆写：模型列表探测与真实转发保持一致的最终头
 	account.ApplyHeaderOverrides(req.Header)
+	return req, nil
+}
+
+func (s *AccountTestService) buildOpenAIOAuthUpstreamModelsRequest(ctx context.Context, account *Account) (*http.Request, error) {
+	credentialAccount := account
+	if account.IsCredentialShadow() {
+		if s.accountRepo == nil {
+			return nil, newUpstreamModelSyncConfigError("OpenAI shadow account credential repository is not configured", nil)
+		}
+		resolved, err := resolveCredentialAccount(ctx, s.accountRepo, account)
+		if err != nil {
+			return nil, newUpstreamModelSyncConfigError("Failed to resolve OpenAI shadow account credentials", err)
+		}
+		credentialAccount = resolved
+	}
+
+	accessToken := ""
+	if s.openaiTokenProvider != nil {
+		token, tokenErr := s.openaiTokenProvider.GetAccessToken(ctx, credentialAccount)
+		if tokenErr != nil {
+			return nil, newUpstreamModelSyncUpstreamError("Failed to get OpenAI access token", tokenErr)
+		}
+		accessToken = strings.TrimSpace(token)
+	} else {
+		accessToken = strings.TrimSpace(credentialAccount.GetOpenAIAccessToken())
+	}
+	if accessToken == "" {
+		return nil, newUpstreamModelSyncConfigError("No OpenAI access token is available", nil)
+	}
+
+	modelsURL := chatgptCodexModelsURL + "?client_version=" + url.QueryEscape(openAICodexProbeVersion)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, modelsURL, nil)
+	if err != nil {
+		return nil, newUpstreamModelSyncConfigError("Invalid OpenAI Codex model list URL", err)
+	}
+	req = req.WithContext(WithHTTPUpstreamProfile(req.Context(), HTTPUpstreamProfileOpenAI))
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Originator", "codex_cli_rs")
+	req.Header.Set("Version", openAICodexProbeVersion)
+	req.Header.Set("User-Agent", codexCLIUserAgent)
+	setOpenAIChatGPTAccountHeaders(req.Header, credentialAccount)
+	credentialAccount.ApplyHeaderOverrides(req.Header)
 	return req, nil
 }
 
@@ -408,6 +455,7 @@ func buildGeminiModelsURL(base string) string {
 type upstreamModelEntry struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
+	Slug string `json:"slug"`
 }
 
 func extractUpstreamModelIDs(body []byte) ([]string, error) {
@@ -450,6 +498,9 @@ func extractUpstreamModelIDs(body []byte) ([]string, error) {
 
 func upstreamModelEntryID(entry upstreamModelEntry) string {
 	modelID := strings.TrimSpace(entry.ID)
+	if modelID == "" {
+		modelID = strings.TrimSpace(entry.Slug)
+	}
 	if modelID == "" {
 		modelID = strings.TrimSpace(entry.Name)
 	}

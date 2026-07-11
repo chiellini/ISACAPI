@@ -26,7 +26,11 @@ func (s *GatewayService) ForwardCountTokens(ctx context.Context, c *gin.Context,
 	if account != nil && account.IsAnthropicAPIKeyPassthroughEnabled() {
 		passthroughBody := parsed.Body.Bytes()
 		if reqModel := parsed.Model; reqModel != "" {
-			if mappedModel := account.GetMappedModel(reqModel); mappedModel != reqModel {
+			mappedModel := account.GetMappedModel(reqModel)
+			if mappedModel == reqModel {
+				mappedModel = claude.StripModelCapabilitySuffix(reqModel)
+			}
+			if mappedModel != reqModel {
 				passthroughBody = s.replaceModelInBody(passthroughBody, mappedModel)
 				logger.LegacyPrintf("service.gateway", "CountTokens passthrough model mapping: %s -> %s (account: %s)", reqModel, mappedModel, account.Name)
 			}
@@ -97,6 +101,13 @@ func (s *GatewayService) ForwardCountTokens(ctx context.Context, c *gin.Context,
 			mappedModel = account.GetMappedModel(reqModel)
 			if mappedModel != reqModel {
 				mappingSource = "account"
+			}
+		}
+		if mappingSource == "" && account.Platform == PlatformAnthropic && account.Type == AccountTypeAPIKey {
+			normalized := claude.StripModelCapabilitySuffix(reqModel)
+			if normalized != reqModel {
+				mappedModel = normalized
+				mappingSource = "capability_suffix"
 			}
 		}
 		if mappingSource == "" && account.Platform == PlatformAnthropic && account.Type != AccountTypeAPIKey {
@@ -382,11 +393,18 @@ func (s *GatewayService) buildCountTokensRequestAnthropicAPIKeyPassthrough(
 	if c != nil && c.Request != nil {
 		clientBeta = getHeaderRaw(c.Request.Header, "anthropic-beta")
 	}
-	// 账号覆写了 anthropic-beta 时，覆写值即最终上游值：净化以覆写值为准
+	betaShouldSet := clientBeta != ""
 	if beta, ok := account.HeaderOverrideValue("anthropic-beta"); ok {
 		clientBeta = beta
+		betaShouldSet = true
 	}
-	if sanitized, changed := sanitizeAnthropicBodyForBetaTokens(body, clientBeta); changed {
+	modelID := gjson.GetBytes(body, "model").String()
+	policy := s.evaluateBetaPolicy(ctx, clientBeta, account, modelID)
+	if policy.blockErr != nil {
+		return nil, policy.blockErr
+	}
+	finalBeta := stripBetaTokensWithSet(clientBeta, mergeDropSets(policy.filterSet))
+	if sanitized, changed := sanitizeAnthropicBodyForBetaTokens(body, finalBeta); changed {
 		body = sanitized
 	}
 
@@ -423,6 +441,12 @@ func (s *GatewayService) buildCountTokensRequestAnthropicAPIKeyPassthrough(
 
 	// 账号级请求头覆写（最终生效，覆盖上面所有来源的同名头）
 	account.ApplyHeaderOverrides(req.Header)
+	if betaShouldSet {
+		deleteHeaderAllForms(req.Header, "anthropic-beta")
+		if finalBeta != "" {
+			setHeaderRaw(req.Header, "anthropic-beta", finalBeta)
+		}
+	}
 
 	return req, nil
 }
@@ -493,7 +517,7 @@ func (s *GatewayService) buildCountTokensRequest(ctx context.Context, c *gin.Con
 
 	// 账号覆写了 anthropic-beta 时，覆写值即最终上游值：净化以覆写值为准
 	if beta, ok := account.HeaderOverrideValue("anthropic-beta"); ok {
-		finalBetaHeader, finalBetaShouldSet = beta, true
+		finalBetaHeader, finalBetaShouldSet = stripBetaTokensWithSet(beta, ctEffectiveDropSet), true
 	}
 
 	// 能力维度 body sanitize：与最终 anthropic-beta header 对称
@@ -562,8 +586,13 @@ func (s *GatewayService) buildCountTokensRequest(ctx context.Context, c *gin.Con
 		}
 	}
 
-	// 账号级请求头覆写（仅 anthropic/openai api_key 账号启用时生效；OAuth 路径 no-op）
+	// 账号级请求头覆写（仅 anthropic/openai api_key 账号启用时生效；OAuth 路径 no-op）。
+	// anthropic-beta 随后会重新写入经过 Beta Policy 过滤后的最终值。
 	account.ApplyHeaderOverrides(req.Header)
+	deleteHeaderAllForms(req.Header, "anthropic-beta")
+	if finalBetaShouldSet && finalBetaHeader != "" {
+		setHeaderRaw(req.Header, "anthropic-beta", finalBetaHeader)
+	}
 
 	if c != nil && tokenType == "oauth" {
 		c.Set(claudeMimicDebugInfoKey, buildClaudeMimicDebugLine(req, body, account, tokenType, mimicClaudeCode))

@@ -57,15 +57,23 @@
                 ? 'whitespace-pre-wrap bg-primary-600 text-white'
                 : 'bg-white text-gray-800 shadow-sm dark:bg-dark-700 dark:text-gray-100'"
             >
-              <!-- 生成的图片 -->
+              <!-- 生成的图片：点击可全屏预览 -->
               <div v-if="msg.images?.length" class="flex flex-wrap gap-2">
-                <img v-for="(src, j) in msg.images" :key="j" :src="src" class="max-h-64 rounded-lg" alt="generated" />
+                <img
+                  v-for="(src, j) in msg.images"
+                  :key="j"
+                  :src="src"
+                  class="max-h-64 cursor-zoom-in rounded-lg transition hover:opacity-90"
+                  :alt="t('chat.previewAlt')"
+                  @click="openPreview(src)"
+                />
               </div>
-              <!-- 助手文本：Markdown 渲染 -->
+              <!-- 助手文本：Markdown 渲染（点击其中图片也可全屏） -->
               <div
                 v-else-if="msg.role === 'assistant'"
                 class="markdown-body"
                 v-html="msg.content ? renderMarkdown(msg.content) : (streaming ? '…' : '')"
+                @click="onMarkdownClick"
               ></div>
               <!-- 用户文本 + 附件 -->
               <template v-else>
@@ -75,8 +83,9 @@
                     v-for="(a, j) in msg.attachments.filter((x) => x.kind === 'image')"
                     :key="'img' + j"
                     :src="a.dataUrl"
-                    class="max-h-32 rounded-lg"
+                    class="max-h-32 cursor-zoom-in rounded-lg transition hover:opacity-90"
                     alt="attachment"
+                    @click="a.dataUrl && openPreview(a.dataUrl)"
                   />
                   <span
                     v-for="(a, j) in msg.attachments.filter((x) => x.kind === 'text')"
@@ -149,17 +158,41 @@
         </div>
       </div>
     </div>
+
+    <!-- 全屏图片预览 -->
+    <Teleport to="body">
+      <div
+        v-if="previewSrc"
+        class="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4"
+        @click="closePreview"
+      >
+        <img
+          :src="previewSrc"
+          class="max-h-full max-w-full rounded-lg object-contain shadow-2xl"
+          :alt="t('chat.previewAlt')"
+          @click.stop
+        />
+        <button
+          class="absolute right-4 top-4 rounded-full bg-white/15 px-3 py-1 text-lg leading-none text-white hover:bg-white/30"
+          :title="t('chat.closePreview')"
+          @click.stop="closePreview"
+        >✕</button>
+      </div>
+    </Teleport>
   </AppLayout>
 </template>
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { onKeyStroke } from '@vueuse/core'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/components/layout/AppLayout.vue'
+import { OPENAI_CODEX_DEFAULT_MODEL } from '@/constants/codex'
 import { renderMarkdown } from '@/utils/markdown'
 import {
   generateImage,
   streamChat,
+  completeChat,
   listSessions as apiListSessions,
   getSession as apiGetSession,
   createSession as apiCreateSession,
@@ -173,7 +206,7 @@ import {
 const { t } = useI18n()
 
 const models: Array<{ id: string; label: string }> = [
-  { id: 'gpt-5.5', label: 'gpt-5.5' },
+  { id: OPENAI_CODEX_DEFAULT_MODEL, label: OPENAI_CODEX_DEFAULT_MODEL },
   { id: 'gpt-image-2', label: 'GPT Image 2' },
 ]
 const selectedModel = ref(models[0].id)
@@ -231,6 +264,7 @@ const errorMsg = ref('')
 const showHistory = ref(false)
 const listEl = ref<HTMLElement | null>(null)
 const fileInput = ref<HTMLInputElement | null>(null)
+const previewSrc = ref('')
 let controller: AbortController | null = null
 
 const canSend = computed(
@@ -570,6 +604,94 @@ async function copyText(text: string) {
   }
 }
 
+// ───────── 图片全屏预览 ─────────
+
+function openPreview(src: string) {
+  if (src) previewSrc.value = src
+}
+function closePreview() {
+  previewSrc.value = ''
+}
+// 助手 Markdown 里的图片（模型可能以 Markdown 图片返回）点击也可全屏。
+function onMarkdownClick(e: MouseEvent) {
+  const target = e.target as HTMLElement | null
+  if (target?.tagName === 'IMG') {
+    const img = target as HTMLImageElement
+    openPreview(img.currentSrc || img.src)
+  }
+}
+onKeyStroke('Escape', () => {
+  if (previewSrc.value) closePreview()
+})
+
+// ───────── Agent：生图提示词规划（多轮记忆） ─────────
+
+// gpt-image 系列没有原生多轮记忆：不带上下文时，「字太多了」这类追加指令会被
+// 当成全新请求。这里的兜底把本会话历史里的「用户指令」按顺序拼进 prompt。
+const IMAGE_CONTEXT_MAX_TURNS = 8
+const IMAGE_CONTEXT_MAX_CHARS = 1800
+const PROMPT_AGENT_MODEL = OPENAI_CODEX_DEFAULT_MODEL
+
+function userPromptsOf(history: UiMessage[]): string[] {
+  return history.filter((m) => m.role === 'user' && m.content.trim()).map((m) => m.content.trim())
+}
+
+// 纯文本兜底：把历史指令编号拼接，供 agent 失败时使用。
+function buildImagePrompt(history: UiMessage[]): string {
+  const prompts = userPromptsOf(history)
+  const current = prompts[prompts.length - 1] || ''
+  const prior = prompts.slice(0, -1).slice(-IMAGE_CONTEXT_MAX_TURNS)
+  if (!prior.length) return current
+  let context = prior.map((p, i) => `${i + 1}. ${p}`).join('\n')
+  if (context.length > IMAGE_CONTEXT_MAX_CHARS) {
+    context = `…${context.slice(context.length - IMAGE_CONTEXT_MAX_CHARS)}`
+  }
+  return [
+    'You are iteratively refining a single image across turns.',
+    'Earlier instructions in this conversation, in order:',
+    context,
+    'Now apply the latest instruction while staying consistent with the above:',
+    current,
+  ].join('\n')
+}
+
+/**
+ * Agent 步骤：用文本模型读完整对话，产出「一条完整、自洽」的生图 prompt，
+ * 把之前的画面细节延续下来再套用最新指令（如「字太多了」→ 减少文字）。
+ * 首轮无历史时直出原始 prompt；失败/无文本模型时回退到 buildImagePrompt。
+ */
+async function agentImagePrompt(history: UiMessage[], signal: AbortSignal): Promise<string> {
+  const prompts = userPromptsOf(history)
+  const current = prompts[prompts.length - 1] || ''
+  if (prompts.length <= 1) return current // 首轮：无需规划，直出
+
+  const convo: ChatMessage[] = []
+  for (const m of history) {
+    if (m.role === 'user' && m.content.trim()) {
+      convo.push({ role: 'user', content: m.content.trim() })
+    } else if (m.role === 'assistant' && m.images?.length) {
+      convo.push({ role: 'assistant', content: '[已按上一条指令生成了一张图片]' })
+    }
+  }
+  const system: ChatMessage = {
+    role: 'system',
+    content:
+      'You are an image-prompt engineer for an iterative image editor. ' +
+      'The user is refining ONE image across multiple turns. Read the whole conversation and output a SINGLE, ' +
+      'complete, self-contained prompt for the NEXT image: carry over every visual detail established in earlier ' +
+      'turns (subject, composition, style, colours, text), then apply the latest instruction. ' +
+      'Treat short follow-ups (e.g. "too much text", "make it night", "bigger") as edits to the previous image, ' +
+      'NOT as brand-new unrelated images. Keep the language of any on-image text as the user specified. ' +
+      'Output ONLY the final prompt text — no preamble, no quotes, no explanation.',
+  }
+  try {
+    const rewritten = (await completeChat({ model: PROMPT_AGENT_MODEL, messages: [system, ...convo] }, signal)).trim()
+    return rewritten || buildImagePrompt(history)
+  } catch {
+    return buildImagePrompt(history)
+  }
+}
+
 // 末尾消息须为空的 assistant 占位；前面构成历史。
 async function runAssistant() {
   const assistant = messages.value[messages.value.length - 1]
@@ -578,9 +700,11 @@ async function runAssistant() {
   controller = new AbortController()
 
   if (isImageModel(selectedModel.value)) {
-    const lastUser = [...history].reverse().find((m) => m.role === 'user')
+    const signal = controller.signal
     try {
-      const imgs = await generateImage({ model: selectedModel.value, prompt: lastUser?.content || '' }, controller.signal)
+      // Agent 先根据整段对话规划出「带记忆」的完整 prompt，再交给生图模型。
+      const prompt = await agentImagePrompt(history, signal)
+      const imgs = await generateImage({ model: selectedModel.value, prompt }, signal)
       assistant.images = imgs
       assistant.imageRefs = await saveLocalImages(currentId.value, imgs)
       if (!imgs.length) assistant.content = t('chat.noImage')
@@ -595,9 +719,19 @@ async function runAssistant() {
     return
   }
 
-  const apiMessages: ChatMessage[] = history
-    .filter((m) => m.content || m.attachments?.length)
-    .map((m) => ({ role: m.role, content: toApiContent(m) }))
+  // 首条 system 明确要求「带记忆」：结合完整对话上下文、理解指代、保持多轮连贯。
+  const apiMessages: ChatMessage[] = [
+    {
+      role: 'system',
+      content:
+        '你是内置聊天助手。请始终结合本次对话的完整上下文作答：记住用户先前提供的信息、偏好与结论，'
+        + '在多轮之间保持连贯；当用户使用「它 / 上面那个 / 继续 / 再来一个」等指代或省略时，'
+        + '依据历史消息推断其真实指向，不要要求用户重复已经说过的内容。',
+    },
+    ...history
+      .filter((m) => m.content || m.attachments?.length)
+      .map((m): ChatMessage => ({ role: m.role, content: toApiContent(m) })),
+  ]
   await streamChat(
     { model: selectedModel.value, messages: apiMessages },
     {

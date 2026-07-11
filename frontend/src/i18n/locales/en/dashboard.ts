@@ -137,13 +137,16 @@ export default {
       noGroupDescription: 'This API key has not been assigned to a group. Please click the group column in the key list to assign one before viewing the configuration.',
       oneClick: {
         title: 'One-click install (recommended)',
-        hint: 'Copy the command below into your terminal and press Enter. It writes the client configuration, shell startup files, and VS Code terminal environment settings for you.',
-        pasteWarning: 'This is a terminal command, not an API key. Run it in your terminal and never paste it into an API key or token field.',
-        scriptComment: 'Run this in your terminal. Do NOT paste it into an API key or token field.',
-        runHint: 'Restart your client (Claude Code / Codex / Gemini CLI / OpenCode) and VS Code terminals afterwards to apply the settings.',
-        manualLabel: 'Or configure manually:',
+        hint:
+          'Copy the command below into your terminal and press Enter. It writes the client configuration, shell startup files, and VS Code terminal environment settings for you.',
+        pasteWarning:
+          'This command contains your API key. Only run it from a site you trust, run it in your terminal, and never paste it into an API key or token field.',
         copy: 'Copy command',
-        copied: 'Copied'
+        copied: 'Copied',
+        runHint:
+          'Restart your client (Claude Code / Codex / Gemini CLI / OpenCode) and VS Code terminals afterward so the settings take effect.',
+        manualLabel: 'Or configure manually:',
+        scriptComment: 'Run this in your terminal. Do NOT paste it into an API key or token field.'
       },
       openai: {
         description: 'Add the following configuration files to your Codex CLI config directory.',
@@ -196,25 +199,30 @@ export default {
       description: 'Please select the client type to import to CC-Switch:',
       claudeCode: 'Claude Code',
       claudeCodeDesc: 'Import as Claude Code configuration',
+      claudeDesktop: 'Claude Desktop',
+      claudeDesktopDesc: 'Import as Claude Desktop configuration',
       geminiCli: 'Gemini CLI',
       geminiCliDesc: 'Import as Gemini CLI configuration',
     },
     ccsFallback: {
       title: 'CC-Switch not detected',
-      description: 'CC-Switch may not be installed or its protocol handler may not be registered. Download it and retry, copy the key directly, or open the one-click setup command.',
-      copyKey: 'Copy Key',
-      copyKeyDesc: 'Copy the API key to the clipboard',
-      useKey: 'Install Command',
-      useKeyDesc: 'Open the one-click install and setup guide',
+      description:
+        'CC-Switch did not open automatically. It may not be installed or its protocol handler may not be registered. Install it and retry, copy the key, or open the one-click setup command.',
+      macosHint:
+        'macOS: after installing the DMG, open CC-Switch manually once. If Gatekeeper blocks it, allow it in System Settings, then return and retry.',
       downloadTitle: 'Download CC-Switch',
-      downloadDescription: 'Use official sources only. Windows ARM64, portable builds, and checksum files are available from the official release page.',
+      downloadDescription:
+        'Use official channels only. Open the release page for Windows ARM64, portable builds, or checksum files.',
       windowsDownload: 'Windows MSI',
       macosDownload: 'macOS DMG',
-      releasePage: 'Official download page',
-      macosHint: 'macOS: After installing the DMG, open CC-Switch manually once. If Gatekeeper blocks it, allow it in System Settings, then return here and retry.',
-      retryOpen: 'Open Again',
+      releasePage: 'Official release page',
+      retryOpen: 'Open again',
       retryOpenDesc: 'Retry the ccswitch:// import',
-      guide: 'Full Guide',
+      copyKey: 'Copy key',
+      copyKeyDesc: 'Copy the API key for CC-Switch or manual client setup',
+      useKey: 'Install command',
+      useKeyDesc: 'Open the one-click setup command and manual options',
+      guide: 'Full guide',
       guideDesc: 'Local CC-Switch and Remote SSH setup'
     },
     // Quota and expiration
@@ -518,7 +526,8 @@ export default {
       perRequestPrice: 'Per Request',
       intervals: 'Tiered Pricing',
       unitPerMillion: '/ 1M tokens',
-      unitPerRequest: '/ request'
+      unitPerRequest: '/ request',
+      internalRateHint: 'Internal token price shown here: original price ÷ {divisor}, billed in USD'
     }
   },
 

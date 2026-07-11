@@ -1,6 +1,7 @@
 import type { GroupPlatform } from '@/types'
+import { OPENAI_CODEX_DEFAULT_MODEL } from '@/constants/codex'
 
-export const OPENAI_CC_SWITCH_CODEX_MODEL = 'gpt-5.5'
+export const OPENAI_CC_SWITCH_CODEX_MODEL = OPENAI_CODEX_DEFAULT_MODEL
 
 const CC_SWITCH_LATEST_VERSION = 'v3.16.5'
 const CC_SWITCH_RELEASE_BASE = `https://github.com/farion1231/cc-switch/releases/download/${CC_SWITCH_LATEST_VERSION}`
@@ -30,6 +31,10 @@ export interface CcSwitchImportDeeplinkInput {
   usageScript: string
 }
 
+function resolveCcSwitchAppType(clientType: CcSwitchClientType): string {
+  return clientType
+}
+
 export function resolveCcSwitchImportConfig(
   platform: GroupPlatform | undefined | null,
   clientType: CcSwitchClientType,
@@ -38,7 +43,7 @@ export function resolveCcSwitchImportConfig(
   switch (platform || 'anthropic') {
     case 'antigravity':
       return {
-        app: clientType === 'gemini' ? 'gemini' : 'claude',
+        app: resolveCcSwitchAppType(clientType),
         endpoint: `${baseUrl}/antigravity`
       }
     case 'openai':
@@ -54,7 +59,7 @@ export function resolveCcSwitchImportConfig(
       }
     default:
       return {
-        app: 'claude',
+        app: resolveCcSwitchAppType(clientType),
         endpoint: baseUrl
       }
   }
@@ -69,6 +74,7 @@ export function buildCcSwitchImportDeeplink(input: CcSwitchImportDeeplinkInput):
     ['homepage', input.baseUrl],
     ['endpoint', config.endpoint],
     ['apiKey', input.apiKey],
+    ['enabled', 'true'],
     ['configFormat', 'json'],
     ['usageEnabled', 'true'],
     ['usageScript', btoa(input.usageScript)],

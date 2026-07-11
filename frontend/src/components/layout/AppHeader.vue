@@ -11,13 +11,18 @@
           <Icon name="menu" size="md" />
         </button>
 
-        <div class="hidden lg:block">
-          <h1 class="text-lg font-semibold text-gray-900 dark:text-white">
-            {{ pageTitle }}
-          </h1>
-          <p v-if="pageDescription" class="text-xs text-gray-500 dark:text-dark-400">
-            {{ pageDescription }}
-          </p>
+        <div class="hidden items-center gap-3 lg:flex">
+          <div class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm dark:border-dark-700 dark:bg-dark-900">
+            <img :src="companyIconUrl" alt="ISACAI" class="h-full w-full object-contain" />
+          </div>
+          <div class="min-w-0">
+            <h1 class="truncate text-lg font-semibold text-gray-900 dark:text-white">
+              {{ pageTitle }}
+            </h1>
+            <p v-if="pageDescription" class="truncate text-xs text-gray-500 dark:text-dark-400">
+              {{ pageDescription }}
+            </p>
+          </div>
         </div>
       </div>
 
@@ -242,6 +247,7 @@ const user = computed(() => authStore.user)
 const dropdownOpen = ref(false)
 const dropdownRef = ref<HTMLElement | null>(null)
 const docUrl = computed(() => sanitizeUrl(appStore.docUrl))
+const companyIconUrl = '/logo.png'
 const avatarUrl = computed(() => user.value?.avatar_url?.trim() || '')
 const availableBalance = computed(() => Number(user.value?.balance || 0))
 const frozenBalance = computed(() => Number(user.value?.frozen_balance || 0))
