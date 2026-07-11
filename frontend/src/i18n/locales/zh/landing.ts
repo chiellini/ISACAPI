@@ -181,13 +181,53 @@ export default {
     login: '登录',
     getStarted: '立即开始',
     goToDashboard: '进入控制台',
+    nav: {
+      tagline: '统一 AI API 网关'
+    },
+    heroEyebrow: 'OpenAI 兼容接口 · 多模型统一转发',
     // 新增：面向用户的价值主张
     heroSubtitle: '一个密钥，畅用多个 AI 模型',
-    heroDescription: '无需管理多个订阅账号，一站式接入 Claude、GPT、Gemini 等主流 AI 服务',
+    heroDescription: '无需管理多个订阅账号，一站式接入 Claude、GPT、Gemini、DeepSeek、通义千问、豆包、Kimi 等主流 AI 服务',
+    ccSwitch: {
+      badge: '推荐接入方式',
+      title: '用 CC-Switch，一键配置你的 AI 开发环境',
+      description: '选择一个 API 密钥，即可一键配置 Codex、Claude Code、Gemini CLI 与 OpenCode；也可通过主流 IDE 终端和远程 SSH 接入。',
+      primaryAction: '立即一键配置',
+      downloadAction: '下载 CC-Switch',
+      guideAction: '查看本机与远程配置教程',
+      panelTitle: '一个入口，连接常用 AI 开发工具',
+      oneClick: '一键完成',
+      ready: '已就绪',
+      localSetup: '本机自动导入配置',
+      remoteSetup: '远程 SSH 一键命令',
+      noManual: '无需手动编辑密钥、端点或环境变量'
+    },
+    integrations: {
+      eyebrow: '开发工具接入',
+      title: 'Codex、Claude Code 与主流 IDE 工作流，统一接入',
+      description: '同一个 API 密钥覆盖命令行、编辑器终端和远程开发环境。',
+      codexDescription: '自动写入 OpenAI 兼容端点与模型配置，开箱即用。',
+      claudeCodeDescription: '自动配置 Anthropic 兼容端点，本机与远程环境都支持。',
+      geminiDescription: '一键生成 Gemini CLI 所需配置，无需反复切换密钥。',
+      ideDescription: '适配 VS Code、Cursor、Windsurf、JetBrains 等编辑器的内置终端与兼容 API。'
+    },
     tags: {
-      subscriptionToApi: '订阅转 API',
+      subscriptionToApi: '统一 API 接入',
       stickySession: '会话保持',
       realtimeBilling: '按量计费'
+    },
+    stats: {
+      providers: '模型供应商',
+      languages: '站点语言',
+      compatible: '兼容协议'
+    },
+    apiCard: {
+      protocol: 'OpenAI Compatible',
+      title: '即刻接入统一 API',
+      subtitle: '复制端点，使用现有 OpenAI SDK 即可调用。',
+      endpoint: '接口端点',
+      copy: '复制',
+      copied: '已复制'
     },
     // 用户痛点区块
     painPoints: {
@@ -261,14 +301,70 @@ export default {
       }
     },
     providers: {
-      title: '已支持的 AI 模型',
-      description: '一个 API，多种选择',
+      title: '精选核心模型',
+      description: '只保留最常用的六大模型系列，一个密钥统一调用，选择更清晰。',
       supported: '已支持',
       soon: '即将推出',
       claude: 'Claude',
       gemini: 'Gemini',
       antigravity: 'Antigravity',
-      more: '更多'
+      more: '更多',
+      items: {
+        openai: 'GPT',
+        claude: 'Claude',
+        gemini: 'Gemini',
+        xai: 'Grok',
+        meta: 'Meta',
+        mistral: 'Mistral',
+        cohere: 'Cohere',
+        midjourney: 'Midjourney',
+        perplexity: 'Perplexity',
+        openrouter: 'OpenRouter',
+        deepseek: 'DeepSeek',
+        qwen: '通义千问',
+        doubao: '豆包',
+        zhipu: 'GLM',
+        moonshot: 'Kimi / Moonshot',
+        baidu: '文心 ERNIE',
+        tencent: '腾讯混元',
+        iflytek: '讯飞星火',
+        minimax: 'MiniMax',
+        ai360: '360 智脑'
+      }
+    },
+    domestic: {
+      title: '国内厂商与国产模型已加入展示',
+      description: '重点展示 DeepSeek、通义千问、豆包、Kimi、智谱、文心、混元、星火等国内模型生态。'
+    },
+    highlights: {
+      gateway: {
+        title: '统一网关',
+        desc: '兼容 OpenAI 格式，将不同上游模型收敛到一套调用入口。'
+      },
+      providers: {
+        title: '多供应商',
+        desc: '参考 new-api 的多渠道理念，统一管理国际模型与国内模型供应商。'
+      },
+      billing: {
+        title: '额度可控',
+        desc: '面向 API Key、分组和模型倍率做清晰的用量与费用控制。'
+      },
+      languages: {
+        title: '多语言',
+        desc: '提供简体中文、繁体中文、日文、阿拉伯文，并保留英文兜底。'
+      }
+    },
+    notice: {
+      title: '系统公告',
+      tabNotice: '通知',
+      tabSystem: '系统公告',
+      important: '（重要）',
+      qqGroupLabel: '交流群：',
+      qqGroupSuffix: '，有问题可以进群联系站长。',
+      trust: '请认准 ISACAI 官方站点与当前 API 入口，避免使用不明来源链接。',
+      status: '当前服务入口：',
+      closeToday: '今日关闭',
+      close: '关闭公告'
     },
     // CTA 区块
     cta: {

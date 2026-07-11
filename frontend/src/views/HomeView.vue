@@ -46,6 +46,16 @@
         </div>
 
         <div class="flex items-center gap-2">
+          <a
+            :href="CC_SWITCH_DOWNLOAD_LINKS.officialSite"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="hidden items-center gap-1.5 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs font-semibold text-sky-700 transition-colors hover:border-sky-300 hover:bg-sky-100 dark:border-sky-900/60 dark:bg-sky-950/40 dark:text-sky-300 dark:hover:bg-sky-950/70 md:inline-flex"
+          >
+            <Icon name="bolt" size="sm" />
+            CC-Switch
+          </a>
+
           <LocaleSwitcher />
 
           <a
@@ -91,185 +101,190 @@
     </header>
 
     <main class="relative z-10 flex-1">
-      <section class="border-b border-slate-200/80 bg-gradient-to-b from-white via-sky-50/40 to-slate-50 dark:border-dark-800 dark:from-dark-950 dark:via-dark-900 dark:to-dark-950">
-        <div class="mx-auto grid max-w-6xl gap-10 px-4 py-12 md:px-6 md:py-16 lg:grid-cols-[1.02fr_0.98fr] lg:items-center lg:gap-14">
+      <section class="relative overflow-hidden border-b border-slate-800 bg-slate-950 text-white">
+        <div class="pointer-events-none absolute -left-24 top-12 h-72 w-72 rounded-full bg-sky-500/20 blur-3xl"></div>
+        <div class="pointer-events-none absolute -right-20 bottom-0 h-80 w-80 rounded-full bg-violet-500/20 blur-3xl"></div>
+
+        <div class="relative mx-auto grid max-w-6xl gap-12 px-4 py-14 md:px-6 md:py-20 lg:grid-cols-[1.08fr_0.92fr] lg:items-center lg:gap-14">
           <div :class="['text-center lg:text-left', isRtl ? 'lg:text-right' : '']">
-            <div class="mb-5 inline-flex items-center gap-2 rounded-lg border border-sky-200 bg-white px-3 py-2 text-xs font-medium text-sky-700 shadow-sm dark:border-sky-900/60 dark:bg-dark-900 dark:text-sky-300">
-              <Icon name="sparkles" size="sm" />
-              {{ t('home.heroEyebrow') }}
+            <div class="mb-6 inline-flex items-center gap-2 rounded-full border border-sky-400/30 bg-sky-400/10 px-3.5 py-2 text-xs font-semibold text-sky-200 shadow-lg shadow-sky-950/30">
+              <Icon name="bolt" size="sm" />
+              {{ t('home.ccSwitch.badge') }}
             </div>
 
-            <h1 class="mx-auto max-w-3xl text-4xl font-bold tracking-normal text-slate-950 dark:text-white md:text-5xl lg:mx-0 lg:text-6xl">
-              {{ siteName }}
+            <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+              {{ siteName }} · {{ siteSubtitle }}
+            </p>
+            <h1 class="mx-auto mt-4 max-w-3xl text-4xl font-bold leading-tight tracking-tight text-white md:text-5xl lg:mx-0 lg:text-[3.25rem]">
+              {{ t('home.ccSwitch.title') }}
             </h1>
-            <p class="mx-auto mt-5 max-w-2xl text-lg leading-8 text-slate-600 dark:text-dark-300 lg:mx-0">
-              {{ siteSubtitle }}
+            <p class="mx-auto mt-6 max-w-2xl text-base leading-8 text-slate-300 md:text-lg lg:mx-0">
+              {{ t('home.ccSwitch.description') }}
             </p>
 
             <div class="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row lg:justify-start">
               <router-link
-                :to="isAuthenticated ? dashboardPath : '/login'"
-                class="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary-600 px-5 py-3 text-sm font-semibold text-white shadow-md shadow-primary-600/20 transition-colors hover:bg-primary-700 sm:w-auto"
+                to="/keys"
+                class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-sky-400 px-6 py-3.5 text-sm font-bold text-slate-950 shadow-lg shadow-sky-500/20 transition-all hover:-translate-y-0.5 hover:bg-sky-300 sm:w-auto"
               >
-                <Icon name="play" size="sm" />
-                {{ isAuthenticated ? t('home.goToDashboard') : t('home.getStarted') }}
+                <Icon name="bolt" size="sm" />
+                {{ t('home.ccSwitch.primaryAction') }}
               </router-link>
               <a
-                v-if="docUrl"
-                :href="docUrl"
+                :href="CC_SWITCH_DOWNLOAD_LINKS.officialSite"
                 target="_blank"
                 rel="noopener noreferrer"
-                class="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 dark:border-dark-700 dark:bg-dark-900 dark:text-dark-200 dark:hover:bg-dark-800 sm:w-auto"
+                class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/5 px-6 py-3.5 text-sm font-semibold text-white transition-colors hover:border-white/30 hover:bg-white/10 sm:w-auto"
               >
-                <Icon name="document" size="sm" />
-                {{ t('home.docs') }}
+                <Icon name="download" size="sm" />
+                {{ t('home.ccSwitch.downloadAction') }}
               </a>
             </div>
 
-            <dl class="mt-9 grid grid-cols-3 gap-3">
-              <div
-                v-for="stat in heroStats"
-                :key="stat.labelKey"
-                class="rounded-lg border border-slate-200 bg-white/70 px-3 py-4 text-center shadow-sm dark:border-dark-800 dark:bg-dark-900/70"
-              >
-                <dt class="text-xl font-bold text-slate-950 dark:text-white">{{ stat.value }}</dt>
-                <dd class="mt-1 text-xs text-slate-500 dark:text-dark-400">{{ t(stat.labelKey) }}</dd>
-              </div>
-            </dl>
-          </div>
-
-          <div class="mx-auto w-full max-w-xl lg:max-w-none">
-            <div class="rounded-lg border border-slate-200 bg-white shadow-xl shadow-slate-200/60 dark:border-dark-800 dark:bg-dark-900 dark:shadow-black/30">
-              <div class="flex items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-dark-800">
-                <div class="flex items-center gap-2">
-                  <span class="h-3 w-3 rounded-full bg-red-400"></span>
-                  <span class="h-3 w-3 rounded-full bg-amber-400"></span>
-                  <span class="h-3 w-3 rounded-full bg-emerald-400"></span>
-                </div>
-                <span class="text-xs font-medium text-slate-500 dark:text-dark-400">
-                  {{ t('home.apiCard.protocol') }}
-                </span>
-              </div>
-
-              <div class="space-y-5 p-5">
-                <div class="flex items-start justify-between gap-4">
-                  <div>
-                    <p class="text-sm font-semibold text-slate-950 dark:text-white">
-                      {{ t('home.apiCard.title') }}
-                    </p>
-                    <p class="mt-1 text-xs text-slate-500 dark:text-dark-400">
-                      {{ t('home.apiCard.subtitle') }}
-                    </p>
-                  </div>
-                  <span class="rounded-md bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
-                    200 OK
-                  </span>
-                </div>
-
-                <div class="rounded-lg border border-slate-200 bg-slate-950 p-4 text-left font-mono text-xs text-slate-200 shadow-inner dark:border-dark-700">
-                  <div class="mb-3 flex items-center justify-between gap-3">
-                    <span class="text-slate-400">{{ t('home.apiCard.endpoint') }}</span>
-                    <button
-                      @click="copyEndpoint"
-                      class="inline-flex items-center gap-1 rounded-md bg-white/10 px-2 py-1 text-[11px] font-medium text-white transition-colors hover:bg-white/15"
-                    >
-                      <Icon name="copy" size="xs" />
-                      {{ endpointCopied ? t('home.apiCard.copied') : t('home.apiCard.copy') }}
-                    </button>
-                  </div>
-                  <div class="break-all text-sky-300">{{ chatEndpoint }}</div>
-                  <pre class="mt-4 overflow-x-auto text-slate-300"><code>curl {{ chatEndpoint }} \
-  -H "Authorization: Bearer sk-..." \
-  -H "Content-Type: application/json"</code></pre>
-                </div>
-
-                <div class="grid gap-3 sm:grid-cols-3">
-                  <div
-                    v-for="tag in apiTags"
-                    :key="tag.labelKey"
-                    class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 dark:border-dark-800 dark:bg-dark-950/60"
-                  >
-                    <Icon :name="tag.icon" size="sm" :class="tag.iconClass" />
-                    <p class="mt-2 text-xs font-medium text-slate-700 dark:text-dark-200">
-                      {{ t(tag.labelKey) }}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section class="bg-white px-4 py-12 dark:bg-dark-950 md:px-6 md:py-14">
-        <div class="mx-auto max-w-6xl">
-          <div class="text-center">
-            <h2 class="text-2xl font-semibold text-slate-950 dark:text-white md:text-3xl">
-              {{ t('home.providers.title') }}
-            </h2>
-            <p class="mt-3 text-sm text-slate-500 dark:text-dark-400">
-              {{ t('home.providers.description') }}
-            </p>
-          </div>
-
-          <div class="mt-9 grid grid-cols-3 gap-4 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-10">
-            <div
-              v-for="provider in providerLogos"
-              :key="provider.labelKey"
-              class="group flex min-h-24 flex-col items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white p-3 shadow-sm transition-all hover:-translate-y-0.5 hover:border-sky-300 hover:shadow-md dark:border-dark-800 dark:bg-dark-900 dark:hover:border-sky-700"
-              :title="t(provider.labelKey)"
+            <router-link
+              to="/cc-switch"
+              class="mt-5 inline-flex items-center gap-1.5 text-sm font-medium text-sky-300 transition-colors hover:text-sky-200"
             >
-              <div class="flex h-11 w-11 items-center justify-center rounded-lg bg-slate-50 text-slate-900 transition-colors group-hover:bg-sky-50 dark:bg-dark-950 dark:text-white dark:group-hover:bg-sky-950/40">
-                <ModelIcon :model="provider.model" size="30px" />
-              </div>
-              <span class="max-w-full truncate text-xs font-medium text-slate-600 dark:text-dark-300">
-                {{ t(provider.labelKey) }}
+              {{ t('home.ccSwitch.guideAction') }}
+              <Icon name="arrowRight" size="sm" />
+            </router-link>
+
+            <div class="mt-8 flex flex-wrap justify-center gap-2 lg:justify-start">
+              <span
+                v-for="client in integrationClients"
+                :key="client.name"
+                class="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-slate-200"
+              >
+                <Icon name="check" size="xs" class="text-emerald-300" />
+                {{ client.name }}
               </span>
             </div>
           </div>
 
-          <div class="mt-8 rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/60 dark:bg-amber-950/20">
-            <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-              <div>
-                <h3 class="text-sm font-semibold text-amber-900 dark:text-amber-200">
-                  {{ t('home.domestic.title') }}
-                </h3>
-                <p class="mt-1 text-xs leading-6 text-amber-800/80 dark:text-amber-200/80">
-                  {{ t('home.domestic.description') }}
-                </p>
-              </div>
-              <div class="flex flex-wrap gap-2">
-                <span
-                  v-for="provider in domesticProviderLogos"
-                  :key="provider.labelKey"
-                  class="rounded-md border border-amber-200 bg-white px-2.5 py-1 text-xs font-medium text-amber-900 dark:border-amber-800 dark:bg-dark-900 dark:text-amber-200"
-                >
-                  {{ t(provider.labelKey) }}
+          <div class="mx-auto w-full max-w-xl lg:max-w-none">
+            <div class="relative overflow-hidden rounded-2xl border border-white/15 bg-white/[0.07] p-5 shadow-2xl shadow-black/30 backdrop-blur md:p-6">
+              <div class="pointer-events-none absolute right-0 top-0 h-32 w-32 rounded-full bg-sky-400/15 blur-3xl"></div>
+
+              <div class="relative flex items-center justify-between gap-4">
+                <div class="flex items-center gap-3">
+                  <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-sky-400 text-slate-950 shadow-lg shadow-sky-400/20">
+                    <Icon name="bolt" size="lg" />
+                  </div>
+                  <div>
+                    <p class="text-base font-bold text-white">CC-Switch</p>
+                    <p class="text-xs text-slate-400">ISACAI Setup Hub</p>
+                  </div>
+                </div>
+                <span class="rounded-full border border-emerald-400/25 bg-emerald-400/10 px-3 py-1 text-[11px] font-semibold text-emerald-300">
+                  {{ t('home.ccSwitch.oneClick') }}
                 </span>
+              </div>
+
+              <h2 class="relative mt-6 max-w-md text-xl font-semibold leading-8 text-white md:text-2xl">
+                {{ t('home.ccSwitch.panelTitle') }}
+              </h2>
+
+              <div class="relative mt-6 grid grid-cols-2 gap-3">
+                <div
+                  v-for="client in integrationClients"
+                  :key="client.name"
+                  class="flex min-h-20 items-center gap-3 rounded-xl border border-white/10 bg-slate-950/50 p-3"
+                >
+                  <div :class="['flex h-10 w-10 shrink-0 items-center justify-center rounded-lg', client.panelClass]">
+                    <ModelIcon v-if="'model' in client" :model="client.model" size="25px" />
+                    <Icon v-else :name="client.icon" size="md" />
+                  </div>
+                  <div class="min-w-0">
+                    <p class="truncate text-xs font-semibold text-white sm:text-sm">
+                      {{ 'panelName' in client ? client.panelName : client.name }}
+                    </p>
+                    <span class="mt-1 flex items-center gap-1 text-[10px] font-medium text-emerald-300">
+                      <span class="h-1.5 w-1.5 rounded-full bg-emerald-400"></span>
+                      {{ t('home.ccSwitch.ready') }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="relative mt-4 grid gap-3 sm:grid-cols-2">
+                <div class="flex items-start gap-3 rounded-xl border border-sky-400/15 bg-sky-400/10 p-3.5">
+                  <Icon name="download" size="md" class="mt-0.5 shrink-0 text-sky-300" />
+                  <p class="text-xs font-medium leading-5 text-sky-100">{{ t('home.ccSwitch.localSetup') }}</p>
+                </div>
+                <div class="flex items-start gap-3 rounded-xl border border-violet-400/15 bg-violet-400/10 p-3.5">
+                  <Icon name="terminal" size="md" class="mt-0.5 shrink-0 text-violet-300" />
+                  <p class="text-xs font-medium leading-5 text-violet-100">{{ t('home.ccSwitch.remoteSetup') }}</p>
+                </div>
+              </div>
+
+              <div class="relative mt-4 flex items-start gap-2.5 rounded-xl border border-emerald-400/15 bg-emerald-400/10 px-4 py-3 text-xs leading-5 text-emerald-100">
+                <Icon name="checkCircle" size="sm" class="mt-0.5 shrink-0 text-emerald-300" />
+                {{ t('home.ccSwitch.noManual') }}
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      <section class="border-y border-slate-200 bg-slate-50 px-4 py-12 dark:border-dark-800 dark:bg-dark-900/40 md:px-6 md:py-14">
+      <section class="bg-white px-4 py-12 dark:bg-dark-950 md:px-6 md:py-16">
         <div class="mx-auto max-w-6xl">
-          <div class="grid gap-5 md:grid-cols-4">
+          <div class="mx-auto max-w-3xl text-center">
+            <div class="inline-flex items-center gap-2 rounded-full bg-sky-50 px-3 py-1.5 text-xs font-semibold text-sky-700 dark:bg-sky-950/40 dark:text-sky-300">
+              <Icon name="terminal" size="sm" />
+              {{ t('home.integrations.eyebrow') }}
+            </div>
+            <h2 class="mt-4 text-2xl font-bold text-slate-950 dark:text-white md:text-3xl">
+              {{ t('home.integrations.title') }}
+            </h2>
+            <p class="mt-3 text-sm leading-7 text-slate-500 dark:text-dark-400">
+              {{ t('home.integrations.description') }}
+            </p>
+          </div>
+
+          <div class="mt-9 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <article
-              v-for="feature in featureCards"
-              :key="feature.titleKey"
-              class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-dark-800 dark:bg-dark-900"
+              v-for="client in integrationClients"
+              :key="client.name"
+              class="group rounded-2xl border border-slate-200 bg-slate-50/70 p-5 transition-all hover:-translate-y-1 hover:border-sky-300 hover:bg-white hover:shadow-lg dark:border-dark-800 dark:bg-dark-900/70 dark:hover:border-sky-700 dark:hover:bg-dark-900"
             >
-              <div :class="['mb-4 flex h-10 w-10 items-center justify-center rounded-lg', feature.iconClass]">
-                <Icon :name="feature.icon" size="md" />
+              <div :class="['flex h-12 w-12 items-center justify-center rounded-xl', client.cardClass]">
+                <ModelIcon v-if="'model' in client" :model="client.model" size="29px" />
+                <Icon v-else :name="client.icon" size="lg" />
               </div>
-              <h3 class="text-base font-semibold text-slate-950 dark:text-white">
-                {{ t(feature.titleKey) }}
-              </h3>
+              <h3 class="mt-5 text-base font-bold text-slate-950 dark:text-white">{{ client.name }}</h3>
               <p class="mt-2 text-sm leading-6 text-slate-500 dark:text-dark-400">
-                {{ t(feature.descKey) }}
+                {{ t(client.descriptionKey) }}
               </p>
             </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="border-y border-slate-200 bg-slate-50 px-4 py-12 dark:border-dark-800 dark:bg-dark-900/40 md:px-6 md:py-16">
+        <div class="mx-auto max-w-6xl">
+          <div class="mx-auto max-w-2xl text-center">
+            <h2 class="text-2xl font-bold text-slate-950 dark:text-white md:text-3xl">
+              {{ t('home.providers.title') }}
+            </h2>
+            <p class="mt-3 text-sm leading-7 text-slate-500 dark:text-dark-400">
+              {{ t('home.providers.description') }}
+            </p>
+          </div>
+
+          <div class="mt-9 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+            <div
+              v-for="provider in providerLogos"
+              :key="provider.labelKey"
+              class="group flex min-h-32 flex-col items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-all hover:-translate-y-1 hover:border-sky-300 hover:shadow-lg dark:border-dark-800 dark:bg-dark-900 dark:hover:border-sky-700"
+              :title="t(provider.labelKey)"
+            >
+              <div class="flex h-14 w-14 items-center justify-center rounded-xl bg-slate-50 text-slate-900 transition-colors group-hover:bg-sky-50 dark:bg-dark-950 dark:text-white dark:group-hover:bg-sky-950/40">
+                <ModelIcon :model="provider.model" size="34px" />
+              </div>
+              <span class="max-w-full truncate text-sm font-semibold text-slate-700 dark:text-dark-200">
+                {{ t(provider.labelKey) }}
+              </span>
+            </div>
           </div>
         </div>
       </section>
@@ -400,6 +415,7 @@ import LocaleSwitcher from '@/components/common/LocaleSwitcher.vue'
 import ModelIcon from '@/components/common/ModelIcon.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { FeatureFlags, isFeatureFlagEnabled } from '@/utils/featureFlags'
+import { CC_SWITCH_DOWNLOAD_LINKS } from '@/utils/ccswitchImport'
 import { sanitizeUrl } from '@/utils/url'
 
 const { t, locale } = useI18n()
@@ -421,14 +437,10 @@ const isHomeContentUrl = computed(() => {
 
 const isDark = ref(document.documentElement.classList.contains('dark'))
 const isRtl = computed(() => locale.value === 'ar')
-const endpointCopied = ref(false)
-const apiBaseUrl = ref('')
 const showNotice = ref(false)
 
 const NOTICE_PERMANENT_KEY = 'isacai_home_notice_closed'
 const NOTICE_DATE_KEY = 'isacai_home_notice_date'
-
-const chatEndpoint = computed(() => `${apiBaseUrl.value || 'https://api.isacai.cn'}/v1/chat/completions`)
 
 const isAuthenticated = computed(() => authStore.isAuthenticated)
 const isAdmin = computed(() => authStore.isAdmin)
@@ -439,16 +451,39 @@ const userInitial = computed(() => {
   return user.email.charAt(0).toUpperCase()
 })
 
-const heroStats = [
-  { value: '30+', labelKey: 'home.stats.providers' },
-  { value: '4', labelKey: 'home.stats.languages' },
-  { value: 'OpenAI', labelKey: 'home.stats.compatible' }
-]
-
-const apiTags = [
-  { icon: 'swap', iconClass: 'text-sky-600 dark:text-sky-300', labelKey: 'home.tags.subscriptionToApi' },
-  { icon: 'shield', iconClass: 'text-emerald-600 dark:text-emerald-300', labelKey: 'home.tags.stickySession' },
-  { icon: 'chart', iconClass: 'text-amber-600 dark:text-amber-300', labelKey: 'home.tags.realtimeBilling' }
+const integrationClients = [
+  {
+    name: 'Codex',
+    model: 'gpt-4.1',
+    icon: 'terminal',
+    panelClass: 'bg-emerald-400/15 text-emerald-300',
+    cardClass: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300',
+    descriptionKey: 'home.integrations.codexDescription'
+  },
+  {
+    name: 'Claude Code',
+    model: 'claude-3-5-sonnet',
+    icon: 'terminal',
+    panelClass: 'bg-orange-400/15 text-orange-300',
+    cardClass: 'bg-orange-50 text-orange-700 dark:bg-orange-950/40 dark:text-orange-300',
+    descriptionKey: 'home.integrations.claudeCodeDescription'
+  },
+  {
+    name: 'Gemini CLI',
+    model: 'gemini-2.5-pro',
+    icon: 'sparkles',
+    panelClass: 'bg-blue-400/15 text-blue-300',
+    cardClass: 'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300',
+    descriptionKey: 'home.integrations.geminiDescription'
+  },
+  {
+    name: 'VS Code / Cursor / IDE',
+    panelName: 'IDE / Terminal',
+    icon: 'grid',
+    panelClass: 'bg-violet-400/15 text-violet-300',
+    cardClass: 'bg-violet-50 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300',
+    descriptionKey: 'home.integrations.ideDescription'
+  }
 ] as const
 
 const providerLogos = [
@@ -456,53 +491,8 @@ const providerLogos = [
   { model: 'claude-3-5-sonnet', labelKey: 'home.providers.items.claude' },
   { model: 'gemini-2.5-pro', labelKey: 'home.providers.items.gemini' },
   { model: 'grok-4', labelKey: 'home.providers.items.xai' },
-  { model: 'llama-4', labelKey: 'home.providers.items.meta' },
-  { model: 'mistral-large', labelKey: 'home.providers.items.mistral' },
-  { model: 'command-r-plus', labelKey: 'home.providers.items.cohere' },
-  { model: 'midjourney', labelKey: 'home.providers.items.midjourney' },
-  { model: 'perplexity', labelKey: 'home.providers.items.perplexity' },
-  { model: 'openrouter', labelKey: 'home.providers.items.openrouter' },
-  { model: 'deepseek-chat', labelKey: 'home.providers.items.deepseek', domestic: true },
-  { model: 'qwen-max', labelKey: 'home.providers.items.qwen', domestic: true },
-  { model: 'doubao-pro', labelKey: 'home.providers.items.doubao', domestic: true },
-  { model: 'glm-4-plus', labelKey: 'home.providers.items.zhipu', domestic: true },
-  { model: 'kimi-k2', labelKey: 'home.providers.items.moonshot', domestic: true },
-  { model: 'ernie-4.5', labelKey: 'home.providers.items.baidu', domestic: true },
-  { model: 'hunyuan', labelKey: 'home.providers.items.tencent', domestic: true },
-  { model: 'spark-max', labelKey: 'home.providers.items.iflytek', domestic: true },
-  { model: 'minimax-abab', labelKey: 'home.providers.items.minimax', domestic: true },
-  { model: '360gpt', labelKey: 'home.providers.items.ai360', domestic: true }
-] as const
-
-const domesticProviderLogos = providerLogos.filter(
-  (provider) => 'domestic' in provider && provider.domestic
-)
-
-const featureCards = [
-  {
-    icon: 'server',
-    iconClass: 'bg-sky-50 text-sky-600 dark:bg-sky-950/40 dark:text-sky-300',
-    titleKey: 'home.highlights.gateway.title',
-    descKey: 'home.highlights.gateway.desc'
-  },
-  {
-    icon: 'grid',
-    iconClass: 'bg-violet-50 text-violet-600 dark:bg-violet-950/40 dark:text-violet-300',
-    titleKey: 'home.highlights.providers.title',
-    descKey: 'home.highlights.providers.desc'
-  },
-  {
-    icon: 'calculator',
-    iconClass: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-300',
-    titleKey: 'home.highlights.billing.title',
-    descKey: 'home.highlights.billing.desc'
-  },
-  {
-    icon: 'globe',
-    iconClass: 'bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-300',
-    titleKey: 'home.highlights.languages.title',
-    descKey: 'home.highlights.languages.desc'
-  }
+  { model: 'deepseek-chat', labelKey: 'home.providers.items.deepseek' },
+  { model: 'glm-4-plus', labelKey: 'home.providers.items.zhipu' }
 ] as const
 
 const publicStatusEnabled = computed(() => isFeatureFlagEnabled(FeatureFlags.publicStatus))
@@ -545,22 +535,9 @@ function closeNoticePermanently() {
   showNotice.value = false
 }
 
-async function copyEndpoint() {
-  try {
-    await navigator.clipboard.writeText(chatEndpoint.value)
-    endpointCopied.value = true
-    window.setTimeout(() => {
-      endpointCopied.value = false
-    }, 1800)
-  } catch {
-    endpointCopied.value = false
-  }
-}
-
 onMounted(() => {
   initTheme()
   initNotice()
-  apiBaseUrl.value = window.location.origin
 
   authStore.checkAuth()
 

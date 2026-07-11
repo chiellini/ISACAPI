@@ -135,6 +135,16 @@ export default {
       noGroupTitle: '请先分配分组',
       noGroupDescription:
         '此 API 密钥尚未分配分组，请先在密钥列表中点击分组列进行分配，然后才能查看使用配置。',
+      oneClick: {
+        title: '一键安装（推荐）',
+        hint: '复制下面这一条命令，粘贴到终端按回车，即可自动写入客户端配置、Shell 启动文件和 VS Code 终端环境设置。',
+        pasteWarning: '这是一条终端命令，不是 API Key。请在终端里运行，切勿粘贴到客户端的 API Key / 令牌输入框。',
+        scriptComment: '请在终端中运行；切勿粘贴到 API Key / 令牌输入框。',
+        runHint: '执行后重启客户端（Claude Code / Codex / Gemini CLI / OpenCode）和 VS Code 终端即可生效。',
+        manualLabel: '或手动配置：',
+        copy: '复制命令',
+        copied: '已复制'
+      },
       openai: {
         description: '将以下配置文件添加到 Codex CLI 配置目录中。',
         configTomlHint: '请确保以下内容位于 config.toml 文件的开头部分',
@@ -193,6 +203,24 @@ export default {
       claudeCodeDesc: '导入为 Claude Code 配置',
       geminiCli: 'Gemini CLI',
       geminiCliDesc: '导入为 Gemini CLI 配置'
+    },
+    ccsFallback: {
+      title: '没有检测到 CC-Switch',
+      description: '可能未安装 CC-Switch 或未注册协议处理程序。你可以下载后重试，也可以直接复制密钥或查看一键接入命令。',
+      copyKey: '复制密钥',
+      copyKeyDesc: '复制 API 密钥到剪贴板',
+      useKey: '查看接入命令',
+      useKeyDesc: '打开一键接入 / 配置教程',
+      downloadTitle: '下载 CC-Switch',
+      downloadDescription: '请只使用官方来源。Windows ARM64、便携版和校验文件可在官方发布页选择对应版本。',
+      windowsDownload: 'Windows MSI',
+      macosDownload: 'macOS DMG',
+      releasePage: '官方下载页面',
+      macosHint: 'macOS：安装 DMG 后请先手动打开一次 CC-Switch；若被 Gatekeeper 阻止，请在系统设置中允许，然后返回此处重试。',
+      retryOpen: '重新打开',
+      retryOpenDesc: '再次尝试 ccswitch:// 导入',
+      guide: '完整教程',
+      guideDesc: '本机 CC-Switch 与 Remote SSH 配置'
     },
     // 配额和有效期
     quotaLimit: '额度限制',

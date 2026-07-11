@@ -181,13 +181,53 @@ export default {
     login: 'Login',
     getStarted: 'Get Started',
     goToDashboard: 'Go to Dashboard',
+    nav: {
+      tagline: 'Unified AI API Gateway'
+    },
+    heroEyebrow: 'OpenAI-compatible · Multi-model routing',
     // User-focused value proposition
     heroSubtitle: 'One Key, All AI Models',
-    heroDescription: 'No need to manage multiple subscriptions. Access Claude, GPT, Gemini and more with a single API key',
+    heroDescription: 'Access Claude, GPT, Gemini, DeepSeek, Qwen, Doubao, Kimi and more through one unified API key.',
+    ccSwitch: {
+      badge: 'Recommended setup',
+      title: 'Configure your AI development environment in one click with CC-Switch',
+      description: 'Choose one API key to configure Codex, Claude Code, Gemini CLI, and OpenCode in one click, then connect through popular IDE terminals or Remote SSH.',
+      primaryAction: 'Configure in One Click',
+      downloadAction: 'Download CC-Switch',
+      guideAction: 'View the local and remote setup guide',
+      panelTitle: 'One setup hub for the AI development tools you use',
+      oneClick: 'One-click setup',
+      ready: 'Ready',
+      localSetup: 'Import local client settings automatically',
+      remoteSetup: 'Ready-made command for Remote SSH',
+      noManual: 'No manual editing of keys, endpoints, or environment variables'
+    },
+    integrations: {
+      eyebrow: 'Developer tool integrations',
+      title: 'One connection for Codex, Claude Code, and popular IDE workflows',
+      description: 'Use the same API key across CLIs, editor terminals, and remote development environments.',
+      codexDescription: 'Automatically write the OpenAI-compatible endpoint and model configuration.',
+      claudeCodeDescription: 'Configure the Anthropic-compatible endpoint for local and remote environments.',
+      geminiDescription: 'Generate the Gemini CLI configuration in one click without juggling keys.',
+      ideDescription: 'Works through compatible APIs and the integrated terminals in VS Code, Cursor, Windsurf, and JetBrains.'
+    },
     tags: {
-      subscriptionToApi: 'Subscription to API',
+      subscriptionToApi: 'Unified API Access',
       stickySession: 'Session Persistence',
       realtimeBilling: 'Pay As You Go'
+    },
+    stats: {
+      providers: 'Providers',
+      languages: 'Languages',
+      compatible: 'Protocol'
+    },
+    apiCard: {
+      protocol: 'OpenAI Compatible',
+      title: 'Connect to one unified API',
+      subtitle: 'Copy the endpoint and keep using your existing OpenAI SDK.',
+      endpoint: 'Endpoint',
+      copy: 'Copy',
+      copied: 'Copied'
     },
     // Pain points section
     painPoints: {
@@ -261,14 +301,70 @@ export default {
       }
     },
     providers: {
-      title: 'Supported AI Models',
-      description: 'One API, Multiple Choices',
+      title: 'Curated Core Models',
+      description: 'Six widely used model families, one API key, and a much clearer choice.',
       supported: 'Supported',
       soon: 'Soon',
       claude: 'Claude',
       gemini: 'Gemini',
       antigravity: 'Antigravity',
-      more: 'More'
+      more: 'More',
+      items: {
+        openai: 'GPT',
+        claude: 'Claude',
+        gemini: 'Gemini',
+        xai: 'Grok',
+        meta: 'Meta',
+        mistral: 'Mistral',
+        cohere: 'Cohere',
+        midjourney: 'Midjourney',
+        perplexity: 'Perplexity',
+        openrouter: 'OpenRouter',
+        deepseek: 'DeepSeek',
+        qwen: 'Qwen',
+        doubao: 'Doubao',
+        zhipu: 'GLM',
+        moonshot: 'Kimi / Moonshot',
+        baidu: 'ERNIE',
+        tencent: 'Tencent Hunyuan',
+        iflytek: 'iFlytek Spark',
+        minimax: 'MiniMax',
+        ai360: '360 AI'
+      }
+    },
+    domestic: {
+      title: 'Chinese vendors and domestic models are included',
+      description: 'Highlights DeepSeek, Qwen, Doubao, Kimi, Zhipu, ERNIE, Hunyuan, Spark and more.'
+    },
+    highlights: {
+      gateway: {
+        title: 'Unified Gateway',
+        desc: 'OpenAI-compatible requests are routed to multiple upstream model providers.'
+      },
+      providers: {
+        title: 'Multi-provider',
+        desc: 'Inspired by new-api style multi-channel management for global and Chinese providers.'
+      },
+      billing: {
+        title: 'Quota Control',
+        desc: 'Track usage and cost by API key, group, and model pricing multiplier.'
+      },
+      languages: {
+        title: 'Multilingual',
+        desc: 'Simplified Chinese, Traditional Chinese, Japanese, Arabic, with English fallback.'
+      }
+    },
+    notice: {
+      title: 'System Notice',
+      tabNotice: 'Notice',
+      tabSystem: 'System',
+      important: '(Important)',
+      qqGroupLabel: 'QQ group: ',
+      qqGroupSuffix: '. Join the group to contact the site admin.',
+      trust: 'Use the official ISACAI site and current API entry to avoid unknown links.',
+      status: 'Current service entry: ',
+      closeToday: 'Close today',
+      close: 'Close notice'
     },
     // CTA section
     cta: {

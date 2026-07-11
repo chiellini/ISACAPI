@@ -135,6 +135,16 @@ export default {
       note: 'These environment variables will be active in the current terminal session. For permanent configuration, add them to ~/.bashrc, ~/.zshrc, or the appropriate configuration file.',
       noGroupTitle: 'Please assign a group first',
       noGroupDescription: 'This API key has not been assigned to a group. Please click the group column in the key list to assign one before viewing the configuration.',
+      oneClick: {
+        title: 'One-click install (recommended)',
+        hint: 'Copy the command below into your terminal and press Enter. It writes the client configuration, shell startup files, and VS Code terminal environment settings for you.',
+        pasteWarning: 'This is a terminal command, not an API key. Run it in your terminal and never paste it into an API key or token field.',
+        scriptComment: 'Run this in your terminal. Do NOT paste it into an API key or token field.',
+        runHint: 'Restart your client (Claude Code / Codex / Gemini CLI / OpenCode) and VS Code terminals afterwards to apply the settings.',
+        manualLabel: 'Or configure manually:',
+        copy: 'Copy command',
+        copied: 'Copied'
+      },
       openai: {
         description: 'Add the following configuration files to your Codex CLI config directory.',
         configTomlHint: 'Make sure the following content is at the beginning of the config.toml file',
@@ -188,6 +198,24 @@ export default {
       claudeCodeDesc: 'Import as Claude Code configuration',
       geminiCli: 'Gemini CLI',
       geminiCliDesc: 'Import as Gemini CLI configuration',
+    },
+    ccsFallback: {
+      title: 'CC-Switch not detected',
+      description: 'CC-Switch may not be installed or its protocol handler may not be registered. Download it and retry, copy the key directly, or open the one-click setup command.',
+      copyKey: 'Copy Key',
+      copyKeyDesc: 'Copy the API key to the clipboard',
+      useKey: 'Install Command',
+      useKeyDesc: 'Open the one-click install and setup guide',
+      downloadTitle: 'Download CC-Switch',
+      downloadDescription: 'Use official sources only. Windows ARM64, portable builds, and checksum files are available from the official release page.',
+      windowsDownload: 'Windows MSI',
+      macosDownload: 'macOS DMG',
+      releasePage: 'Official download page',
+      macosHint: 'macOS: After installing the DMG, open CC-Switch manually once. If Gatekeeper blocks it, allow it in System Settings, then return here and retry.',
+      retryOpen: 'Open Again',
+      retryOpenDesc: 'Retry the ccswitch:// import',
+      guide: 'Full Guide',
+      guideDesc: 'Local CC-Switch and Remote SSH setup'
     },
     // Quota and expiration
     quotaLimit: 'Quota Limit',
