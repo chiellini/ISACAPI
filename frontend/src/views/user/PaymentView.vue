@@ -51,7 +51,7 @@
                 <div class="space-y-1">
                   <p class="font-semibold">{{ t('payment.rechargePricingTitle') }}</p>
                   <p>{{ t('payment.rechargePricingRate', { usd: formatCompactNumber(balanceRechargeMultiplier) }) }}</p>
-                  <p>{{ t('payment.rechargePricingTokenFormula', { divisor: INTERNAL_TOKEN_PRICE_DIVISOR }) }}</p>
+                  <p>{{ t('payment.rechargePricingTokenFormula') }}</p>
                 </div>
               </div>
             </div>
@@ -303,7 +303,6 @@ import type { PaymentMethodOption } from '@/components/payment/PaymentMethodSele
 import { buildPaymentErrorToastMessage, describePaymentScenarioError } from './paymentUx'
 import { hasWechatResumeQuery, parseWechatResumeRoute, stripWechatResumeQuery } from './paymentWechatResume'
 import {
-  INTERNAL_TOKEN_PRICE_DIVISOR,
   PUBLIC_RECHARGE_USD_PER_CNY,
   formatCompactNumber,
 } from '@/utils/pricing'

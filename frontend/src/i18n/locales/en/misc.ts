@@ -384,7 +384,7 @@ export default {
     amountNoMethod: 'No payment method available for this amount',
     rechargePricingTitle: 'Top-up and internal pricing',
     rechargePricingRate: 'Current top-up: 1 CNY credits {usd} USD balance. Credited balance = payment amount × {usd}.',
-    rechargePricingTokenFormula: 'Internal token price = benchmark price ÷ {divisor}; effective CNY is divided by the current credited top-up rate once more.',
+    rechargePricingTokenFormula: 'Token balance follows the benchmark USD price and active group rate; effective CNY = USD balance price ÷ the credited top-up rate.',
     rechargeRatePreview: '1 CNY credits {usd} USD balance. This credit = payment amount × {usd}',
     refundReason: 'Refund Reason',
     refundReasonPlaceholder: 'Please describe your refund reason',

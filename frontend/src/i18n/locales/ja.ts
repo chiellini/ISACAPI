@@ -246,15 +246,36 @@ export default {
     switchToDark: 'ダークモードに切り替え',
     dashboard: 'ダッシュボード',
     login: 'ログイン',
+    register: '新規登録',
     getStarted: '今すぐ始める',
     goToDashboard: 'ダッシュボードへ',
     nav: {
-      tagline: '統合 AI API ゲートウェイ'
+      home: 'ホーム',
+      dashboard: 'ダッシュボード',
+      tagline: '統合 AI API ゲートウェイ',
+      pricing: 'モデル料金',
+      integrations: 'ツール連携',
+      openMenu: 'メニューを開く',
+      closeMenu: 'メニューを閉じる'
     },
     heroEyebrow: 'OpenAI 互換 · 複数モデルの統合ルーティング',
+    heroTitle: '1 つの API キーで',
+    heroAccent: '主要な AI モデルに接続',
     heroSubtitle: '1 つのキーで、複数の AI モデルへ',
     heroDescription:
       'Claude、GPT、Gemini、DeepSeek、Qwen、Doubao、Kimi などの主要 AI サービスを、1 つの API キーから利用できます。',
+    supportedAccess: '対応する導入方法',
+    apiDemo: {
+      request: 'リクエスト',
+      response: 'レスポンス',
+      routed: 'ルーティング成功'
+    },
+    heroStats: {
+      recharge: '支払い CNY : 残高 USD',
+      groupRate: 'グループ倍率',
+      models: '主要モデル',
+      deployments: '導入方法'
+    },
     ccSwitch: {
       badge: '推奨セットアップ',
       title: 'CC-Switch で AI 開発環境をワンクリック設定',
@@ -277,6 +298,25 @@ export default {
       claudeCodeDescription: 'ローカルとリモートの Anthropic 互換エンドポイントを自動設定します。',
       geminiDescription: 'キーを切り替えることなく Gemini CLI の設定をワンクリックで生成します。',
       ideDescription: 'VS Code、Cursor、Windsurf、JetBrains の統合端末と互換 API から利用できます。'
+    },
+    workflow: {
+      eyebrow: 'クイックスタート',
+      title: '3 ステップで利用開始',
+      description: '登録からローカル環境またはサーバーでの初回リクエストまで、共通設定だけで完了します。',
+      steps: {
+        account: {
+          title: '登録して API キーを作成',
+          description: 'ダッシュボードで、すべての互換クライアントに再利用できる API キーを作成します。'
+        },
+        configure: {
+          title: '設定方法を選択',
+          description: 'CC-Switch で一括インポートするか、端末コマンドでローカル環境やリモートサーバーを設定します。'
+        },
+        connect: {
+          title: 'モデルの呼び出しを開始',
+          description: 'OpenAI または Anthropic 互換 API を、Codex、Claude Code、IDE からそのまま利用できます。'
+        }
+      }
     },
     stats: {
       providers: 'モデル提供元',
@@ -350,6 +390,7 @@ export default {
     },
     notice: {
       title: 'システム公告',
+      open: 'システム公告を開く',
       tabNotice: '通知',
       tabSystem: 'システム',
       important: '（重要）',

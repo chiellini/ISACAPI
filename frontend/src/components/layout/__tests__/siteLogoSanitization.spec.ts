@@ -15,16 +15,18 @@ describe('site_logo sanitization', () => {
     expect(sidebarSource).toContain('sanitizeUrl(appStore.siteLogo')
   })
 
-  it('HomeView applies sanitizeUrl to siteLogo', () => {
-    expect(homeViewSource).toContain('sanitizeUrl(appStore.cachedPublicSettings?.site_logo || appStore.siteLogo')
+  it('HomeView pins the transparent ISACAI asset instead of a legacy configured logo', () => {
+    expect(homeViewSource).toContain("const companyIconUrl = '/logo.png'")
+    expect(homeViewSource).toContain(':src="companyIconUrl" alt="ISACAI"')
+    expect(homeViewSource).not.toContain(':src="siteLogo')
   })
 
   it('KeyUsageView applies sanitizeUrl to siteLogo', () => {
     expect(keyUsageViewSource).toContain('sanitizeUrl(appStore.cachedPublicSettings?.site_logo || appStore.siteLogo')
   })
 
-  it('all three pass allowRelative and allowDataUrl options', () => {
-    for (const src of [sidebarSource, homeViewSource, keyUsageViewSource]) {
+  it('dynamic site logo consumers pass allowRelative and allowDataUrl options', () => {
+    for (const src of [sidebarSource, keyUsageViewSource]) {
       expect(src).toContain('allowRelative: true')
       expect(src).toContain('allowDataUrl: true')
     }

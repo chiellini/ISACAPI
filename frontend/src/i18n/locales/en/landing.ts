@@ -170,6 +170,74 @@ export default {
       ]
     }
   },
+  pricingPage: {
+    eyebrow: 'ISACAI model pricing',
+    title: 'Clear model prices in CNY',
+    description: 'All models use one unified 1× group rate and show only CNY prices per million tokens. The current credit rate is 1 CNY = {rate} USD.',
+    navHome: 'Home',
+    navPricing: 'Model pricing',
+    searchPlaceholder: 'Search models, providers, or families…',
+    filters: 'Filters',
+    filterDescription: 'Narrow the catalog by model family.',
+    reset: 'Reset',
+    providers: 'Model families',
+    allModels: 'All models',
+    gptModels: 'GPT / OpenAI',
+    claudeModels: 'Claude / Anthropic',
+    visibleModels: '{count} models',
+    priceModeLabel: 'Price basis',
+    balanceMode: 'CNY price',
+    cashMode: 'CNY price',
+    unitLabel: 'Billing unit',
+    perMillionShort: 'CNY / 1M',
+    perThousandShort: 'CNY / 1M',
+    sortLabel: 'Sort',
+    sortName: 'Name',
+    sortInput: 'Input price',
+    sortOutput: 'Output price',
+    input: 'Input',
+    output: 'Output',
+    cacheRead: 'Cache read',
+    balanceBadge: 'CNY price',
+    cashBadge: 'CNY price',
+    tokenBilling: 'Usage based',
+    groupRate: 'Group ×1',
+    openaiCompatible: 'OpenAI compatible',
+    copyModel: 'Copy model name',
+    copied: 'Copied',
+    noResultsTitle: 'No matching models',
+    noResultsDescription: 'Try another keyword or clear the current family filter.',
+    clearFilters: 'Clear filters',
+    rechargeLabel: 'Top-up credit',
+    rechargeValue: '1 CNY = {usd} USD',
+    rechargeHint: 'The top-up credit rate is configured in admin and drives both actual credits and CNY price conversion.',
+    valueLabel: 'Display unit',
+    valueValue: 'CNY / 1M tokens',
+    valueHint: 'Input, output, and cache-read prices are all shown per million tokens.',
+    billingLabel: 'Balance billing',
+    billingValue: 'Group rate ×1',
+    billingHint: 'Input, output, and cache-read prices all use the unified 1× group rate.',
+    formulaTitle: 'How prices are converted',
+    formulaBalance: 'This page uses one unified 1× group rate and does not split prices by group.',
+    formulaCash: 'CNY price = benchmark USD model price ÷ {rate}, shown per million tokens.',
+    formulaValue: 'When the top-up credit rate changes, all CNY prices on this page are recalculated automatically.',
+    disclaimer: 'Token base prices at the unified 1× rate only. Priority, long-context, cache-write, image, and special billing rules follow the final bill.',
+    ctaTitle: 'Choose a model and start with one API key',
+    ctaDescription: 'Deploy through CC-Switch, terminal commands, remote servers, or local clients.',
+    ctaPrimary: 'Register and create a key',
+    ctaAuthenticated: 'Open dashboard',
+    ctaSecondary: 'Back to home',
+    modelDescriptions: {
+      sol: 'The flagship GPT-5.6 tier for difficult reasoning, coding, and agentic work.',
+      terra: 'A balanced GPT-5.6 tier across capability, speed, and cost.',
+      luna: 'A lightweight GPT-5.6 tier for high-volume and cost-sensitive work.',
+      gpt55: 'A general flagship model for reasoning, code, and long workflows.',
+      opus: 'Claude’s high-capability tier for complex analysis, code, and long tasks.',
+      sonnet: 'Claude’s balanced tier for everyday coding, agents, and content work.',
+      haiku: 'Claude’s fast lightweight tier for high-throughput, low-latency use.'
+    }
+  },
+
   // Home Page
   home: {
     viewOnGithub: 'View on GitHub',
@@ -179,15 +247,36 @@ export default {
     switchToDark: 'Switch to Dark Mode',
     dashboard: 'Dashboard',
     login: 'Login',
+    register: 'Sign up',
     getStarted: 'Get Started',
     goToDashboard: 'Go to Dashboard',
     nav: {
-      tagline: 'Unified AI API Gateway'
+      home: 'Home',
+      dashboard: 'Dashboard',
+      tagline: 'Unified AI API Gateway',
+      pricing: 'Model pricing',
+      integrations: 'Integrations',
+      openMenu: 'Open menu',
+      closeMenu: 'Close menu'
     },
     heroEyebrow: 'OpenAI-compatible · Multi-model routing',
+    heroTitle: 'One API key for',
+    heroAccent: 'every leading AI model',
     // User-focused value proposition
     heroSubtitle: 'One Key, All AI Models',
     heroDescription: 'Access Claude, GPT, Gemini, DeepSeek, Qwen, Doubao, Kimi and more through one unified API key.',
+    supportedAccess: 'Supported deployment options',
+    apiDemo: {
+      request: 'Request',
+      response: 'Response',
+      routed: 'Routed successfully'
+    },
+    heroStats: {
+      recharge: 'CNY paid : USD balance',
+      groupRate: 'Group rate',
+      models: 'Core models',
+      deployments: 'Deployment options'
+    },
     ccSwitch: {
       badge: 'Recommended setup',
       title: 'Configure your AI development environment in one click with CC-Switch',
@@ -229,6 +318,25 @@ export default {
       claudeCodeDescription: 'Configure the Anthropic-compatible endpoint for local and remote environments.',
       geminiDescription: 'Generate the Gemini CLI configuration in one click without juggling keys.',
       ideDescription: 'Works through compatible APIs and the integrated terminals in VS Code, Cursor, Windsurf, and JetBrains.'
+    },
+    workflow: {
+      eyebrow: 'Quick start',
+      title: 'Start calling models in three steps',
+      description: 'Go from registration to your first local or server request with one shared setup.',
+      steps: {
+        account: {
+          title: 'Register and create an API key',
+          description: 'Open the dashboard and create one API key to reuse across compatible clients.'
+        },
+        configure: {
+          title: 'Choose a setup method',
+          description: 'Import with CC-Switch or copy a terminal command for your local machine or remote server.'
+        },
+        connect: {
+          title: 'Start calling models',
+          description: 'Use the OpenAI- or Anthropic-compatible endpoint directly from Codex, Claude Code, or your IDE.'
+        }
+      }
     },
     tags: {
       subscriptionToApi: 'Unified API Access',
@@ -375,6 +483,7 @@ export default {
     },
     notice: {
       title: 'System Notice',
+      open: 'Open system notice',
       tabNotice: 'Notice',
       tabSystem: 'System',
       important: '(Important)',
@@ -388,22 +497,23 @@ export default {
     pricing: {
       eyebrow: 'Pricing',
       title: 'How top-ups and token prices are calculated',
-      description: 'Benchmark USD prices are divided by the internal rate, then converted to effective CNY using the credited top-up rate. Input and output are shown per million tokens.',
+      description: 'At a 1× group rate, balance is charged at the benchmark USD price. Effective CNY is then converted through the credited top-up rate. Input and output are shown per million tokens.',
+      fullPricingAction: 'View complete model pricing',
       rechargeLabel: 'Top-up rate',
       rechargeValue: '1 CNY = {usd} USD',
-      rechargeHint: 'Your payment amount is credited with this multiplier, and the checkout page previews the credited balance.',
-      tokenLabel: 'Internal token price',
-      tokenValue: 'Original price ÷ {divisor}',
-      tokenHint: 'Effective CNY is divided by the credited top-up rate once more. At 1 CNY = 6 USD, the benchmark price is divided by 252 in total.',
+      rechargeHint: 'The top-up credit rate is configured by an administrator. Saving it updates actual credits, the home page, checkout, and model pricing.',
+      tokenLabel: 'Balance billing rate',
+      tokenValue: 'Group rate × 1',
+      tokenHint: 'Balance follows the benchmark USD model price. Effective CNY = USD balance price ÷ credited top-up rate.',
       comparisonTitle: 'Model input / output price comparison',
-      comparisonDescription: 'USD columns show benchmark prices; CNY columns show the effective amount paid after the internal and top-up rates.',
+      comparisonDescription: 'CNY prices use the unified 1× group rate and the current top-up credit rate, all shown per million tokens.',
       effectiveRateBadge: 'At 1 CNY = {usd} USD',
       modelHeader: 'Model',
       benchmarkInputHeader: 'Benchmark input USD / 1M',
       benchmarkOutputHeader: 'Benchmark output USD / 1M',
       effectiveInputHeader: 'Effective input CNY / 1M',
       effectiveOutputHeader: 'Effective output CNY / 1M',
-      formula: 'Formula: benchmark USD ÷ {divisor} ÷ {usd} = benchmark price ÷ {total} in CNY.',
+      formula: 'Formula at a 1× group rate: benchmark USD ÷ {usd} = effective CNY paid.',
       disclaimer: 'Token base prices only. Cache, image, group, peak-time, and channel-specific multipliers follow the final bill.'
     },
     // CTA section

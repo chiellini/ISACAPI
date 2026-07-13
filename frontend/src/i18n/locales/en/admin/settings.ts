@@ -528,9 +528,10 @@ export default {
         minAmount: 'Minimum Amount',
         maxAmount: 'Maximum Amount',
         dailyLimit: 'Daily Limit',
-        balanceRechargeMultiplier: 'Balance Recharge Multiplier',
-        balanceRechargeMultiplierHint: 'How many USD balance the user receives for each 1 CNY paid',
-        balanceRechargePreview: 'Preview: 1 CNY = {usd} USD',
+        balanceRechargeMultiplier: 'Top-up credit rate (1 CNY = X USD)',
+        balanceRechargeMultiplierHint:
+          'Set the USD balance credited for each 1 CNY paid. Saving updates actual credits, the home page, checkout, and model pricing.',
+        balanceRechargePreview: 'Current setting: 1 CNY = {usd} USD',
         subscriptionUsdToCnyRate: 'Subscription USD to CNY Rate',
         subscriptionUsdToCnyRateHint:
           'CNY charged per 1 USD of plan price on CNY channels (e.g. 7.15). 0 or empty = disabled, plan price is charged as-is. When enabled, all plan prices must be set in USD',

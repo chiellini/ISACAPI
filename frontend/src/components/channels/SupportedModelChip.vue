@@ -69,7 +69,7 @@
               v-if="model.pricing.billing_mode === BILLING_MODE_TOKEN"
               class="rounded-md bg-emerald-50 px-2 py-1.5 text-[11px] leading-5 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300"
             >
-              {{ t(prefixKey('internalRateHint'), { divisor: INTERNAL_TOKEN_PRICE_DIVISOR }) }}
+              {{ t(prefixKey('internalRateHint')) }}
             </div>
 
             <template v-if="model.pricing.billing_mode === BILLING_MODE_TOKEN">
@@ -171,7 +171,7 @@
 import { computed, nextTick, onBeforeUnmount, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import PricingRow from './PricingRow.vue'
-import { INTERNAL_TOKEN_PRICE_DIVISOR, formatInternalTokenPrice, formatScaled } from '@/utils/pricing'
+import { formatInternalTokenPrice, formatScaled } from '@/utils/pricing'
 import {
   BILLING_MODE_TOKEN,
   BILLING_MODE_PER_REQUEST,

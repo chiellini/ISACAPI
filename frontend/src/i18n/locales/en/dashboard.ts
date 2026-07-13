@@ -534,7 +534,7 @@ export default {
       intervals: 'Tiered Pricing',
       unitPerMillion: '/ 1M tokens',
       unitPerRequest: '/ request',
-      internalRateHint: 'Internal token price shown here: original price ÷ {divisor}, billed in USD'
+      internalRateHint: 'Balance token price shown here; billing follows the benchmark USD price and group rate'
     }
   },
 

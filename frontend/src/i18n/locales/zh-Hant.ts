@@ -11,15 +11,36 @@ export default {
     switchToDark: '切換到深色模式',
     dashboard: '控制台',
     login: '登入',
+    register: '註冊',
     getStarted: '立即開始',
     goToDashboard: '進入控制台',
     nav: {
-      tagline: '統一 AI API 閘道'
+      home: '首頁',
+      dashboard: '儀表板',
+      tagline: '統一 AI API 閘道',
+      pricing: '模型價格',
+      integrations: '工具整合',
+      openMenu: '開啟選單',
+      closeMenu: '關閉選單'
     },
     heroEyebrow: 'OpenAI 相容介面 · 多模型統一轉發',
+    heroTitle: '一個 API 金鑰',
+    heroAccent: '串接主流 AI 模型',
     heroSubtitle: '一個金鑰，暢用多個 AI 模型',
     heroDescription:
       '無需管理多個訂閱帳號，一站式接入 Claude、GPT、Gemini、DeepSeek、通義千問、豆包、Kimi 等主流 AI 服務',
+    supportedAccess: '支援以下部署方式',
+    apiDemo: {
+      request: '請求',
+      response: '回應',
+      routed: '已成功轉送'
+    },
+    heroStats: {
+      recharge: '人民幣充值 : 美元餘額',
+      groupRate: '分組倍率',
+      models: '主要模型',
+      deployments: '部署選項'
+    },
     ccSwitch: {
       badge: '推薦接入方式',
       title: '用 CC-Switch，一鍵設定你的 AI 開發環境',
@@ -42,6 +63,25 @@ export default {
       claudeCodeDescription: '自動設定 Anthropic 相容端點，本機與遠端環境都支援。',
       geminiDescription: '一鍵產生 Gemini CLI 所需設定，無需反覆切換金鑰。',
       ideDescription: '適配 VS Code、Cursor、Windsurf、JetBrains 等編輯器的內建終端與相容 API。'
+    },
+    workflow: {
+      eyebrow: '快速開始',
+      title: '三步開始呼叫',
+      description: '從註冊到在本機或伺服器送出請求，只需完成一次統一設定。',
+      steps: {
+        account: {
+          title: '註冊並建立 API 金鑰',
+          description: '登入控制台，建立一個可供所有相容用戶端重複使用的 API 金鑰。'
+        },
+        configure: {
+          title: '選擇設定方式',
+          description: '使用 CC-Switch 一鍵匯入，或複製終端命令設定本機與遠端伺服器。'
+        },
+        connect: {
+          title: '開始呼叫模型',
+          description: '透過 OpenAI 或 Anthropic 相容介面，直接在 Codex、Claude Code 與 IDE 中使用。'
+        }
+      }
     },
     stats: {
       providers: '模型供應商',
@@ -115,6 +155,7 @@ export default {
     },
     notice: {
       title: '系統公告',
+      open: '開啟系統公告',
       tabNotice: '通知',
       tabSystem: '系統公告',
       important: '（重要）',

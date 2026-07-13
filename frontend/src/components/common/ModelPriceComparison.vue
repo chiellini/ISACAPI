@@ -81,9 +81,7 @@
       <p class="font-medium text-slate-700 dark:text-dark-200">
         {{
           t('home.pricing.formula', {
-            divisor: INTERNAL_TOKEN_PRICE_DIVISOR,
             usd: formatCompactNumber(normalizedUsdPerCny),
-            total: formatCompactNumber(INTERNAL_TOKEN_PRICE_DIVISOR * normalizedUsdPerCny),
           })
         }}
       </p>
@@ -96,11 +94,11 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
-  INTERNAL_TOKEN_PRICE_DIVISOR,
   PUBLIC_MODEL_PRICES,
   PUBLIC_RECHARGE_USD_PER_CNY,
   benchmarkUsdToEffectiveCny,
   formatCompactNumber,
+  normalizeRechargeUsdPerCny,
 } from '@/utils/pricing'
 
 const props = withDefaults(
@@ -116,11 +114,7 @@ const props = withDefaults(
 
 const { t } = useI18n()
 
-const normalizedUsdPerCny = computed(() =>
-  Number.isFinite(props.usdPerCny) && props.usdPerCny > 0
-    ? props.usdPerCny
-    : PUBLIC_RECHARGE_USD_PER_CNY,
-)
+const normalizedUsdPerCny = computed(() => normalizeRechargeUsdPerCny(props.usdPerCny))
 
 function formatUsd(value: number): string {
   return `$${formatCompactNumber(value, 2)}`

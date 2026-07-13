@@ -170,6 +170,74 @@ export default {
       ]
     }
   },
+  pricingPage: {
+    eyebrow: 'ISACAI 模型定价',
+    title: '模型人民币价格，一目了然',
+    description: '所有模型统一按分组倍率 ×1 计算，仅展示人民币每百万 token 的价格；当前充值到账倍率为 1 CNY = {rate} USD。',
+    navHome: '首页',
+    navPricing: '模型定价',
+    searchPlaceholder: '搜索模型名称、厂商或系列…',
+    filters: '筛选',
+    filterDescription: '按模型系列快速筛选。',
+    reset: '重置',
+    providers: '模型系列',
+    allModels: '全部模型',
+    gptModels: 'GPT / OpenAI',
+    claudeModels: 'Claude / Anthropic',
+    visibleModels: '{count} 个模型',
+    priceModeLabel: '价格口径',
+    balanceMode: '人民币价格',
+    cashMode: '人民币价格',
+    unitLabel: '计价单位',
+    perMillionShort: 'RMB / 百万',
+    perThousandShort: 'RMB / 百万',
+    sortLabel: '排序',
+    sortName: '名称',
+    sortInput: '输入价',
+    sortOutput: '输出价',
+    input: '输入',
+    output: '输出',
+    cacheRead: '缓存读取',
+    balanceBadge: '人民币价格',
+    cashBadge: '人民币价格',
+    tokenBilling: '按量计费',
+    groupRate: '分组 ×1',
+    openaiCompatible: 'OpenAI 兼容',
+    copyModel: '复制模型名称',
+    copied: '已复制',
+    noResultsTitle: '没有找到匹配的模型',
+    noResultsDescription: '试试其他关键词，或清除当前模型系列筛选。',
+    clearFilters: '清除筛选',
+    rechargeLabel: '充值到账',
+    rechargeValue: '1 元 = {usd} USD',
+    rechargeHint: '充值到账倍率由后台配置，并同步用于实际到账和人民币价格换算。',
+    valueLabel: '展示单位',
+    valueValue: 'RMB / 百万 token',
+    valueHint: '输入、输出与缓存读取价格均按每百万 token 展示。',
+    billingLabel: '余额计费',
+    billingValue: '分组倍率 ×1',
+    billingHint: '输入、输出与缓存读取均统一按分组倍率 ×1 换算。',
+    formulaTitle: '价格如何换算',
+    formulaBalance: '本页统一按分组倍率 ×1 计算，不按不同分组拆分展示。',
+    formulaCash: '人民币价格 = 模型美元基准价 ÷ {rate}，结果按每百万 token 展示。',
+    formulaValue: '充值到账倍率更新后，页面中的人民币价格会同步重新换算。',
+    disclaimer: '页面展示统一倍率 ×1 下的 token 基础价格；Priority、长上下文、缓存写入、图片及特殊计费规则以实际账单为准。',
+    ctaTitle: '选好模型后，直接用同一个 API Key 开始',
+    ctaDescription: '支持 CC-Switch、终端命令、远程服务器和本地客户端部署。',
+    ctaPrimary: '注册并创建 Key',
+    ctaAuthenticated: '进入控制台',
+    ctaSecondary: '返回首页',
+    modelDescriptions: {
+      sol: 'GPT-5.6 旗舰档，适合高难度推理、编码与复杂代理任务。',
+      terra: 'GPT-5.6 均衡档，在能力、速度与成本之间取得平衡。',
+      luna: 'GPT-5.6 轻量档，适合高频对话与成本敏感型任务。',
+      gpt55: '通用旗舰模型，面向复杂推理、代码和长流程工作。',
+      opus: 'Claude 高能力档，适合复杂分析、代码与长任务。',
+      sonnet: 'Claude 均衡档，适合日常编码、代理和内容处理。',
+      haiku: 'Claude 高速轻量档，适合高吞吐与低延迟场景。'
+    }
+  },
+
   // Home Page
   home: {
     viewOnGithub: '在 GitHub 上查看',
@@ -179,15 +247,36 @@ export default {
     switchToDark: '切换到深色模式',
     dashboard: '控制台',
     login: '登录',
+    register: '注册',
     getStarted: '立即开始',
     goToDashboard: '进入控制台',
     nav: {
-      tagline: '统一 AI API 网关'
+      home: '首页',
+      dashboard: '控制台',
+      tagline: '统一 AI API 网关',
+      pricing: '模型定价',
+      integrations: '工具接入',
+      openMenu: '打开菜单',
+      closeMenu: '关闭菜单'
     },
     heroEyebrow: 'OpenAI 兼容接口 · 多模型统一转发',
+    heroTitle: '一个 API Key',
+    heroAccent: '连接主流 AI 模型',
     // 新增：面向用户的价值主张
     heroSubtitle: '一个密钥，畅用多个 AI 模型',
     heroDescription: '无需管理多个订阅账号，一站式接入 Claude、GPT、Gemini、DeepSeek、通义千问、豆包、Kimi 等主流 AI 服务',
+    supportedAccess: '支持以下部署方式',
+    apiDemo: {
+      request: '请求',
+      response: '响应',
+      routed: '路由成功'
+    },
+    heroStats: {
+      recharge: '人民币充值 : 美元余额',
+      groupRate: '分组倍率',
+      models: '核心模型',
+      deployments: '部署方式'
+    },
     ccSwitch: {
       badge: '推荐接入方式',
       title: '用 CC-Switch，一键配置你的 AI 开发环境',
@@ -229,6 +318,25 @@ export default {
       claudeCodeDescription: '自动配置 Anthropic 兼容端点，本机与远程环境都支持。',
       geminiDescription: '一键生成 Gemini CLI 所需配置，无需反复切换密钥。',
       ideDescription: '适配 VS Code、Cursor、Windsurf、JetBrains 等编辑器的内置终端与兼容 API。'
+    },
+    workflow: {
+      eyebrow: '快速开始',
+      title: '三步开始调用',
+      description: '从注册到在本机或服务器发出请求，只需完成一次统一配置。',
+      steps: {
+        account: {
+          title: '注册并创建 API Key',
+          description: '登录控制台，创建一个可供所有兼容客户端复用的 API Key。'
+        },
+        configure: {
+          title: '选择配置方式',
+          description: '使用 CC-Switch 一键导入，或复制终端命令配置本机和远程服务器。'
+        },
+        connect: {
+          title: '开始调用模型',
+          description: '通过 OpenAI 或 Anthropic 兼容接口，在 Codex、Claude Code 和 IDE 中直接使用。'
+        }
+      }
     },
     tags: {
       subscriptionToApi: '统一 API 接入',
@@ -375,6 +483,7 @@ export default {
     },
     notice: {
       title: '系统公告',
+      open: '打开系统公告',
       tabNotice: '通知',
       tabSystem: '系统公告',
       important: '（重要）',
@@ -388,22 +497,23 @@ export default {
     pricing: {
       eyebrow: '价格说明',
       title: '充值与 token 价格这样计算',
-      description: '官网美元基准价先除以内部系数，再按充值到账倍率换算成人民币实付；输入、输出价格均按每百万 token 展示。',
+      description: '分组倍率为 1 时，余额按官网美元基准价正常扣费；人民币实付再按充值到账倍率换算，输入、输出价格均按每百万 token 展示。',
+      fullPricingAction: '查看完整模型定价',
       rechargeLabel: '充值汇率',
       rechargeValue: '1 元 = {usd} USD',
-      rechargeHint: '充值金额会按该倍率转入余额，实际到账可在支付确认页预览。',
-      tokenLabel: 'Token 内部价',
-      tokenValue: '原始定价 ÷ {divisor}',
-      tokenHint: '人民币实付还需再除以充值到账倍率；当前 1 元到账 6 USD，因此基准价合计除以 252。',
+      rechargeHint: '充值到账倍率由管理员配置，保存后同步用于实际到账、首页、充值页和模型价格页。',
+      tokenLabel: '余额计费倍率',
+      tokenValue: '分组倍率 × 1',
+      tokenHint: '余额按模型官网美元基准价扣除；人民币实付 = 美元余额价 ÷ 充值到账倍率。',
       comparisonTitle: '主流模型输入 / 输出价格对比',
-      comparisonDescription: '美元列为官网基准价；人民币列为本平台按内部系数与充值倍率折算后的等效实付。',
+      comparisonDescription: '人民币价格统一按分组倍率 ×1 和当前充值到账倍率折算，均按每百万 token 展示。',
       effectiveRateBadge: '按 1 元 = {usd} USD',
       modelHeader: '模型',
       benchmarkInputHeader: '基准输入 USD / 百万',
       benchmarkOutputHeader: '基准输出 USD / 百万',
       effectiveInputHeader: '实付输入 RMB / 百万',
       effectiveOutputHeader: '实付输出 RMB / 百万',
-      formula: '换算公式：官网基准 USD ÷ {divisor} ÷ {usd} = 基准价 ÷ {total} 人民币。',
+      formula: '换算公式：分组倍率 1 时，官网基准 USD ÷ {usd} = 人民币实付。',
       disclaimer: '表格仅展示 token 基础价格；缓存、图片、分组倍率、峰值倍率及特殊渠道规则以实际账单为准。'
     },
     // CTA 区块

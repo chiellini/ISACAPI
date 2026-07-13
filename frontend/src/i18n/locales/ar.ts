@@ -246,15 +246,36 @@ export default {
     switchToDark: 'التبديل إلى الوضع الداكن',
     dashboard: 'لوحة التحكم',
     login: 'تسجيل الدخول',
+    register: 'إنشاء حساب',
     getStarted: 'ابدأ الآن',
     goToDashboard: 'الانتقال إلى لوحة التحكم',
     nav: {
-      tagline: 'بوابة API موحدة للذكاء الاصطناعي'
+      home: 'الرئيسية',
+      dashboard: 'لوحة التحكم',
+      tagline: 'بوابة API موحدة للذكاء الاصطناعي',
+      pricing: 'أسعار النماذج',
+      integrations: 'التكاملات',
+      openMenu: 'فتح القائمة',
+      closeMenu: 'إغلاق القائمة'
     },
     heroEyebrow: 'متوافق مع OpenAI · توجيه موحد لعدة نماذج',
+    heroTitle: 'مفتاح API واحد للاتصال بـ',
+    heroAccent: 'أبرز نماذج الذكاء الاصطناعي',
     heroSubtitle: 'مفتاح واحد لكل نماذج الذكاء الاصطناعي',
     heroDescription:
       'استخدم Claude و GPT و Gemini و DeepSeek و Qwen و Doubao و Kimi وغيرها عبر مفتاح API موحد واحد.',
+    supportedAccess: 'طرق النشر المدعومة',
+    apiDemo: {
+      request: 'الطلب',
+      response: 'الاستجابة',
+      routed: 'تم التوجيه بنجاح'
+    },
+    heroStats: {
+      recharge: 'اليوان المدفوع : رصيد الدولار',
+      groupRate: 'معامل المجموعة',
+      models: 'النماذج الأساسية',
+      deployments: 'طرق النشر'
+    },
     ccSwitch: {
       badge: 'طريقة الإعداد الموصى بها',
       title: 'اضبط بيئة تطوير الذكاء الاصطناعي بنقرة واحدة عبر CC-Switch',
@@ -277,6 +298,25 @@ export default {
       claudeCodeDescription: 'إعداد نقطة النهاية المتوافقة مع Anthropic للبيئات المحلية والبعيدة.',
       geminiDescription: 'إنشاء إعداد Gemini CLI بنقرة واحدة دون التنقل بين المفاتيح.',
       ideDescription: 'يعمل عبر واجهات API المتوافقة والطرفيات المدمجة في VS Code و Cursor و Windsurf و JetBrains.'
+    },
+    workflow: {
+      eyebrow: 'بدء سريع',
+      title: 'ابدأ استدعاء النماذج في ثلاث خطوات',
+      description: 'انتقل من التسجيل إلى أول طلب محلي أو على الخادم من خلال إعداد موحد واحد.',
+      steps: {
+        account: {
+          title: 'سجّل وأنشئ مفتاح API',
+          description: 'افتح لوحة التحكم وأنشئ مفتاح API واحدا لإعادة استخدامه عبر جميع العملاء المتوافقين.'
+        },
+        configure: {
+          title: 'اختر طريقة الإعداد',
+          description: 'استورد الإعداد عبر CC-Switch أو انسخ أمر طرفية لجهازك المحلي أو خادمك البعيد.'
+        },
+        connect: {
+          title: 'ابدأ استدعاء النماذج',
+          description: 'استخدم نقطة النهاية المتوافقة مع OpenAI أو Anthropic مباشرة من Codex أو Claude Code أو بيئة التطوير.'
+        }
+      }
     },
     stats: {
       providers: 'مزودو النماذج',
@@ -350,6 +390,7 @@ export default {
     },
     notice: {
       title: 'إعلان النظام',
+      open: 'فتح إعلان النظام',
       tabNotice: 'إشعار',
       tabSystem: 'النظام',
       important: '(مهم)',
