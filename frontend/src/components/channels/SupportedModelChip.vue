@@ -79,6 +79,7 @@
                 :unit="t(prefixKey('unitPerMillion'))"
                 :scale="perMillionScale"
                 internal-token-rate
+                show-cny-equivalent
               />
               <PricingRow
                 :label="t(prefixKey('outputPrice'))"
@@ -86,6 +87,7 @@
                 :unit="t(prefixKey('unitPerMillion'))"
                 :scale="perMillionScale"
                 internal-token-rate
+                show-cny-equivalent
               />
               <PricingRow
                 :label="t(prefixKey('cacheWritePrice'))"
@@ -93,6 +95,7 @@
                 :unit="t(prefixKey('unitPerMillion'))"
                 :scale="perMillionScale"
                 internal-token-rate
+                show-cny-equivalent
               />
               <PricingRow
                 :label="t(prefixKey('cacheReadPrice'))"
@@ -100,6 +103,7 @@
                 :unit="t(prefixKey('unitPerMillion'))"
                 :scale="perMillionScale"
                 internal-token-rate
+                show-cny-equivalent
               />
               <PricingRow
                 v-if="model.pricing.image_output_price != null && model.pricing.image_output_price > 0"
@@ -108,6 +112,7 @@
                 :unit="t(prefixKey('unitPerMillion'))"
                 :scale="perMillionScale"
                 internal-token-rate
+                show-cny-equivalent
               />
             </template>
 

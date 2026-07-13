@@ -150,15 +150,22 @@
               <Icon name="arrowRight" size="sm" />
             </router-link>
 
-            <div class="mt-8 flex flex-wrap justify-center gap-2 lg:justify-start">
-              <span
-                v-for="client in integrationClients"
-                :key="client.name"
-                class="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-slate-200"
+            <div class="mt-8 grid grid-cols-2 gap-2.5">
+              <div
+                v-for="mode in deploymentModes"
+                :key="mode.titleKey"
+                class="flex items-center gap-2.5 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-left"
               >
-                <Icon name="check" size="xs" class="text-emerald-300" />
-                {{ client.name }}
-              </span>
+                <span :class="['flex h-8 w-8 shrink-0 items-center justify-center rounded-lg', mode.iconClass]">
+                  <Icon :name="mode.icon" size="sm" />
+                </span>
+                <span class="min-w-0">
+                  <span class="block truncate text-xs font-bold text-white">{{ t(mode.titleKey) }}</span>
+                  <span class="mt-0.5 block truncate text-[10px] text-slate-400 sm:text-[11px]">
+                    {{ t(mode.descriptionKey) }}
+                  </span>
+                </span>
+              </div>
             </div>
           </div>
 
@@ -302,6 +309,7 @@
               </div>
             </div>
           </div>
+          <ModelPriceComparison class="mt-8" />
         </div>
       </section>
 
@@ -459,6 +467,7 @@ import { useI18n } from 'vue-i18n'
 import { useAuthStore, useAppStore } from '@/stores'
 import LocaleSwitcher from '@/components/common/LocaleSwitcher.vue'
 import ModelIcon from '@/components/common/ModelIcon.vue'
+import ModelPriceComparison from '@/components/common/ModelPriceComparison.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { FeatureFlags, isFeatureFlagEnabled } from '@/utils/featureFlags'
 import { CC_SWITCH_DOWNLOAD_LINKS } from '@/utils/ccswitchImport'
@@ -532,6 +541,33 @@ const integrationClients = [
     cardClass: 'bg-violet-50 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300',
     descriptionKey: 'home.integrations.ideDescription'
   }
+] as const
+
+const deploymentModes = [
+  {
+    titleKey: 'home.deployment.ccSwitch.title',
+    descriptionKey: 'home.deployment.ccSwitch.description',
+    icon: 'bolt',
+    iconClass: 'bg-sky-400/15 text-sky-300',
+  },
+  {
+    titleKey: 'home.deployment.terminal.title',
+    descriptionKey: 'home.deployment.terminal.description',
+    icon: 'terminal',
+    iconClass: 'bg-violet-400/15 text-violet-300',
+  },
+  {
+    titleKey: 'home.deployment.server.title',
+    descriptionKey: 'home.deployment.server.description',
+    icon: 'server',
+    iconClass: 'bg-amber-400/15 text-amber-300',
+  },
+  {
+    titleKey: 'home.deployment.client.title',
+    descriptionKey: 'home.deployment.client.description',
+    icon: 'monitor',
+    iconClass: 'bg-emerald-400/15 text-emerald-300',
+  },
 ] as const
 
 const providerLogos = [

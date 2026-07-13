@@ -61,7 +61,7 @@ export default {
   // Recharge / Subscription Page
   purchase: {
     title: '充值/订阅',
-    description: '通过内嵌页面完成充值/订阅',
+    description: '1 元到账 6 USD，并可查看各模型每百万 token 输入/输出实付价格',
     openInNewTab: '新窗口打开',
     notEnabledTitle: '该功能未开启',
     notEnabledDesc: '管理员暂未开启充值/订阅入口，请联系管理员。',
@@ -408,7 +408,7 @@ export default {
     amountNoMethod: '该金额没有可用的支付方式',
     rechargePricingTitle: '充值与内部计价说明',
     rechargePricingRate: '当前充值：1 元到账 {usd} USD 余额，到账余额 = 充值金额 × {usd}。',
-    rechargePricingTokenFormula: 'Token 价格按原始定价 ÷ {divisor} 折算展示，使用 USD 计费。',
+    rechargePricingTokenFormula: 'Token 内部价 = 官网基准价 ÷ {divisor}；人民币实付还需再除以当前充值到账倍率。',
     rechargeRatePreview: '充值 1 元到账 {usd} USD 余额，本次到账 = 支付金额 × {usd}',
     refundReason: '退款原因',
     refundReasonPlaceholder: '请描述您的退款原因',

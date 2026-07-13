@@ -419,8 +419,19 @@ func TestGetModelPricing_OpenAICompactAliasUsesStaticFallback(t *testing.T) {
 
 	got := svc.GetModelPricing("openai/gpt5.5")
 	require.NotNil(t, got)
-	require.InDelta(t, 2.5e-6, got.InputCostPerToken, 1e-12)
-	require.InDelta(t, 1.5e-5, got.OutputCostPerToken, 1e-12)
+	require.InDelta(t, 5e-6, got.InputCostPerToken, 1e-12)
+	require.InDelta(t, 3e-5, got.OutputCostPerToken, 1e-12)
+	require.InDelta(t, 0.5e-6, got.CacheReadInputTokenCost, 1e-12)
+}
+
+func TestGetModelPricing_GPT55ProUsesOwnStaticFallback(t *testing.T) {
+	svc := &PricingService{pricingData: map[string]*LiteLLMModelPricing{}}
+
+	got := svc.GetModelPricing("gpt-5.5-pro")
+	require.NotNil(t, got)
+	require.InDelta(t, 30e-6, got.InputCostPerToken, 1e-12)
+	require.InDelta(t, 180e-6, got.OutputCostPerToken, 1e-12)
+	require.InDelta(t, 3e-6, got.CacheReadInputTokenCost, 1e-12)
 }
 
 func TestDefaultPricingIncludesCodexAutoReview(t *testing.T) {

@@ -202,6 +202,25 @@ export default {
       remoteSetup: 'Ready-made command for Remote SSH',
       noManual: 'No manual editing of keys, endpoints, or environment variables'
     },
+    authPitch: 'Sign in or register to deploy the same API configuration through CC-Switch, terminal commands, remote servers, and local clients.',
+    deployment: {
+      ccSwitch: {
+        title: 'CC-Switch',
+        description: 'One-click desktop import'
+      },
+      terminal: {
+        title: 'Terminal',
+        description: 'Ready-made CLI command'
+      },
+      server: {
+        title: 'Server',
+        description: 'Remote SSH setup'
+      },
+      client: {
+        title: 'Client',
+        description: 'Codex / Claude Code'
+      }
+    },
     integrations: {
       eyebrow: 'Developer tool integrations',
       title: 'One connection for Codex, Claude Code, and popular IDE workflows',
@@ -369,13 +388,23 @@ export default {
     pricing: {
       eyebrow: 'Pricing',
       title: 'How top-ups and token prices are calculated',
-      description: 'Account balance is shown in USD credits. Top-ups use the internal credit rate, and model token prices are displayed after converting original prices.',
+      description: 'Benchmark USD prices are divided by the internal rate, then converted to effective CNY using the credited top-up rate. Input and output are shown per million tokens.',
       rechargeLabel: 'Top-up rate',
       rechargeValue: '1 CNY = {usd} USD',
       rechargeHint: 'Your payment amount is credited with this multiplier, and the checkout page previews the credited balance.',
       tokenLabel: 'Internal token price',
       tokenValue: 'Original price ÷ {divisor}',
-      tokenHint: 'Token prices in Available Channels already use this formula and are billed in USD, matching the balance deduction view.'
+      tokenHint: 'Effective CNY is divided by the credited top-up rate once more. At 1 CNY = 6 USD, the benchmark price is divided by 252 in total.',
+      comparisonTitle: 'Model input / output price comparison',
+      comparisonDescription: 'USD columns show benchmark prices; CNY columns show the effective amount paid after the internal and top-up rates.',
+      effectiveRateBadge: 'At 1 CNY = {usd} USD',
+      modelHeader: 'Model',
+      benchmarkInputHeader: 'Benchmark input USD / 1M',
+      benchmarkOutputHeader: 'Benchmark output USD / 1M',
+      effectiveInputHeader: 'Effective input CNY / 1M',
+      effectiveOutputHeader: 'Effective output CNY / 1M',
+      formula: 'Formula: benchmark USD ÷ {divisor} ÷ {usd} = benchmark price ÷ {total} in CNY.',
+      disclaimer: 'Token base prices only. Cache, image, group, peak-time, and channel-specific multipliers follow the final bill.'
     },
     // CTA section
     cta: {

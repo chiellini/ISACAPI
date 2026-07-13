@@ -202,6 +202,25 @@ export default {
       remoteSetup: '远程 SSH 一键命令',
       noManual: '无需手动编辑密钥、端点或环境变量'
     },
+    authPitch: '登录或注册后，即可通过 CC-Switch、终端命令、远程服务器和本地客户端部署同一套 API 配置。',
+    deployment: {
+      ccSwitch: {
+        title: 'CC-Switch',
+        description: '桌面端一键导入'
+      },
+      terminal: {
+        title: '终端部署',
+        description: 'CLI 一键命令'
+      },
+      server: {
+        title: '服务器部署',
+        description: '远程 SSH 配置'
+      },
+      client: {
+        title: '客户端部署',
+        description: 'Codex / Claude Code'
+      }
+    },
     integrations: {
       eyebrow: '开发工具接入',
       title: 'Codex、Claude Code 与主流 IDE 工作流，统一接入',
@@ -369,13 +388,23 @@ export default {
     pricing: {
       eyebrow: '价格说明',
       title: '充值与 token 价格这样计算',
-      description: '账户余额使用 USD 额度展示，充值时按固定内部汇率入账；模型 token 单价按原始定价折算后展示。',
+      description: '官网美元基准价先除以内部系数，再按充值到账倍率换算成人民币实付；输入、输出价格均按每百万 token 展示。',
       rechargeLabel: '充值汇率',
       rechargeValue: '1 元 = {usd} USD',
       rechargeHint: '充值金额会按该倍率转入余额，实际到账可在支付确认页预览。',
       tokenLabel: 'Token 内部价',
       tokenValue: '原始定价 ÷ {divisor}',
-      tokenHint: '可用渠道里的 token 价格已按该公式换算，并按 USD 计费，便于和余额扣费口径一致。'
+      tokenHint: '人民币实付还需再除以充值到账倍率；当前 1 元到账 6 USD，因此基准价合计除以 252。',
+      comparisonTitle: '主流模型输入 / 输出价格对比',
+      comparisonDescription: '美元列为官网基准价；人民币列为本平台按内部系数与充值倍率折算后的等效实付。',
+      effectiveRateBadge: '按 1 元 = {usd} USD',
+      modelHeader: '模型',
+      benchmarkInputHeader: '基准输入 USD / 百万',
+      benchmarkOutputHeader: '基准输出 USD / 百万',
+      effectiveInputHeader: '实付输入 RMB / 百万',
+      effectiveOutputHeader: '实付输出 RMB / 百万',
+      formula: '换算公式：官网基准 USD ÷ {divisor} ÷ {usd} = 基准价 ÷ {total} 人民币。',
+      disclaimer: '表格仅展示 token 基础价格；缓存、图片、分组倍率、峰值倍率及特殊渠道规则以实际账单为准。'
     },
     // CTA 区块
     cta: {

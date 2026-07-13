@@ -62,7 +62,7 @@ export default {
   // Recharge / Subscription Page
   purchase: {
     title: 'Recharge / Subscription',
-    description: 'Recharge balance or purchase subscription via the embedded page',
+    description: '1 CNY credits 6 USD, with per-million input/output prices for each model',
     openInNewTab: 'Open in new tab',
     notEnabledTitle: 'Feature not enabled',
     notEnabledDesc: 'The administrator has not enabled the recharge/subscription entry. Please contact admin.',
@@ -384,7 +384,7 @@ export default {
     amountNoMethod: 'No payment method available for this amount',
     rechargePricingTitle: 'Top-up and internal pricing',
     rechargePricingRate: 'Current top-up: 1 CNY credits {usd} USD balance. Credited balance = payment amount × {usd}.',
-    rechargePricingTokenFormula: 'Token prices are displayed as original price ÷ {divisor}, billed in USD.',
+    rechargePricingTokenFormula: 'Internal token price = benchmark price ÷ {divisor}; effective CNY is divided by the current credited top-up rate once more.',
     rechargeRatePreview: '1 CNY credits {usd} USD balance. This credit = payment amount × {usd}',
     refundReason: 'Refund Reason',
     refundReasonPlaceholder: 'Please describe your refund reason',
