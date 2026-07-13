@@ -181,13 +181,72 @@ export default {
     login: 'Login',
     getStarted: 'Get Started',
     goToDashboard: 'Go to Dashboard',
+    nav: {
+      tagline: 'Unified AI API Gateway'
+    },
+    heroEyebrow: 'OpenAI-compatible · Multi-model routing',
     // User-focused value proposition
     heroSubtitle: 'One Key, All AI Models',
-    heroDescription: 'No need to manage multiple subscriptions. Access Claude, GPT, Gemini and more with a single API key',
+    heroDescription: 'Access Claude, GPT, Gemini, DeepSeek, Qwen, Doubao, Kimi and more through one unified API key.',
+    ccSwitch: {
+      badge: 'Recommended setup',
+      title: 'Configure your AI development environment in one click with CC-Switch',
+      description: 'Choose one API key to configure Codex, Claude Code, Gemini CLI, and OpenCode in one click, then connect through popular IDE terminals or Remote SSH.',
+      primaryAction: 'Configure in One Click',
+      downloadAction: 'Download CC-Switch',
+      guideAction: 'View the local and remote setup guide',
+      panelTitle: 'One setup hub for the AI development tools you use',
+      oneClick: 'One-click setup',
+      ready: 'Ready',
+      localSetup: 'Import local client settings automatically',
+      remoteSetup: 'Ready-made command for Remote SSH',
+      noManual: 'No manual editing of keys, endpoints, or environment variables'
+    },
+    authPitch: 'Sign in or register to deploy the same API configuration through CC-Switch, terminal commands, remote servers, and local clients.',
+    deployment: {
+      ccSwitch: {
+        title: 'CC-Switch',
+        description: 'One-click desktop import'
+      },
+      terminal: {
+        title: 'Terminal',
+        description: 'Ready-made CLI command'
+      },
+      server: {
+        title: 'Server',
+        description: 'Remote SSH setup'
+      },
+      client: {
+        title: 'Client',
+        description: 'Codex / Claude Code'
+      }
+    },
+    integrations: {
+      eyebrow: 'Developer tool integrations',
+      title: 'One connection for Codex, Claude Code, and popular IDE workflows',
+      description: 'Use the same API key across CLIs, editor terminals, and remote development environments.',
+      codexDescription: 'Automatically write the OpenAI-compatible endpoint and model configuration.',
+      claudeCodeDescription: 'Configure the Anthropic-compatible endpoint for local and remote environments.',
+      geminiDescription: 'Generate the Gemini CLI configuration in one click without juggling keys.',
+      ideDescription: 'Works through compatible APIs and the integrated terminals in VS Code, Cursor, Windsurf, and JetBrains.'
+    },
     tags: {
-      subscriptionToApi: 'Subscription to API',
+      subscriptionToApi: 'Unified API Access',
       stickySession: 'Session Persistence',
       realtimeBilling: 'Pay As You Go'
+    },
+    stats: {
+      providers: 'Providers',
+      languages: 'Languages',
+      compatible: 'Protocol'
+    },
+    apiCard: {
+      protocol: 'OpenAI Compatible',
+      title: 'Connect to one unified API',
+      subtitle: 'Copy the endpoint and keep using your existing OpenAI SDK.',
+      endpoint: 'Endpoint',
+      copy: 'Copy',
+      copied: 'Copied'
     },
     // Pain points section
     painPoints: {
@@ -261,25 +320,91 @@ export default {
       }
     },
     providers: {
-      title: 'Supported AI Models',
-      description: 'One API, Multiple Choices',
+      title: 'Curated Core Models',
+      description: 'Six widely used model families, one API key, and a much clearer choice.',
       supported: 'Supported',
       soon: 'Soon',
       claude: 'Claude',
       gemini: 'Gemini',
       antigravity: 'Antigravity',
-      more: 'More'
+      more: 'More',
+      items: {
+        openai: 'GPT',
+        claude: 'Claude',
+        gemini: 'Gemini',
+        xai: 'Grok',
+        meta: 'Meta',
+        mistral: 'Mistral',
+        cohere: 'Cohere',
+        midjourney: 'Midjourney',
+        perplexity: 'Perplexity',
+        openrouter: 'OpenRouter',
+        deepseek: 'DeepSeek',
+        qwen: 'Qwen',
+        doubao: 'Doubao',
+        zhipu: 'GLM',
+        moonshot: 'Kimi / Moonshot',
+        baidu: 'ERNIE',
+        tencent: 'Tencent Hunyuan',
+        iflytek: 'iFlytek Spark',
+        minimax: 'MiniMax',
+        ai360: '360 AI'
+      }
+    },
+    domestic: {
+      title: 'Chinese vendors and domestic models are included',
+      description: 'Highlights DeepSeek, Qwen, Doubao, Kimi, Zhipu, ERNIE, Hunyuan, Spark and more.'
+    },
+    highlights: {
+      gateway: {
+        title: 'Unified Gateway',
+        desc: 'OpenAI-compatible requests are routed to multiple upstream model providers.'
+      },
+      providers: {
+        title: 'Multi-provider',
+        desc: 'Inspired by new-api style multi-channel management for global and Chinese providers.'
+      },
+      billing: {
+        title: 'Quota Control',
+        desc: 'Track usage and cost by API key, group, and model pricing multiplier.'
+      },
+      languages: {
+        title: 'Multilingual',
+        desc: 'Simplified Chinese, Traditional Chinese, Japanese, Arabic, with English fallback.'
+      }
+    },
+    notice: {
+      title: 'System Notice',
+      tabNotice: 'Notice',
+      tabSystem: 'System',
+      important: '(Important)',
+      qqGroupLabel: 'QQ group: ',
+      qqGroupSuffix: '. Join the group to contact the site admin.',
+      trust: 'Use the official ISACAI site and current API entry to avoid unknown links.',
+      status: 'Current service entry: ',
+      closeToday: 'Close today',
+      close: 'Close notice'
     },
     pricing: {
       eyebrow: 'Pricing',
       title: 'How top-ups and token prices are calculated',
-      description: 'Account balance is shown in USD credits. Top-ups use the internal credit rate, and model token prices are displayed after converting original prices.',
+      description: 'Benchmark USD prices are divided by the internal rate, then converted to effective CNY using the credited top-up rate. Input and output are shown per million tokens.',
       rechargeLabel: 'Top-up rate',
       rechargeValue: '1 CNY = {usd} USD',
       rechargeHint: 'Your payment amount is credited with this multiplier, and the checkout page previews the credited balance.',
       tokenLabel: 'Internal token price',
       tokenValue: 'Original price ÷ {divisor}',
-      tokenHint: 'Token prices in Available Channels already use this formula and are billed in USD, matching the balance deduction view.'
+      tokenHint: 'Effective CNY is divided by the credited top-up rate once more. At 1 CNY = 6 USD, the benchmark price is divided by 252 in total.',
+      comparisonTitle: 'Model input / output price comparison',
+      comparisonDescription: 'USD columns show benchmark prices; CNY columns show the effective amount paid after the internal and top-up rates.',
+      effectiveRateBadge: 'At 1 CNY = {usd} USD',
+      modelHeader: 'Model',
+      benchmarkInputHeader: 'Benchmark input USD / 1M',
+      benchmarkOutputHeader: 'Benchmark output USD / 1M',
+      effectiveInputHeader: 'Effective input CNY / 1M',
+      effectiveOutputHeader: 'Effective output CNY / 1M',
+      formula: 'Formula: benchmark USD ÷ {divisor} ÷ {usd} = benchmark price ÷ {total} in CNY.',
+      disclaimer: 'Token base prices only. Cache, image, group, peak-time, and channel-specific multipliers follow the final bill.'
     },
     // CTA section
     cta: {

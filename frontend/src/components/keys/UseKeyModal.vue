@@ -655,6 +655,9 @@ GEMINI_MODEL=gemini-2.0-flash`
         case 'openai':
           cfg = generateOpenCodeConfig('openai', apiBase, apiKey)
           break
+        case 'grok':
+          cfg = generateOpenCodeConfig('grok', apiBase, apiKey)
+          break
         default:
           cfg = generateOpenCodeConfig('anthropic', apiBase, apiKey)
           break
@@ -703,6 +706,12 @@ function buildOneClickEnvVars(): OneClickEnvVars {
             GEMINI_MODEL: 'gemini-2.0-flash'
           }
         case 'openai':
+          return {
+            OPENAI_API_KEY: apiKey,
+            OPENAI_BASE_URL: apiBase,
+            OPENAI_API_BASE: apiBase
+          }
+        case 'grok':
           return {
             OPENAI_API_KEY: apiKey,
             OPENAI_BASE_URL: apiBase,
@@ -1106,6 +1115,10 @@ function generateCodexFiles(baseUrl: string, apiKey: string, ws: boolean): FileC
   ]
 }
 
+function generateOpenAIFiles(baseUrl: string, apiKey: string): FileConfig[] {
+  return generateCodexFiles(baseUrl, apiKey, false)
+}
+
 function generateGrokFiles(baseUrl: string, apiKey: string): FileConfig[] {
   const isWindows = activeTab.value === 'windows'
   const configDir = isWindows ? '%userprofile%\\.grok' : '~/.grok'
@@ -1128,10 +1141,6 @@ supports_backend_search = true`
     content: configContent,
     hint: t('keys.useKeyModal.grok.configTomlHint')
   }]
-}
-
-function generateOpenAIFiles(baseUrl: string, apiKey: string): FileConfig[] {
-  return generateCodexFiles(baseUrl, apiKey, false)
 }
 
 function generateOpenAIWsFiles(baseUrl: string, apiKey: string): FileConfig[] {

@@ -290,7 +290,7 @@ const siteName = computed(() => appStore.siteName)
 const siteLogo = computed(() => sanitizeUrl(appStore.siteLogo || '', { allowRelative: true, allowDataUrl: true }))
 const siteVersion = computed(() => appStore.siteVersion)
 const settingsLoaded = computed(() => appStore.publicSettingsLoaded)
-const companyIconUrl = '/company-icon.jpeg'
+const companyIconUrl = '/logo.png'
 
 // SVG Icon Components
 const DashboardIcon = {

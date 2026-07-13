@@ -111,9 +111,18 @@ type ModelPricing struct {
 }
 
 const (
-	openAIGPT54LongContextInputThreshold   = 272000
-	openAIGPT54LongContextInputMultiplier  = 2.0
-	openAIGPT54LongContextOutputMultiplier = 1.5
+	openAIGPT54LongContextInputThreshold      = 272000
+	openAIGPT54LongContextInputMultiplier     = 2.0
+	openAIGPT54LongContextOutputMultiplier    = 1.5
+	openAIGPT55InputPricePerToken             = 5e-6
+	openAIGPT55InputPricePerTokenPriority     = 10e-6
+	openAIGPT55OutputPricePerToken            = 30e-6
+	openAIGPT55OutputPricePerTokenPriority    = 60e-6
+	openAIGPT55CacheReadPricePerToken         = 0.5e-6
+	openAIGPT55CacheReadPricePerTokenPriority = 1e-6
+	openAIGPT55ProInputPricePerToken          = 30e-6
+	openAIGPT55ProOutputPricePerToken         = 180e-6
+	openAIGPT55ProCacheReadPricePerToken      = 3e-6
 )
 
 func normalizeBillingServiceTier(serviceTier string) string {
@@ -279,9 +288,35 @@ func (s *BillingService) initFallbackPricing() {
 		LongContextInputMultiplier:     openAIGPT54LongContextInputMultiplier,
 		LongContextOutputMultiplier:    openAIGPT54LongContextOutputMultiplier,
 	}
-	// GPT-5.5 / GPT-5.5 Pro 暂无独立定价，回退到 GPT-5.4。
-	s.fallbackPrices["gpt-5.5"] = s.fallbackPrices["gpt-5.4"]
-	s.fallbackPrices["gpt-5.5-pro"] = s.fallbackPrices["gpt-5.4"]
+	// OpenAI GPT-5.5 与 GPT-5.5 Pro 使用各自的静态降级价格。
+	s.fallbackPrices["gpt-5.5"] = &ModelPricing{
+		InputPricePerToken:                 openAIGPT55InputPricePerToken,
+		InputPricePerTokenPriority:         openAIGPT55InputPricePerTokenPriority,
+		OutputPricePerToken:                openAIGPT55OutputPricePerToken,
+		OutputPricePerTokenPriority:        openAIGPT55OutputPricePerTokenPriority,
+		CacheCreationPricePerToken:         openAIGPT55InputPricePerToken,
+		CacheCreationPricePerTokenPriority: openAIGPT55InputPricePerTokenPriority,
+		CacheReadPricePerToken:             openAIGPT55CacheReadPricePerToken,
+		CacheReadPricePerTokenPriority:     openAIGPT55CacheReadPricePerTokenPriority,
+		SupportsCacheBreakdown:             false,
+		LongContextInputThreshold:          openAIGPT54LongContextInputThreshold,
+		LongContextInputMultiplier:         openAIGPT54LongContextInputMultiplier,
+		LongContextOutputMultiplier:        openAIGPT54LongContextOutputMultiplier,
+	}
+	s.fallbackPrices["gpt-5.5-pro"] = &ModelPricing{
+		InputPricePerToken:                 openAIGPT55ProInputPricePerToken,
+		InputPricePerTokenPriority:         openAIGPT55ProInputPricePerToken,
+		OutputPricePerToken:                openAIGPT55ProOutputPricePerToken,
+		OutputPricePerTokenPriority:        openAIGPT55ProOutputPricePerToken,
+		CacheCreationPricePerToken:         openAIGPT55ProInputPricePerToken,
+		CacheCreationPricePerTokenPriority: openAIGPT55ProInputPricePerToken,
+		CacheReadPricePerToken:             openAIGPT55ProCacheReadPricePerToken,
+		CacheReadPricePerTokenPriority:     openAIGPT55ProCacheReadPricePerToken,
+		SupportsCacheBreakdown:             false,
+		LongContextInputThreshold:          openAIGPT54LongContextInputThreshold,
+		LongContextInputMultiplier:         openAIGPT54LongContextInputMultiplier,
+		LongContextOutputMultiplier:        openAIGPT54LongContextOutputMultiplier,
+	}
 
 	// OpenAI GPT-5.6 官方价格（USD/token）。缓存写入为输入价的 1.25 倍。
 	s.fallbackPrices["gpt-5.6-sol"] = &ModelPricing{

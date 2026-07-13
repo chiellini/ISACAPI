@@ -136,16 +136,17 @@ export default {
       noGroupTitle: 'Please assign a group first',
       noGroupDescription: 'This API key has not been assigned to a group. Please click the group column in the key list to assign one before viewing the configuration.',
       oneClick: {
-        title: 'One-click setup command',
+        title: 'One-click install (recommended)',
         hint:
-          'Copy the command below into your terminal and press Enter. It writes client config files, shell startup variables, and VS Code terminal environment settings.',
-        pasteWarning: 'Only run setup commands from sites you trust. This command contains your API key.',
-        copy: 'Copy',
+          'Copy the command below into your terminal and press Enter. It writes the client configuration, shell startup files, and VS Code terminal environment settings for you.',
+        pasteWarning:
+          'This command contains your API key. Only run it from a site you trust, run it in your terminal, and never paste it into an API key or token field.',
+        copy: 'Copy command',
         copied: 'Copied',
         runHint:
-          'Restart your client (Claude Code / Codex / Gemini CLI / OpenCode) and VS Code terminal afterward so the settings take effect.',
-        manualLabel: 'Manual setup',
-        scriptComment: 'ISACAPI one-click client setup'
+          'Restart your client (Claude Code / Codex / Gemini CLI / OpenCode) and VS Code terminals afterward so the settings take effect.',
+        manualLabel: 'Or configure manually:',
+        scriptComment: 'Run this in your terminal. Do NOT paste it into an API key or token field.'
       },
       openai: {
         description: 'Add the following configuration files to your Codex CLI config directory.',
@@ -211,9 +212,9 @@ export default {
       geminiCliDesc: 'Import as Gemini CLI configuration',
     },
     ccsFallback: {
-      title: 'Open CC-Switch',
+      title: 'CC-Switch not detected',
       description:
-        'CC-Switch did not open automatically. Install it, retry the import, or copy the key and configure it manually.',
+        'CC-Switch did not open automatically. It may not be installed or its protocol handler may not be registered. Install it and retry, copy the key, or open the one-click setup command.',
       macosHint:
         'macOS: after installing the DMG, open CC-Switch manually once. If Gatekeeper blocks it, allow it in System Settings, then return and retry.',
       downloadTitle: 'Download CC-Switch',
@@ -225,9 +226,9 @@ export default {
       retryOpen: 'Open again',
       retryOpenDesc: 'Retry the ccswitch:// import',
       copyKey: 'Copy key',
-      copyKeyDesc: 'Paste it into CC-Switch or your client config',
-      useKey: 'Use key',
-      useKeyDesc: 'Open manual terminal setup commands',
+      copyKeyDesc: 'Copy the API key for CC-Switch or manual client setup',
+      useKey: 'Install command',
+      useKeyDesc: 'Open the one-click setup command and manual options',
       guide: 'Full guide',
       guideDesc: 'Local CC-Switch and Remote SSH setup'
     },

@@ -37,6 +37,7 @@
               <p class="mt-1 text-base font-semibold text-gray-900 dark:text-white">{{ user?.username || '' }}</p>
               <p class="mt-0.5 text-sm font-medium text-green-600 dark:text-green-400">{{ t('payment.currentBalance') }}: {{ user?.balance?.toFixed(2) || '0.00' }}</p>
             </div>
+            <ModelPriceComparison :usd-per-cny="balanceRechargeMultiplier" compact />
             <div v-if="enabledMethods.length === 0" class="card py-16 text-center">
               <p class="text-gray-500 dark:text-gray-400">{{ t('payment.notAvailable') }}</p>
             </div>
@@ -278,6 +279,7 @@ import { isMobileDevice } from '@/utils/device'
 import { hasPeakRate, formatPeakRateWindow, serverTimezoneLabel, type PeakRateFields } from '@/utils/peak-rate'
 import type { SubscriptionPlan, CheckoutInfoResponse, CreateOrderResult, OrderType } from '@/types/payment'
 import AppLayout from '@/components/layout/AppLayout.vue'
+import ModelPriceComparison from '@/components/common/ModelPriceComparison.vue'
 import AmountInput from '@/components/payment/AmountInput.vue'
 import PaymentMethodSelector from '@/components/payment/PaymentMethodSelector.vue'
 import { METHOD_ORDER, getPaymentPopupFeatures, isBuiltInAlipayMethod, isBuiltInWxpayMethod } from '@/components/payment/providerConfig'
@@ -300,7 +302,11 @@ import { DEFAULT_PAYMENT_CURRENCY, formatPaymentAmount, normalizePaymentCurrency
 import type { PaymentMethodOption } from '@/components/payment/PaymentMethodSelector.vue'
 import { buildPaymentErrorToastMessage, describePaymentScenarioError } from './paymentUx'
 import { hasWechatResumeQuery, parseWechatResumeRoute, stripWechatResumeQuery } from './paymentWechatResume'
-import { INTERNAL_TOKEN_PRICE_DIVISOR, formatCompactNumber } from '@/utils/pricing'
+import {
+  INTERNAL_TOKEN_PRICE_DIVISOR,
+  PUBLIC_RECHARGE_USD_PER_CNY,
+  formatCompactNumber,
+} from '@/utils/pricing'
 
 const i18n = useI18n()
 const { t } = i18n
@@ -508,7 +514,7 @@ function onPaymentSettled() {
 // All checkout data from single API call
 const checkout = ref<CheckoutInfoResponse>({
   methods: {}, global_min: 0, global_max: 0,
-  plans: [], balance_disabled: false, balance_recharge_multiplier: 1, subscription_usd_to_cny_rate: 0, recharge_fee_rate: 0, help_text: '', help_image_url: '', stripe_publishable_key: '',
+  plans: [], balance_disabled: false, balance_recharge_multiplier: PUBLIC_RECHARGE_USD_PER_CNY, subscription_usd_to_cny_rate: 0, recharge_fee_rate: 0, help_text: '', help_image_url: '', stripe_publishable_key: '',
 })
 
 const tabs = computed(() => {
@@ -523,7 +529,7 @@ const enabledMethods = computed(() => Object.keys(visibleMethods.value))
 const validAmount = computed(() => amount.value ?? 0)
 const balanceRechargeMultiplier = computed(() => {
   const multiplier = checkout.value.balance_recharge_multiplier
-  return Number.isFinite(multiplier) && multiplier > 0 ? multiplier : 1
+  return Number.isFinite(multiplier) && multiplier > 0 ? multiplier : PUBLIC_RECHARGE_USD_PER_CNY
 })
 // 订阅 CNY 换算汇率（1 USD = X CNY）。0 = 未配置，订阅保持 price 直付（与后端 opt-in 条件严格镜像）。
 const subscriptionUsdToCnyRate = computed(() => {

@@ -69,9 +69,10 @@ describe('UseKeyModal', () => {
     const opencodeConfig = wrapper
       .findAll('pre code')
       .map((code) => code.text())
-      .find((content) => content.trim().startsWith('{') && content.includes('"grok-build-0.1"'))
+      .find((content) =>
+        content.trim().startsWith('{') && content.includes('"provider"') && content.includes('"grok"')
+      )
     expect(opencodeConfig).toBeDefined()
-
     const parsed = JSON.parse(opencodeConfig!)
     expect(parsed.provider.grok.npm).toBe('@ai-sdk/openai')
     expect(parsed.provider.grok.options).toEqual({

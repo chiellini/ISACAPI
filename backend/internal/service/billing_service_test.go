@@ -213,8 +213,8 @@ func TestGetModelPricing_OpenAICompactAliasesFallback(t *testing.T) {
 		cacheRead   float64
 		longContext int
 	}{
-		{model: "gpt5.5", inputPrice: 2.5e-6, outputPrice: 15e-6, cacheRead: 0.25e-6, longContext: 272000},
-		{model: "openai/gpt5.5", inputPrice: 2.5e-6, outputPrice: 15e-6, cacheRead: 0.25e-6, longContext: 272000},
+		{model: "gpt5.5", inputPrice: 5e-6, outputPrice: 30e-6, cacheRead: 0.5e-6, longContext: 272000},
+		{model: "openai/gpt5.5", inputPrice: 5e-6, outputPrice: 30e-6, cacheRead: 0.5e-6, longContext: 272000},
 		{model: "openai/gpt5.4", inputPrice: 2.5e-6, outputPrice: 15e-6, cacheRead: 0.25e-6, longContext: 272000},
 		{model: "gpt5.4-mini", inputPrice: 7.5e-7, outputPrice: 4.5e-6, cacheRead: 7.5e-8, longContext: 0},
 		{model: "gpt5.3codexspark", inputPrice: 1.5e-6, outputPrice: 12e-6, cacheRead: 0.15e-6, longContext: 0},
@@ -242,7 +242,7 @@ func TestCalculateCost_OpenAICompactAliasBillsPositiveCost(t *testing.T) {
 	}, 1.1)
 
 	require.NoError(t, err)
-	require.InDelta(t, (20*2.5e-6+10*15e-6)*1.1, cost.ActualCost, 1e-12)
+	require.InDelta(t, (20*5e-6+10*30e-6)*1.1, cost.ActualCost, 1e-12)
 	require.Positive(t, cost.ActualCost)
 }
 
@@ -289,7 +289,7 @@ func TestCalculateCost_OpenAIGPT54LongContextAppliesWholeSessionMultipliers(t *t
 	require.InDelta(t, expectedInput+expectedOutput, cost.ActualCost, 1e-10)
 }
 
-func TestCalculateCost_OpenAIGPT55ProUsesGPT55PricingPolicy(t *testing.T) {
+func TestCalculateCost_OpenAIGPT55ProUsesOwnPricingPolicy(t *testing.T) {
 	svc := newTestBillingService()
 
 	tokens := UsageTokens{
@@ -300,8 +300,8 @@ func TestCalculateCost_OpenAIGPT55ProUsesGPT55PricingPolicy(t *testing.T) {
 	cost, err := svc.CalculateCost("gpt-5.5-pro", tokens, 1.0)
 	require.NoError(t, err)
 
-	expectedInput := float64(tokens.InputTokens) * 2.5e-6 * 2.0
-	expectedOutput := float64(tokens.OutputTokens) * 15e-6 * 1.5
+	expectedInput := float64(tokens.InputTokens) * 30e-6 * 2.0
+	expectedOutput := float64(tokens.OutputTokens) * 180e-6 * 1.5
 	require.InDelta(t, expectedInput, cost.InputCost, 1e-10)
 	require.InDelta(t, expectedOutput, cost.OutputCost, 1e-10)
 	require.InDelta(t, expectedInput+expectedOutput, cost.TotalCost, 1e-10)

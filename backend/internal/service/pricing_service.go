@@ -35,6 +35,40 @@ var (
 		Mode:                            "chat",
 		SupportsPromptCaching:           true,
 	}
+	openAIGPT55FallbackPricing = &LiteLLMModelPricing{
+		InputCostPerToken:                   openAIGPT55InputPricePerToken,
+		InputCostPerTokenPriority:           openAIGPT55InputPricePerTokenPriority,
+		OutputCostPerToken:                  openAIGPT55OutputPricePerToken,
+		OutputCostPerTokenPriority:          openAIGPT55OutputPricePerTokenPriority,
+		CacheCreationInputTokenCost:         openAIGPT55InputPricePerToken,
+		CacheCreationInputTokenCostPriority: openAIGPT55InputPricePerTokenPriority,
+		CacheReadInputTokenCost:             openAIGPT55CacheReadPricePerToken,
+		CacheReadInputTokenCostPriority:     openAIGPT55CacheReadPricePerTokenPriority,
+		LongContextInputTokenThreshold:      openAIGPT54LongContextInputThreshold,
+		LongContextInputCostMultiplier:      openAIGPT54LongContextInputMultiplier,
+		LongContextOutputCostMultiplier:     openAIGPT54LongContextOutputMultiplier,
+		SupportsServiceTier:                 true,
+		LiteLLMProvider:                     "openai",
+		Mode:                                "chat",
+		SupportsPromptCaching:               true,
+	}
+	openAIGPT55ProFallbackPricing = &LiteLLMModelPricing{
+		InputCostPerToken:                   openAIGPT55ProInputPricePerToken,
+		InputCostPerTokenPriority:           openAIGPT55ProInputPricePerToken,
+		OutputCostPerToken:                  openAIGPT55ProOutputPricePerToken,
+		OutputCostPerTokenPriority:          openAIGPT55ProOutputPricePerToken,
+		CacheCreationInputTokenCost:         openAIGPT55ProInputPricePerToken,
+		CacheCreationInputTokenCostPriority: openAIGPT55ProInputPricePerToken,
+		CacheReadInputTokenCost:             openAIGPT55ProCacheReadPricePerToken,
+		CacheReadInputTokenCostPriority:     openAIGPT55ProCacheReadPricePerToken,
+		LongContextInputTokenThreshold:      openAIGPT54LongContextInputThreshold,
+		LongContextInputCostMultiplier:      openAIGPT54LongContextInputMultiplier,
+		LongContextOutputCostMultiplier:     openAIGPT54LongContextOutputMultiplier,
+		SupportsServiceTier:                 true,
+		LiteLLMProvider:                     "openai",
+		Mode:                                "responses",
+		SupportsPromptCaching:               true,
+	}
 	openAIGPT56SolFallbackPricing = &LiteLLMModelPricing{
 		InputCostPerToken:                   5e-06,
 		InputCostPerTokenPriority:           1e-05,
@@ -927,11 +961,17 @@ func (s *PricingService) matchOpenAIModel(model string) *LiteLLMModelPricing {
 		return openAIGPT56LunaFallbackPricing
 	}
 
-	// GPT-5.5 回退到 GPT-5.4 定价
+	if strings.HasPrefix(model, "gpt-5.5-pro") {
+		logger.With(zap.String("component", "service.pricing")).
+			Info(fmt.Sprintf("[Pricing] OpenAI fallback matched %s -> %s", model, "gpt-5.5-pro(static)"))
+		return openAIGPT55ProFallbackPricing
+	}
+
+	// GPT-5.5 使用独立静态定价，避免缺少远端价格时误回退到 GPT-5.4。
 	if strings.HasPrefix(model, "gpt-5.5") {
 		logger.With(zap.String("component", "service.pricing")).
-			Info(fmt.Sprintf("[Pricing] OpenAI fallback matched %s -> %s", model, "gpt-5.4(static)"))
-		return openAIGPT54FallbackPricing
+			Info(fmt.Sprintf("[Pricing] OpenAI fallback matched %s -> %s", model, "gpt-5.5(static)"))
+		return openAIGPT55FallbackPricing
 	}
 
 	if strings.HasPrefix(model, "gpt-5.4-mini") {

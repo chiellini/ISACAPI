@@ -23,16 +23,11 @@
       <section class="hidden lg:block">
         <div class="max-w-xl">
           <template v-if="settingsLoaded">
-            <div class="mb-6 flex items-center gap-3">
+            <div class="mb-6 flex items-center">
               <div
                 class="inline-flex h-16 w-16 items-center justify-center overflow-hidden rounded-lg bg-white/80 shadow-lg shadow-sky-500/10 ring-1 ring-slate-200/80 dark:bg-white/10 dark:ring-white/10"
               >
-                <img :src="siteLogo || '/logo.png'" alt="Logo" class="h-full w-full object-contain" />
-              </div>
-              <div
-                class="inline-flex h-16 w-16 items-center justify-center overflow-hidden rounded-lg bg-white/80 shadow-lg shadow-sky-500/10 ring-1 ring-slate-200/80 dark:bg-white/10 dark:ring-white/10"
-              >
-                <img :src="companyIconUrl" alt="ISACAI" class="h-full w-full object-contain" />
+                <img :src="siteLogo || '/logo.png'" alt="ISACAI" class="h-full w-full object-contain" />
               </div>
             </div>
             <h1 class="text-gradient mb-3 text-4xl font-bold">
@@ -48,25 +43,26 @@
             </div>
           </template>
 
-          <div class="mt-10 grid max-w-lg grid-cols-3 gap-3">
+          <div class="mt-10 grid max-w-lg grid-cols-2 gap-3">
             <div
-              v-for="item in authHighlights"
-              :key="item.label"
-              class="rounded-lg border border-white/70 bg-white/60 p-4 shadow-sm backdrop-blur dark:border-white/10 dark:bg-white/5"
+              v-for="item in deploymentHighlights"
+              :key="item.title"
+              class="flex items-start gap-3 rounded-lg border border-white/70 bg-white/60 p-4 shadow-sm backdrop-blur dark:border-white/10 dark:bg-white/5"
             >
-              <p class="text-xs text-slate-500 dark:text-slate-400">
-                {{ item.label }}
-              </p>
-              <p class="mt-2 text-sm font-semibold text-slate-900 dark:text-white">
-                {{ item.value }}
-              </p>
+              <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-sky-100 text-sky-700 dark:bg-sky-950/50 dark:text-sky-300">
+                <Icon :name="item.icon" size="sm" />
+              </span>
+              <span class="min-w-0">
+                <span class="block text-sm font-semibold text-slate-900 dark:text-white">{{ item.title }}</span>
+                <span class="mt-1 block text-xs leading-5 text-slate-500 dark:text-slate-400">{{ item.description }}</span>
+              </span>
             </div>
           </div>
 
           <div
             class="mt-8 max-w-lg border-l-4 border-sky-500 bg-white/50 px-5 py-4 text-sm leading-6 text-slate-600 backdrop-blur dark:bg-white/[0.04] dark:text-slate-300"
           >
-            支持多模型供应商接入，提供统一 API 管理、用量统计和软件开发交流支持。
+            {{ t('home.authPitch') }}
           </div>
         </div>
       </section>
@@ -74,16 +70,11 @@
       <div class="mx-auto w-full max-w-md">
         <div class="mb-8 text-center lg:hidden">
           <template v-if="settingsLoaded">
-            <div class="mb-4 flex justify-center gap-3">
+            <div class="mb-4 flex justify-center">
               <div
                 class="inline-flex h-16 w-16 items-center justify-center overflow-hidden rounded-lg bg-white/80 shadow-lg shadow-sky-500/10 ring-1 ring-slate-200/80 dark:bg-white/10 dark:ring-white/10"
               >
-                <img :src="siteLogo || '/logo.png'" alt="Logo" class="h-full w-full object-contain" />
-              </div>
-              <div
-                class="inline-flex h-16 w-16 items-center justify-center overflow-hidden rounded-lg bg-white/80 shadow-lg shadow-sky-500/10 ring-1 ring-slate-200/80 dark:bg-white/10 dark:ring-white/10"
-              >
-                <img :src="companyIconUrl" alt="ISACAI" class="h-full w-full object-contain" />
+                <img :src="siteLogo || '/logo.png'" alt="ISACAI" class="h-full w-full object-contain" />
               </div>
             </div>
             <h1 class="text-gradient mb-2 text-3xl font-bold">
@@ -93,6 +84,19 @@
               {{ siteSubtitle }}
             </p>
             <img :src="companyIconUrl" alt="ISACAI" class="mx-auto mt-4 h-20 w-20 rounded-lg object-contain" />
+            <div class="mt-5 grid grid-cols-2 gap-2 text-left">
+              <div
+                v-for="item in deploymentHighlights"
+                :key="item.title"
+                class="flex items-center gap-2 rounded-lg border border-white/70 bg-white/65 px-3 py-2.5 shadow-sm backdrop-blur dark:border-white/10 dark:bg-white/5"
+              >
+                <Icon :name="item.icon" size="sm" class="shrink-0 text-sky-600 dark:text-sky-300" />
+                <span class="min-w-0">
+                  <span class="block truncate text-xs font-semibold text-slate-900 dark:text-white">{{ item.title }}</span>
+                  <span class="mt-0.5 block truncate text-[10px] text-slate-500 dark:text-slate-400">{{ item.description }}</span>
+                </span>
+              </div>
+            </div>
           </template>
         </div>
 
@@ -135,23 +139,43 @@
 
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores'
+import Icon from '@/components/icons/Icon.vue'
 import { sanitizeUrl } from '@/utils/url'
 
 const appStore = useAppStore()
+const { t } = useI18n()
 
 const siteName = computed(() => appStore.siteName || 'ISACAI')
 const siteLogo = computed(() => sanitizeUrl(appStore.siteLogo || '', { allowRelative: true, allowDataUrl: true }))
 const siteSubtitle = computed(() => appStore.cachedPublicSettings?.site_subtitle || 'AI API Service Platform')
 const settingsLoaded = computed(() => appStore.publicSettingsLoaded)
-const companyIconUrl = '/company-icon.jpeg'
+const companyIconUrl = '/logo.png'
 
 const qqGroup = '1027890648'
-const authHighlights = [
-  { label: '统一接口', value: 'OpenAI Compatible' },
-  { label: '模型供应商', value: '30+' },
-  { label: '开发交流', value: `QQ ${qqGroup}` },
-]
+const deploymentHighlights = computed(() => [
+  {
+    title: t('home.deployment.ccSwitch.title'),
+    description: t('home.deployment.ccSwitch.description'),
+    icon: 'bolt',
+  },
+  {
+    title: t('home.deployment.terminal.title'),
+    description: t('home.deployment.terminal.description'),
+    icon: 'terminal',
+  },
+  {
+    title: t('home.deployment.server.title'),
+    description: t('home.deployment.server.description'),
+    icon: 'server',
+  },
+  {
+    title: t('home.deployment.client.title'),
+    description: t('home.deployment.client.description'),
+    icon: 'monitor',
+  },
+] as const)
 
 onMounted(() => {
   appStore.fetchPublicSettings()
