@@ -23,6 +23,7 @@ type userRepoStub struct {
 	created       []*User
 	updated       []*User
 	deletedIDs    []int64
+	usersByID     map[int64]*User
 	usersByEmail  map[string]*User
 	getByEmailErr error
 }
@@ -39,6 +40,10 @@ func (s *userRepoStub) Create(ctx context.Context, user *User) error {
 		s.usersByEmail = make(map[string]*User)
 	}
 	s.usersByEmail[user.Email] = user
+	if s.usersByID == nil {
+		s.usersByID = make(map[int64]*User)
+	}
+	s.usersByID[user.ID] = user
 	s.user = user
 	return nil
 }
@@ -46,6 +51,11 @@ func (s *userRepoStub) Create(ctx context.Context, user *User) error {
 func (s *userRepoStub) GetByID(ctx context.Context, id int64) (*User, error) {
 	if s.getErr != nil {
 		return nil, s.getErr
+	}
+	if s.usersByID != nil {
+		if user, ok := s.usersByID[id]; ok {
+			return user, nil
+		}
 	}
 	if s.user == nil {
 		return nil, ErrUserNotFound
@@ -78,6 +88,10 @@ func (s *userRepoStub) Update(ctx context.Context, user *User) error {
 		s.usersByEmail = make(map[string]*User)
 	}
 	s.usersByEmail[user.Email] = user
+	if s.usersByID == nil {
+		s.usersByID = make(map[int64]*User)
+	}
+	s.usersByID[user.ID] = user
 	s.user = user
 	return nil
 }

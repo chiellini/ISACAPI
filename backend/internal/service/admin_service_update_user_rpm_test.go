@@ -24,6 +24,10 @@ func (s *rpmUserRepoStub) Update(_ context.Context, user *User) error {
 	s.lastUpdated = &clone
 	if s.userRepoStub != nil {
 		s.userRepoStub.user = &clone
+		if s.userRepoStub.usersByID == nil {
+			s.userRepoStub.usersByID = make(map[int64]*User)
+		}
+		s.userRepoStub.usersByID[clone.ID] = &clone
 	}
 	return nil
 }

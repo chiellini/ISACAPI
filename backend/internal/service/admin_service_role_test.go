@@ -10,14 +10,35 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const (
+	roleTestSuperAdminID    int64 = 9001
+	roleTestSuperAdminEmail       = "super-admin@example.com"
+)
+
+func configureRoleTestSuperAdmin(t *testing.T, repo *userRepoStub) int64 {
+	t.Helper()
+	t.Setenv("ADMIN_EMAIL", roleTestSuperAdminEmail)
+	if repo.usersByID == nil {
+		repo.usersByID = make(map[int64]*User)
+	}
+	repo.usersByID[roleTestSuperAdminID] = &User{
+		ID:    roleTestSuperAdminID,
+		Email: roleTestSuperAdminEmail,
+		Role:  RoleAdmin,
+	}
+	return roleTestSuperAdminID
+}
+
 func TestAdminService_CreateUser_WithAdminRole(t *testing.T) {
 	repo := &userRepoStub{nextID: 30}
+	actorID := configureRoleTestSuperAdmin(t, repo)
 	svc := &adminServiceImpl{userRepo: repo}
 
 	user, err := svc.CreateUser(context.Background(), &CreateUserInput{
-		Email:    "admin@test.com",
-		Password: "strong-pass",
-		Role:     RoleAdmin,
+		Email:        "admin@test.com",
+		Password:     "strong-pass",
+		Role:         RoleAdmin,
+		ActorAdminID: actorID,
 	})
 	require.NoError(t, err)
 	require.Equal(t, RoleAdmin, user.Role)
@@ -25,12 +46,14 @@ func TestAdminService_CreateUser_WithAdminRole(t *testing.T) {
 
 func TestAdminService_CreateUser_WithProviderRole(t *testing.T) {
 	repo := &userRepoStub{nextID: 33}
+	actorID := configureRoleTestSuperAdmin(t, repo)
 	svc := &adminServiceImpl{userRepo: repo}
 
 	user, err := svc.CreateUser(context.Background(), &CreateUserInput{
-		Email:    "provider@test.com",
-		Password: "strong-pass",
-		Role:     RoleProvider,
+		Email:        "provider@test.com",
+		Password:     "strong-pass",
+		Role:         RoleProvider,
+		ActorAdminID: actorID,
 	})
 	require.NoError(t, err)
 	require.Equal(t, RoleProvider, user.Role)
@@ -62,8 +85,27 @@ func TestAdminService_CreateUser_InvalidRoleRejected(t *testing.T) {
 	require.Empty(t, repo.created, "非法角色不应写入用户")
 }
 
+func TestAdminService_CreateUser_NonSuperAdminCannotCreateAdmin(t *testing.T) {
+	t.Setenv("ADMIN_EMAIL", roleTestSuperAdminEmail)
+	repo := &userRepoStub{
+		nextID: 34,
+		user:   &User{ID: 2, Email: "manager@test.com", Role: RoleAdmin},
+	}
+	svc := &adminServiceImpl{userRepo: repo}
+
+	_, err := svc.CreateUser(context.Background(), &CreateUserInput{
+		Email:        "admin@test.com",
+		Password:     "strong-pass",
+		Role:         RoleAdmin,
+		ActorAdminID: 2,
+	})
+	require.Error(t, err)
+	require.Empty(t, repo.created)
+}
+
 func TestAdminService_UpdateUser_PromoteToAdmin(t *testing.T) {
 	base := &userRepoStub{user: &User{ID: 42, Email: "u@example.com", Role: RoleUser}}
+	actorID := configureRoleTestSuperAdmin(t, base)
 	repo := &rpmUserRepoStub{userRepoStub: base}
 	invalidator := &authCacheInvalidatorStub{}
 	svc := &adminServiceImpl{
@@ -72,7 +114,7 @@ func TestAdminService_UpdateUser_PromoteToAdmin(t *testing.T) {
 		authCacheInvalidator: invalidator,
 	}
 
-	updated, err := svc.UpdateUser(context.Background(), 42, &UpdateUserInput{Role: RoleAdmin})
+	updated, err := svc.UpdateUser(context.Background(), 42, &UpdateUserInput{Role: RoleAdmin, ActorAdminID: actorID})
 	require.NoError(t, err)
 	require.Equal(t, RoleAdmin, updated.Role)
 	require.Equal(t, []int64{42}, invalidator.userIDs, "角色变更应失效认证缓存")
@@ -101,6 +143,7 @@ func TestAdminService_UpdateUser_InvalidRoleRejected(t *testing.T) {
 
 func TestAdminService_UpdateUser_AssignProviderRole(t *testing.T) {
 	base := &userRepoStub{user: &User{ID: 42, Email: "u@example.com", Role: RoleUser}}
+	actorID := configureRoleTestSuperAdmin(t, base)
 	repo := &rpmUserRepoStub{userRepoStub: base}
 	invalidator := &authCacheInvalidatorStub{}
 	svc := &adminServiceImpl{
@@ -109,15 +152,63 @@ func TestAdminService_UpdateUser_AssignProviderRole(t *testing.T) {
 		authCacheInvalidator: invalidator,
 	}
 
-	updated, err := svc.UpdateUser(context.Background(), 42, &UpdateUserInput{Role: RoleProvider})
+	updated, err := svc.UpdateUser(context.Background(), 42, &UpdateUserInput{Role: RoleProvider, ActorAdminID: actorID})
 	require.NoError(t, err)
 	require.Equal(t, RoleProvider, updated.Role)
 	require.True(t, updated.IsProvider())
 	require.Equal(t, []int64{42}, invalidator.userIDs)
 }
 
-// roleGuardUserRepoStub 在 rpmUserRepoStub 之上提供可控的管理员计数，
-// 用于测试"最后一个管理员不可降级"守卫。
+func TestAdminService_UpdateUser_NonSuperAdminCannotChangeRole(t *testing.T) {
+	t.Setenv("ADMIN_EMAIL", roleTestSuperAdminEmail)
+	base := &userRepoStub{
+		user: &User{ID: 42, Email: "u@example.com", Role: RoleUser},
+		usersByID: map[int64]*User{
+			42: &User{ID: 42, Email: "u@example.com", Role: RoleUser},
+			2:  &User{ID: 2, Email: "manager@test.com", Role: RoleAdmin},
+		},
+	}
+	repo := &rpmUserRepoStub{userRepoStub: base}
+	svc := &adminServiceImpl{userRepo: repo, redeemCodeRepo: &redeemRepoStub{}}
+
+	_, err := svc.UpdateUser(context.Background(), 42, &UpdateUserInput{Role: RoleAdmin, ActorAdminID: 2})
+	require.Error(t, err)
+	require.Nil(t, repo.lastUpdated)
+}
+
+func TestAdminService_UpdateUser_NonSuperAdminCannotEditSuperAdmin(t *testing.T) {
+	t.Setenv("ADMIN_EMAIL", roleTestSuperAdminEmail)
+	base := &userRepoStub{
+		user: &User{ID: roleTestSuperAdminID, Email: roleTestSuperAdminEmail, Role: RoleAdmin},
+		usersByID: map[int64]*User{
+			roleTestSuperAdminID: &User{ID: roleTestSuperAdminID, Email: roleTestSuperAdminEmail, Role: RoleAdmin},
+			2:                    &User{ID: 2, Email: "manager@test.com", Role: RoleAdmin},
+		},
+	}
+	repo := &rpmUserRepoStub{userRepoStub: base}
+	svc := &adminServiceImpl{userRepo: repo, redeemCodeRepo: &redeemRepoStub{}}
+
+	newName := "edited"
+	_, err := svc.UpdateUser(context.Background(), roleTestSuperAdminID, &UpdateUserInput{Username: &newName, ActorAdminID: 2})
+	require.Error(t, err)
+	require.Nil(t, repo.lastUpdated)
+}
+
+func TestAdminService_UpdateUser_CannotChangeSuperAdminEmail(t *testing.T) {
+	t.Setenv("ADMIN_EMAIL", roleTestSuperAdminEmail)
+	base := &userRepoStub{user: &User{ID: roleTestSuperAdminID, Email: roleTestSuperAdminEmail, Role: RoleAdmin}}
+	repo := &rpmUserRepoStub{userRepoStub: base}
+	svc := &adminServiceImpl{userRepo: repo, redeemCodeRepo: &redeemRepoStub{}}
+
+	_, err := svc.UpdateUser(context.Background(), roleTestSuperAdminID, &UpdateUserInput{
+		Email:        "other@example.com",
+		ActorAdminID: roleTestSuperAdminID,
+	})
+	require.Error(t, err)
+	require.Nil(t, repo.lastUpdated)
+}
+
+// roleGuardUserRepoStub supplies a controllable admin count for last-admin guard tests.
 type roleGuardUserRepoStub struct {
 	*rpmUserRepoStub
 	adminTotal int64
@@ -131,10 +222,11 @@ func (s *roleGuardUserRepoStub) ListWithFilters(_ context.Context, _ pagination.
 
 func TestAdminService_UpdateUser_DemoteLastAdminRejected(t *testing.T) {
 	base := &userRepoStub{user: &User{ID: 42, Email: "a@example.com", Role: RoleAdmin}}
+	actorID := configureRoleTestSuperAdmin(t, base)
 	repo := &roleGuardUserRepoStub{rpmUserRepoStub: &rpmUserRepoStub{userRepoStub: base}, adminTotal: 1}
 	svc := &adminServiceImpl{userRepo: repo, redeemCodeRepo: &redeemRepoStub{}}
 
-	_, err := svc.UpdateUser(context.Background(), 42, &UpdateUserInput{Role: RoleUser})
+	_, err := svc.UpdateUser(context.Background(), 42, &UpdateUserInput{Role: RoleUser, ActorAdminID: actorID})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "last admin")
 	require.Nil(t, repo.lastUpdated, "最后一个管理员不应被降级持久化")
@@ -143,10 +235,11 @@ func TestAdminService_UpdateUser_DemoteLastAdminRejected(t *testing.T) {
 
 func TestAdminService_UpdateUser_DemoteLastAdminToProviderRejected(t *testing.T) {
 	base := &userRepoStub{user: &User{ID: 42, Email: "a@example.com", Role: RoleAdmin}}
+	actorID := configureRoleTestSuperAdmin(t, base)
 	repo := &roleGuardUserRepoStub{rpmUserRepoStub: &rpmUserRepoStub{userRepoStub: base}, adminTotal: 1}
 	svc := &adminServiceImpl{userRepo: repo, redeemCodeRepo: &redeemRepoStub{}}
 
-	_, err := svc.UpdateUser(context.Background(), 42, &UpdateUserInput{Role: RoleProvider})
+	_, err := svc.UpdateUser(context.Background(), 42, &UpdateUserInput{Role: RoleProvider, ActorAdminID: actorID})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "last admin")
 	require.Nil(t, repo.lastUpdated)
@@ -155,6 +248,7 @@ func TestAdminService_UpdateUser_DemoteLastAdminToProviderRejected(t *testing.T)
 
 func TestAdminService_UpdateUser_DemoteAdminAllowedWhenOthersExist(t *testing.T) {
 	base := &userRepoStub{user: &User{ID: 42, Email: "a@example.com", Role: RoleAdmin}}
+	actorID := configureRoleTestSuperAdmin(t, base)
 	repo := &roleGuardUserRepoStub{rpmUserRepoStub: &rpmUserRepoStub{userRepoStub: base}, adminTotal: 2}
 	invalidator := &authCacheInvalidatorStub{}
 	svc := &adminServiceImpl{
@@ -163,7 +257,7 @@ func TestAdminService_UpdateUser_DemoteAdminAllowedWhenOthersExist(t *testing.T)
 		authCacheInvalidator: invalidator,
 	}
 
-	updated, err := svc.UpdateUser(context.Background(), 42, &UpdateUserInput{Role: RoleUser})
+	updated, err := svc.UpdateUser(context.Background(), 42, &UpdateUserInput{Role: RoleUser, ActorAdminID: actorID})
 	require.NoError(t, err)
 	require.Equal(t, RoleUser, updated.Role)
 	require.NotNil(t, repo.lastUpdated)
@@ -172,6 +266,7 @@ func TestAdminService_UpdateUser_DemoteAdminAllowedWhenOthersExist(t *testing.T)
 
 func TestAdminService_UpdateUser_PromoteDoesNotCountAdmins(t *testing.T) {
 	base := &userRepoStub{user: &User{ID: 42, Email: "u@example.com", Role: RoleUser}}
+	actorID := configureRoleTestSuperAdmin(t, base)
 	repo := &roleGuardUserRepoStub{rpmUserRepoStub: &rpmUserRepoStub{userRepoStub: base}, adminTotal: 1}
 	svc := &adminServiceImpl{
 		userRepo:             repo,
@@ -179,7 +274,7 @@ func TestAdminService_UpdateUser_PromoteDoesNotCountAdmins(t *testing.T) {
 		authCacheInvalidator: &authCacheInvalidatorStub{},
 	}
 
-	updated, err := svc.UpdateUser(context.Background(), 42, &UpdateUserInput{Role: RoleAdmin})
+	updated, err := svc.UpdateUser(context.Background(), 42, &UpdateUserInput{Role: RoleAdmin, ActorAdminID: actorID})
 	require.NoError(t, err)
 	require.Equal(t, RoleAdmin, updated.Role)
 	require.Equal(t, 0, repo.listCalls, "升级路径不应触发管理员计数")

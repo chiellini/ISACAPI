@@ -94,6 +94,10 @@ export const useAuthStore = defineStore('auth', () => {
     return user.value?.role === 'provider'
   })
 
+  const isSuperAdmin = computed(() => {
+    return user.value?.is_super_admin === true
+  })
+
   const researchGroupContext = computed(() => user.value?.research_group ?? null)
   const isResearchGroupOwner = computed(() => researchGroupContext.value?.role === 'owner')
   const isResearchGroupMember = computed(() => researchGroupContext.value?.role === 'member')
@@ -493,6 +497,7 @@ export const useAuthStore = defineStore('auth', () => {
     isAuthenticated,
     isAdmin,
     isProvider,
+    isSuperAdmin,
     researchGroupContext,
     isResearchGroupOwner,
     isResearchGroupMember,

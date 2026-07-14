@@ -118,15 +118,19 @@ func normalizeUserRole(role, fallback string) (string, error) {
 }
 
 func (s *adminServiceImpl) requireSuperAdminForRoleChange(ctx context.Context, actorAdminID int64) error {
+	const message = "only the admin configured by ADMIN_EMAIL can change user roles"
 	if actorAdminID <= 0 {
-		return infraerrors.Forbidden("SUPER_ADMIN_REQUIRED", "only the first admin can change user roles")
+		return infraerrors.Forbidden("SUPER_ADMIN_REQUIRED", message)
 	}
-	firstAdmin, err := s.userRepo.GetFirstAdmin(ctx)
+	if ConfiguredSuperAdminEmail() == "" {
+		return infraerrors.Forbidden("SUPER_ADMIN_REQUIRED", "ADMIN_EMAIL is not configured")
+	}
+	actor, err := s.userRepo.GetByID(ctx, actorAdminID)
 	if err != nil {
-		return fmt.Errorf("get first admin: %w", err)
+		return fmt.Errorf("get actor admin: %w", err)
 	}
-	if firstAdmin == nil || firstAdmin.ID != actorAdminID {
-		return infraerrors.Forbidden("SUPER_ADMIN_REQUIRED", "only the first admin can change user roles")
+	if actor == nil || !IsSuperAdminEmail(actor.Email) {
+		return infraerrors.Forbidden("SUPER_ADMIN_REQUIRED", message)
 	}
 	return nil
 }
@@ -144,7 +148,7 @@ func (s *adminServiceImpl) CreateUser(ctx context.Context, input *CreateUserInpu
 	if err != nil {
 		return nil, err
 	}
-	if role != RoleUser {
+	if role != RoleUser || IsSuperAdminEmail(input.Email) {
 		if err := s.requireSuperAdminForRoleChange(ctx, input.ActorAdminID); err != nil {
 			return nil, err
 		}
@@ -226,6 +230,20 @@ func (s *adminServiceImpl) UpdateUser(ctx context.Context, id int64, input *Upda
 		return nil, err
 	}
 
+	if IsSuperAdminEmail(user.Email) && input.ActorAdminID != user.ID {
+		if err := s.requireSuperAdminForRoleChange(ctx, input.ActorAdminID); err != nil {
+			return nil, err
+		}
+	}
+	if input.Email != "" && IsSuperAdminEmail(user.Email) && !strings.EqualFold(strings.TrimSpace(input.Email), strings.TrimSpace(user.Email)) {
+		return nil, infraerrors.BadRequest("SUPER_ADMIN_EMAIL_IMMUTABLE", "ADMIN_EMAIL account email cannot be changed")
+	}
+	if input.Email != "" && !IsSuperAdminEmail(user.Email) && IsSuperAdminEmail(input.Email) {
+		if err := s.requireSuperAdminForRoleChange(ctx, input.ActorAdminID); err != nil {
+			return nil, err
+		}
+	}
+
 	// Protect admin users: cannot disable admin accounts
 	if user.Role == "admin" && input.Status == "disabled" {
 		return nil, errors.New("cannot disable admin user")
@@ -272,11 +290,6 @@ func (s *adminServiceImpl) UpdateUser(ctx context.Context, id int64, input *Upda
 		// 此处兜底覆盖跨管理员互降导致零 admin 的场景）。
 		if user.Role == RoleAdmin && role != RoleAdmin {
 			if err := s.ensureNotLastAdmin(ctx); err != nil {
-				return nil, err
-			}
-		}
-		if role != user.Role {
-			if err := s.requireSuperAdminForRoleChange(ctx, input.ActorAdminID); err != nil {
 				return nil, err
 			}
 		}

@@ -144,6 +144,7 @@ export interface User {
   oidc_bound?: boolean
   wechat_bound?: boolean
   role: UserRole // User role for authorization
+  is_super_admin?: boolean // Only the ADMIN_EMAIL account can change user roles
   balance: number // User balance for API usage
   frozen_balance?: number // Balance currently held by async batch jobs
   concurrency: number // Allowed concurrent requests

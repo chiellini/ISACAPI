@@ -27,11 +27,12 @@
       </div>
       <div>
         <label class="input-label">{{ t('admin.users.form.roleLabel') }}</label>
-        <select v-model="form.role" class="input">
+        <select v-if="canEditRoles" v-model="form.role" class="input">
           <option value="user">{{ t('admin.users.roles.user') }}</option>
           <option value="provider">{{ t('admin.users.roles.provider') }}</option>
           <option value="admin">{{ t('admin.users.roles.admin') }}</option>
         </select>
+        <input v-else :value="t('admin.users.roles.user')" type="text" class="input" disabled />
       </div>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
@@ -68,26 +69,47 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, watch } from 'vue'
+import { computed, reactive, watch } from 'vue'
 import { useI18n } from 'vue-i18n'; import { adminAPI } from '@/api/admin'
 import { useForm } from '@/composables/useForm'
+import { useAuthStore } from '@/stores/auth'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
 import type { UserRole } from '@/types'
 
 const props = defineProps<{ show: boolean }>()
-const emit = defineEmits(['close', 'success']); const { t } = useI18n()
+const emit = defineEmits(['close', 'success']); const { t } = useI18n(); const authStore = useAuthStore()
 
 const form = reactive({ email: '', password: '', username: '', notes: '', role: 'user' as UserRole, balance: '', concurrency: 1, rpm_limit: 0 })
+const canEditRoles = computed(() => authStore.isSuperAdmin)
 
 const { loading, submit } = useForm({
   form,
   submitFn: async (data) => {
     const { balance: rawBalance, ...rest } = data
     const balance = String(rawBalance).trim()
-    const payload: typeof rest & { balance?: number } = { ...rest }
+    const payload: {
+      email: string
+      password: string
+      username?: string
+      notes?: string
+      role?: UserRole
+      balance?: number
+      concurrency?: number
+      rpm_limit?: number
+    } = {
+      email: rest.email,
+      password: rest.password,
+      username: rest.username,
+      notes: rest.notes,
+      concurrency: rest.concurrency,
+      rpm_limit: rest.rpm_limit
+    }
     if (balance !== '') {
       payload.balance = Number(balance)
+    }
+    if (canEditRoles.value) {
+      payload.role = rest.role
     }
     await adminAPI.users.create(payload)
     emit('success'); emit('close')
