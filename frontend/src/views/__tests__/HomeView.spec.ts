@@ -9,14 +9,23 @@ const { authStore, appStore } = vi.hoisted(() => ({
   authStore: {
     isAuthenticated: false,
     isAdmin: false,
+    isProvider: false,
+    isSimpleMode: false,
     user: null,
     checkAuth: vi.fn(),
   },
   appStore: {
-    cachedPublicSettings: null as { balance_recharge_multiplier?: number } | null,
+    cachedPublicSettings: null as {
+      balance_recharge_multiplier?: number
+      registration_enabled?: boolean
+      home_content?: string
+      site_name?: string
+      doc_url?: string
+    } | null,
     siteName: 'ISACAI',
     siteLogo: '',
     docUrl: '',
+    backendModeEnabled: false,
     publicSettingsLoaded: true,
     fetchPublicSettings: vi.fn(),
   },
@@ -86,6 +95,8 @@ describe('HomeView public navigation', () => {
     sessionStorage.clear()
     authStore.isAuthenticated = false
     authStore.isAdmin = false
+    authStore.isProvider = false
+    authStore.isSimpleMode = false
     authStore.user = null
     authStore.checkAuth.mockReset()
     appStore.cachedPublicSettings = null
@@ -138,6 +149,65 @@ describe('HomeView public navigation', () => {
 
     wrapper.unmount()
   })
+
+  it('prominently exposes the team section and preserves its post-auth destination', () => {
+    const wrapper = mountHome()
+    const teams = wrapper.get('#teams')
+    const destinations = teams
+      .findAllComponents(RouterLinkStub)
+      .map((link) => link.props('to'))
+
+    expect(teams.text()).toContain('home.teams.title')
+    expect(teams.text()).toContain('home.teams.business.invoiceTitle')
+    expect(teams.text()).toContain('home.teams.business.integrationTitle')
+    expect(destinations).toContainEqual({
+      path: '/register',
+      query: { redirect: '/research-group' },
+    })
+    expect(destinations).toContainEqual({
+      path: '/login',
+      query: { redirect: '/research-group' },
+    })
+
+    wrapper.unmount()
+  })
+
+  it('links eligible signed-in users directly to research group management', () => {
+    authStore.isAuthenticated = true
+    const wrapper = mountHome()
+    const destinations = wrapper
+      .get('#teams')
+      .findAllComponents(RouterLinkStub)
+      .map((link) => link.props('to'))
+
+    expect(destinations).toContain('/research-group')
+    wrapper.unmount()
+  })
+
+  it('does not promise research group management to an incompatible signed-in role', () => {
+    authStore.isAuthenticated = true
+    authStore.isAdmin = true
+    const wrapper = mountHome()
+    const destinations = wrapper
+      .get('#teams')
+      .findAllComponents(RouterLinkStub)
+      .map((link) => link.props('to'))
+
+    expect(destinations).not.toContain('/research-group')
+    expect(wrapper.get('#teams').text()).not.toContain('home.teams.manageAction')
+    wrapper.unmount()
+  })
+
+  it('keeps the existing custom-home full-page override behavior', () => {
+    appStore.cachedPublicSettings = {
+      home_content: '<main data-testid="custom-home">Custom business homepage</main>',
+    }
+    const wrapper = mountHome()
+
+    expect(wrapper.get('[data-testid="custom-home"]').text()).toBe('Custom business homepage')
+    expect(wrapper.find('#teams').exists()).toBe(false)
+    wrapper.unmount()
+  })
 })
 
 describe('HomeView notice persistence', () => {
@@ -146,6 +216,8 @@ describe('HomeView notice persistence', () => {
     sessionStorage.clear()
     authStore.isAuthenticated = false
     authStore.isAdmin = false
+    authStore.isProvider = false
+    authStore.isSimpleMode = false
     authStore.user = null
     appStore.cachedPublicSettings = null
 

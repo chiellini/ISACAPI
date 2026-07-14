@@ -13,6 +13,20 @@ export default {
     ccSwitchDownload: 'CC-Switch をダウンロード',
     ccSwitchGuide: 'CC-Switch ガイド'
   },
+  auth: {
+    ...en.auth,
+    teamBusiness: {
+      audience: '大学・研究機関 · 企業チーム',
+      title: '責任者が自分のグループを作成できます',
+      description:
+        '登録・ログイン後にグループを作成できます。メンバーは個別アカウントを維持し、自分のグループ利用枠を確認できます。',
+      sharedBalance: '個別アカウント · 共有残高',
+      quotaControl: '月間利用枠 · 可視化と管理',
+      corporateInvoice: '法人向け正式請求書を申請可能',
+      compliantIntegration: 'コンプライアンス対応のソフトウェア情報連携を相談可能',
+      disclaimer: '請求書の発行可否・範囲および連携内容は、確認と正式契約に基づきます。'
+    }
+  },
   researchGroup: jaResearchGroup,
   keys: {
     ...en.keys,
@@ -257,6 +271,7 @@ export default {
       dashboard: 'ダッシュボード',
       tagline: '統合 AI API ゲートウェイ',
       pricing: 'モデル料金',
+      teams: '研究グループ・法人',
       integrations: 'ツール連携',
       openMenu: 'メニューを開く',
       closeMenu: 'メニューを閉じる'
@@ -301,6 +316,42 @@ export default {
       claudeCodeDescription: 'ローカルとリモートの Anthropic 互換エンドポイントを自動設定します。',
       geminiDescription: 'キーを切り替えることなく Gemini CLI の設定をワンクリックで生成します。',
       ideDescription: 'VS Code、Cursor、Windsurf、JetBrains の統合端末と互換 API から利用できます。'
+    },
+    teams: {
+      eyebrow: '大学研究グループ · 企業チーム',
+      title: '1 つの管理者アカウントで、研究グループや企業チーム全体を支援',
+      description: '責任者は登録後に自分のグループを作成し、共有残高とメンバーの月間支援枠を管理できます。メンバーは個別のログインと API キーを維持し、自分の画面でグループ枠、使用量、個人残高を確認できます。',
+      primaryAction: '登録してグループを作成',
+      manageAction: 'グループを作成・管理',
+      loginAction: 'ログインしてグループを確認',
+      features: {
+        sharedBalance: {
+          title: '共有残高を一元管理',
+          description: '管理者残高は対象となる従量課金リクエストのみを支援し、1 件全体を優先して支払います。サブスクリプションは共有残高の対象外で、支援枠または残高が不足した場合はメンバー残高へ切り替わります。'
+        },
+        independentAccounts: {
+          title: 'メンバーごとの独立アカウント',
+          description: '各メンバーは自分のログインと API キーを維持するため、責任者が個人キーを収集・管理する必要はありません。'
+        },
+        visibleQuota: {
+          title: 'メンバーにも見える月間枠',
+          description: '月間グループ枠、使用済み・残りの支援額を確認でき、個人のチャージと使用量画面も引き続き利用できます。'
+        },
+        billingTrace: {
+          title: '利用者と支払者を明確に記録',
+          description: '利用量は呼び出したメンバーに、請求は実際の支払者に記録され、グループ負担分を確認できます。'
+        }
+      },
+      business: {
+        badge: '法人取引サポート',
+        title: '大学・企業向けの調達と導入支援',
+        description: '一括調達、明確な予算管理、継続的な AI 接続を必要とする研究室や企業チームに適しています。',
+        invoiceTitle: '正式な法人向け請求書・インボイス',
+        invoiceDescription: '取引主体、サービス内容、発行条件を満たす場合に請求情報を確認できます。無条件の発行を約束するものではありません。',
+        integrationTitle: 'コンプライアンスに配慮したソフトウェア情報統合サービス',
+        integrationDescription: '既存ソフトウェア、開発ツール、業務システムへの API 接続と情報統合を、実際の案件と適用要件に合わせて設計します。',
+        note: '発行可否、請求項目、税務情報、サービス範囲、納品条件は、実際の取引、適用規則、双方の合意に基づきます。「コンプライアンス対応」は、すべての業界・用途に共通する認証や法的判断を意味しません。'
+      }
     },
     workflow: {
       eyebrow: 'クイックスタート',

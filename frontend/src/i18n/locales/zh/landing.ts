@@ -255,6 +255,7 @@ export default {
       dashboard: '控制台',
       tagline: '统一 AI API 网关',
       pricing: '模型定价',
+      teams: '课题组与企业',
       integrations: '工具接入',
       openMenu: '打开菜单',
       closeMenu: '关闭菜单'
@@ -318,6 +319,42 @@ export default {
       claudeCodeDescription: '自动配置 Anthropic 兼容端点，本机与远程环境都支持。',
       geminiDescription: '一键生成 Gemini CLI 所需配置，无需反复切换密钥。',
       ideDescription: '适配 VS Code、Cursor、Windsurf、JetBrains 等编辑器的内置终端与兼容 API。'
+    },
+    teams: {
+      eyebrow: '高校课题组 · 企业团队',
+      title: '一个主账号，清楚支持整个课题组或企业团队',
+      description: '负责人注册后即可创建自己的小组，统一管理共享余额和成员月额度。成员继续使用独立账号与 API Key，并可在自己的控制台查看小组额度、已用额度和个人余额。',
+      primaryAction: '注册并创建小组',
+      manageAction: '创建或管理课题组',
+      loginAction: '登录查看小组',
+      features: {
+        sharedBalance: {
+          title: '共享余额，统一充值',
+          description: '主账号余额仅资助符合条件的按量计费请求，并优先为成员整笔付款；订阅计费不进入共享余额。资助额度或主账号余额不足时，请求转由成员个人余额承担。'
+        },
+        independentAccounts: {
+          title: '成员独立登录与密钥',
+          description: '每位成员保留自己的登录账号和 API Key，负责人无需收集或控制成员密钥。'
+        },
+        visibleQuota: {
+          title: '月额度对成员可见',
+          description: '成员可随时查看本月小组额度、已用与剩余额度，同时保留个人充值和用量入口。'
+        },
+        billingTrace: {
+          title: '付款与用量清楚追踪',
+          description: '用量归属实际调用成员，扣款记录实际付款方，便于负责人查看由小组承担的成员用量。'
+        }
+      },
+      business: {
+        badge: '对公业务支持',
+        title: '面向高校与企业的采购和交付支持',
+        description: '适合需要统一采购、明确预算边界和持续接入 AI 能力的课题组、实验室及企业团队。',
+        invoiceTitle: '正规对公发票',
+        invoiceDescription: '在交易主体、业务内容及开票条件符合要求时，可确认正规对公发票的开具信息；不构成无条件开票承诺。',
+        integrationTitle: '合规软件信息集成服务',
+        integrationDescription: '可根据实际项目沟通软件、开发工具和业务系统的接口接入与信息集成，并按适用要求及双方约定实施。',
+        note: '能否开票、发票项目、税务信息、服务范围和交付方式以实际业务、适用规则及双方约定为准；“合规”不表示适用于所有行业或场景的通用认证或法律结论。'
+      }
     },
     workflow: {
       eyebrow: '快速开始',

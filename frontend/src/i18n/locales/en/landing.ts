@@ -255,6 +255,7 @@ export default {
       dashboard: 'Dashboard',
       tagline: 'Unified AI API Gateway',
       pricing: 'Model pricing',
+      teams: 'Teams & Business',
       integrations: 'Integrations',
       openMenu: 'Open menu',
       closeMenu: 'Close menu'
@@ -318,6 +319,42 @@ export default {
       claudeCodeDescription: 'Configure the Anthropic-compatible endpoint for local and remote environments.',
       geminiDescription: 'Generate the Gemini CLI configuration in one click without juggling keys.',
       ideDescription: 'Works through compatible APIs and the integrated terminals in VS Code, Cursor, Windsurf, and JetBrains.'
+    },
+    teams: {
+      eyebrow: 'Research groups · Business teams',
+      title: 'One owner account can support an entire research group or business team',
+      description: 'A group lead can register and create a team, then manage shared balance and monthly member sponsorship. Members keep independent logins and API keys, and can see their group quota, usage, and personal balance in their own dashboard.',
+      primaryAction: 'Register and create a team',
+      manageAction: 'Create or manage a group',
+      loginAction: 'Sign in to view your team',
+      features: {
+        sharedBalance: {
+          title: 'Shared balance, centrally funded',
+          description: 'The owner balance sponsors eligible pay-as-you-go requests only and pays each member request in full. Subscriptions do not use shared balance; insufficient sponsorship or owner balance sends the request to the member balance.'
+        },
+        independentAccounts: {
+          title: 'Independent member accounts',
+          description: 'Every member keeps their own login and API keys, so a group lead does not need to collect or control private keys.'
+        },
+        visibleQuota: {
+          title: 'Monthly quotas members can see',
+          description: 'Members can view their monthly group limit, usage, and remaining sponsorship while retaining personal top-up and usage access.'
+        },
+        billingTrace: {
+          title: 'Clear usage and payer records',
+          description: 'Usage stays attributed to the member who made the call, while billing records the actual payer for group-funded reporting.'
+        }
+      },
+      business: {
+        badge: 'Business procurement support',
+        title: 'Procurement and delivery support for universities and companies',
+        description: 'Designed for research groups, laboratories, and business teams that need centralized purchasing, clear budget boundaries, and ongoing AI integration.',
+        invoiceTitle: 'Official business invoices',
+        invoiceDescription: 'Invoice details can be confirmed when the transaction parties, service, and invoicing conditions qualify; this is not an unconditional promise to issue an invoice.',
+        integrationTitle: 'Compliant software information integration services',
+        integrationDescription: 'API access and information integration for existing software, developer tools, and business systems can be scoped to the actual project and applicable requirements.',
+        note: 'Invoice availability, invoice items, tax details, service scope, and delivery terms depend on the transaction, applicable rules, and mutual agreement. “Compliant” does not imply universal certification or a legal conclusion for every industry or use case.'
+      }
     },
     workflow: {
       eyebrow: 'Quick start',

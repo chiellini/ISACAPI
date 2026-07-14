@@ -163,6 +163,7 @@ import {
 } from '@/api/auth'
 import { apiClient } from '@/api/client'
 import { buildAuthErrorMessage } from '@/utils/authError'
+import { sanitizeAuthRedirect } from '@/utils/authRedirect'
 import {
   formatRegistrationEmailSuffixWhitelistForMessage,
   isRegistrationEmailSuffixAllowed,
@@ -553,8 +554,7 @@ async function handleVerify(): Promise<void> {
     // Show success toast
     appStore.showSuccess(t('auth.accountCreatedSuccess', { siteName: siteName.value }))
 
-    // Redirect to dashboard
-    await router.push(pendingRedirect.value || '/dashboard')
+    await router.push(sanitizeAuthRedirect(pendingRedirect.value))
   } catch (error: unknown) {
     errorMessage.value = buildAuthErrorMessage(error, {
       fallback: t('auth.verifyFailed')
@@ -570,8 +570,12 @@ function handleBack(): void {
   // Clear session data
   sessionStorage.removeItem('register_data')
 
-  // Go back to registration
-  router.push('/register')
+  const redirect = sanitizeAuthRedirect(pendingRedirect.value)
+  router.push(
+    redirect === '/dashboard'
+      ? '/register'
+      : { path: '/register', query: { redirect } }
+  )
 }
 
 function buildEmailSuffixNotAllowedMessage(): string {

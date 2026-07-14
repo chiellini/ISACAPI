@@ -207,6 +207,18 @@ export default {
     createAccount: 'Create Account',
     signUpToStart: 'Sign up to start using {siteName}',
     signUp: 'Sign up',
+    teamBusiness: {
+      audience: 'Universities & businesses',
+      title: 'Leaders can create their own group',
+      description:
+        'Create a group after signing in. Members keep independent accounts and can see their own group allowance.',
+      sharedBalance: 'Independent accounts · Shared balance',
+      quotaControl: 'Visible, controllable monthly allowances',
+      corporateInvoice: 'Corporate invoice support on request',
+      compliantIntegration: 'Compliance-oriented software integration consultation',
+      disclaimer:
+        'Invoice eligibility, scope, and integration services are subject to confirmation and the executed agreement.',
+    },
     processing: 'Processing...',
     continue: 'Continue',
     rememberMe: 'Remember me',

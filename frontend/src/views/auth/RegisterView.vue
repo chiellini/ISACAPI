@@ -11,6 +11,58 @@
         </p>
       </div>
 
+      <section
+        v-if="!appStore.backendModeEnabled"
+        aria-labelledby="register-team-business-title"
+        class="rounded-lg border border-sky-200/80 bg-gradient-to-br from-sky-50 to-emerald-50/70 px-4 py-3.5 text-start dark:border-sky-900/70 dark:from-sky-950/35 dark:to-emerald-950/20"
+        data-testid="team-business-promo"
+      >
+        <div class="flex items-start gap-3">
+          <span
+            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-sky-700 shadow-sm ring-1 ring-sky-100 dark:bg-sky-950/70 dark:text-sky-300 dark:ring-sky-900"
+          >
+            <Icon name="users" size="sm" aria-hidden="true" />
+          </span>
+          <div class="min-w-0">
+            <p
+              class="text-[11px] font-semibold uppercase tracking-wide text-sky-700 dark:text-sky-300"
+            >
+              {{ t('auth.teamBusiness.audience') }}
+            </p>
+            <h3
+              id="register-team-business-title"
+              class="mt-0.5 text-sm font-semibold text-slate-900 dark:text-white"
+            >
+              {{ t('auth.teamBusiness.title') }}
+            </h3>
+          </div>
+        </div>
+        <p class="mt-2 text-xs leading-5 text-slate-600 dark:text-slate-300">
+          {{ t('auth.teamBusiness.description') }}
+        </p>
+        <div class="mt-3 grid grid-cols-1 gap-x-3 gap-y-2 text-[11px] leading-4 text-slate-600 dark:text-slate-300 sm:grid-cols-2">
+          <span class="flex items-start gap-1.5">
+            <Icon name="check" size="xs" class="mt-0.5 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+            <span>{{ t('auth.teamBusiness.sharedBalance') }}</span>
+          </span>
+          <span class="flex items-start gap-1.5">
+            <Icon name="check" size="xs" class="mt-0.5 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+            <span>{{ t('auth.teamBusiness.quotaControl') }}</span>
+          </span>
+          <span class="flex items-start gap-1.5">
+            <Icon name="check" size="xs" class="mt-0.5 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+            <span>{{ t('auth.teamBusiness.corporateInvoice') }}</span>
+          </span>
+          <span class="flex items-start gap-1.5">
+            <Icon name="check" size="xs" class="mt-0.5 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+            <span>{{ t('auth.teamBusiness.compliantIntegration') }}</span>
+          </span>
+        </div>
+        <p class="mt-2 border-t border-sky-200/70 pt-2 text-[10px] leading-4 text-slate-500 dark:border-sky-900/60 dark:text-slate-400">
+          {{ t('auth.teamBusiness.disclaimer') }}
+        </p>
+      </section>
+
       <!-- Registration Form -->
       <form @submit.prevent="handleRegister" class="space-y-5">
         <!-- Email Input -->
@@ -274,8 +326,8 @@
       <p class="text-gray-500 dark:text-dark-400">
         {{ t('auth.alreadyHaveAccount') }}
         <router-link
-          to="/login"
-          class="font-medium text-primary-600 transition-colors hover:text-primary-500 dark:text-primary-400 dark:hover:text-primary-300"
+          :to="loginRouteTarget"
+          class="rounded-sm font-medium text-primary-600 transition-colors hover:text-primary-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 dark:text-primary-400 dark:hover:text-primary-300 dark:focus-visible:ring-offset-dark-950"
         >
           {{ t('auth.signIn') }}
         </router-link>
@@ -315,6 +367,7 @@ import {
   resolveAffiliateReferralCode
 } from '@/utils/oauthAffiliate'
 import type { LoginAgreementDocument } from '@/types'
+import { sanitizeAuthRedirect } from '@/utils/authRedirect'
 
 const { t, locale } = useI18n()
 const LOGIN_AGREEMENT_STORAGE_KEY = 'sub2api_login_agreement_consent'
@@ -418,6 +471,15 @@ const agreementGateActive = computed(
 
 const registrationActionDisabled = computed(
   () => isLoading.value || !settingsLoaded.value || agreementGateActive.value
+)
+const postRegistrationRedirect = computed(() => sanitizeAuthRedirect(route.query.redirect))
+const loginRouteTarget = computed(() =>
+  postRegistrationRedirect.value === '/dashboard'
+    ? '/login'
+    : {
+        path: '/login',
+        query: { redirect: postRegistrationRedirect.value }
+      }
 )
 
 watch(validationToastMessage, (value, previousValue) => {
@@ -860,6 +922,7 @@ async function handleRegister(): Promise<void> {
           turnstile_token: turnstileToken.value,
           promo_code: formData.promo_code || undefined,
           invitation_code: formData.invitation_code || undefined,
+          pending_redirect: postRegistrationRedirect.value,
           ...(affCode ? { aff_code: affCode } : {})
         })
       )
@@ -883,8 +946,7 @@ async function handleRegister(): Promise<void> {
     // Show success toast
     appStore.showSuccess(t('auth.accountCreatedSuccess', { siteName: siteName.value }))
 
-    // Redirect to dashboard
-    await router.push('/dashboard')
+    await router.push(postRegistrationRedirect.value)
   } catch (error: unknown) {
     // Reset Turnstile on error
     if (turnstileRef.value) {

@@ -7,6 +7,19 @@ export default {
     ...zh.nav,
     researchGroup: '課題組'
   },
+  auth: {
+    ...zh.auth,
+    teamBusiness: {
+      audience: '高校課題組 · 企業團隊',
+      title: '負責人可自行建立小組',
+      description: '註冊並登入後即可建立；成員保留獨立帳號，並可查看自己的課題組額度。',
+      sharedBalance: '獨立帳號 · 共用餘額',
+      quotaControl: '月度額度 · 可見可控',
+      corporateInvoice: '正規對公發票可申請',
+      compliantIntegration: '合規軟體資訊整合服務可諮詢',
+      disclaimer: '具體開票資格、範圍與整合方案，以客服確認及正式合約為準。'
+    }
+  },
   researchGroup: zhHantResearchGroup,
   home: {
     ...zh.home,
@@ -25,6 +38,7 @@ export default {
       dashboard: '儀表板',
       tagline: '統一 AI API 閘道',
       pricing: '模型價格',
+      teams: '課題組與企業',
       integrations: '工具整合',
       openMenu: '開啟選單',
       closeMenu: '關閉選單'
@@ -69,6 +83,42 @@ export default {
       claudeCodeDescription: '自動設定 Anthropic 相容端點，本機與遠端環境都支援。',
       geminiDescription: '一鍵產生 Gemini CLI 所需設定，無需反覆切換金鑰。',
       ideDescription: '適配 VS Code、Cursor、Windsurf、JetBrains 等編輯器的內建終端與相容 API。'
+    },
+    teams: {
+      eyebrow: '高校課題組 · 企業團隊',
+      title: '一個主帳號，清楚支援整個課題組或企業團隊',
+      description: '負責人註冊後即可建立自己的小組，統一管理共享餘額與成員月額度。成員繼續使用獨立帳號與 API 金鑰，並可在自己的控制台查看小組額度、已用額度與個人餘額。',
+      primaryAction: '註冊並建立小組',
+      manageAction: '建立或管理課題組',
+      loginAction: '登入查看小組',
+      features: {
+        sharedBalance: {
+          title: '共享餘額，統一充值',
+          description: '主帳號餘額僅資助符合條件的按量計費請求，並優先為成員整筆付款；訂閱計費不使用共享餘額。資助額度或主帳號餘額不足時，請求改由成員個人餘額承擔。'
+        },
+        independentAccounts: {
+          title: '成員獨立登入與金鑰',
+          description: '每位成員保留自己的登入帳號與 API 金鑰，負責人無需收集或控制成員金鑰。'
+        },
+        visibleQuota: {
+          title: '月額度對成員可見',
+          description: '成員可隨時查看本月小組額度、已用與剩餘額度，同時保留個人充值及用量入口。'
+        },
+        billingTrace: {
+          title: '付款與用量清楚追蹤',
+          description: '用量歸屬實際呼叫成員，扣款記錄實際付款方，方便負責人查看由小組承擔的成員用量。'
+        }
+      },
+      business: {
+        badge: '對公業務支援',
+        title: '面向高校與企業的採購及交付支援',
+        description: '適合需要統一採購、明確預算邊界及持續接入 AI 能力的課題組、實驗室與企業團隊。',
+        invoiceTitle: '正規對公發票',
+        invoiceDescription: '僅在交易主體、業務內容及開票條件符合要求時確認開票資訊，不構成無條件開票承諾。',
+        integrationTitle: '合規軟體資訊整合服務',
+        integrationDescription: '可按實際專案溝通軟體、開發工具與業務系統的介面接入及資訊整合，並依適用要求與雙方約定實施。',
+        note: '能否開票、發票項目、稅務資訊、服務範圍與交付方式以實際業務、適用規則及雙方約定為準；「合規」不代表適用所有產業或情境的通用認證或法律結論。'
+      }
     },
     workflow: {
       eyebrow: '快速開始',

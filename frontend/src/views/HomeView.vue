@@ -47,6 +47,7 @@
           <a href="#top" class="home-nav-link home-nav-link-active">{{ t('home.nav.home') }}</a>
           <router-link :to="dashboardPath" class="home-nav-link">{{ t('home.nav.dashboard') }}</router-link>
           <router-link to="/pricing" class="home-nav-link">{{ t('home.nav.pricing') }}</router-link>
+          <a href="#teams" class="home-nav-link">{{ t('home.nav.teams') }}</a>
           <a href="#integrations" class="home-nav-link">{{ t('home.nav.integrations') }}</a>
           <a
             v-if="docUrl"
@@ -127,6 +128,7 @@
             <a href="#top" class="home-mobile-link" @click="mobileMenuOpen = false">{{ t('home.nav.home') }}</a>
             <router-link :to="dashboardPath" class="home-mobile-link" @click="mobileMenuOpen = false">{{ t('home.nav.dashboard') }}</router-link>
             <router-link to="/pricing" class="home-mobile-link" @click="mobileMenuOpen = false">{{ t('home.nav.pricing') }}</router-link>
+            <a href="#teams" class="home-mobile-link" @click="mobileMenuOpen = false">{{ t('home.nav.teams') }}</a>
             <a href="#integrations" class="home-mobile-link" @click="mobileMenuOpen = false">{{ t('home.nav.integrations') }}</a>
             <a
               :href="CC_SWITCH_DOWNLOAD_LINKS.officialSite"
@@ -308,6 +310,104 @@
               <p class="text-2xl font-bold tracking-tight text-slate-950 md:text-3xl dark:text-white">{{ stat.value }}</p>
               <p class="mt-1.5 text-xs font-medium text-slate-500 dark:text-dark-400">{{ t(stat.labelKey) }}</p>
             </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="teams" class="relative scroll-mt-20 overflow-hidden border-b border-slate-200 bg-slate-50 px-4 py-16 dark:border-dark-800 dark:bg-dark-900/40 md:px-6 md:py-24">
+        <div class="pointer-events-none absolute left-[-10rem] top-[-8rem] h-80 w-80 rounded-full bg-sky-200/40 blur-3xl dark:bg-sky-500/10"></div>
+        <div class="pointer-events-none absolute bottom-[-10rem] right-[-8rem] h-80 w-80 rounded-full bg-violet-200/40 blur-3xl dark:bg-violet-500/10"></div>
+
+        <div class="relative mx-auto max-w-7xl">
+          <div class="grid gap-8 lg:grid-cols-[1.08fr_0.92fr] lg:items-end">
+            <div>
+              <div class="inline-flex items-center gap-2 rounded-full border border-sky-200 bg-white px-3 py-1.5 text-xs font-semibold text-sky-700 shadow-sm dark:border-sky-900/70 dark:bg-dark-900 dark:text-sky-300">
+                <Icon name="users" size="sm" />
+                {{ t('home.teams.eyebrow') }}
+              </div>
+              <h2 class="mt-5 max-w-3xl text-3xl font-bold leading-tight tracking-tight text-slate-950 dark:text-white md:text-4xl lg:text-[2.75rem]">
+                {{ t('home.teams.title') }}
+              </h2>
+              <p class="mt-4 max-w-3xl text-sm leading-7 text-slate-600 dark:text-dark-300 md:text-base">
+                {{ t('home.teams.description') }}
+              </p>
+            </div>
+
+            <div class="flex flex-col gap-3 sm:flex-row lg:justify-end">
+              <router-link
+                v-if="!isAuthenticated || canUseResearchGroups"
+                :to="teamPrimaryTarget"
+                class="inline-flex items-center justify-center gap-2 rounded-xl bg-sky-500 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition-all hover:-translate-y-0.5 hover:bg-sky-600"
+              >
+                <Icon name="userPlus" size="sm" />
+                {{
+                  canUseResearchGroups
+                    ? t('home.teams.manageAction')
+                    : registrationEnabled
+                      ? t('home.teams.primaryAction')
+                      : t('home.teams.loginAction')
+                }}
+              </router-link>
+              <router-link
+                v-if="!isAuthenticated && registrationEnabled"
+                :to="teamLoginTarget"
+                class="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 shadow-sm transition-all hover:-translate-y-0.5 hover:border-sky-300 hover:text-sky-700 dark:border-dark-700 dark:bg-dark-900 dark:text-dark-200 dark:hover:border-sky-700 dark:hover:text-sky-300"
+              >
+                {{ t('home.teams.loginAction') }}
+                <Icon name="arrowRight" size="sm" />
+              </router-link>
+            </div>
+          </div>
+
+          <div class="mt-10 grid gap-5 lg:grid-cols-[1.15fr_0.85fr]">
+            <div class="grid gap-4 sm:grid-cols-2">
+              <article
+                v-for="feature in teamFeatures"
+                :key="feature.titleKey"
+                class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:-translate-y-1 hover:border-sky-300 hover:shadow-lg dark:border-dark-800 dark:bg-dark-900 dark:hover:border-sky-700 md:p-6"
+              >
+                <span :class="['flex h-11 w-11 items-center justify-center rounded-xl', feature.iconClass]">
+                  <Icon :name="feature.icon" size="md" />
+                </span>
+                <h3 class="mt-5 text-base font-bold text-slate-950 dark:text-white">{{ t(feature.titleKey) }}</h3>
+                <p class="mt-2 text-sm leading-6 text-slate-500 dark:text-dark-400">{{ t(feature.descriptionKey) }}</p>
+              </article>
+            </div>
+
+            <article class="relative overflow-hidden rounded-[1.5rem] bg-slate-950 p-6 text-white shadow-xl shadow-slate-300/30 dark:border dark:border-dark-700 dark:shadow-black/20 md:p-8">
+              <div class="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-violet-500/25 blur-3xl"></div>
+              <div class="relative">
+                <div class="inline-flex items-center gap-2 rounded-full border border-emerald-400/25 bg-emerald-400/10 px-3 py-1.5 text-xs font-semibold text-emerald-200">
+                  <Icon name="shield" size="sm" />
+                  {{ t('home.teams.business.badge') }}
+                </div>
+                <h3 class="mt-5 text-2xl font-bold leading-tight">{{ t('home.teams.business.title') }}</h3>
+                <p class="mt-3 text-sm leading-7 text-slate-300">{{ t('home.teams.business.description') }}</p>
+
+                <div class="mt-7 space-y-3">
+                  <div class="flex items-start gap-3 rounded-xl border border-white/10 bg-white/[0.06] p-4">
+                    <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-400/15 text-emerald-300">
+                      <Icon name="document" size="sm" />
+                    </span>
+                    <div>
+                      <p class="text-sm font-bold text-white">{{ t('home.teams.business.invoiceTitle') }}</p>
+                      <p class="mt-1 text-xs leading-5 text-slate-400">{{ t('home.teams.business.invoiceDescription') }}</p>
+                    </div>
+                  </div>
+                  <div class="flex items-start gap-3 rounded-xl border border-white/10 bg-white/[0.06] p-4">
+                    <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-sky-400/15 text-sky-300">
+                      <Icon name="server" size="sm" />
+                    </span>
+                    <div>
+                      <p class="text-sm font-bold text-white">{{ t('home.teams.business.integrationTitle') }}</p>
+                      <p class="mt-1 text-xs leading-5 text-slate-400">{{ t('home.teams.business.integrationDescription') }}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <p class="mt-5 text-[11px] leading-5 text-slate-500">{{ t('home.teams.business.note') }}</p>
+              </div>
+            </article>
           </div>
         </div>
       </section>
@@ -759,6 +859,33 @@ const workflowSteps = [
   }
 ] as const
 
+const teamFeatures = [
+  {
+    icon: 'creditCard',
+    iconClass: 'bg-sky-50 text-sky-600 dark:bg-sky-950/50 dark:text-sky-300',
+    titleKey: 'home.teams.features.sharedBalance.title',
+    descriptionKey: 'home.teams.features.sharedBalance.description'
+  },
+  {
+    icon: 'users',
+    iconClass: 'bg-violet-50 text-violet-600 dark:bg-violet-950/50 dark:text-violet-300',
+    titleKey: 'home.teams.features.independentAccounts.title',
+    descriptionKey: 'home.teams.features.independentAccounts.description'
+  },
+  {
+    icon: 'chartBar',
+    iconClass: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-300',
+    titleKey: 'home.teams.features.visibleQuota.title',
+    descriptionKey: 'home.teams.features.visibleQuota.description'
+  },
+  {
+    icon: 'clipboard',
+    iconClass: 'bg-amber-50 text-amber-600 dark:bg-amber-950/50 dark:text-amber-300',
+    titleKey: 'home.teams.features.billingTrace.title',
+    descriptionKey: 'home.teams.features.billingTrace.description'
+  }
+] as const
+
 const NOTICE_VERSION = '2026-07-pricing-v2'
 const NOTICE_SESSION_KEY = `isacai_home_notice_session_${NOTICE_VERSION}`
 const NOTICE_DATE_KEY = `isacai_home_notice_date_${NOTICE_VERSION}`
@@ -766,6 +893,29 @@ const NOTICE_DATE_KEY = `isacai_home_notice_date_${NOTICE_VERSION}`
 const isAuthenticated = computed(() => authStore.isAuthenticated)
 const isAdmin = computed(() => authStore.isAdmin)
 const dashboardPath = computed(() => (isAdmin.value ? '/admin/dashboard' : '/dashboard'))
+const registrationEnabled = computed(
+  () => appStore.cachedPublicSettings?.registration_enabled !== false
+)
+const canUseResearchGroups = computed(
+  () =>
+    isAuthenticated.value &&
+    !authStore.isAdmin &&
+    !authStore.isProvider &&
+    !authStore.isSimpleMode &&
+    !appStore.backendModeEnabled
+)
+const teamLoginTarget = {
+  path: '/login',
+  query: { redirect: '/research-group' }
+}
+const teamPrimaryTarget = computed(() => {
+  if (canUseResearchGroups.value) return '/research-group'
+  if (!registrationEnabled.value) return teamLoginTarget
+  return {
+    path: '/register',
+    query: { redirect: '/research-group' }
+  }
+})
 const userInitial = computed(() => {
   const user = authStore.user
   if (!user || !user.email) return 'I'
