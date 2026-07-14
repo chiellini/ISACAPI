@@ -19,6 +19,7 @@ func RegisterUserRoutes(
 	authenticated.Use(gin.HandlerFunc(jwtAuth))
 	authenticated.Use(middleware.BackendModeUserGuard(settingService))
 	{
+		authenticated.GET("/users/me", h.User.GetProfile)
 		// 用户接口
 		user := authenticated.Group("/user")
 		{
@@ -33,6 +34,23 @@ func RegisterUserRoutes(
 			user.POST("/auth-identities/bind/start", h.User.StartIdentityBinding)
 			user.GET("/api-keys/:id/usage/daily", h.Usage.GetMyAPIKeyDailyUsage)
 			user.GET("/platform-quotas", h.User.GetMyPlatformQuotas)
+
+			researchGroup := user.Group("/research-group")
+			{
+				researchGroup.GET("", h.ResearchGroup.GetContext)
+				researchGroup.POST("", h.ResearchGroup.Create)
+				researchGroup.PATCH("", h.ResearchGroup.Update)
+				researchGroup.DELETE("", h.ResearchGroup.Dissolve)
+				researchGroup.POST("/members", h.ResearchGroup.InviteMember)
+				researchGroup.PATCH("/members/:id", h.ResearchGroup.UpdateMember)
+				researchGroup.POST("/members/:id/reset", h.ResearchGroup.ResetMemberMonth)
+				researchGroup.DELETE("/members/:id", h.ResearchGroup.RemoveMember)
+				researchGroup.GET("/invitations", h.ResearchGroup.ListInvitations)
+				researchGroup.POST("/invitations/:id/accept", h.ResearchGroup.AcceptInvitation)
+				researchGroup.POST("/invitations/:id/reject", h.ResearchGroup.RejectInvitation)
+				researchGroup.POST("/leave", h.ResearchGroup.Leave)
+				researchGroup.GET("/usage", h.ResearchGroup.ListUsage)
+			}
 
 			// 通知邮箱管理
 			notifyEmail := user.Group("/notify-email")

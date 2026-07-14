@@ -748,9 +748,10 @@ INSERT INTO batch_image_jobs (
     estimated_cost, hold_amount, actual_cost,
     base_unit_price, group_rate_multiplier, account_rate_multiplier,
     batch_discount_multiplier, hold_multiplier, billable_unit_price, hold_unit_price,
-    pricing_snapshot_version,
-    currency, hold_id,
-    idempotency_key, request_hash, manifest_hash, retry_count, output_expires_at
+	pricing_snapshot_version,
+	currency, hold_id,
+	idempotency_key, request_hash, manifest_hash, retry_count, output_expires_at, account_provider_id,
+	payer_user_id, research_group_id, research_group_member_id, funding_source
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9,
     $10, $11, $12, $13, $14,
@@ -760,7 +761,8 @@ INSERT INTO batch_image_jobs (
     $25, $26, $27, $28,
     $29,
     $30, $31,
-    $32, $33, $34, $35, $36
+	$32, $33, $34, $35, $36, $37,
+	$38, $39, $40, $41
 )
 RETURNING `+batchImageJobColumns,
 		params.BatchID, params.UserID, params.APIKeyID, params.AccountID, params.Provider, params.Model, params.TaskName, params.ParentBatchID, params.Status,
@@ -771,7 +773,8 @@ RETURNING `+batchImageJobColumns,
 		params.BatchDiscountMultiplier, params.HoldMultiplier, params.BillableUnitPrice, params.HoldUnitPrice,
 		params.PricingSnapshotVersion,
 		params.Currency, params.HoldID,
-		params.IdempotencyKey, params.RequestHash, params.ManifestHash, params.RetryCount, params.OutputExpiresAt,
+		params.IdempotencyKey, params.RequestHash, params.ManifestHash, params.RetryCount, params.OutputExpiresAt, params.AccountProviderID,
+		params.PayerUserID, params.ResearchGroupID, params.ResearchGroupMemberID, params.FundingSource,
 	))
 }
 
@@ -827,13 +830,16 @@ currency, hold_id,
 idempotency_key, request_hash, manifest_hash,
 retry_count, version, output_expires_at, input_deleted_at, output_deleted_at, downloaded_at, user_deleted_at,
 last_error_code, last_error_message,
-created_at, updated_at, submitted_at, started_at, finished_at, settled_at`
+created_at, updated_at, submitted_at, started_at, finished_at, settled_at, account_provider_id,
+payer_user_id, research_group_id, research_group_member_id, funding_source`
 
 const batchImageJobSelectSQL = `SELECT ` + batchImageJobColumns + ` FROM batch_image_jobs`
 
 func scanBatchImageJob(row rowScanner) (*service.BatchImageJob, error) {
 	var job service.BatchImageJob
-	var apiKeyID, accountID sql.NullInt64
+	var apiKeyID, accountID, accountProviderID sql.NullInt64
+	var payerUserID, researchGroupID, researchGroupMemberID sql.NullInt64
+	var fundingSource sql.NullString
 	var providerJobName, providerInputRef, providerOutputRef, gcsInputURI, gcsOutputURI sql.NullString
 	var parentBatchID sql.NullString
 	var holdAmount, actualCost sql.NullFloat64
@@ -855,6 +861,8 @@ func scanBatchImageJob(row rowScanner) (*service.BatchImageJob, error) {
 		&job.RetryCount, &job.Version, &outputExpiresAt, &inputDeletedAt, &outputDeletedAt, &downloadedAt, &userDeletedAt,
 		&lastErrorCode, &lastErrorMessage,
 		&job.CreatedAt, &job.UpdatedAt, &submittedAt, &startedAt, &finishedAt, &settledAt,
+		&accountProviderID,
+		&payerUserID, &researchGroupID, &researchGroupMemberID, &fundingSource,
 	)
 	if err != nil {
 		return nil, err
@@ -862,6 +870,11 @@ func scanBatchImageJob(row rowScanner) (*service.BatchImageJob, error) {
 
 	job.APIKeyID = batchImageNullInt64Ptr(apiKeyID)
 	job.AccountID = batchImageNullInt64Ptr(accountID)
+	job.AccountProviderID = batchImageNullInt64Ptr(accountProviderID)
+	job.PayerUserID = batchImageNullInt64Ptr(payerUserID)
+	job.ResearchGroupID = batchImageNullInt64Ptr(researchGroupID)
+	job.ResearchGroupMemberID = batchImageNullInt64Ptr(researchGroupMemberID)
+	job.FundingSource = batchImageNullStringPtr(fundingSource)
 	job.ProviderJobName = batchImageNullStringPtr(providerJobName)
 	job.ProviderInputRef = batchImageNullStringPtr(providerInputRef)
 	job.ProviderOutputRef = batchImageNullStringPtr(providerOutputRef)

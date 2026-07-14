@@ -75,6 +75,7 @@ type postUsageBillingParams struct {
 	AccountRateMultiplier float64
 	APIKeyService         APIKeyQuotaUpdater
 	Platform              string // 来自 APIKey 关联 Group 的平台标识
+	BillingDecision       *BillingDecision
 }
 
 // PlatformFromAPIKey 从 APIKey 关联的 Group 推导 platform 名称。
@@ -132,11 +133,12 @@ func postUsageBilling(ctx context.Context, p *postUsageBillingParams, deps *bill
 		}
 	} else {
 		if cost.ActualCost > 0 {
-			if err := deps.userRepo.DeductBalance(billingCtx, p.User.ID, cost.ActualCost); err != nil {
-				slog.Error("deduct balance failed", "user_id", p.User.ID, "error", err)
+			decision := p.BillingDecision.Normalize(p.User.ID)
+			if err := deps.userRepo.DeductBalance(billingCtx, decision.PayerUserID, cost.ActualCost); err != nil {
+				slog.Error("deduct balance failed", "user_id", decision.PayerUserID, "error", err)
 			} else if deps.billingCacheService != nil {
-				if err := deps.billingCacheService.InvalidateUserBalance(billingCtx, p.User.ID); err != nil {
-					slog.Warn("invalidate balance cache after legacy deduction failed", "user_id", p.User.ID, "error", err)
+				if err := deps.billingCacheService.InvalidateUserBalance(billingCtx, decision.PayerUserID); err != nil {
+					slog.Warn("invalidate balance cache after legacy deduction failed", "user_id", decision.PayerUserID, "error", err)
 				}
 			}
 		}
@@ -230,6 +232,11 @@ func buildUsageBillingCommand(requestID string, usageLog *UsageLog, p *postUsage
 		AccountType:        p.Account.Type,
 		RequestPayloadHash: strings.TrimSpace(p.RequestPayloadHash),
 	}
+	decision := p.BillingDecision.Normalize(p.User.ID)
+	cmd.PayerUserID = decision.PayerUserID
+	cmd.ResearchGroupID = decision.ResearchGroupID
+	cmd.ResearchGroupMemberID = decision.ResearchGroupMemberID
+	cmd.FundingSource = decision.FundingSource
 	if usageLog != nil {
 		cmd.Model = usageLog.Model
 		cmd.BillingType = usageLog.BillingType
@@ -280,6 +287,18 @@ func applyUsageBilling(ctx context.Context, requestID string, usageLog *UsageLog
 	}
 
 	cmd := buildUsageBillingCommand(requestID, usageLog, p)
+	decision := p.BillingDecision.Normalize(p.User.ID)
+	if usageLog != nil {
+		payerID := decision.PayerUserID
+		usageLog.PayerUserID = &payerID
+		fundingSource := decision.FundingSource
+		usageLog.FundingSource = &fundingSource
+		if decision.IsResearchGroupFunded() {
+			groupID, memberID := decision.ResearchGroupID, decision.ResearchGroupMemberID
+			usageLog.ResearchGroupID = &groupID
+			usageLog.ResearchGroupMemberID = &memberID
+		}
+	}
 	if cmd == nil || cmd.RequestID == "" || repo == nil {
 		postUsageBilling(ctx, p, deps)
 		return true, nil
@@ -319,6 +338,11 @@ func finalizePostUsageBilling(ctx context.Context, p *postUsageBillingParams, de
 		}
 	} else if p.Cost.ActualCost > 0 && p.User != nil {
 		syncBalanceCacheAfterDeduction(ctx, p, deps, result)
+		if result != nil && result.FundingSource == FundingSourceResearchGroup {
+			if err := deps.billingCacheService.InvalidateResearchGroupFunding(ctx, p.User.ID); err != nil {
+				slog.Warn("invalidate research group funding cache after deduction failed", "user_id", p.User.ID, "error", err)
+			}
+		}
 	}
 
 	if p.Cost.ActualCost > 0 && p.APIKey != nil && p.APIKey.HasRateLimits() {
@@ -371,10 +395,14 @@ func syncBalanceCacheAfterDeduction(ctx context.Context, p *postUsageBillingPara
 	if p == nil || p.Cost == nil || p.User == nil || deps == nil || deps.billingCacheService == nil {
 		return
 	}
+	payerUserID := p.BillingDecision.Normalize(p.User.ID).PayerUserID
+	if result != nil && result.PayerUserID > 0 {
+		payerUserID = result.PayerUserID
+	}
 	if result != nil && result.NewBalance != nil && deps.billingCacheService.balanceBelowEligibilityThreshold(*result.NewBalance) {
-		if err := deps.billingCacheService.InvalidateUserBalance(ctx, p.User.ID); err != nil {
+		if err := deps.billingCacheService.InvalidateUserBalance(ctx, payerUserID); err != nil {
 			slog.Warn("invalidate balance cache after exhausted deduction failed",
-				"user_id", p.User.ID,
+				"user_id", payerUserID,
 				"new_balance", *result.NewBalance,
 				"balance_overdrafted", result.BalanceOverdrafted,
 				"error", err,
@@ -382,7 +410,7 @@ func syncBalanceCacheAfterDeduction(ctx context.Context, p *postUsageBillingPara
 		}
 		return
 	}
-	deps.billingCacheService.QueueDeductBalance(p.User.ID, p.Cost.ActualCost)
+	deps.billingCacheService.QueueDeductBalance(payerUserID, p.Cost.ActualCost)
 }
 
 // notifyBalanceLow sends balance low notification after deduction.
@@ -404,16 +432,29 @@ func notifyBalanceLow(p *postUsageBillingParams, deps *billingDeps, result *Usag
 		return
 	}
 
+	payer := p.User
+	payerUserID := p.BillingDecision.Normalize(p.User.ID).PayerUserID
+	if result != nil && result.PayerUserID > 0 {
+		payerUserID = result.PayerUserID
+	}
+	if payerUserID != p.User.ID && deps.userRepo != nil {
+		loaded, err := deps.userRepo.GetByID(context.Background(), payerUserID)
+		if err != nil || loaded == nil {
+			slog.Error("load actual payer for balance notification failed", "payer_user_id", payerUserID, "error", err)
+			return
+		}
+		payer = loaded
+	}
 	oldBalance := resolveOldBalance(p, result)
 	slog.Debug("notifyBalanceLow: calling CheckBalanceAfterDeduction",
-		"user_id", p.User.ID,
+		"user_id", payer.ID,
 		"old_balance", oldBalance,
 		"cost", p.Cost.ActualCost,
-		"notify_enabled", p.User.BalanceNotifyEnabled,
-		"threshold", p.User.BalanceNotifyThreshold,
+		"notify_enabled", payer.BalanceNotifyEnabled,
+		"threshold", payer.BalanceNotifyThreshold,
 		"result_has_new_balance", result != nil && result.NewBalance != nil,
 	)
-	deps.balanceNotifyService.CheckBalanceAfterDeduction(context.Background(), p.User, oldBalance, p.Cost.ActualCost)
+	deps.balanceNotifyService.CheckBalanceAfterDeduction(context.Background(), payer, oldBalance, p.Cost.ActualCost)
 }
 
 // resolveOldBalance returns the pre-deduction balance.
@@ -730,6 +771,7 @@ func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsage
 		quotaPlatform = PlatformFromAPIKey(apiKey)
 	}
 	requestID := usageLog.RequestID
+	billingDecision := BillingDecisionFromContext(ctx, user.ID)
 	_, billingErr := applyUsageBilling(ctx, requestID, usageLog, &postUsageBillingParams{
 		Cost:                  cost,
 		User:                  user,
@@ -741,6 +783,7 @@ func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsage
 		AccountRateMultiplier: accountRateMultiplier,
 		APIKeyService:         input.APIKeyService,
 		Platform:              quotaPlatform,
+		BillingDecision:       billingDecision,
 	}, s.billingDeps(), s.usageBillingRepo)
 
 	if billingErr != nil {
@@ -900,6 +943,7 @@ func (s *GatewayService) buildRecordUsageLog(
 		UserID:                user.ID,
 		APIKeyID:              apiKey.ID,
 		AccountID:             account.ID,
+		ProviderID:            account.ProviderID,
 		RequestID:             requestID,
 		Model:                 result.Model,
 		RequestedModel:        requestedModel,

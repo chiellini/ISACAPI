@@ -104,6 +104,18 @@ func TestUsageLogEffectiveRequestTypeNilReceiver(t *testing.T) {
 	require.Equal(t, RequestTypeUnknown, log.EffectiveRequestType())
 }
 
+func TestUsageLogLegacyFundingAttributionFallsBackToCaller(t *testing.T) {
+	legacy := &UsageLog{UserID: 42}
+	require.Equal(t, int64(42), legacy.EffectivePayerUserID())
+	require.Equal(t, FundingSourceSelf, legacy.EffectiveFundingSource())
+
+	payerID := int64(7)
+	fundingSource := FundingSourceResearchGroup
+	attributed := &UsageLog{UserID: 42, PayerUserID: &payerID, FundingSource: &fundingSource}
+	require.Equal(t, payerID, attributed.EffectivePayerUserID())
+	require.Equal(t, FundingSourceResearchGroup, attributed.EffectiveFundingSource())
+}
+
 func TestUsageLogSyncRequestTypeAndLegacyFieldsNilReceiver(t *testing.T) {
 	t.Parallel()
 

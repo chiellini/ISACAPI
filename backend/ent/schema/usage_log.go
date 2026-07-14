@@ -35,6 +35,8 @@ func (UsageLog) Fields() []ent.Field {
 		field.Int64("user_id"),
 		field.Int64("api_key_id"),
 		field.Int64("account_id"),
+		// Immutable provider ownership snapshot; no edge/FK by design.
+		field.Int64("provider_id").Optional().Nillable().Immutable(),
 		field.String("request_id").
 			MaxLen(64).
 			NotEmpty(),
@@ -63,6 +65,10 @@ func (UsageLog) Fields() []ent.Field {
 		field.Int64("subscription_id").
 			Optional().
 			Nillable(),
+		field.Int64("payer_user_id").Optional().Nillable().Immutable(),
+		field.Int64("research_group_id").Optional().Nillable().Immutable(),
+		field.Int64("research_group_member_id").Optional().Nillable().Immutable(),
+		field.String("funding_source").MaxLen(20).Optional().Nillable().Immutable(),
 
 		// Token 计数字段
 		field.Int("input_tokens").
@@ -201,6 +207,12 @@ func (UsageLog) Edges() []ent.Edge {
 			Ref("usage_logs").
 			Field("subscription_id").
 			Unique(),
+		edge.From("research_group", ResearchGroup.Type).
+			Ref("funded_usage_logs").
+			Field("research_group_id").
+			Unique().
+			Immutable().
+			Annotations(entsql.OnDelete(entsql.SetNull)),
 	}
 }
 
@@ -212,6 +224,9 @@ func (UsageLog) Indexes() []ent.Index {
 		index.Fields("account_id"),
 		index.Fields("group_id"),
 		index.Fields("subscription_id"),
+		index.Fields("payer_user_id", "created_at"),
+		index.Fields("research_group_id", "created_at"),
+		index.Fields("research_group_member_id", "created_at"),
 		index.Fields("created_at"),
 		index.Fields("model"),
 		index.Fields("requested_model"),
@@ -219,6 +234,8 @@ func (UsageLog) Indexes() []ent.Index {
 		// 复合索引用于时间范围查询
 		index.Fields("user_id", "created_at"),
 		index.Fields("api_key_id", "created_at"),
+		// Production uses the partial concurrent index from migration 176a.
+		index.Fields("provider_id", "created_at"),
 		// 分组维度时间范围查询（线上由 SQL 迁移创建 group_id IS NOT NULL 的部分索引）
 		index.Fields("group_id", "created_at"),
 	}

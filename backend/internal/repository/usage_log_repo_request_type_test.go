@@ -231,17 +231,35 @@ func TestExecUsageLogInsertNoResult_PersistsRequestedModel(t *testing.T) {
 }
 
 func TestPrepareUsageLogInsert_ArgCountMatchesTypes(t *testing.T) {
+	providerID := int64(44)
+	payerUserID := int64(45)
+	researchGroupID := int64(46)
+	researchGroupMemberID := int64(47)
+	fundingSource := service.FundingSourceResearchGroup
 	prepared := prepareUsageLogInsert(&service.UsageLog{
-		UserID:         1,
-		APIKeyID:       2,
-		AccountID:      3,
-		RequestID:      "req-arg-count",
-		Model:          "gpt-5",
-		RequestedModel: "gpt-5",
-		CreatedAt:      time.Date(2025, 1, 5, 12, 0, 0, 0, time.UTC),
+		UserID:                1,
+		APIKeyID:              2,
+		AccountID:             3,
+		ProviderID:            &providerID,
+		PayerUserID:           &payerUserID,
+		ResearchGroupID:       &researchGroupID,
+		ResearchGroupMemberID: &researchGroupMemberID,
+		FundingSource:         &fundingSource,
+		RequestID:             "req-arg-count",
+		Model:                 "gpt-5",
+		RequestedModel:        "gpt-5",
+		CreatedAt:             time.Date(2025, 1, 5, 12, 0, 0, 0, time.UTC),
 	})
 
 	require.Len(t, prepared.args, len(usageLogInsertArgTypes))
+	require.Len(t, prepared.args, 58)
+	require.Equal(t, sql.NullInt64{Int64: providerID, Valid: true}, prepared.args[53])
+	require.Equal(t, sql.NullInt64{Int64: payerUserID, Valid: true}, prepared.args[54])
+	require.Equal(t, sql.NullInt64{Int64: researchGroupID, Valid: true}, prepared.args[55])
+	require.Equal(t, sql.NullInt64{Int64: researchGroupMemberID, Valid: true}, prepared.args[56])
+	require.Equal(t, sql.NullString{String: fundingSource, Valid: true}, prepared.args[57])
+	require.Equal(t, "bigint", usageLogInsertArgTypes[53])
+	require.Equal(t, "text", usageLogInsertArgTypes[57])
 }
 
 func TestPrepareUsageLogInsert_PersistsImageSizeMetadata(t *testing.T) {
@@ -819,6 +837,11 @@ func TestScanUsageLogRequestTypeAndLegacyFallback(t *testing.T) {
 			sql.NullString{},
 			sql.NullFloat64{},
 			now,
+			sql.NullInt64{},  // provider_id
+			sql.NullInt64{},  // payer_user_id
+			sql.NullInt64{},  // research_group_id
+			sql.NullInt64{},  // research_group_member_id
+			sql.NullString{}, // funding_source
 		}})
 		require.NoError(t, err)
 		require.Equal(t, 2, log.ImageCount)
@@ -890,6 +913,11 @@ func TestScanUsageLogRequestTypeAndLegacyFallback(t *testing.T) {
 			sql.NullString{},  // billing_mode
 			sql.NullFloat64{}, // account_stats_cost
 			now,
+			sql.NullInt64{},  // provider_id
+			sql.NullInt64{},  // payer_user_id
+			sql.NullInt64{},  // research_group_id
+			sql.NullInt64{},  // research_group_member_id
+			sql.NullString{}, // funding_source
 		}})
 		require.NoError(t, err)
 		require.NotNil(t, log.ServiceTier)
@@ -945,6 +973,11 @@ func TestScanUsageLogRequestTypeAndLegacyFallback(t *testing.T) {
 			sql.NullString{},  // billing_mode
 			sql.NullFloat64{}, // account_stats_cost
 			now,
+			sql.NullInt64{},  // provider_id
+			sql.NullInt64{},  // payer_user_id
+			sql.NullInt64{},  // research_group_id
+			sql.NullInt64{},  // research_group_member_id
+			sql.NullString{}, // funding_source
 		}})
 		require.NoError(t, err)
 		require.NotNil(t, log.ServiceTier)
@@ -1000,6 +1033,11 @@ func TestScanUsageLogRequestTypeAndLegacyFallback(t *testing.T) {
 			sql.NullString{},  // billing_mode
 			sql.NullFloat64{}, // account_stats_cost
 			now,
+			sql.NullInt64{},  // provider_id
+			sql.NullInt64{},  // payer_user_id
+			sql.NullInt64{},  // research_group_id
+			sql.NullInt64{},  // research_group_member_id
+			sql.NullString{}, // funding_source
 		}})
 		require.NoError(t, err)
 		require.NotNil(t, log.ServiceTier)

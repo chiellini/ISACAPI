@@ -20,6 +20,12 @@ declare module 'vue-router' {
     requiresAdmin?: boolean
 
     /**
+     * Whether this route requires provider role
+     * @default false
+     */
+    requiresProvider?: boolean
+
+    /**
      * Page title for this route
      */
     title?: string

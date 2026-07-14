@@ -113,6 +113,7 @@ type BillingCacheService struct {
 	cfg                   *config.Config
 	circuitBreaker        *billingCircuitBreaker
 	userPlatformQuotaRepo UserPlatformQuotaRepository
+	researchGroupRepo     ResearchGroupRepository
 
 	cacheWriteChan     chan cacheWriteTask
 	cacheWriteWg       sync.WaitGroup
@@ -138,6 +139,7 @@ func NewBillingCacheService(
 	userGroupRateRepo UserGroupRateRepository,
 	cfg *config.Config,
 	userPlatformQuotaRepo UserPlatformQuotaRepository,
+	researchGroupRepos ...ResearchGroupRepository,
 ) *BillingCacheService {
 	svc := &BillingCacheService{
 		cache:                 cache,
@@ -148,6 +150,9 @@ func NewBillingCacheService(
 		userGroupRateRepo:     userGroupRateRepo,
 		cfg:                   cfg,
 		userPlatformQuotaRepo: userPlatformQuotaRepo,
+	}
+	if len(researchGroupRepos) > 0 {
+		svc.researchGroupRepo = researchGroupRepos[0]
 	}
 	svc.circuitBreaker = newBillingCircuitBreaker(cfg.Billing.CircuitBreaker)
 	svc.startCacheWriteWorkers()
@@ -732,13 +737,18 @@ func (s *BillingCacheService) IncrementUserPlatformQuotaUsage(userID int64, plat
 // 余额模式：检查缓存余额 > 0
 // 订阅模式：检查缓存用量未超过限额（Group限额从参数传入）
 // platform 为请求的目标平台（如 "anthropic"），传空串 "" 时跳过 user × platform quota 检查。
-func (s *BillingCacheService) CheckBillingEligibility(ctx context.Context, user *User, apiKey *APIKey, group *Group, subscription *UserSubscription, platform string) error {
+func (s *BillingCacheService) CheckBillingEligibility(ctx context.Context, user *User, apiKey *APIKey, group *Group, subscription *UserSubscription, platform string) (*BillingDecision, error) {
+	callerUserID := int64(0)
+	if user != nil {
+		callerUserID = user.ID
+	}
+	decision := SelfBillingDecision(callerUserID)
 	// 简易模式：跳过所有计费检查
 	if s.cfg.RunMode == config.RunModeSimple {
-		return nil
+		return decision, nil
 	}
 	if s.circuitBreaker != nil && !s.circuitBreaker.Allow() {
-		return ErrBillingServiceUnavailable
+		return nil, ErrBillingServiceUnavailable
 	}
 
 	// 判断计费模式
@@ -746,33 +756,108 @@ func (s *BillingCacheService) CheckBillingEligibility(ctx context.Context, user 
 
 	if isSubscriptionMode {
 		if err := s.checkSubscriptionEligibility(ctx, user.ID, group, subscription); err != nil {
-			return err
+			return nil, err
 		}
 	} else {
-		if err := s.checkBalanceEligibility(ctx, user.ID); err != nil {
-			return err
+		resolved, err := s.resolveBalanceBillingDecision(ctx, user.ID)
+		if err != nil {
+			return nil, err
 		}
+		decision = resolved
 	}
 
 	// user × platform quota 仅在 standard（余额）模式生效；订阅模式豁免
 	if !isSubscriptionMode {
 		if err := s.checkUserPlatformQuotaEligibility(ctx, user.ID, platform); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
 	// Check API Key rate limits (applies to both billing modes)
 	if apiKey != nil && apiKey.HasRateLimits() {
 		if err := s.checkAPIKeyRateLimits(ctx, apiKey); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
 	// RPM 限流：级联回落（Override → Group → User），放在最后以避免为注定失败的请求增加计数。
 	if err := s.checkRPM(ctx, user, group); err != nil {
-		return err
+		return nil, err
 	}
 
+	return decision, nil
+}
+
+func (s *BillingCacheService) resolveBalanceBillingDecision(ctx context.Context, callerUserID int64) (*BillingDecision, error) {
+	self := SelfBillingDecision(callerUserID)
+	funding, err := s.getResearchGroupFundingContext(ctx, callerUserID)
+	if err != nil {
+		if s.circuitBreaker != nil {
+			s.circuitBreaker.OnFailure(err)
+		}
+		logger.LegacyPrintf("service.billing_cache", "ALERT: research group funding lookup failed for user %d: %v", callerUserID, err)
+		return nil, ErrBillingServiceUnavailable.WithCause(err)
+	}
+
+	if funding != nil && funding.OwnerUserID > 0 && funding.RemainingAt(timezone.Now()) > 0 {
+		if err := s.checkBalanceEligibility(ctx, funding.OwnerUserID); err == nil {
+			return (&BillingDecision{
+				CallerUserID:          callerUserID,
+				PayerUserID:           funding.OwnerUserID,
+				ResearchGroupID:       funding.ResearchGroupID,
+				ResearchGroupMemberID: funding.ResearchGroupMemberID,
+				FundingSource:         FundingSourceResearchGroup,
+			}).Normalize(callerUserID), nil
+		} else if !isInsufficientBalanceError(err) {
+			return nil, err
+		}
+	}
+
+	if err := s.checkBalanceEligibility(ctx, callerUserID); err != nil {
+		if funding != nil && isInsufficientBalanceError(err) {
+			return nil, ErrResearchGroupAndPersonalBalanceInsufficient
+		}
+		return nil, err
+	}
+	return self, nil
+}
+
+func (s *BillingCacheService) getResearchGroupFundingContext(ctx context.Context, userID int64) (*ResearchGroupFundingContext, error) {
+	if cache, ok := s.cache.(ResearchGroupFundingCache); ok && cache != nil {
+		if funding, found, err := cache.GetResearchGroupFunding(ctx, userID); err == nil && found {
+			// A negative cache entry is safe to trust: stale data can only make the
+			// caller pay personally. Positive entries are always revalidated in DB,
+			// so a failed Redis invalidation cannot keep a paused/removed/exhausted
+			// member funded until the cache TTL expires.
+			if funding == nil {
+				return nil, nil
+			}
+			if s.researchGroupRepo == nil {
+				return nil, nil
+			}
+		} else if err != nil {
+			logger.LegacyPrintf("service.billing_cache", "Warning: research group funding cache read failed for user %d: %v", userID, err)
+		}
+	}
+	if s.researchGroupRepo == nil {
+		return nil, nil
+	}
+	funding, err := s.researchGroupRepo.GetFundingContextByUserID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	if cache, ok := s.cache.(ResearchGroupFundingCache); ok && cache != nil {
+		if err := cache.SetResearchGroupFunding(ctx, userID, funding); err != nil {
+			logger.LegacyPrintf("service.billing_cache", "Warning: research group funding cache write failed for user %d: %v", userID, err)
+		}
+	}
+	return funding, nil
+}
+
+func (s *BillingCacheService) InvalidateResearchGroupFunding(ctx context.Context, userID int64) error {
+	if cache, ok := s.cache.(ResearchGroupFundingCache); ok && cache != nil {
+		return cache.InvalidateResearchGroupFunding(ctx, userID)
+	}
 	return nil
 }
 

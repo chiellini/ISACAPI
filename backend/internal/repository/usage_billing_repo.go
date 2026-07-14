@@ -5,9 +5,11 @@ import (
 	"database/sql"
 	"errors"
 	"strings"
+	"time"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/timezone"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 )
 
@@ -50,7 +52,13 @@ func (r *usageBillingRepository) Apply(ctx context.Context, cmd *service.UsageBi
 		return &service.UsageBillingApplyResult{Applied: false}, nil
 	}
 
-	result := &service.UsageBillingApplyResult{Applied: true}
+	result := &service.UsageBillingApplyResult{
+		Applied:               true,
+		PayerUserID:           cmd.PayerUserID,
+		ResearchGroupID:       cmd.ResearchGroupID,
+		ResearchGroupMemberID: cmd.ResearchGroupMemberID,
+		FundingSource:         cmd.FundingSource,
+	}
 	if err := r.applyUsageBillingEffects(ctx, tx, cmd, result); err != nil {
 		return nil, err
 	}
@@ -172,6 +180,7 @@ func (r *usageBillingRepository) applyBatchImageBalanceHold(
 }
 
 func (r *usageBillingRepository) applyUsageBillingEffects(ctx context.Context, tx *sql.Tx, cmd *service.UsageBillingCommand, result *service.UsageBillingApplyResult) error {
+	cmd.Normalize()
 	if cmd.SubscriptionCost > 0 && cmd.SubscriptionID != nil {
 		if err := incrementUsageBillingSubscription(ctx, tx, *cmd.SubscriptionID, cmd.SubscriptionCost); err != nil {
 			return err
@@ -179,12 +188,17 @@ func (r *usageBillingRepository) applyUsageBillingEffects(ctx context.Context, t
 	}
 
 	if cmd.BalanceCost > 0 {
-		newBalance, sufficient, err := deductUsageBillingBalance(ctx, tx, cmd.UserID, cmd.BalanceCost)
+		newBalance, sufficient, err := deductUsageBillingBalance(ctx, tx, cmd.PayerUserID, cmd.BalanceCost)
 		if err != nil {
 			return err
 		}
 		result.NewBalance = &newBalance
 		result.BalanceOverdrafted = !sufficient
+		if cmd.FundingSource == service.FundingSourceResearchGroup {
+			if err := incrementResearchGroupMemberUsage(ctx, tx, cmd, cmd.BalanceCost, timezone.StartOfMonth(timezone.Now())); err != nil {
+				return err
+			}
+		}
 	}
 
 	if cmd.APIKeyQuotaCost > 0 {
@@ -210,6 +224,33 @@ func (r *usageBillingRepository) applyUsageBillingEffects(ctx context.Context, t
 	}
 
 	return nil
+}
+
+func incrementResearchGroupMemberUsage(ctx context.Context, tx *sql.Tx, cmd *service.UsageBillingCommand, amount float64, monthStart time.Time) error {
+	if cmd == nil || amount <= 0 || cmd.ResearchGroupID <= 0 || cmd.ResearchGroupMemberID <= 0 {
+		return nil
+	}
+	res, err := tx.ExecContext(ctx, `
+		UPDATE research_group_members
+		SET monthly_usage_usd = CASE
+				WHEN usage_window_start < $1 THEN $2
+				ELSE monthly_usage_usd + $2
+			END,
+			usage_window_start = CASE WHEN usage_window_start < $1 THEN $1 ELSE usage_window_start END,
+			updated_at = NOW()
+		WHERE id = $3 AND research_group_id = $4 AND user_id = $5
+	`, monthStart, amount, cmd.ResearchGroupMemberID, cmd.ResearchGroupID, cmd.UserID)
+	if err != nil {
+		return err
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected == 0 {
+		return errors.New("research group billing member snapshot no longer exists")
+	}
+	return appendResearchGroupQuotaAudit(ctx, tx, cmd.ResearchGroupID, cmd.ResearchGroupMemberID, cmd.UserID, "usage_settled", amount)
 }
 
 func incrementUsageBillingSubscription(ctx context.Context, tx *sql.Tx, subscriptionID int64, costUSD float64) error {
@@ -246,7 +287,7 @@ func deductUsageBillingBalance(ctx context.Context, tx *sql.Tx, userID int64, am
 		UPDATE users
 		SET balance = balance - $1,
 			updated_at = NOW()
-		WHERE id = $2 AND deleted_at IS NULL AND balance >= $1
+		WHERE id = $2 AND balance >= $1
 		RETURNING balance
 	`, amount, userID).Scan(&newBalance)
 	if err == nil {
@@ -260,7 +301,7 @@ func deductUsageBillingBalance(ctx context.Context, tx *sql.Tx, userID int64, am
 		UPDATE users
 		SET balance = balance - $1,
 			updated_at = NOW()
-		WHERE id = $2 AND deleted_at IS NULL
+		WHERE id = $2
 		RETURNING balance
 	`, amount, userID).Scan(&newBalance)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -273,25 +314,76 @@ func deductUsageBillingBalance(ctx context.Context, tx *sql.Tx, userID int64, am
 }
 
 func reserveUsageBillingBatchImageBalance(ctx context.Context, tx *sql.Tx, cmd *service.BatchImageBalanceHoldCommand) (*service.BatchImageBalanceHoldResult, error) {
+	cmd.Normalize()
 	if cmd.HoldAmount <= 0 {
 		return &service.BatchImageBalanceHoldResult{}, nil
 	}
+	if cmd.FundingSource == service.FundingSourceResearchGroup {
+		if _, err := tx.ExecContext(ctx, `SAVEPOINT research_group_batch_hold`); err != nil {
+			return nil, err
+		}
+		result, groupErr := reserveBatchImageUserBalance(ctx, tx, cmd.PayerUserID, cmd.HoldAmount)
+		if groupErr == nil {
+			groupErr = reserveResearchGroupMemberBalance(ctx, tx, cmd, timezone.StartOfMonth(timezone.Now()))
+		}
+		if groupErr == nil {
+			if _, err := tx.ExecContext(ctx, `RELEASE SAVEPOINT research_group_batch_hold`); err != nil {
+				return nil, err
+			}
+			result.PayerUserID = cmd.PayerUserID
+			result.ResearchGroupID = cmd.ResearchGroupID
+			result.ResearchGroupMemberID = cmd.ResearchGroupMemberID
+			result.FundingSource = service.FundingSourceResearchGroup
+			return result, nil
+		}
+		if !errors.Is(groupErr, service.ErrBatchImageInsufficientBalance) {
+			return nil, groupErr
+		}
+		if _, err := tx.ExecContext(ctx, `ROLLBACK TO SAVEPOINT research_group_batch_hold`); err != nil {
+			return nil, err
+		}
+		if _, err := tx.ExecContext(ctx, `RELEASE SAVEPOINT research_group_batch_hold`); err != nil {
+			return nil, err
+		}
+		result, err := reserveBatchImageUserBalance(ctx, tx, cmd.UserID, cmd.HoldAmount)
+		if errors.Is(err, service.ErrBatchImageInsufficientBalance) {
+			return nil, service.ErrResearchGroupAndPersonalBalanceInsufficient
+		}
+		if err != nil {
+			return nil, err
+		}
+		if err := updateBatchImageBillingSnapshot(ctx, tx, cmd.BatchID, cmd.UserID, cmd.APIKeyID); err != nil {
+			return nil, err
+		}
+		result.PayerUserID = cmd.UserID
+		result.FundingSource = service.FundingSourceSelf
+		return result, nil
+	}
+	result, err := reserveBatchImageUserBalance(ctx, tx, cmd.PayerUserID, cmd.HoldAmount)
+	if result != nil {
+		result.PayerUserID = cmd.PayerUserID
+		result.FundingSource = service.FundingSourceSelf
+	}
+	return result, err
+}
+
+func reserveBatchImageUserBalance(ctx context.Context, tx *sql.Tx, payerUserID int64, amount float64) (*service.BatchImageBalanceHoldResult, error) {
 	var balance, frozen float64
 	err := tx.QueryRowContext(ctx, `
 		UPDATE users
 		SET balance = balance - $1,
 			frozen_balance = COALESCE(frozen_balance, 0) + $1,
 			updated_at = NOW()
-		WHERE id = $2 AND deleted_at IS NULL AND balance >= $1
+		WHERE id = $2 AND balance >= $1
 		RETURNING balance, frozen_balance
-	`, cmd.HoldAmount, cmd.UserID).Scan(&balance, &frozen)
+	`, amount, payerUserID).Scan(&balance, &frozen)
 	if err == nil {
-		return &service.BatchImageBalanceHoldResult{NewBalance: &balance, FrozenBalance: &frozen}, nil
+		return &service.BatchImageBalanceHoldResult{NewBalance: &balance, FrozenBalance: &frozen, PayerUserID: payerUserID}, nil
 	}
 	if !errors.Is(err, sql.ErrNoRows) {
 		return nil, err
 	}
-	if exists, existsErr := userExistsForBilling(ctx, tx, cmd.UserID); existsErr != nil {
+	if exists, existsErr := userExistsForBilling(ctx, tx, payerUserID); existsErr != nil {
 		return nil, existsErr
 	} else if !exists {
 		return nil, service.ErrUserNotFound
@@ -300,6 +392,7 @@ func reserveUsageBillingBatchImageBalance(ctx context.Context, tx *sql.Tx, cmd *
 }
 
 func captureUsageBillingBatchImageBalance(ctx context.Context, tx *sql.Tx, cmd *service.BatchImageBalanceHoldCommand) (*service.BatchImageBalanceHoldResult, error) {
+	cmd.Normalize()
 	if cmd.HoldAmount <= 0 && cmd.ActualAmount <= 0 {
 		return &service.BatchImageBalanceHoldResult{}, nil
 	}
@@ -314,16 +407,21 @@ func captureUsageBillingBatchImageBalance(ctx context.Context, tx *sql.Tx, cmd *
 				- CASE WHEN $2 > $1 THEN $2 - $1 ELSE 0 END,
 			frozen_balance = COALESCE(frozen_balance, 0) - $1,
 			updated_at = NOW()
-		WHERE id = $3 AND deleted_at IS NULL AND COALESCE(frozen_balance, 0) >= $1
+		WHERE id = $3 AND COALESCE(frozen_balance, 0) >= $1
 		RETURNING balance, frozen_balance
-	`, cmd.HoldAmount, cmd.ActualAmount, cmd.UserID).Scan(&balance, &frozen)
+	`, cmd.HoldAmount, cmd.ActualAmount, cmd.PayerUserID).Scan(&balance, &frozen)
 	if err == nil {
-		return &service.BatchImageBalanceHoldResult{NewBalance: &balance, FrozenBalance: &frozen}, nil
+		if cmd.FundingSource == service.FundingSourceResearchGroup {
+			if err := captureResearchGroupMemberBalance(ctx, tx, cmd, timezone.StartOfMonth(timezone.Now())); err != nil {
+				return nil, err
+			}
+		}
+		return &service.BatchImageBalanceHoldResult{NewBalance: &balance, FrozenBalance: &frozen, PayerUserID: cmd.PayerUserID, ResearchGroupID: cmd.ResearchGroupID, ResearchGroupMemberID: cmd.ResearchGroupMemberID, FundingSource: cmd.FundingSource}, nil
 	}
 	if !errors.Is(err, sql.ErrNoRows) {
 		return nil, err
 	}
-	if exists, existsErr := userExistsForBilling(ctx, tx, cmd.UserID); existsErr != nil {
+	if exists, existsErr := userExistsForBilling(ctx, tx, cmd.PayerUserID); existsErr != nil {
 		return nil, existsErr
 	} else if !exists {
 		return nil, service.ErrUserNotFound
@@ -332,6 +430,7 @@ func captureUsageBillingBatchImageBalance(ctx context.Context, tx *sql.Tx, cmd *
 }
 
 func releaseUsageBillingBatchImageBalance(ctx context.Context, tx *sql.Tx, cmd *service.BatchImageBalanceHoldCommand) (*service.BatchImageBalanceHoldResult, error) {
+	cmd.Normalize()
 	if cmd.HoldAmount <= 0 {
 		return &service.BatchImageBalanceHoldResult{}, nil
 	}
@@ -351,21 +450,121 @@ func releaseUsageBillingBatchImageBalance(ctx context.Context, tx *sql.Tx, cmd *
 		SET balance = balance + $1,
 			frozen_balance = COALESCE(frozen_balance, 0) - $1,
 			updated_at = NOW()
-		WHERE id = $2 AND deleted_at IS NULL AND COALESCE(frozen_balance, 0) >= $1
+		WHERE id = $2 AND COALESCE(frozen_balance, 0) >= $1
 		RETURNING balance, frozen_balance
-	`, cmd.HoldAmount, cmd.UserID).Scan(&balance, &frozen)
+	`, cmd.HoldAmount, cmd.PayerUserID).Scan(&balance, &frozen)
 	if err == nil {
-		return &service.BatchImageBalanceHoldResult{NewBalance: &balance, FrozenBalance: &frozen}, nil
+		if cmd.FundingSource == service.FundingSourceResearchGroup {
+			if err := releaseResearchGroupMemberBalance(ctx, tx, cmd); err != nil {
+				return nil, err
+			}
+		}
+		return &service.BatchImageBalanceHoldResult{NewBalance: &balance, FrozenBalance: &frozen, PayerUserID: cmd.PayerUserID, ResearchGroupID: cmd.ResearchGroupID, ResearchGroupMemberID: cmd.ResearchGroupMemberID, FundingSource: cmd.FundingSource}, nil
 	}
 	if !errors.Is(err, sql.ErrNoRows) {
 		return nil, err
 	}
-	if exists, existsErr := userExistsForBilling(ctx, tx, cmd.UserID); existsErr != nil {
+	if exists, existsErr := userExistsForBilling(ctx, tx, cmd.PayerUserID); existsErr != nil {
 		return nil, existsErr
 	} else if !exists {
 		return nil, service.ErrUserNotFound
 	}
 	return nil, errors.New("batch image frozen balance is insufficient")
+}
+
+func reserveResearchGroupMemberBalance(ctx context.Context, tx *sql.Tx, cmd *service.BatchImageBalanceHoldCommand, monthStart time.Time) error {
+	var id int64
+	err := tx.QueryRowContext(ctx, `
+		UPDATE research_group_members
+		SET monthly_usage_usd = CASE WHEN usage_window_start < $1 THEN 0 ELSE monthly_usage_usd END,
+			monthly_reserved_usd = monthly_reserved_usd + $2,
+			usage_window_start = CASE WHEN usage_window_start < $1 THEN $1 ELSE usage_window_start END,
+			updated_at = NOW()
+		WHERE id = $3 AND research_group_id = $4 AND user_id = $5
+		  AND monthly_limit_usd >=
+			(CASE WHEN usage_window_start < $1 THEN 0 ELSE monthly_usage_usd END) + monthly_reserved_usd + $2
+		RETURNING id
+	`, monthStart, cmd.HoldAmount, cmd.ResearchGroupMemberID, cmd.ResearchGroupID, cmd.UserID).Scan(&id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return service.ErrBatchImageInsufficientBalance
+	}
+	if err != nil {
+		return err
+	}
+	return appendResearchGroupQuotaAudit(ctx, tx, cmd.ResearchGroupID, cmd.ResearchGroupMemberID, cmd.UserID, "batch_reserved", cmd.HoldAmount)
+}
+
+func captureResearchGroupMemberBalance(ctx context.Context, tx *sql.Tx, cmd *service.BatchImageBalanceHoldCommand, monthStart time.Time) error {
+	res, err := tx.ExecContext(ctx, `
+		UPDATE research_group_members
+		SET monthly_usage_usd = (CASE WHEN usage_window_start < $1 THEN 0 ELSE monthly_usage_usd END) + $2,
+			monthly_reserved_usd = GREATEST(0, monthly_reserved_usd - $3),
+			usage_window_start = CASE WHEN usage_window_start < $1 THEN $1 ELSE usage_window_start END,
+			updated_at = NOW()
+		WHERE id = $4 AND research_group_id = $5 AND user_id = $6
+	`, monthStart, cmd.ActualAmount, cmd.HoldAmount, cmd.ResearchGroupMemberID, cmd.ResearchGroupID, cmd.UserID)
+	if err := ensureResearchGroupMemberBalanceUpdated(res, err); err != nil {
+		return err
+	}
+	return appendResearchGroupQuotaAudit(ctx, tx, cmd.ResearchGroupID, cmd.ResearchGroupMemberID, cmd.UserID, "batch_captured", cmd.ActualAmount)
+}
+
+func releaseResearchGroupMemberBalance(ctx context.Context, tx *sql.Tx, cmd *service.BatchImageBalanceHoldCommand) error {
+	res, err := tx.ExecContext(ctx, `
+		UPDATE research_group_members
+		SET monthly_reserved_usd = GREATEST(0, monthly_reserved_usd - $1), updated_at = NOW()
+		WHERE id = $2 AND research_group_id = $3 AND user_id = $4
+	`, cmd.HoldAmount, cmd.ResearchGroupMemberID, cmd.ResearchGroupID, cmd.UserID)
+	if err := ensureResearchGroupMemberBalanceUpdated(res, err); err != nil {
+		return err
+	}
+	return appendResearchGroupQuotaAudit(ctx, tx, cmd.ResearchGroupID, cmd.ResearchGroupMemberID, cmd.UserID, "batch_released", cmd.HoldAmount)
+}
+
+func updateBatchImageBillingSnapshot(ctx context.Context, tx *sql.Tx, batchID string, userID, apiKeyID int64) error {
+	res, err := tx.ExecContext(ctx, `
+		UPDATE batch_image_jobs
+		SET payer_user_id = $1,
+			research_group_id = NULL,
+			research_group_member_id = NULL,
+			funding_source = $2,
+			updated_at = NOW()
+		WHERE batch_id = $3 AND user_id = $1 AND api_key_id = $4
+	`, userID, service.FundingSourceSelf, batchID, apiKeyID)
+	if err != nil {
+		return err
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected == 0 {
+		return service.ErrBatchImageJobNotFound
+	}
+	return nil
+}
+
+func appendResearchGroupQuotaAudit(ctx context.Context, tx *sql.Tx, groupID, memberID, actorUserID int64, action string, amount float64) error {
+	_, err := tx.ExecContext(ctx, `
+		INSERT INTO research_group_quota_audits
+			(research_group_id, member_id, actor_user_id, action, amount_usd)
+		VALUES ($1, $2, $3, $4, $5)
+	`, groupID, memberID, actorUserID, action, amount)
+	return err
+}
+
+func ensureResearchGroupMemberBalanceUpdated(res sql.Result, err error) error {
+	if err != nil {
+		return err
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected == 0 {
+		return errors.New("research group billing member snapshot no longer exists")
+	}
+	return nil
 }
 
 // batchImageHoldClaimExists 检查 hold request id 是否已在 dedup（或归档）表中被 claim，
@@ -402,7 +601,7 @@ func userExistsForBilling(ctx context.Context, tx *sql.Tx, userID int64) (bool, 
 	err := tx.QueryRowContext(ctx, `
 		SELECT 1
 		FROM users
-		WHERE id = $1 AND deleted_at IS NULL
+		WHERE id = $1
 	`, userID).Scan(&exists)
 	if errors.Is(err, sql.ErrNoRows) {
 		return false, nil
@@ -427,7 +626,7 @@ func incrementUsageBillingAPIKeyQuota(ctx context.Context, tx *sql.Tx, apiKeyID 
 				ELSE status
 			END,
 			updated_at = NOW()
-		WHERE id = $2 AND deleted_at IS NULL
+		WHERE id = $2
 		RETURNING quota > 0 AND quota_used >= quota AND quota_used - $1 < quota
 	`, amount, apiKeyID, service.StatusAPIKeyActive, service.StatusAPIKeyQuotaExhausted).Scan(&exhausted)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -449,7 +648,7 @@ func incrementUsageBillingAPIKeyRateLimit(ctx context.Context, tx *sql.Tx, apiKe
 			window_1d_start = CASE WHEN window_1d_start IS NULL OR window_1d_start + INTERVAL '24 hours' <= NOW() THEN date_trunc('day', NOW()) ELSE window_1d_start END,
 			window_7d_start = CASE WHEN window_7d_start IS NULL OR window_7d_start + INTERVAL '7 days' <= NOW() THEN date_trunc('day', NOW()) ELSE window_7d_start END,
 			updated_at = NOW()
-		WHERE id = $2 AND deleted_at IS NULL
+		WHERE id = $2
 	`, cost, apiKeyID)
 	if err != nil {
 		return err
@@ -500,7 +699,7 @@ func incrementUsageBillingAccountQuota(ctx context.Context, tx *sql.Tx, accountI
 				   ELSE '{}'::jsonb END
 			ELSE '{}'::jsonb END
 		), updated_at = NOW()
-		WHERE id = $2 AND deleted_at IS NULL
+		WHERE id = $2
 		RETURNING
 			COALESCE((extra->>'quota_used')::numeric, 0),
 			COALESCE((extra->>'quota_limit')::numeric, 0),

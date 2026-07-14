@@ -63,6 +63,65 @@ export interface UserProfileSourceContext {
   provider_label?: string | null
 }
 
+export type ResearchGroupRole = 'owner' | 'member'
+export type ResearchGroupStatus = 'active' | 'paused'
+export type ResearchGroupMemberStatus = 'pending' | 'active' | 'paused'
+
+export interface ResearchGroupSummary {
+  id: number
+  name: string
+  status: ResearchGroupStatus
+  owner_user_id: number
+  owner_email: string
+  owner_username: string
+  owner_balance?: number
+  created_at: string
+  updated_at: string
+}
+
+export interface ResearchGroupMember {
+  id: number
+  research_group_id: number
+  user_id: number
+  email: string
+  username: string
+  research_group_name?: string
+  owner_email?: string
+  owner_username?: string
+  status: ResearchGroupMemberStatus
+  monthly_limit_usd: number
+  monthly_usage_usd: number
+  monthly_reserved_usd: number
+  monthly_remaining_usd: number
+  usage_window_start: string
+  resets_at: string
+  invited_at?: string | null
+  accepted_at?: string | null
+  created_at?: string
+  updated_at?: string
+}
+
+export interface ResearchGroupUsageSummary {
+  total_cost_usd: number
+  request_count: number
+  active_member_count: number
+}
+
+/**
+ * Lightweight research-group context returned with login and /auth/me.
+ * The dedicated research-group endpoint additionally includes members and
+ * the owner-only usage summary.
+ */
+export interface ResearchGroupContext {
+  role: ResearchGroupRole
+  group: ResearchGroupSummary
+  member?: ResearchGroupMember
+  members?: ResearchGroupMember[]
+  usage_summary?: ResearchGroupUsageSummary
+}
+
+export type UserRole = 'admin' | 'provider' | 'user'
+
 export interface User {
   id: number
   username: string
@@ -84,7 +143,7 @@ export interface User {
   linuxdo_bound?: boolean
   oidc_bound?: boolean
   wechat_bound?: boolean
-  role: 'admin' | 'user' // User role for authorization
+  role: UserRole // User role for authorization
   balance: number // User balance for API usage
   frozen_balance?: number // Balance currently held by async batch jobs
   concurrency: number // Allowed concurrent requests
@@ -95,6 +154,7 @@ export interface User {
   balance_notify_threshold: number | null
   balance_notify_extra_emails: NotifyEmailEntry[]
   subscriptions?: UserSubscription[] // User's active subscriptions
+  research_group?: ResearchGroupContext | null
   last_active_at?: string | null
   created_at: string
   updated_at: string
@@ -910,6 +970,8 @@ export interface Account {
   proxy?: Proxy
   group_ids?: number[] // Groups this account belongs to
   groups?: Group[] // Preloaded group objects
+  provider_id?: number | null
+  provider?: Pick<User, 'id' | 'email' | 'username'> | null
 
   // Rate limit & scheduling fields
   schedulable: boolean
@@ -1653,7 +1715,7 @@ export interface UpdateUserRequest {
   password?: string
   username?: string
   notes?: string
-  role?: 'admin' | 'user'
+  role?: UserRole
   balance?: number
   concurrency?: number
   status?: 'active' | 'disabled'

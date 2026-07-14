@@ -11,6 +11,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/Wei-Shaw/sub2api/ent/account"
 	"github.com/Wei-Shaw/sub2api/ent/announcementread"
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
 	"github.com/Wei-Shaw/sub2api/ent/authidentity"
@@ -19,6 +20,8 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/pendingauthsession"
 	"github.com/Wei-Shaw/sub2api/ent/promocodeusage"
 	"github.com/Wei-Shaw/sub2api/ent/redeemcode"
+	"github.com/Wei-Shaw/sub2api/ent/researchgroup"
+	"github.com/Wei-Shaw/sub2api/ent/researchgroupmember"
 	"github.com/Wei-Shaw/sub2api/ent/usagelog"
 	"github.com/Wei-Shaw/sub2api/ent/user"
 	"github.com/Wei-Shaw/sub2api/ent/userattributevalue"
@@ -459,6 +462,21 @@ func (_c *UserCreate) AddUsageLogs(v ...*UsageLog) *UserCreate {
 	return _c.AddUsageLogIDs(ids...)
 }
 
+// AddOwnedAccountIDs adds the "owned_accounts" edge to the Account entity by IDs.
+func (_c *UserCreate) AddOwnedAccountIDs(ids ...int64) *UserCreate {
+	_c.mutation.AddOwnedAccountIDs(ids...)
+	return _c
+}
+
+// AddOwnedAccounts adds the "owned_accounts" edges to the Account entity.
+func (_c *UserCreate) AddOwnedAccounts(v ...*Account) *UserCreate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddOwnedAccountIDs(ids...)
+}
+
 // AddAttributeValueIDs adds the "attribute_values" edge to the UserAttributeValue entity by IDs.
 func (_c *UserCreate) AddAttributeValueIDs(ids ...int64) *UserCreate {
 	_c.mutation.AddAttributeValueIDs(ids...)
@@ -547,6 +565,36 @@ func (_c *UserCreate) AddPlatformQuotas(v ...*UserPlatformQuota) *UserCreate {
 		ids[i] = v[i].ID
 	}
 	return _c.AddPlatformQuotaIDs(ids...)
+}
+
+// AddOwnedResearchGroupIDs adds the "owned_research_groups" edge to the ResearchGroup entity by IDs.
+func (_c *UserCreate) AddOwnedResearchGroupIDs(ids ...int64) *UserCreate {
+	_c.mutation.AddOwnedResearchGroupIDs(ids...)
+	return _c
+}
+
+// AddOwnedResearchGroups adds the "owned_research_groups" edges to the ResearchGroup entity.
+func (_c *UserCreate) AddOwnedResearchGroups(v ...*ResearchGroup) *UserCreate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddOwnedResearchGroupIDs(ids...)
+}
+
+// AddResearchGroupMembershipIDs adds the "research_group_memberships" edge to the ResearchGroupMember entity by IDs.
+func (_c *UserCreate) AddResearchGroupMembershipIDs(ids ...int64) *UserCreate {
+	_c.mutation.AddResearchGroupMembershipIDs(ids...)
+	return _c
+}
+
+// AddResearchGroupMemberships adds the "research_group_memberships" edges to the ResearchGroupMember entity.
+func (_c *UserCreate) AddResearchGroupMemberships(v ...*ResearchGroupMember) *UserCreate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddResearchGroupMembershipIDs(ids...)
 }
 
 // Mutation returns the UserMutation object of the builder.
@@ -984,6 +1032,22 @@ func (_c *UserCreate) createSpec() (*User, *sqlgraph.CreateSpec) {
 		}
 		_spec.Edges = append(_spec.Edges, edge)
 	}
+	if nodes := _c.mutation.OwnedAccountsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.OwnedAccountsTable,
+			Columns: []string{user.OwnedAccountsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(account.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
 	if nodes := _c.mutation.AttributeValuesIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
@@ -1073,6 +1137,38 @@ func (_c *UserCreate) createSpec() (*User, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(userplatformquota.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.OwnedResearchGroupsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.OwnedResearchGroupsTable,
+			Columns: []string{user.OwnedResearchGroupsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(researchgroup.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.ResearchGroupMembershipsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.ResearchGroupMembershipsTable,
+			Columns: []string{user.ResearchGroupMembershipsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(researchgroupmember.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {

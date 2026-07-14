@@ -369,6 +369,42 @@ func (f RedeemCodeFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, 
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.RedeemCodeMutation", m)
 }
 
+// The ResearchGroupFunc type is an adapter to allow the use of ordinary
+// function as ResearchGroup mutator.
+type ResearchGroupFunc func(context.Context, *ent.ResearchGroupMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f ResearchGroupFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.ResearchGroupMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ResearchGroupMutation", m)
+}
+
+// The ResearchGroupMemberFunc type is an adapter to allow the use of ordinary
+// function as ResearchGroupMember mutator.
+type ResearchGroupMemberFunc func(context.Context, *ent.ResearchGroupMemberMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f ResearchGroupMemberFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.ResearchGroupMemberMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ResearchGroupMemberMutation", m)
+}
+
+// The ResearchGroupQuotaAuditFunc type is an adapter to allow the use of ordinary
+// function as ResearchGroupQuotaAudit mutator.
+type ResearchGroupQuotaAuditFunc func(context.Context, *ent.ResearchGroupQuotaAuditMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f ResearchGroupQuotaAuditFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.ResearchGroupQuotaAuditMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ResearchGroupQuotaAuditMutation", m)
+}
+
 // The SecuritySecretFunc type is an adapter to allow the use of ordinary
 // function as SecuritySecret mutator.
 type SecuritySecretFunc func(context.Context, *ent.SecuritySecretMutation) (ent.Value, error)

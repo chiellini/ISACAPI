@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/timezone"
 	"github.com/stretchr/testify/require"
 )
 
@@ -21,6 +22,43 @@ type balanceEligibilityCacheStub struct {
 	invalidated              atomic.Bool
 	deductCalls              atomic.Int64
 	invalidateCalls          atomic.Int64
+}
+
+type researchGroupBillingCacheStub struct {
+	billingCacheWorkerStub
+	balances       map[int64]float64
+	fundingReadErr error
+	cachedFunding  *ResearchGroupFundingContext
+	fundingFound   bool
+	setFunding     *ResearchGroupFundingContext
+}
+
+func (s *researchGroupBillingCacheStub) GetUserBalance(_ context.Context, userID int64) (float64, error) {
+	return s.balances[userID], nil
+}
+
+func (s *researchGroupBillingCacheStub) GetResearchGroupFunding(context.Context, int64) (*ResearchGroupFundingContext, bool, error) {
+	return s.cachedFunding, s.fundingFound, s.fundingReadErr
+}
+
+func (s *researchGroupBillingCacheStub) SetResearchGroupFunding(_ context.Context, _ int64, funding *ResearchGroupFundingContext) error {
+	s.setFunding = funding
+	return nil
+}
+
+func (s *researchGroupBillingCacheStub) InvalidateResearchGroupFunding(context.Context, int64) error {
+	return nil
+}
+
+type researchGroupFundingRepoStub struct {
+	ResearchGroupRepository
+	funding *ResearchGroupFundingContext
+	calls   atomic.Int64
+}
+
+func (s *researchGroupFundingRepoStub) GetFundingContextByUserID(context.Context, int64) (*ResearchGroupFundingContext, error) {
+	s.calls.Add(1)
+	return s.funding, nil
 }
 
 func (s *balanceEligibilityCacheStub) GetUserBalance(context.Context, int64) (float64, error) {
@@ -48,7 +86,7 @@ func TestCheckBillingEligibility_RejectsBalanceBelowMinimumReserve(t *testing.T)
 	svc := NewBillingCacheService(cache, nil, nil, nil, nil, nil, cfg, nil)
 	t.Cleanup(svc.Stop)
 
-	err := svc.CheckBillingEligibility(context.Background(), &User{ID: 1}, nil, nil, nil, "")
+	_, err := svc.CheckBillingEligibility(context.Background(), &User{ID: 1}, nil, nil, nil, "")
 	require.ErrorIs(t, err, ErrInsufficientBalance)
 }
 
@@ -59,8 +97,80 @@ func TestCheckBillingEligibility_AllowsBalanceAtMinimumReserve(t *testing.T) {
 	svc := NewBillingCacheService(cache, nil, nil, nil, nil, nil, cfg, nil)
 	t.Cleanup(svc.Stop)
 
-	err := svc.CheckBillingEligibility(context.Background(), &User{ID: 1}, nil, nil, nil, "")
+	_, err := svc.CheckBillingEligibility(context.Background(), &User{ID: 1}, nil, nil, nil, "")
 	require.NoError(t, err)
+}
+
+func TestCheckBillingEligibility_ResearchGroupRedisFailureFallsBackToDB(t *testing.T) {
+	funding := &ResearchGroupFundingContext{
+		ResearchGroupID:       81,
+		ResearchGroupMemberID: 91,
+		MemberUserID:          1,
+		OwnerUserID:           2,
+		MonthlyLimitUSD:       100,
+		UsageWindowStart:      timezone.StartOfMonth(timezone.Now()),
+	}
+	cache := &researchGroupBillingCacheStub{
+		balances:       map[int64]float64{1: 10, 2: 20},
+		fundingReadErr: errors.New("redis unavailable"),
+	}
+	repo := &researchGroupFundingRepoStub{funding: funding}
+	svc := NewBillingCacheService(cache, nil, nil, nil, nil, nil, &config.Config{}, nil, repo)
+	t.Cleanup(svc.Stop)
+
+	decision, err := svc.CheckBillingEligibility(context.Background(), &User{ID: 1}, nil, nil, nil, "")
+	require.NoError(t, err)
+	require.Equal(t, int64(1), decision.CallerUserID)
+	require.Equal(t, int64(2), decision.PayerUserID)
+	require.Equal(t, int64(81), decision.ResearchGroupID)
+	require.Equal(t, FundingSourceResearchGroup, decision.FundingSource)
+	require.Equal(t, int64(1), repo.calls.Load())
+	require.Same(t, funding, cache.setFunding)
+}
+
+func TestCheckBillingEligibility_QuotaAndPersonalBalanceInsufficientUsesCombinedError(t *testing.T) {
+	funding := &ResearchGroupFundingContext{
+		ResearchGroupID:       81,
+		ResearchGroupMemberID: 91,
+		MemberUserID:          1,
+		OwnerUserID:           2,
+		MonthlyLimitUSD:       5,
+		MonthlyUsageUSD:       5,
+		UsageWindowStart:      timezone.StartOfMonth(timezone.Now()),
+	}
+	cache := &researchGroupBillingCacheStub{balances: map[int64]float64{1: 0, 2: 20}}
+	repo := &researchGroupFundingRepoStub{funding: funding}
+	svc := NewBillingCacheService(cache, nil, nil, nil, nil, nil, &config.Config{}, nil, repo)
+	t.Cleanup(svc.Stop)
+
+	_, err := svc.CheckBillingEligibility(context.Background(), &User{ID: 1}, nil, nil, nil, "")
+	require.ErrorIs(t, err, ErrResearchGroupAndPersonalBalanceInsufficient)
+}
+
+func TestCheckBillingEligibility_StalePositiveFundingCacheIsRevalidated(t *testing.T) {
+	staleFunding := &ResearchGroupFundingContext{
+		ResearchGroupID:       81,
+		ResearchGroupMemberID: 91,
+		MemberUserID:          1,
+		OwnerUserID:           2,
+		MonthlyLimitUSD:       100,
+		UsageWindowStart:      timezone.StartOfMonth(timezone.Now()),
+	}
+	cache := &researchGroupBillingCacheStub{
+		balances:      map[int64]float64{1: 10, 2: 20},
+		cachedFunding: staleFunding,
+		fundingFound:  true,
+	}
+	repo := &researchGroupFundingRepoStub{funding: nil}
+	svc := NewBillingCacheService(cache, nil, nil, nil, nil, nil, &config.Config{}, nil, repo)
+	t.Cleanup(svc.Stop)
+
+	decision, err := svc.CheckBillingEligibility(context.Background(), &User{ID: 1}, nil, nil, nil, "")
+	require.NoError(t, err)
+	require.Equal(t, int64(1), decision.PayerUserID)
+	require.Equal(t, FundingSourceSelf, decision.FundingSource)
+	require.Equal(t, int64(1), repo.calls.Load())
+	require.Nil(t, cache.setFunding)
 }
 
 func TestSyncBalanceCacheAfterDeduction_InvalidatesExhaustedBalance(t *testing.T) {
@@ -86,7 +196,7 @@ func TestSyncBalanceCacheAfterDeduction_InvalidatesExhaustedBalance(t *testing.T
 	require.Equal(t, int64(1), cache.invalidateCalls.Load())
 	require.Equal(t, int64(0), cache.deductCalls.Load())
 
-	err := svc.CheckBillingEligibility(context.Background(), &User{ID: 1}, nil, nil, nil, "")
+	_, err := svc.CheckBillingEligibility(context.Background(), &User{ID: 1}, nil, nil, nil, "")
 	require.ErrorIs(t, err, ErrInsufficientBalance)
 	require.Equal(t, int64(1), userRepo.calls.Load())
 }

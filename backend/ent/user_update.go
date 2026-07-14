@@ -11,6 +11,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/Wei-Shaw/sub2api/ent/account"
 	"github.com/Wei-Shaw/sub2api/ent/announcementread"
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
 	"github.com/Wei-Shaw/sub2api/ent/authidentity"
@@ -20,6 +21,8 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/predicate"
 	"github.com/Wei-Shaw/sub2api/ent/promocodeusage"
 	"github.com/Wei-Shaw/sub2api/ent/redeemcode"
+	"github.com/Wei-Shaw/sub2api/ent/researchgroup"
+	"github.com/Wei-Shaw/sub2api/ent/researchgroupmember"
 	"github.com/Wei-Shaw/sub2api/ent/usagelog"
 	"github.com/Wei-Shaw/sub2api/ent/user"
 	"github.com/Wei-Shaw/sub2api/ent/userattributevalue"
@@ -537,6 +540,21 @@ func (_u *UserUpdate) AddUsageLogs(v ...*UsageLog) *UserUpdate {
 	return _u.AddUsageLogIDs(ids...)
 }
 
+// AddOwnedAccountIDs adds the "owned_accounts" edge to the Account entity by IDs.
+func (_u *UserUpdate) AddOwnedAccountIDs(ids ...int64) *UserUpdate {
+	_u.mutation.AddOwnedAccountIDs(ids...)
+	return _u
+}
+
+// AddOwnedAccounts adds the "owned_accounts" edges to the Account entity.
+func (_u *UserUpdate) AddOwnedAccounts(v ...*Account) *UserUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddOwnedAccountIDs(ids...)
+}
+
 // AddAttributeValueIDs adds the "attribute_values" edge to the UserAttributeValue entity by IDs.
 func (_u *UserUpdate) AddAttributeValueIDs(ids ...int64) *UserUpdate {
 	_u.mutation.AddAttributeValueIDs(ids...)
@@ -625,6 +643,36 @@ func (_u *UserUpdate) AddPlatformQuotas(v ...*UserPlatformQuota) *UserUpdate {
 		ids[i] = v[i].ID
 	}
 	return _u.AddPlatformQuotaIDs(ids...)
+}
+
+// AddOwnedResearchGroupIDs adds the "owned_research_groups" edge to the ResearchGroup entity by IDs.
+func (_u *UserUpdate) AddOwnedResearchGroupIDs(ids ...int64) *UserUpdate {
+	_u.mutation.AddOwnedResearchGroupIDs(ids...)
+	return _u
+}
+
+// AddOwnedResearchGroups adds the "owned_research_groups" edges to the ResearchGroup entity.
+func (_u *UserUpdate) AddOwnedResearchGroups(v ...*ResearchGroup) *UserUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddOwnedResearchGroupIDs(ids...)
+}
+
+// AddResearchGroupMembershipIDs adds the "research_group_memberships" edge to the ResearchGroupMember entity by IDs.
+func (_u *UserUpdate) AddResearchGroupMembershipIDs(ids ...int64) *UserUpdate {
+	_u.mutation.AddResearchGroupMembershipIDs(ids...)
+	return _u
+}
+
+// AddResearchGroupMemberships adds the "research_group_memberships" edges to the ResearchGroupMember entity.
+func (_u *UserUpdate) AddResearchGroupMemberships(v ...*ResearchGroupMember) *UserUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddResearchGroupMembershipIDs(ids...)
 }
 
 // Mutation returns the UserMutation object of the builder.
@@ -779,6 +827,27 @@ func (_u *UserUpdate) RemoveUsageLogs(v ...*UsageLog) *UserUpdate {
 	return _u.RemoveUsageLogIDs(ids...)
 }
 
+// ClearOwnedAccounts clears all "owned_accounts" edges to the Account entity.
+func (_u *UserUpdate) ClearOwnedAccounts() *UserUpdate {
+	_u.mutation.ClearOwnedAccounts()
+	return _u
+}
+
+// RemoveOwnedAccountIDs removes the "owned_accounts" edge to Account entities by IDs.
+func (_u *UserUpdate) RemoveOwnedAccountIDs(ids ...int64) *UserUpdate {
+	_u.mutation.RemoveOwnedAccountIDs(ids...)
+	return _u
+}
+
+// RemoveOwnedAccounts removes "owned_accounts" edges to Account entities.
+func (_u *UserUpdate) RemoveOwnedAccounts(v ...*Account) *UserUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveOwnedAccountIDs(ids...)
+}
+
 // ClearAttributeValues clears all "attribute_values" edges to the UserAttributeValue entity.
 func (_u *UserUpdate) ClearAttributeValues() *UserUpdate {
 	_u.mutation.ClearAttributeValues()
@@ -903,6 +972,48 @@ func (_u *UserUpdate) RemovePlatformQuotas(v ...*UserPlatformQuota) *UserUpdate 
 		ids[i] = v[i].ID
 	}
 	return _u.RemovePlatformQuotaIDs(ids...)
+}
+
+// ClearOwnedResearchGroups clears all "owned_research_groups" edges to the ResearchGroup entity.
+func (_u *UserUpdate) ClearOwnedResearchGroups() *UserUpdate {
+	_u.mutation.ClearOwnedResearchGroups()
+	return _u
+}
+
+// RemoveOwnedResearchGroupIDs removes the "owned_research_groups" edge to ResearchGroup entities by IDs.
+func (_u *UserUpdate) RemoveOwnedResearchGroupIDs(ids ...int64) *UserUpdate {
+	_u.mutation.RemoveOwnedResearchGroupIDs(ids...)
+	return _u
+}
+
+// RemoveOwnedResearchGroups removes "owned_research_groups" edges to ResearchGroup entities.
+func (_u *UserUpdate) RemoveOwnedResearchGroups(v ...*ResearchGroup) *UserUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveOwnedResearchGroupIDs(ids...)
+}
+
+// ClearResearchGroupMemberships clears all "research_group_memberships" edges to the ResearchGroupMember entity.
+func (_u *UserUpdate) ClearResearchGroupMemberships() *UserUpdate {
+	_u.mutation.ClearResearchGroupMemberships()
+	return _u
+}
+
+// RemoveResearchGroupMembershipIDs removes the "research_group_memberships" edge to ResearchGroupMember entities by IDs.
+func (_u *UserUpdate) RemoveResearchGroupMembershipIDs(ids ...int64) *UserUpdate {
+	_u.mutation.RemoveResearchGroupMembershipIDs(ids...)
+	return _u
+}
+
+// RemoveResearchGroupMemberships removes "research_group_memberships" edges to ResearchGroupMember entities.
+func (_u *UserUpdate) RemoveResearchGroupMemberships(v ...*ResearchGroupMember) *UserUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveResearchGroupMembershipIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -1426,6 +1537,51 @@ func (_u *UserUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if _u.mutation.OwnedAccountsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.OwnedAccountsTable,
+			Columns: []string{user.OwnedAccountsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(account.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedOwnedAccountsIDs(); len(nodes) > 0 && !_u.mutation.OwnedAccountsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.OwnedAccountsTable,
+			Columns: []string{user.OwnedAccountsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(account.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.OwnedAccountsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.OwnedAccountsTable,
+			Columns: []string{user.OwnedAccountsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(account.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _u.mutation.AttributeValuesCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
@@ -1689,6 +1845,96 @@ func (_u *UserUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(userplatformquota.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.OwnedResearchGroupsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.OwnedResearchGroupsTable,
+			Columns: []string{user.OwnedResearchGroupsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(researchgroup.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedOwnedResearchGroupsIDs(); len(nodes) > 0 && !_u.mutation.OwnedResearchGroupsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.OwnedResearchGroupsTable,
+			Columns: []string{user.OwnedResearchGroupsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(researchgroup.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.OwnedResearchGroupsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.OwnedResearchGroupsTable,
+			Columns: []string{user.OwnedResearchGroupsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(researchgroup.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.ResearchGroupMembershipsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.ResearchGroupMembershipsTable,
+			Columns: []string{user.ResearchGroupMembershipsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(researchgroupmember.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedResearchGroupMembershipsIDs(); len(nodes) > 0 && !_u.mutation.ResearchGroupMembershipsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.ResearchGroupMembershipsTable,
+			Columns: []string{user.ResearchGroupMembershipsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(researchgroupmember.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.ResearchGroupMembershipsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.ResearchGroupMembershipsTable,
+			Columns: []string{user.ResearchGroupMembershipsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(researchgroupmember.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {
@@ -2213,6 +2459,21 @@ func (_u *UserUpdateOne) AddUsageLogs(v ...*UsageLog) *UserUpdateOne {
 	return _u.AddUsageLogIDs(ids...)
 }
 
+// AddOwnedAccountIDs adds the "owned_accounts" edge to the Account entity by IDs.
+func (_u *UserUpdateOne) AddOwnedAccountIDs(ids ...int64) *UserUpdateOne {
+	_u.mutation.AddOwnedAccountIDs(ids...)
+	return _u
+}
+
+// AddOwnedAccounts adds the "owned_accounts" edges to the Account entity.
+func (_u *UserUpdateOne) AddOwnedAccounts(v ...*Account) *UserUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddOwnedAccountIDs(ids...)
+}
+
 // AddAttributeValueIDs adds the "attribute_values" edge to the UserAttributeValue entity by IDs.
 func (_u *UserUpdateOne) AddAttributeValueIDs(ids ...int64) *UserUpdateOne {
 	_u.mutation.AddAttributeValueIDs(ids...)
@@ -2301,6 +2562,36 @@ func (_u *UserUpdateOne) AddPlatformQuotas(v ...*UserPlatformQuota) *UserUpdateO
 		ids[i] = v[i].ID
 	}
 	return _u.AddPlatformQuotaIDs(ids...)
+}
+
+// AddOwnedResearchGroupIDs adds the "owned_research_groups" edge to the ResearchGroup entity by IDs.
+func (_u *UserUpdateOne) AddOwnedResearchGroupIDs(ids ...int64) *UserUpdateOne {
+	_u.mutation.AddOwnedResearchGroupIDs(ids...)
+	return _u
+}
+
+// AddOwnedResearchGroups adds the "owned_research_groups" edges to the ResearchGroup entity.
+func (_u *UserUpdateOne) AddOwnedResearchGroups(v ...*ResearchGroup) *UserUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddOwnedResearchGroupIDs(ids...)
+}
+
+// AddResearchGroupMembershipIDs adds the "research_group_memberships" edge to the ResearchGroupMember entity by IDs.
+func (_u *UserUpdateOne) AddResearchGroupMembershipIDs(ids ...int64) *UserUpdateOne {
+	_u.mutation.AddResearchGroupMembershipIDs(ids...)
+	return _u
+}
+
+// AddResearchGroupMemberships adds the "research_group_memberships" edges to the ResearchGroupMember entity.
+func (_u *UserUpdateOne) AddResearchGroupMemberships(v ...*ResearchGroupMember) *UserUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddResearchGroupMembershipIDs(ids...)
 }
 
 // Mutation returns the UserMutation object of the builder.
@@ -2455,6 +2746,27 @@ func (_u *UserUpdateOne) RemoveUsageLogs(v ...*UsageLog) *UserUpdateOne {
 	return _u.RemoveUsageLogIDs(ids...)
 }
 
+// ClearOwnedAccounts clears all "owned_accounts" edges to the Account entity.
+func (_u *UserUpdateOne) ClearOwnedAccounts() *UserUpdateOne {
+	_u.mutation.ClearOwnedAccounts()
+	return _u
+}
+
+// RemoveOwnedAccountIDs removes the "owned_accounts" edge to Account entities by IDs.
+func (_u *UserUpdateOne) RemoveOwnedAccountIDs(ids ...int64) *UserUpdateOne {
+	_u.mutation.RemoveOwnedAccountIDs(ids...)
+	return _u
+}
+
+// RemoveOwnedAccounts removes "owned_accounts" edges to Account entities.
+func (_u *UserUpdateOne) RemoveOwnedAccounts(v ...*Account) *UserUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveOwnedAccountIDs(ids...)
+}
+
 // ClearAttributeValues clears all "attribute_values" edges to the UserAttributeValue entity.
 func (_u *UserUpdateOne) ClearAttributeValues() *UserUpdateOne {
 	_u.mutation.ClearAttributeValues()
@@ -2579,6 +2891,48 @@ func (_u *UserUpdateOne) RemovePlatformQuotas(v ...*UserPlatformQuota) *UserUpda
 		ids[i] = v[i].ID
 	}
 	return _u.RemovePlatformQuotaIDs(ids...)
+}
+
+// ClearOwnedResearchGroups clears all "owned_research_groups" edges to the ResearchGroup entity.
+func (_u *UserUpdateOne) ClearOwnedResearchGroups() *UserUpdateOne {
+	_u.mutation.ClearOwnedResearchGroups()
+	return _u
+}
+
+// RemoveOwnedResearchGroupIDs removes the "owned_research_groups" edge to ResearchGroup entities by IDs.
+func (_u *UserUpdateOne) RemoveOwnedResearchGroupIDs(ids ...int64) *UserUpdateOne {
+	_u.mutation.RemoveOwnedResearchGroupIDs(ids...)
+	return _u
+}
+
+// RemoveOwnedResearchGroups removes "owned_research_groups" edges to ResearchGroup entities.
+func (_u *UserUpdateOne) RemoveOwnedResearchGroups(v ...*ResearchGroup) *UserUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveOwnedResearchGroupIDs(ids...)
+}
+
+// ClearResearchGroupMemberships clears all "research_group_memberships" edges to the ResearchGroupMember entity.
+func (_u *UserUpdateOne) ClearResearchGroupMemberships() *UserUpdateOne {
+	_u.mutation.ClearResearchGroupMemberships()
+	return _u
+}
+
+// RemoveResearchGroupMembershipIDs removes the "research_group_memberships" edge to ResearchGroupMember entities by IDs.
+func (_u *UserUpdateOne) RemoveResearchGroupMembershipIDs(ids ...int64) *UserUpdateOne {
+	_u.mutation.RemoveResearchGroupMembershipIDs(ids...)
+	return _u
+}
+
+// RemoveResearchGroupMemberships removes "research_group_memberships" edges to ResearchGroupMember entities.
+func (_u *UserUpdateOne) RemoveResearchGroupMemberships(v ...*ResearchGroupMember) *UserUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveResearchGroupMembershipIDs(ids...)
 }
 
 // Where appends a list predicates to the UserUpdate builder.
@@ -3132,6 +3486,51 @@ func (_u *UserUpdateOne) sqlSave(ctx context.Context) (_node *User, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if _u.mutation.OwnedAccountsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.OwnedAccountsTable,
+			Columns: []string{user.OwnedAccountsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(account.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedOwnedAccountsIDs(); len(nodes) > 0 && !_u.mutation.OwnedAccountsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.OwnedAccountsTable,
+			Columns: []string{user.OwnedAccountsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(account.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.OwnedAccountsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.OwnedAccountsTable,
+			Columns: []string{user.OwnedAccountsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(account.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _u.mutation.AttributeValuesCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
@@ -3395,6 +3794,96 @@ func (_u *UserUpdateOne) sqlSave(ctx context.Context) (_node *User, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(userplatformquota.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.OwnedResearchGroupsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.OwnedResearchGroupsTable,
+			Columns: []string{user.OwnedResearchGroupsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(researchgroup.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedOwnedResearchGroupsIDs(); len(nodes) > 0 && !_u.mutation.OwnedResearchGroupsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.OwnedResearchGroupsTable,
+			Columns: []string{user.OwnedResearchGroupsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(researchgroup.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.OwnedResearchGroupsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.OwnedResearchGroupsTable,
+			Columns: []string{user.OwnedResearchGroupsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(researchgroup.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.ResearchGroupMembershipsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.ResearchGroupMembershipsTable,
+			Columns: []string{user.ResearchGroupMembershipsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(researchgroupmember.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedResearchGroupMembershipsIDs(); len(nodes) > 0 && !_u.mutation.ResearchGroupMembershipsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.ResearchGroupMembershipsTable,
+			Columns: []string{user.ResearchGroupMembershipsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(researchgroupmember.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.ResearchGroupMembershipsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.ResearchGroupMembershipsTable,
+			Columns: []string{user.ResearchGroupMembershipsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(researchgroupmember.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {

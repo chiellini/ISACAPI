@@ -149,6 +149,14 @@ export async function update(id: number, updates: UpdateAccountRequest): Promise
   return data
 }
 
+/** Assign or clear the provider owner of an account. */
+export async function assignProvider(id: number, providerId: number | null): Promise<Account> {
+  const { data } = await apiClient.put<Account | { account: Account }>(`/admin/accounts/${id}/provider`, {
+    provider_id: providerId
+  })
+  return 'account' in data ? data.account : data
+}
+
 /**
  * Check mixed-channel risk for account-group binding.
  */
@@ -810,6 +818,7 @@ export const accountsAPI = {
   getById,
   create,
   update,
+  assignProvider,
   checkMixedChannelRisk,
   delete: deleteAccount,
   toggleStatus,

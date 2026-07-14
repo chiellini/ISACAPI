@@ -237,6 +237,18 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/research-group',
+    name: 'ResearchGroup',
+    component: () => import('@/views/user/ResearchGroupView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: false,
+      title: 'Research Group',
+      titleKey: 'researchGroup.title',
+      descriptionKey: 'researchGroup.description'
+    }
+  },
+  {
     path: '/batch-image',
     name: 'BatchImageGuide',
     alias: '/docs/batch-image',
@@ -429,6 +441,36 @@ const routes: RouteRecordRaw[] = [
     }
   },
 
+  // ==================== Provider Routes ====================
+  {
+    path: '/provider',
+    redirect: '/provider/accounts'
+  },
+  {
+    path: '/provider/accounts',
+    name: 'ProviderAccounts',
+    component: () => import('@/views/provider/AccountsView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresProvider: true,
+      title: 'Provider Accounts',
+      titleKey: 'provider.accounts.title',
+      descriptionKey: 'provider.accounts.description'
+    }
+  },
+  {
+    path: '/provider/usage',
+    name: 'ProviderUsage',
+    component: () => import('@/views/provider/UsageView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresProvider: true,
+      title: 'Provider Usage',
+      titleKey: 'provider.usage.title',
+      descriptionKey: 'provider.usage.description'
+    }
+  },
+
   // ==================== Admin Routes ====================
   {
     path: '/admin',
@@ -468,6 +510,18 @@ const routes: RouteRecordRaw[] = [
       title: 'User Management',
       titleKey: 'admin.users.title',
       descriptionKey: 'admin.users.description'
+    }
+  },
+  {
+    path: '/admin/providers/:id/usage',
+    name: 'AdminProviderUsage',
+    component: () => import('@/views/admin/ProviderUsageView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: true,
+      title: 'Provider Usage',
+      titleKey: 'provider.admin.providerUsageTitle',
+      descriptionKey: 'provider.admin.providerUsageDescription'
     }
   },
   {
@@ -810,6 +864,12 @@ router.beforeEach(async (to, _from, next) => {
   // Check if route requires authentication
   const requiresAuth = to.meta.requiresAuth !== false // Default to true
   const requiresAdmin = to.meta.requiresAdmin === true
+  const requiresProvider = to.meta.requiresProvider === true
+  const roleHomePath = authStore.isAdmin
+    ? '/admin/dashboard'
+    : authStore.isProvider
+      ? '/provider/accounts'
+      : '/dashboard'
 
   if (to.path === '/setup') {
     try {
@@ -834,7 +894,7 @@ router.beforeEach(async (to, _from, next) => {
         return
       }
       // Admin users go to admin dashboard, regular users go to user dashboard
-      next(authStore.isAdmin ? '/admin/dashboard' : '/dashboard')
+      next(roleHomePath)
       return
     }
     // Backend mode: block public pages for unauthenticated users (except login, key-usage, setup)
@@ -859,10 +919,20 @@ router.beforeEach(async (to, _from, next) => {
     return
   }
 
+  if (requiresProvider && !authStore.isProvider) {
+    next(roleHomePath)
+    return
+  }
+
+  // Providers have a dedicated operations surface. Profile remains shared.
+  if (authStore.isProvider && !requiresProvider && to.path !== '/profile') {
+    next('/provider/accounts')
+    return
+  }
+
   // Check admin requirement
   if (requiresAdmin && !authStore.isAdmin) {
-    // User is authenticated but not admin, redirect to user dashboard
-    next('/dashboard')
+    next(roleHomePath)
     return
   }
 
@@ -898,7 +968,7 @@ router.beforeEach(async (to, _from, next) => {
   // settings state leaves the route enabled.
   if (to.meta.requiresPayment) {
     if (!isFeatureFlagEnabled(FeatureFlags.payment)) {
-      next(authStore.isAdmin ? '/admin/dashboard' : '/dashboard')
+      next(roleHomePath)
       return
     }
   }
@@ -908,7 +978,7 @@ router.beforeEach(async (to, _from, next) => {
     appStore.publicSettingsLoaded &&
     appStore.cachedPublicSettings?.risk_control_enabled === false
   ) {
-    next(authStore.isAdmin ? '/admin/settings' : '/dashboard')
+    next(authStore.isAdmin ? '/admin/settings' : roleHomePath)
     return
   }
 
@@ -919,19 +989,23 @@ router.beforeEach(async (to, _from, next) => {
       '/admin/subscriptions',
       '/admin/redeem',
       '/subscriptions',
-      '/redeem'
+      '/redeem',
+      '/research-group'
     ]
 
     if (restrictedPaths.some((path) => to.path.startsWith(path))) {
       // 简易模式下访问受限页面,重定向到仪表板
-      next(authStore.isAdmin ? '/admin/dashboard' : '/dashboard')
+      next(roleHomePath)
       return
     }
   }
 
   // Backend mode: admin gets full access, non-admin blocked
   if (appStore.backendModeEnabled) {
-    if (authStore.isAuthenticated && authStore.isAdmin) {
+    if (
+      authStore.isAuthenticated &&
+      (authStore.isAdmin || (authStore.isProvider && requiresProvider))
+    ) {
       next()
       return
     }

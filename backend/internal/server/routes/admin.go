@@ -32,8 +32,11 @@ func RegisterAdminRoutes(
 		// 分组管理
 		registerGroupRoutes(admin, h)
 
+		registerResearchGroupRoutes(admin, h)
+
 		// 账号管理
 		registerAccountRoutes(admin, h)
+		registerAdminProviderRoutes(admin, h)
 
 		// 公告管理
 		registerAnnouncementRoutes(admin, h)
@@ -306,6 +309,16 @@ func registerGroupRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 	}
 }
 
+func registerResearchGroupRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
+	groups := admin.Group("/research-groups")
+	{
+		groups.GET("", h.Admin.ResearchGroup.List)
+		groups.GET("/:id", h.Admin.ResearchGroup.GetByID)
+		groups.DELETE("/:id", h.Admin.ResearchGroup.Dissolve)
+		groups.DELETE("/:id/members/:member_id", h.Admin.ResearchGroup.DetachMember)
+	}
+}
+
 func registerAccountRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 	accounts := admin.Group("/accounts")
 	{
@@ -317,6 +330,7 @@ func registerAccountRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		accounts.POST("/sync/crs", h.Admin.Account.SyncFromCRS)
 		accounts.POST("/sync/crs/preview", h.Admin.Account.PreviewFromCRS)
 		accounts.PUT("/:id", h.Admin.Account.Update)
+		accounts.PUT("/:id/provider", h.Admin.Account.UpdateProvider)
 		accounts.DELETE("/:id", h.Admin.Account.Delete)
 		accounts.POST("/:id/test", h.Admin.Account.Test)
 		accounts.POST("/:id/recover-state", h.Admin.Account.RecoverState)
@@ -360,6 +374,13 @@ func registerAccountRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		accounts.POST("/exchange-setup-token-code", h.Admin.OAuth.ExchangeSetupTokenCode)
 		accounts.POST("/cookie-auth", h.Admin.OAuth.CookieAuth)
 		accounts.POST("/setup-token-cookie-auth", h.Admin.OAuth.SetupTokenCookieAuth)
+	}
+}
+
+func registerAdminProviderRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
+	providers := admin.Group("/providers")
+	{
+		providers.GET("/:id/usage", h.Provider.GetAdminUsage)
 	}
 }
 

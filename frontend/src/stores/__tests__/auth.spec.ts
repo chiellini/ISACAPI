@@ -43,6 +43,14 @@ const fakeAdminUser = {
   role: 'admin' as const,
 }
 
+const fakeProviderUser = {
+  ...fakeUser,
+  id: 3,
+  username: 'provider',
+  email: 'provider@example.com',
+  role: 'provider' as const,
+}
+
 const fakeAuthResponse = {
   access_token: 'test-token-123',
   refresh_token: 'refresh-token-456',
@@ -342,7 +350,62 @@ describe('useAuthStore', () => {
     })
   })
 
+  describe('isProvider', () => {
+    it('is true only for provider users', async () => {
+      mockLogin.mockResolvedValue({ ...fakeAuthResponse, user: { ...fakeProviderUser } })
+      const store = useAuthStore()
+
+      await store.login({ email: fakeProviderUser.email, password: '123456' })
+
+      expect(store.isProvider).toBe(true)
+      expect(store.isAdmin).toBe(false)
+    })
+  })
+
   // --- refreshUser ---
+
+  describe('research group context', () => {
+    it('preserves owner/member context and exposes invitation state from login responses', async () => {
+      const researchGroup = {
+        role: 'member' as const,
+        group: {
+          id: 3,
+          name: 'AI Lab',
+          status: 'active' as const,
+          owner_user_id: 2,
+          owner_email: 'owner@example.com',
+          owner_username: 'Professor',
+          owner_balance: 100,
+          created_at: '2026-07-01',
+          updated_at: '2026-07-01',
+        },
+        member: {
+          id: 9,
+          research_group_id: 3,
+          user_id: 1,
+          email: fakeUser.email,
+          username: fakeUser.username,
+          status: 'pending' as const,
+          monthly_limit_usd: 20,
+          monthly_usage_usd: 0,
+          monthly_reserved_usd: 0,
+          monthly_remaining_usd: 20,
+          usage_window_start: '2026-07-01',
+          resets_at: '2026-08-01',
+        },
+      }
+      mockLogin.mockResolvedValue({ ...fakeAuthResponse, user: { ...fakeUser, research_group: researchGroup } })
+      const store = useAuthStore()
+
+      await store.login({ email: fakeUser.email, password: '123456' })
+
+      expect(store.researchGroupContext).toEqual(researchGroup)
+      expect(store.isResearchGroupOwner).toBe(false)
+      expect(store.isResearchGroupMember).toBe(true)
+      expect(store.hasPendingResearchGroupInvitation).toBe(true)
+      expect(JSON.parse(localStorage.getItem('auth_user') || '{}').research_group).toEqual(researchGroup)
+    })
+  })
 
   describe('refreshUser', () => {
     it('刷新用户数据并更新 localStorage', async () => {

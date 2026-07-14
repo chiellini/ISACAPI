@@ -77,6 +77,8 @@ const (
 	EdgeAllowedGroups = "allowed_groups"
 	// EdgeUsageLogs holds the string denoting the usage_logs edge name in mutations.
 	EdgeUsageLogs = "usage_logs"
+	// EdgeOwnedAccounts holds the string denoting the owned_accounts edge name in mutations.
+	EdgeOwnedAccounts = "owned_accounts"
 	// EdgeAttributeValues holds the string denoting the attribute_values edge name in mutations.
 	EdgeAttributeValues = "attribute_values"
 	// EdgePromoCodeUsages holds the string denoting the promo_code_usages edge name in mutations.
@@ -89,6 +91,10 @@ const (
 	EdgePendingAuthSessions = "pending_auth_sessions"
 	// EdgePlatformQuotas holds the string denoting the platform_quotas edge name in mutations.
 	EdgePlatformQuotas = "platform_quotas"
+	// EdgeOwnedResearchGroups holds the string denoting the owned_research_groups edge name in mutations.
+	EdgeOwnedResearchGroups = "owned_research_groups"
+	// EdgeResearchGroupMemberships holds the string denoting the research_group_memberships edge name in mutations.
+	EdgeResearchGroupMemberships = "research_group_memberships"
 	// EdgeUserAllowedGroups holds the string denoting the user_allowed_groups edge name in mutations.
 	EdgeUserAllowedGroups = "user_allowed_groups"
 	// Table holds the table name of the user in the database.
@@ -140,6 +146,13 @@ const (
 	UsageLogsInverseTable = "usage_logs"
 	// UsageLogsColumn is the table column denoting the usage_logs relation/edge.
 	UsageLogsColumn = "user_id"
+	// OwnedAccountsTable is the table that holds the owned_accounts relation/edge.
+	OwnedAccountsTable = "accounts"
+	// OwnedAccountsInverseTable is the table name for the Account entity.
+	// It exists in this package in order to avoid circular dependency with the "account" package.
+	OwnedAccountsInverseTable = "accounts"
+	// OwnedAccountsColumn is the table column denoting the owned_accounts relation/edge.
+	OwnedAccountsColumn = "provider_id"
 	// AttributeValuesTable is the table that holds the attribute_values relation/edge.
 	AttributeValuesTable = "user_attribute_values"
 	// AttributeValuesInverseTable is the table name for the UserAttributeValue entity.
@@ -182,6 +195,20 @@ const (
 	PlatformQuotasInverseTable = "user_platform_quotas"
 	// PlatformQuotasColumn is the table column denoting the platform_quotas relation/edge.
 	PlatformQuotasColumn = "user_id"
+	// OwnedResearchGroupsTable is the table that holds the owned_research_groups relation/edge.
+	OwnedResearchGroupsTable = "research_groups"
+	// OwnedResearchGroupsInverseTable is the table name for the ResearchGroup entity.
+	// It exists in this package in order to avoid circular dependency with the "researchgroup" package.
+	OwnedResearchGroupsInverseTable = "research_groups"
+	// OwnedResearchGroupsColumn is the table column denoting the owned_research_groups relation/edge.
+	OwnedResearchGroupsColumn = "owner_user_id"
+	// ResearchGroupMembershipsTable is the table that holds the research_group_memberships relation/edge.
+	ResearchGroupMembershipsTable = "research_group_members"
+	// ResearchGroupMembershipsInverseTable is the table name for the ResearchGroupMember entity.
+	// It exists in this package in order to avoid circular dependency with the "researchgroupmember" package.
+	ResearchGroupMembershipsInverseTable = "research_group_members"
+	// ResearchGroupMembershipsColumn is the table column denoting the research_group_memberships relation/edge.
+	ResearchGroupMembershipsColumn = "user_id"
 	// UserAllowedGroupsTable is the table that holds the user_allowed_groups relation/edge.
 	UserAllowedGroupsTable = "user_allowed_groups"
 	// UserAllowedGroupsInverseTable is the table name for the UserAllowedGroup entity.
@@ -518,6 +545,20 @@ func ByUsageLogs(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	}
 }
 
+// ByOwnedAccountsCount orders the results by owned_accounts count.
+func ByOwnedAccountsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newOwnedAccountsStep(), opts...)
+	}
+}
+
+// ByOwnedAccounts orders the results by owned_accounts terms.
+func ByOwnedAccounts(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newOwnedAccountsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByAttributeValuesCount orders the results by attribute_values count.
 func ByAttributeValuesCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -602,6 +643,34 @@ func ByPlatformQuotas(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	}
 }
 
+// ByOwnedResearchGroupsCount orders the results by owned_research_groups count.
+func ByOwnedResearchGroupsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newOwnedResearchGroupsStep(), opts...)
+	}
+}
+
+// ByOwnedResearchGroups orders the results by owned_research_groups terms.
+func ByOwnedResearchGroups(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newOwnedResearchGroupsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
+// ByResearchGroupMembershipsCount orders the results by research_group_memberships count.
+func ByResearchGroupMembershipsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newResearchGroupMembershipsStep(), opts...)
+	}
+}
+
+// ByResearchGroupMemberships orders the results by research_group_memberships terms.
+func ByResearchGroupMemberships(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newResearchGroupMembershipsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByUserAllowedGroupsCount orders the results by user_allowed_groups count.
 func ByUserAllowedGroupsCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -664,6 +733,13 @@ func newUsageLogsStep() *sqlgraph.Step {
 		sqlgraph.Edge(sqlgraph.O2M, false, UsageLogsTable, UsageLogsColumn),
 	)
 }
+func newOwnedAccountsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(OwnedAccountsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, OwnedAccountsTable, OwnedAccountsColumn),
+	)
+}
 func newAttributeValuesStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -704,6 +780,20 @@ func newPlatformQuotasStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(PlatformQuotasInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, PlatformQuotasTable, PlatformQuotasColumn),
+	)
+}
+func newOwnedResearchGroupsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(OwnedResearchGroupsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, OwnedResearchGroupsTable, OwnedResearchGroupsColumn),
+	)
+}
+func newResearchGroupMembershipsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(ResearchGroupMembershipsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, ResearchGroupMembershipsTable, ResearchGroupMembershipsColumn),
 	)
 }
 func newUserAllowedGroupsStep() *sqlgraph.Step {

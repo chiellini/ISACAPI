@@ -20,6 +20,8 @@ const (
 	FieldAPIKeyID = "api_key_id"
 	// FieldAccountID holds the string denoting the account_id field in the database.
 	FieldAccountID = "account_id"
+	// FieldProviderID holds the string denoting the provider_id field in the database.
+	FieldProviderID = "provider_id"
 	// FieldRequestID holds the string denoting the request_id field in the database.
 	FieldRequestID = "request_id"
 	// FieldModel holds the string denoting the model field in the database.
@@ -40,6 +42,14 @@ const (
 	FieldGroupID = "group_id"
 	// FieldSubscriptionID holds the string denoting the subscription_id field in the database.
 	FieldSubscriptionID = "subscription_id"
+	// FieldPayerUserID holds the string denoting the payer_user_id field in the database.
+	FieldPayerUserID = "payer_user_id"
+	// FieldResearchGroupID holds the string denoting the research_group_id field in the database.
+	FieldResearchGroupID = "research_group_id"
+	// FieldResearchGroupMemberID holds the string denoting the research_group_member_id field in the database.
+	FieldResearchGroupMemberID = "research_group_member_id"
+	// FieldFundingSource holds the string denoting the funding_source field in the database.
+	FieldFundingSource = "funding_source"
 	// FieldInputTokens holds the string denoting the input_tokens field in the database.
 	FieldInputTokens = "input_tokens"
 	// FieldOutputTokens holds the string denoting the output_tokens field in the database.
@@ -112,6 +122,8 @@ const (
 	EdgeGroup = "group"
 	// EdgeSubscription holds the string denoting the subscription edge name in mutations.
 	EdgeSubscription = "subscription"
+	// EdgeResearchGroup holds the string denoting the research_group edge name in mutations.
+	EdgeResearchGroup = "research_group"
 	// Table holds the table name of the usagelog in the database.
 	Table = "usage_logs"
 	// UserTable is the table that holds the user relation/edge.
@@ -149,6 +161,13 @@ const (
 	SubscriptionInverseTable = "user_subscriptions"
 	// SubscriptionColumn is the table column denoting the subscription relation/edge.
 	SubscriptionColumn = "subscription_id"
+	// ResearchGroupTable is the table that holds the research_group relation/edge.
+	ResearchGroupTable = "usage_logs"
+	// ResearchGroupInverseTable is the table name for the ResearchGroup entity.
+	// It exists in this package in order to avoid circular dependency with the "researchgroup" package.
+	ResearchGroupInverseTable = "research_groups"
+	// ResearchGroupColumn is the table column denoting the research_group relation/edge.
+	ResearchGroupColumn = "research_group_id"
 )
 
 // Columns holds all SQL columns for usagelog fields.
@@ -157,6 +176,7 @@ var Columns = []string{
 	FieldUserID,
 	FieldAPIKeyID,
 	FieldAccountID,
+	FieldProviderID,
 	FieldRequestID,
 	FieldModel,
 	FieldRequestedModel,
@@ -167,6 +187,10 @@ var Columns = []string{
 	FieldBillingMode,
 	FieldGroupID,
 	FieldSubscriptionID,
+	FieldPayerUserID,
+	FieldResearchGroupID,
+	FieldResearchGroupMemberID,
+	FieldFundingSource,
 	FieldInputTokens,
 	FieldOutputTokens,
 	FieldCacheCreationTokens,
@@ -225,6 +249,8 @@ var (
 	BillingTierValidator func(string) error
 	// BillingModeValidator is a validator for the "billing_mode" field. It is called by the builders before save.
 	BillingModeValidator func(string) error
+	// FundingSourceValidator is a validator for the "funding_source" field. It is called by the builders before save.
+	FundingSourceValidator func(string) error
 	// DefaultInputTokens holds the default value on creation for the "input_tokens" field.
 	DefaultInputTokens int
 	// DefaultOutputTokens holds the default value on creation for the "output_tokens" field.
@@ -302,6 +328,11 @@ func ByAccountID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldAccountID, opts...).ToFunc()
 }
 
+// ByProviderID orders the results by the provider_id field.
+func ByProviderID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldProviderID, opts...).ToFunc()
+}
+
 // ByRequestID orders the results by the request_id field.
 func ByRequestID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldRequestID, opts...).ToFunc()
@@ -350,6 +381,26 @@ func ByGroupID(opts ...sql.OrderTermOption) OrderOption {
 // BySubscriptionID orders the results by the subscription_id field.
 func BySubscriptionID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldSubscriptionID, opts...).ToFunc()
+}
+
+// ByPayerUserID orders the results by the payer_user_id field.
+func ByPayerUserID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldPayerUserID, opts...).ToFunc()
+}
+
+// ByResearchGroupID orders the results by the research_group_id field.
+func ByResearchGroupID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldResearchGroupID, opts...).ToFunc()
+}
+
+// ByResearchGroupMemberID orders the results by the research_group_member_id field.
+func ByResearchGroupMemberID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldResearchGroupMemberID, opts...).ToFunc()
+}
+
+// ByFundingSource orders the results by the funding_source field.
+func ByFundingSource(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldFundingSource, opts...).ToFunc()
 }
 
 // ByInputTokens orders the results by the input_tokens field.
@@ -536,6 +587,13 @@ func BySubscriptionField(field string, opts ...sql.OrderTermOption) OrderOption 
 		sqlgraph.OrderByNeighborTerms(s, newSubscriptionStep(), sql.OrderByField(field, opts...))
 	}
 }
+
+// ByResearchGroupField orders the results by research_group field.
+func ByResearchGroupField(field string, opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newResearchGroupStep(), sql.OrderByField(field, opts...))
+	}
+}
 func newUserStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -569,5 +627,12 @@ func newSubscriptionStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(SubscriptionInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.M2O, true, SubscriptionTable, SubscriptionColumn),
+	)
+}
+func newResearchGroupStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(ResearchGroupInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.M2O, true, ResearchGroupTable, ResearchGroupColumn),
 	)
 }

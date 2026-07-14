@@ -62,6 +62,76 @@ func (_c *BatchImageJobCreate) SetNillableAccountID(v *int64) *BatchImageJobCrea
 	return _c
 }
 
+// SetPayerUserID sets the "payer_user_id" field.
+func (_c *BatchImageJobCreate) SetPayerUserID(v int64) *BatchImageJobCreate {
+	_c.mutation.SetPayerUserID(v)
+	return _c
+}
+
+// SetNillablePayerUserID sets the "payer_user_id" field if the given value is not nil.
+func (_c *BatchImageJobCreate) SetNillablePayerUserID(v *int64) *BatchImageJobCreate {
+	if v != nil {
+		_c.SetPayerUserID(*v)
+	}
+	return _c
+}
+
+// SetResearchGroupID sets the "research_group_id" field.
+func (_c *BatchImageJobCreate) SetResearchGroupID(v int64) *BatchImageJobCreate {
+	_c.mutation.SetResearchGroupID(v)
+	return _c
+}
+
+// SetNillableResearchGroupID sets the "research_group_id" field if the given value is not nil.
+func (_c *BatchImageJobCreate) SetNillableResearchGroupID(v *int64) *BatchImageJobCreate {
+	if v != nil {
+		_c.SetResearchGroupID(*v)
+	}
+	return _c
+}
+
+// SetResearchGroupMemberID sets the "research_group_member_id" field.
+func (_c *BatchImageJobCreate) SetResearchGroupMemberID(v int64) *BatchImageJobCreate {
+	_c.mutation.SetResearchGroupMemberID(v)
+	return _c
+}
+
+// SetNillableResearchGroupMemberID sets the "research_group_member_id" field if the given value is not nil.
+func (_c *BatchImageJobCreate) SetNillableResearchGroupMemberID(v *int64) *BatchImageJobCreate {
+	if v != nil {
+		_c.SetResearchGroupMemberID(*v)
+	}
+	return _c
+}
+
+// SetFundingSource sets the "funding_source" field.
+func (_c *BatchImageJobCreate) SetFundingSource(v string) *BatchImageJobCreate {
+	_c.mutation.SetFundingSource(v)
+	return _c
+}
+
+// SetNillableFundingSource sets the "funding_source" field if the given value is not nil.
+func (_c *BatchImageJobCreate) SetNillableFundingSource(v *string) *BatchImageJobCreate {
+	if v != nil {
+		_c.SetFundingSource(*v)
+	}
+	return _c
+}
+
+// SetAccountProviderID sets the "account_provider_id" field.
+func (_c *BatchImageJobCreate) SetAccountProviderID(v int64) *BatchImageJobCreate {
+	_c.mutation.SetAccountProviderID(v)
+	return _c
+}
+
+// SetNillableAccountProviderID sets the "account_provider_id" field if the given value is not nil.
+func (_c *BatchImageJobCreate) SetNillableAccountProviderID(v *int64) *BatchImageJobCreate {
+	if v != nil {
+		_c.SetAccountProviderID(*v)
+	}
+	return _c
+}
+
 // SetProvider sets the "provider" field.
 func (_c *BatchImageJobCreate) SetProvider(v string) *BatchImageJobCreate {
 	_c.mutation.SetProvider(v)
@@ -636,6 +706,11 @@ func (_c *BatchImageJobCreate) check() error {
 	if _, ok := _c.mutation.UserID(); !ok {
 		return &ValidationError{Name: "user_id", err: errors.New(`ent: missing required field "BatchImageJob.user_id"`)}
 	}
+	if v, ok := _c.mutation.FundingSource(); ok {
+		if err := batchimagejob.FundingSourceValidator(v); err != nil {
+			return &ValidationError{Name: "funding_source", err: fmt.Errorf(`ent: validator failed for field "BatchImageJob.funding_source": %w`, err)}
+		}
+	}
 	if _, ok := _c.mutation.Provider(); !ok {
 		return &ValidationError{Name: "provider", err: errors.New(`ent: missing required field "BatchImageJob.provider"`)}
 	}
@@ -795,6 +870,26 @@ func (_c *BatchImageJobCreate) createSpec() (*BatchImageJob, *sqlgraph.CreateSpe
 	if value, ok := _c.mutation.AccountID(); ok {
 		_spec.SetField(batchimagejob.FieldAccountID, field.TypeInt64, value)
 		_node.AccountID = &value
+	}
+	if value, ok := _c.mutation.PayerUserID(); ok {
+		_spec.SetField(batchimagejob.FieldPayerUserID, field.TypeInt64, value)
+		_node.PayerUserID = &value
+	}
+	if value, ok := _c.mutation.ResearchGroupID(); ok {
+		_spec.SetField(batchimagejob.FieldResearchGroupID, field.TypeInt64, value)
+		_node.ResearchGroupID = &value
+	}
+	if value, ok := _c.mutation.ResearchGroupMemberID(); ok {
+		_spec.SetField(batchimagejob.FieldResearchGroupMemberID, field.TypeInt64, value)
+		_node.ResearchGroupMemberID = &value
+	}
+	if value, ok := _c.mutation.FundingSource(); ok {
+		_spec.SetField(batchimagejob.FieldFundingSource, field.TypeString, value)
+		_node.FundingSource = &value
+	}
+	if value, ok := _c.mutation.AccountProviderID(); ok {
+		_spec.SetField(batchimagejob.FieldAccountProviderID, field.TypeInt64, value)
+		_node.AccountProviderID = &value
 	}
 	if value, ok := _c.mutation.Provider(); ok {
 		_spec.SetField(batchimagejob.FieldProvider, field.TypeString, value)
@@ -1677,6 +1772,21 @@ func (u *BatchImageJobUpsertOne) UpdateNewValues() *BatchImageJobUpsertOne {
 	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(s *sql.UpdateSet) {
 		if _, exists := u.create.mutation.BatchID(); exists {
 			s.SetIgnore(batchimagejob.FieldBatchID)
+		}
+		if _, exists := u.create.mutation.PayerUserID(); exists {
+			s.SetIgnore(batchimagejob.FieldPayerUserID)
+		}
+		if _, exists := u.create.mutation.ResearchGroupID(); exists {
+			s.SetIgnore(batchimagejob.FieldResearchGroupID)
+		}
+		if _, exists := u.create.mutation.ResearchGroupMemberID(); exists {
+			s.SetIgnore(batchimagejob.FieldResearchGroupMemberID)
+		}
+		if _, exists := u.create.mutation.FundingSource(); exists {
+			s.SetIgnore(batchimagejob.FieldFundingSource)
+		}
+		if _, exists := u.create.mutation.AccountProviderID(); exists {
+			s.SetIgnore(batchimagejob.FieldAccountProviderID)
 		}
 		if _, exists := u.create.mutation.CreatedAt(); exists {
 			s.SetIgnore(batchimagejob.FieldCreatedAt)
@@ -2674,6 +2784,21 @@ func (u *BatchImageJobUpsertBulk) UpdateNewValues() *BatchImageJobUpsertBulk {
 		for _, b := range u.create.builders {
 			if _, exists := b.mutation.BatchID(); exists {
 				s.SetIgnore(batchimagejob.FieldBatchID)
+			}
+			if _, exists := b.mutation.PayerUserID(); exists {
+				s.SetIgnore(batchimagejob.FieldPayerUserID)
+			}
+			if _, exists := b.mutation.ResearchGroupID(); exists {
+				s.SetIgnore(batchimagejob.FieldResearchGroupID)
+			}
+			if _, exists := b.mutation.ResearchGroupMemberID(); exists {
+				s.SetIgnore(batchimagejob.FieldResearchGroupMemberID)
+			}
+			if _, exists := b.mutation.FundingSource(); exists {
+				s.SetIgnore(batchimagejob.FieldFundingSource)
+			}
+			if _, exists := b.mutation.AccountProviderID(); exists {
+				s.SetIgnore(batchimagejob.FieldAccountProviderID)
 			}
 			if _, exists := b.mutation.CreatedAt(); exists {
 				s.SetIgnore(batchimagejob.FieldCreatedAt)

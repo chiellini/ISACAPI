@@ -222,6 +222,7 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 		UserID:              user.ID,
 		APIKeyID:            apiKey.ID,
 		AccountID:           account.ID,
+		ProviderID:          account.ProviderID,
 		RequestID:           requestID,
 		Model:               result.Model,
 		RequestedModel:      requestedModel,
@@ -330,6 +331,7 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 	if quotaPlatform == "" {
 		quotaPlatform = PlatformFromAPIKey(apiKey)
 	}
+	billingDecision := BillingDecisionFromContext(ctx, user.ID)
 
 	billingErr := func() error {
 		_, err := applyUsageBilling(ctx, requestID, usageLog, &postUsageBillingParams{
@@ -343,6 +345,7 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 			AccountRateMultiplier: accountRateMultiplier,
 			APIKeyService:         input.APIKeyService,
 			Platform:              quotaPlatform,
+			BillingDecision:       billingDecision,
 		}, s.billingDeps(), s.usageBillingRepo)
 		return err
 	}()

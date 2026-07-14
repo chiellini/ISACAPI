@@ -39,6 +39,9 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/promocodeusage"
 	"github.com/Wei-Shaw/sub2api/ent/proxy"
 	"github.com/Wei-Shaw/sub2api/ent/redeemcode"
+	"github.com/Wei-Shaw/sub2api/ent/researchgroup"
+	"github.com/Wei-Shaw/sub2api/ent/researchgroupmember"
+	"github.com/Wei-Shaw/sub2api/ent/researchgroupquotaaudit"
 	"github.com/Wei-Shaw/sub2api/ent/securitysecret"
 	"github.com/Wei-Shaw/sub2api/ent/setting"
 	"github.com/Wei-Shaw/sub2api/ent/subscriptionplan"
@@ -919,6 +922,87 @@ func (f TraverseRedeemCode) Traverse(ctx context.Context, q ent.Query) error {
 	return fmt.Errorf("unexpected query type %T. expect *ent.RedeemCodeQuery", q)
 }
 
+// The ResearchGroupFunc type is an adapter to allow the use of ordinary function as a Querier.
+type ResearchGroupFunc func(context.Context, *ent.ResearchGroupQuery) (ent.Value, error)
+
+// Query calls f(ctx, q).
+func (f ResearchGroupFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
+	if q, ok := q.(*ent.ResearchGroupQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *ent.ResearchGroupQuery", q)
+}
+
+// The TraverseResearchGroup type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseResearchGroup func(context.Context, *ent.ResearchGroupQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseResearchGroup) Intercept(next ent.Querier) ent.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseResearchGroup) Traverse(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.ResearchGroupQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *ent.ResearchGroupQuery", q)
+}
+
+// The ResearchGroupMemberFunc type is an adapter to allow the use of ordinary function as a Querier.
+type ResearchGroupMemberFunc func(context.Context, *ent.ResearchGroupMemberQuery) (ent.Value, error)
+
+// Query calls f(ctx, q).
+func (f ResearchGroupMemberFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
+	if q, ok := q.(*ent.ResearchGroupMemberQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *ent.ResearchGroupMemberQuery", q)
+}
+
+// The TraverseResearchGroupMember type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseResearchGroupMember func(context.Context, *ent.ResearchGroupMemberQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseResearchGroupMember) Intercept(next ent.Querier) ent.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseResearchGroupMember) Traverse(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.ResearchGroupMemberQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *ent.ResearchGroupMemberQuery", q)
+}
+
+// The ResearchGroupQuotaAuditFunc type is an adapter to allow the use of ordinary function as a Querier.
+type ResearchGroupQuotaAuditFunc func(context.Context, *ent.ResearchGroupQuotaAuditQuery) (ent.Value, error)
+
+// Query calls f(ctx, q).
+func (f ResearchGroupQuotaAuditFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
+	if q, ok := q.(*ent.ResearchGroupQuotaAuditQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *ent.ResearchGroupQuotaAuditQuery", q)
+}
+
+// The TraverseResearchGroupQuotaAudit type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseResearchGroupQuotaAudit func(context.Context, *ent.ResearchGroupQuotaAuditQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseResearchGroupQuotaAudit) Intercept(next ent.Querier) ent.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseResearchGroupQuotaAudit) Traverse(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.ResearchGroupQuotaAuditQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *ent.ResearchGroupQuotaAuditQuery", q)
+}
+
 // The SecuritySecretFunc type is an adapter to allow the use of ordinary function as a Querier.
 type SecuritySecretFunc func(context.Context, *ent.SecuritySecretQuery) (ent.Value, error)
 
@@ -1306,6 +1390,12 @@ func NewQuery(q ent.Query) (Query, error) {
 		return &query[*ent.ProxyQuery, predicate.Proxy, proxy.OrderOption]{typ: ent.TypeProxy, tq: q}, nil
 	case *ent.RedeemCodeQuery:
 		return &query[*ent.RedeemCodeQuery, predicate.RedeemCode, redeemcode.OrderOption]{typ: ent.TypeRedeemCode, tq: q}, nil
+	case *ent.ResearchGroupQuery:
+		return &query[*ent.ResearchGroupQuery, predicate.ResearchGroup, researchgroup.OrderOption]{typ: ent.TypeResearchGroup, tq: q}, nil
+	case *ent.ResearchGroupMemberQuery:
+		return &query[*ent.ResearchGroupMemberQuery, predicate.ResearchGroupMember, researchgroupmember.OrderOption]{typ: ent.TypeResearchGroupMember, tq: q}, nil
+	case *ent.ResearchGroupQuotaAuditQuery:
+		return &query[*ent.ResearchGroupQuotaAuditQuery, predicate.ResearchGroupQuotaAudit, researchgroupquotaaudit.OrderOption]{typ: ent.TypeResearchGroupQuotaAudit, tq: q}, nil
 	case *ent.SecuritySecretQuery:
 		return &query[*ent.SecuritySecretQuery, predicate.SecuritySecret, securitysecret.OrderOption]{typ: ent.TypeSecuritySecret, tq: q}, nil
 	case *ent.SettingQuery:

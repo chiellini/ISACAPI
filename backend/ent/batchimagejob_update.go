@@ -937,6 +937,21 @@ func (_u *BatchImageJobUpdate) sqlSave(ctx context.Context) (_node int, err erro
 	if _u.mutation.AccountIDCleared() {
 		_spec.ClearField(batchimagejob.FieldAccountID, field.TypeInt64)
 	}
+	if _u.mutation.PayerUserIDCleared() {
+		_spec.ClearField(batchimagejob.FieldPayerUserID, field.TypeInt64)
+	}
+	if _u.mutation.ResearchGroupIDCleared() {
+		_spec.ClearField(batchimagejob.FieldResearchGroupID, field.TypeInt64)
+	}
+	if _u.mutation.ResearchGroupMemberIDCleared() {
+		_spec.ClearField(batchimagejob.FieldResearchGroupMemberID, field.TypeInt64)
+	}
+	if _u.mutation.FundingSourceCleared() {
+		_spec.ClearField(batchimagejob.FieldFundingSource, field.TypeString)
+	}
+	if _u.mutation.AccountProviderIDCleared() {
+		_spec.ClearField(batchimagejob.FieldAccountProviderID, field.TypeInt64)
+	}
 	if value, ok := _u.mutation.Provider(); ok {
 		_spec.SetField(batchimagejob.FieldProvider, field.TypeString, value)
 	}
@@ -2093,6 +2108,21 @@ func (_u *BatchImageJobUpdateOne) sqlSave(ctx context.Context) (_node *BatchImag
 	}
 	if _u.mutation.AccountIDCleared() {
 		_spec.ClearField(batchimagejob.FieldAccountID, field.TypeInt64)
+	}
+	if _u.mutation.PayerUserIDCleared() {
+		_spec.ClearField(batchimagejob.FieldPayerUserID, field.TypeInt64)
+	}
+	if _u.mutation.ResearchGroupIDCleared() {
+		_spec.ClearField(batchimagejob.FieldResearchGroupID, field.TypeInt64)
+	}
+	if _u.mutation.ResearchGroupMemberIDCleared() {
+		_spec.ClearField(batchimagejob.FieldResearchGroupMemberID, field.TypeInt64)
+	}
+	if _u.mutation.FundingSourceCleared() {
+		_spec.ClearField(batchimagejob.FieldFundingSource, field.TypeString)
+	}
+	if _u.mutation.AccountProviderIDCleared() {
+		_spec.ClearField(batchimagejob.FieldAccountProviderID, field.TypeInt64)
 	}
 	if value, ok := _u.mutation.Provider(); ok {
 		_spec.SetField(batchimagejob.FieldProvider, field.TypeString, value)

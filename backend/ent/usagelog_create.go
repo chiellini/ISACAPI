@@ -14,6 +14,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/account"
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
 	"github.com/Wei-Shaw/sub2api/ent/group"
+	"github.com/Wei-Shaw/sub2api/ent/researchgroup"
 	"github.com/Wei-Shaw/sub2api/ent/usagelog"
 	"github.com/Wei-Shaw/sub2api/ent/user"
 	"github.com/Wei-Shaw/sub2api/ent/usersubscription"
@@ -42,6 +43,20 @@ func (_c *UsageLogCreate) SetAPIKeyID(v int64) *UsageLogCreate {
 // SetAccountID sets the "account_id" field.
 func (_c *UsageLogCreate) SetAccountID(v int64) *UsageLogCreate {
 	_c.mutation.SetAccountID(v)
+	return _c
+}
+
+// SetProviderID sets the "provider_id" field.
+func (_c *UsageLogCreate) SetProviderID(v int64) *UsageLogCreate {
+	_c.mutation.SetProviderID(v)
+	return _c
+}
+
+// SetNillableProviderID sets the "provider_id" field if the given value is not nil.
+func (_c *UsageLogCreate) SetNillableProviderID(v *int64) *UsageLogCreate {
+	if v != nil {
+		_c.SetProviderID(*v)
+	}
 	return _c
 }
 
@@ -165,6 +180,62 @@ func (_c *UsageLogCreate) SetSubscriptionID(v int64) *UsageLogCreate {
 func (_c *UsageLogCreate) SetNillableSubscriptionID(v *int64) *UsageLogCreate {
 	if v != nil {
 		_c.SetSubscriptionID(*v)
+	}
+	return _c
+}
+
+// SetPayerUserID sets the "payer_user_id" field.
+func (_c *UsageLogCreate) SetPayerUserID(v int64) *UsageLogCreate {
+	_c.mutation.SetPayerUserID(v)
+	return _c
+}
+
+// SetNillablePayerUserID sets the "payer_user_id" field if the given value is not nil.
+func (_c *UsageLogCreate) SetNillablePayerUserID(v *int64) *UsageLogCreate {
+	if v != nil {
+		_c.SetPayerUserID(*v)
+	}
+	return _c
+}
+
+// SetResearchGroupID sets the "research_group_id" field.
+func (_c *UsageLogCreate) SetResearchGroupID(v int64) *UsageLogCreate {
+	_c.mutation.SetResearchGroupID(v)
+	return _c
+}
+
+// SetNillableResearchGroupID sets the "research_group_id" field if the given value is not nil.
+func (_c *UsageLogCreate) SetNillableResearchGroupID(v *int64) *UsageLogCreate {
+	if v != nil {
+		_c.SetResearchGroupID(*v)
+	}
+	return _c
+}
+
+// SetResearchGroupMemberID sets the "research_group_member_id" field.
+func (_c *UsageLogCreate) SetResearchGroupMemberID(v int64) *UsageLogCreate {
+	_c.mutation.SetResearchGroupMemberID(v)
+	return _c
+}
+
+// SetNillableResearchGroupMemberID sets the "research_group_member_id" field if the given value is not nil.
+func (_c *UsageLogCreate) SetNillableResearchGroupMemberID(v *int64) *UsageLogCreate {
+	if v != nil {
+		_c.SetResearchGroupMemberID(*v)
+	}
+	return _c
+}
+
+// SetFundingSource sets the "funding_source" field.
+func (_c *UsageLogCreate) SetFundingSource(v string) *UsageLogCreate {
+	_c.mutation.SetFundingSource(v)
+	return _c
+}
+
+// SetNillableFundingSource sets the "funding_source" field if the given value is not nil.
+func (_c *UsageLogCreate) SetNillableFundingSource(v *string) *UsageLogCreate {
+	if v != nil {
+		_c.SetFundingSource(*v)
 	}
 	return _c
 }
@@ -620,6 +691,11 @@ func (_c *UsageLogCreate) SetSubscription(v *UserSubscription) *UsageLogCreate {
 	return _c.SetSubscriptionID(v.ID)
 }
 
+// SetResearchGroup sets the "research_group" edge to the ResearchGroup entity.
+func (_c *UsageLogCreate) SetResearchGroup(v *ResearchGroup) *UsageLogCreate {
+	return _c.SetResearchGroupID(v.ID)
+}
+
 // Mutation returns the UsageLogMutation object of the builder.
 func (_c *UsageLogCreate) Mutation() *UsageLogMutation {
 	return _c.mutation
@@ -785,6 +861,11 @@ func (_c *UsageLogCreate) check() error {
 			return &ValidationError{Name: "billing_mode", err: fmt.Errorf(`ent: validator failed for field "UsageLog.billing_mode": %w`, err)}
 		}
 	}
+	if v, ok := _c.mutation.FundingSource(); ok {
+		if err := usagelog.FundingSourceValidator(v); err != nil {
+			return &ValidationError{Name: "funding_source", err: fmt.Errorf(`ent: validator failed for field "UsageLog.funding_source": %w`, err)}
+		}
+	}
 	if _, ok := _c.mutation.InputTokens(); !ok {
 		return &ValidationError{Name: "input_tokens", err: errors.New(`ent: missing required field "UsageLog.input_tokens"`)}
 	}
@@ -913,6 +994,10 @@ func (_c *UsageLogCreate) createSpec() (*UsageLog, *sqlgraph.CreateSpec) {
 		_spec = sqlgraph.NewCreateSpec(usagelog.Table, sqlgraph.NewFieldSpec(usagelog.FieldID, field.TypeInt64))
 	)
 	_spec.OnConflict = _c.conflict
+	if value, ok := _c.mutation.ProviderID(); ok {
+		_spec.SetField(usagelog.FieldProviderID, field.TypeInt64, value)
+		_node.ProviderID = &value
+	}
 	if value, ok := _c.mutation.RequestID(); ok {
 		_spec.SetField(usagelog.FieldRequestID, field.TypeString, value)
 		_node.RequestID = value
@@ -944,6 +1029,18 @@ func (_c *UsageLogCreate) createSpec() (*UsageLog, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.BillingMode(); ok {
 		_spec.SetField(usagelog.FieldBillingMode, field.TypeString, value)
 		_node.BillingMode = &value
+	}
+	if value, ok := _c.mutation.PayerUserID(); ok {
+		_spec.SetField(usagelog.FieldPayerUserID, field.TypeInt64, value)
+		_node.PayerUserID = &value
+	}
+	if value, ok := _c.mutation.ResearchGroupMemberID(); ok {
+		_spec.SetField(usagelog.FieldResearchGroupMemberID, field.TypeInt64, value)
+		_node.ResearchGroupMemberID = &value
+	}
+	if value, ok := _c.mutation.FundingSource(); ok {
+		_spec.SetField(usagelog.FieldFundingSource, field.TypeString, value)
+		_node.FundingSource = &value
 	}
 	if value, ok := _c.mutation.InputTokens(); ok {
 		_spec.SetField(usagelog.FieldInputTokens, field.TypeInt, value)
@@ -1152,6 +1249,23 @@ func (_c *UsageLogCreate) createSpec() (*UsageLog, *sqlgraph.CreateSpec) {
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
 		_node.SubscriptionID = &nodes[0]
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.ResearchGroupIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   usagelog.ResearchGroupTable,
+			Columns: []string{usagelog.ResearchGroupColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(researchgroup.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_node.ResearchGroupID = &nodes[0]
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec
@@ -1979,6 +2093,21 @@ func (u *UsageLogUpsert) UpdateCacheTTLOverridden() *UsageLogUpsert {
 func (u *UsageLogUpsertOne) UpdateNewValues() *UsageLogUpsertOne {
 	u.create.conflict = append(u.create.conflict, sql.ResolveWithNewValues())
 	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(s *sql.UpdateSet) {
+		if _, exists := u.create.mutation.ProviderID(); exists {
+			s.SetIgnore(usagelog.FieldProviderID)
+		}
+		if _, exists := u.create.mutation.PayerUserID(); exists {
+			s.SetIgnore(usagelog.FieldPayerUserID)
+		}
+		if _, exists := u.create.mutation.ResearchGroupID(); exists {
+			s.SetIgnore(usagelog.FieldResearchGroupID)
+		}
+		if _, exists := u.create.mutation.ResearchGroupMemberID(); exists {
+			s.SetIgnore(usagelog.FieldResearchGroupMemberID)
+		}
+		if _, exists := u.create.mutation.FundingSource(); exists {
+			s.SetIgnore(usagelog.FieldFundingSource)
+		}
 		if _, exists := u.create.mutation.CreatedAt(); exists {
 			s.SetIgnore(usagelog.FieldCreatedAt)
 		}
@@ -3078,6 +3207,21 @@ func (u *UsageLogUpsertBulk) UpdateNewValues() *UsageLogUpsertBulk {
 	u.create.conflict = append(u.create.conflict, sql.ResolveWithNewValues())
 	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(s *sql.UpdateSet) {
 		for _, b := range u.create.builders {
+			if _, exists := b.mutation.ProviderID(); exists {
+				s.SetIgnore(usagelog.FieldProviderID)
+			}
+			if _, exists := b.mutation.PayerUserID(); exists {
+				s.SetIgnore(usagelog.FieldPayerUserID)
+			}
+			if _, exists := b.mutation.ResearchGroupID(); exists {
+				s.SetIgnore(usagelog.FieldResearchGroupID)
+			}
+			if _, exists := b.mutation.ResearchGroupMemberID(); exists {
+				s.SetIgnore(usagelog.FieldResearchGroupMemberID)
+			}
+			if _, exists := b.mutation.FundingSource(); exists {
+				s.SetIgnore(usagelog.FieldFundingSource)
+			}
 			if _, exists := b.mutation.CreatedAt(); exists {
 				s.SetIgnore(usagelog.FieldCreatedAt)
 			}

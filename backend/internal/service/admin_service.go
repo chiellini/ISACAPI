@@ -309,6 +309,7 @@ type CreateAccountInput struct {
 	Credentials        map[string]any
 	Extra              map[string]any
 	ProxyID            *int64
+	ProviderID         *int64
 	Concurrency        int
 	Priority           int
 	RateMultiplier     *float64 // 账号计费倍率（>=0，允许 0）
@@ -339,6 +340,12 @@ type UpdateAccountInput struct {
 	Credentials           map[string]any
 	Extra                 map[string]any
 	ProxyID               *int64
+	// ProviderID uses three states: nil means unchanged, pointer-to-nil clears
+	// ownership, and pointer-to-value assigns the account to that provider.
+	ProviderID **int64
+	// RequiredProviderID is an internal ownership precondition used by provider
+	// self-service mutations. It is never populated from an HTTP request body.
+	RequiredProviderID *int64
 	Concurrency           *int     // 使用指针区分"未提供"和"设置为0"
 	Priority              *int     // 使用指针区分"未提供"和"设置为0"
 	RateMultiplier        *float64 // 账号计费倍率（>=0，允许 0）

@@ -32,6 +32,12 @@ func (BatchImageJob) Fields() []ent.Field {
 		field.Int64("user_id"),
 		field.Int64("api_key_id").Optional().Nillable(),
 		field.Int64("account_id").Optional().Nillable(),
+		field.Int64("payer_user_id").Optional().Nillable().Immutable(),
+		field.Int64("research_group_id").Optional().Nillable().Immutable(),
+		field.Int64("research_group_member_id").Optional().Nillable().Immutable(),
+		field.String("funding_source").Optional().Nillable().MaxLen(20).Immutable(),
+		// Immutable account-provider snapshot captured at submission. No edge/FK.
+		field.Int64("account_provider_id").Optional().Nillable().Immutable(),
 		field.String("provider").MaxLen(32),
 		field.String("model").MaxLen(128),
 		field.String("task_name").MaxLen(255).Default(""),
@@ -75,6 +81,9 @@ func (BatchImageJob) Indexes() []ent.Index {
 	return []ent.Index{
 		index.Fields("batch_id").Unique(),
 		index.Fields("user_id", "created_at"),
+		index.Fields("payer_user_id", "created_at"),
+		index.Fields("research_group_id", "created_at"),
+		index.Fields("research_group_member_id", "created_at"),
 		index.Fields("status"),
 		index.Fields("provider", "status"),
 		index.Fields("idempotency_key").Annotations(entsql.IndexWhere("idempotency_key IS NOT NULL AND idempotency_key <> ''")),

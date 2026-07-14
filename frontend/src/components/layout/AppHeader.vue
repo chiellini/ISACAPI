@@ -179,7 +179,7 @@
               </div>
 
               <div class="border-t border-gray-100 px-4 py-3 dark:border-dark-700">
-                <OwnerContactInfo variant="plain" :columns="false" />
+                <QqGroupContact variant="plain" />
               </div>
 
               <div v-if="showOnboardingButton" class="border-t border-gray-100 py-1 dark:border-dark-700">
@@ -231,7 +231,7 @@ import { useAdminSettingsStore } from '@/stores/adminSettings'
 import LocaleSwitcher from '@/components/common/LocaleSwitcher.vue'
 import SubscriptionProgressMini from '@/components/common/SubscriptionProgressMini.vue'
 import AnnouncementBell from '@/components/common/AnnouncementBell.vue'
-import OwnerContactInfo from '@/components/common/OwnerContactInfo.vue'
+import QqGroupContact from '@/components/common/QqGroupContact.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { sanitizeUrl } from '@/utils/url'
 

@@ -97,12 +97,17 @@ func ApplyLegacyRequestFields(requestType RequestType, fallbackStream bool, fall
 }
 
 type UsageLog struct {
-	ID        int64
-	UserID    int64
-	APIKeyID  int64
-	AccountID int64
-	RequestID string
-	Model     string
+	ID                    int64
+	UserID                int64
+	APIKeyID              int64
+	AccountID             int64
+	ProviderID            *int64
+	PayerUserID           *int64
+	ResearchGroupID       *int64
+	ResearchGroupMemberID *int64
+	FundingSource         *string
+	RequestID             string
+	Model                 string
 	// RequestedModel is the client-requested model name recorded for stable user/admin display.
 	// Empty should be treated as Model for backward compatibility with historical rows.
 	RequestedModel string
@@ -191,6 +196,26 @@ type UsageLog struct {
 
 func (u *UsageLog) TotalTokens() int {
 	return u.InputTokens + u.OutputTokens + u.CacheCreationTokens + u.CacheReadTokens
+}
+
+// EffectivePayerUserID preserves the legacy interpretation for rows created
+// before payer attribution was introduced: a NULL payer means the caller paid.
+func (u *UsageLog) EffectivePayerUserID() int64 {
+	if u == nil {
+		return 0
+	}
+	if u.PayerUserID != nil && *u.PayerUserID > 0 {
+		return *u.PayerUserID
+	}
+	return u.UserID
+}
+
+// EffectiveFundingSource treats historical NULL funding_source values as self.
+func (u *UsageLog) EffectiveFundingSource() string {
+	if u != nil && u.FundingSource != nil && *u.FundingSource == FundingSourceResearchGroup {
+		return FundingSourceResearchGroup
+	}
+	return FundingSourceSelf
 }
 
 func (u *UsageLog) EffectiveRequestType() RequestType {

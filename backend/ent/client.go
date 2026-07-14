@@ -46,6 +46,9 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/promocodeusage"
 	"github.com/Wei-Shaw/sub2api/ent/proxy"
 	"github.com/Wei-Shaw/sub2api/ent/redeemcode"
+	"github.com/Wei-Shaw/sub2api/ent/researchgroup"
+	"github.com/Wei-Shaw/sub2api/ent/researchgroupmember"
+	"github.com/Wei-Shaw/sub2api/ent/researchgroupquotaaudit"
 	"github.com/Wei-Shaw/sub2api/ent/securitysecret"
 	"github.com/Wei-Shaw/sub2api/ent/setting"
 	"github.com/Wei-Shaw/sub2api/ent/subscriptionplan"
@@ -127,6 +130,12 @@ type Client struct {
 	Proxy *ProxyClient
 	// RedeemCode is the client for interacting with the RedeemCode builders.
 	RedeemCode *RedeemCodeClient
+	// ResearchGroup is the client for interacting with the ResearchGroup builders.
+	ResearchGroup *ResearchGroupClient
+	// ResearchGroupMember is the client for interacting with the ResearchGroupMember builders.
+	ResearchGroupMember *ResearchGroupMemberClient
+	// ResearchGroupQuotaAudit is the client for interacting with the ResearchGroupQuotaAudit builders.
+	ResearchGroupQuotaAudit *ResearchGroupQuotaAuditClient
 	// SecuritySecret is the client for interacting with the SecuritySecret builders.
 	SecuritySecret *SecuritySecretClient
 	// Setting is the client for interacting with the Setting builders.
@@ -192,6 +201,9 @@ func (c *Client) init() {
 	c.PromoCodeUsage = NewPromoCodeUsageClient(c.config)
 	c.Proxy = NewProxyClient(c.config)
 	c.RedeemCode = NewRedeemCodeClient(c.config)
+	c.ResearchGroup = NewResearchGroupClient(c.config)
+	c.ResearchGroupMember = NewResearchGroupMemberClient(c.config)
+	c.ResearchGroupQuotaAudit = NewResearchGroupQuotaAuditClient(c.config)
 	c.SecuritySecret = NewSecuritySecretClient(c.config)
 	c.Setting = NewSettingClient(c.config)
 	c.SubscriptionPlan = NewSubscriptionPlanClient(c.config)
@@ -326,6 +338,9 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		PromoCodeUsage:                NewPromoCodeUsageClient(cfg),
 		Proxy:                         NewProxyClient(cfg),
 		RedeemCode:                    NewRedeemCodeClient(cfg),
+		ResearchGroup:                 NewResearchGroupClient(cfg),
+		ResearchGroupMember:           NewResearchGroupMemberClient(cfg),
+		ResearchGroupQuotaAudit:       NewResearchGroupQuotaAuditClient(cfg),
 		SecuritySecret:                NewSecuritySecretClient(cfg),
 		Setting:                       NewSettingClient(cfg),
 		SubscriptionPlan:              NewSubscriptionPlanClient(cfg),
@@ -387,6 +402,9 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		PromoCodeUsage:                NewPromoCodeUsageClient(cfg),
 		Proxy:                         NewProxyClient(cfg),
 		RedeemCode:                    NewRedeemCodeClient(cfg),
+		ResearchGroup:                 NewResearchGroupClient(cfg),
+		ResearchGroupMember:           NewResearchGroupMemberClient(cfg),
+		ResearchGroupQuotaAudit:       NewResearchGroupQuotaAuditClient(cfg),
 		SecuritySecret:                NewSecuritySecretClient(cfg),
 		Setting:                       NewSettingClient(cfg),
 		SubscriptionPlan:              NewSubscriptionPlanClient(cfg),
@@ -431,11 +449,13 @@ func (c *Client) Use(hooks ...Hook) {
 		c.APIKey, c.Account, c.AccountGroup, c.Announcement, c.AnnouncementRead,
 		c.AuthIdentity, c.AuthIdentityChannel, c.BatchImageEvent, c.BatchImageItem,
 		c.BatchImageJob, c.ChannelMonitor, c.ChannelMonitorDailyRollup,
-		c.ChannelMonitorHistory, c.ChannelMonitorRequestTemplate,
+		c.ChannelMonitorHistory, c.ChannelMonitorRequestTemplate, c.ConversationBranch,
+		c.ConversationEvent, c.ConversationResponseRef, c.ConversationSession,
 		c.ErrorPassthroughRule, c.Group, c.IdempotencyRecord,
 		c.IdentityAdoptionDecision, c.PaymentAuditLog, c.PaymentOrder,
 		c.PaymentProviderInstance, c.PendingAuthSession, c.PromoCode, c.PromoCodeUsage,
-		c.Proxy, c.RedeemCode, c.SecuritySecret, c.Setting, c.SubscriptionPlan,
+		c.Proxy, c.RedeemCode, c.ResearchGroup, c.ResearchGroupMember,
+		c.ResearchGroupQuotaAudit, c.SecuritySecret, c.Setting, c.SubscriptionPlan,
 		c.TLSFingerprintProfile, c.UsageCleanupTask, c.UsageLog, c.User,
 		c.UserAllowedGroup, c.UserAttributeDefinition, c.UserAttributeValue,
 		c.UserPlatformQuota, c.UserSubscription,
@@ -451,11 +471,13 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 		c.APIKey, c.Account, c.AccountGroup, c.Announcement, c.AnnouncementRead,
 		c.AuthIdentity, c.AuthIdentityChannel, c.BatchImageEvent, c.BatchImageItem,
 		c.BatchImageJob, c.ChannelMonitor, c.ChannelMonitorDailyRollup,
-		c.ChannelMonitorHistory, c.ChannelMonitorRequestTemplate,
+		c.ChannelMonitorHistory, c.ChannelMonitorRequestTemplate, c.ConversationBranch,
+		c.ConversationEvent, c.ConversationResponseRef, c.ConversationSession,
 		c.ErrorPassthroughRule, c.Group, c.IdempotencyRecord,
 		c.IdentityAdoptionDecision, c.PaymentAuditLog, c.PaymentOrder,
 		c.PaymentProviderInstance, c.PendingAuthSession, c.PromoCode, c.PromoCodeUsage,
-		c.Proxy, c.RedeemCode, c.SecuritySecret, c.Setting, c.SubscriptionPlan,
+		c.Proxy, c.RedeemCode, c.ResearchGroup, c.ResearchGroupMember,
+		c.ResearchGroupQuotaAudit, c.SecuritySecret, c.Setting, c.SubscriptionPlan,
 		c.TLSFingerprintProfile, c.UsageCleanupTask, c.UsageLog, c.User,
 		c.UserAllowedGroup, c.UserAttributeDefinition, c.UserAttributeValue,
 		c.UserPlatformQuota, c.UserSubscription,
@@ -527,6 +549,12 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.Proxy.mutate(ctx, m)
 	case *RedeemCodeMutation:
 		return c.RedeemCode.mutate(ctx, m)
+	case *ResearchGroupMutation:
+		return c.ResearchGroup.mutate(ctx, m)
+	case *ResearchGroupMemberMutation:
+		return c.ResearchGroupMember.mutate(ctx, m)
+	case *ResearchGroupQuotaAuditMutation:
+		return c.ResearchGroupQuotaAudit.mutate(ctx, m)
 	case *SecuritySecretMutation:
 		return c.SecuritySecret.mutate(ctx, m)
 	case *SettingMutation:
@@ -872,6 +900,22 @@ func (c *AccountClient) QueryProxy(_m *Account) *ProxyQuery {
 			sqlgraph.From(account.Table, account.FieldID, id),
 			sqlgraph.To(proxy.Table, proxy.FieldID),
 			sqlgraph.Edge(sqlgraph.M2O, false, account.ProxyTable, account.ProxyColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryProvider queries the provider edge of a Account.
+func (c *AccountClient) QueryProvider(_m *Account) *UserQuery {
+	query := (&UserClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(account.Table, account.FieldID, id),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, account.ProviderTable, account.ProviderColumn),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil
@@ -5211,6 +5255,517 @@ func (c *RedeemCodeClient) mutate(ctx context.Context, m *RedeemCodeMutation) (V
 	}
 }
 
+// ResearchGroupClient is a client for the ResearchGroup schema.
+type ResearchGroupClient struct {
+	config
+}
+
+// NewResearchGroupClient returns a client for the ResearchGroup from the given config.
+func NewResearchGroupClient(c config) *ResearchGroupClient {
+	return &ResearchGroupClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `researchgroup.Hooks(f(g(h())))`.
+func (c *ResearchGroupClient) Use(hooks ...Hook) {
+	c.hooks.ResearchGroup = append(c.hooks.ResearchGroup, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `researchgroup.Intercept(f(g(h())))`.
+func (c *ResearchGroupClient) Intercept(interceptors ...Interceptor) {
+	c.inters.ResearchGroup = append(c.inters.ResearchGroup, interceptors...)
+}
+
+// Create returns a builder for creating a ResearchGroup entity.
+func (c *ResearchGroupClient) Create() *ResearchGroupCreate {
+	mutation := newResearchGroupMutation(c.config, OpCreate)
+	return &ResearchGroupCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of ResearchGroup entities.
+func (c *ResearchGroupClient) CreateBulk(builders ...*ResearchGroupCreate) *ResearchGroupCreateBulk {
+	return &ResearchGroupCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *ResearchGroupClient) MapCreateBulk(slice any, setFunc func(*ResearchGroupCreate, int)) *ResearchGroupCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &ResearchGroupCreateBulk{err: fmt.Errorf("calling to ResearchGroupClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*ResearchGroupCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &ResearchGroupCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for ResearchGroup.
+func (c *ResearchGroupClient) Update() *ResearchGroupUpdate {
+	mutation := newResearchGroupMutation(c.config, OpUpdate)
+	return &ResearchGroupUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *ResearchGroupClient) UpdateOne(_m *ResearchGroup) *ResearchGroupUpdateOne {
+	mutation := newResearchGroupMutation(c.config, OpUpdateOne, withResearchGroup(_m))
+	return &ResearchGroupUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *ResearchGroupClient) UpdateOneID(id int64) *ResearchGroupUpdateOne {
+	mutation := newResearchGroupMutation(c.config, OpUpdateOne, withResearchGroupID(id))
+	return &ResearchGroupUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for ResearchGroup.
+func (c *ResearchGroupClient) Delete() *ResearchGroupDelete {
+	mutation := newResearchGroupMutation(c.config, OpDelete)
+	return &ResearchGroupDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *ResearchGroupClient) DeleteOne(_m *ResearchGroup) *ResearchGroupDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *ResearchGroupClient) DeleteOneID(id int64) *ResearchGroupDeleteOne {
+	builder := c.Delete().Where(researchgroup.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &ResearchGroupDeleteOne{builder}
+}
+
+// Query returns a query builder for ResearchGroup.
+func (c *ResearchGroupClient) Query() *ResearchGroupQuery {
+	return &ResearchGroupQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeResearchGroup},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a ResearchGroup entity by its id.
+func (c *ResearchGroupClient) Get(ctx context.Context, id int64) (*ResearchGroup, error) {
+	return c.Query().Where(researchgroup.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *ResearchGroupClient) GetX(ctx context.Context, id int64) *ResearchGroup {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryOwner queries the owner edge of a ResearchGroup.
+func (c *ResearchGroupClient) QueryOwner(_m *ResearchGroup) *UserQuery {
+	query := (&UserClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(researchgroup.Table, researchgroup.FieldID, id),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, researchgroup.OwnerTable, researchgroup.OwnerColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryMembers queries the members edge of a ResearchGroup.
+func (c *ResearchGroupClient) QueryMembers(_m *ResearchGroup) *ResearchGroupMemberQuery {
+	query := (&ResearchGroupMemberClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(researchgroup.Table, researchgroup.FieldID, id),
+			sqlgraph.To(researchgroupmember.Table, researchgroupmember.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, researchgroup.MembersTable, researchgroup.MembersColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryQuotaAudits queries the quota_audits edge of a ResearchGroup.
+func (c *ResearchGroupClient) QueryQuotaAudits(_m *ResearchGroup) *ResearchGroupQuotaAuditQuery {
+	query := (&ResearchGroupQuotaAuditClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(researchgroup.Table, researchgroup.FieldID, id),
+			sqlgraph.To(researchgroupquotaaudit.Table, researchgroupquotaaudit.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, researchgroup.QuotaAuditsTable, researchgroup.QuotaAuditsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryFundedUsageLogs queries the funded_usage_logs edge of a ResearchGroup.
+func (c *ResearchGroupClient) QueryFundedUsageLogs(_m *ResearchGroup) *UsageLogQuery {
+	query := (&UsageLogClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(researchgroup.Table, researchgroup.FieldID, id),
+			sqlgraph.To(usagelog.Table, usagelog.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, researchgroup.FundedUsageLogsTable, researchgroup.FundedUsageLogsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *ResearchGroupClient) Hooks() []Hook {
+	return c.hooks.ResearchGroup
+}
+
+// Interceptors returns the client interceptors.
+func (c *ResearchGroupClient) Interceptors() []Interceptor {
+	return c.inters.ResearchGroup
+}
+
+func (c *ResearchGroupClient) mutate(ctx context.Context, m *ResearchGroupMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&ResearchGroupCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&ResearchGroupUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&ResearchGroupUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&ResearchGroupDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown ResearchGroup mutation op: %q", m.Op())
+	}
+}
+
+// ResearchGroupMemberClient is a client for the ResearchGroupMember schema.
+type ResearchGroupMemberClient struct {
+	config
+}
+
+// NewResearchGroupMemberClient returns a client for the ResearchGroupMember from the given config.
+func NewResearchGroupMemberClient(c config) *ResearchGroupMemberClient {
+	return &ResearchGroupMemberClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `researchgroupmember.Hooks(f(g(h())))`.
+func (c *ResearchGroupMemberClient) Use(hooks ...Hook) {
+	c.hooks.ResearchGroupMember = append(c.hooks.ResearchGroupMember, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `researchgroupmember.Intercept(f(g(h())))`.
+func (c *ResearchGroupMemberClient) Intercept(interceptors ...Interceptor) {
+	c.inters.ResearchGroupMember = append(c.inters.ResearchGroupMember, interceptors...)
+}
+
+// Create returns a builder for creating a ResearchGroupMember entity.
+func (c *ResearchGroupMemberClient) Create() *ResearchGroupMemberCreate {
+	mutation := newResearchGroupMemberMutation(c.config, OpCreate)
+	return &ResearchGroupMemberCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of ResearchGroupMember entities.
+func (c *ResearchGroupMemberClient) CreateBulk(builders ...*ResearchGroupMemberCreate) *ResearchGroupMemberCreateBulk {
+	return &ResearchGroupMemberCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *ResearchGroupMemberClient) MapCreateBulk(slice any, setFunc func(*ResearchGroupMemberCreate, int)) *ResearchGroupMemberCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &ResearchGroupMemberCreateBulk{err: fmt.Errorf("calling to ResearchGroupMemberClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*ResearchGroupMemberCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &ResearchGroupMemberCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for ResearchGroupMember.
+func (c *ResearchGroupMemberClient) Update() *ResearchGroupMemberUpdate {
+	mutation := newResearchGroupMemberMutation(c.config, OpUpdate)
+	return &ResearchGroupMemberUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *ResearchGroupMemberClient) UpdateOne(_m *ResearchGroupMember) *ResearchGroupMemberUpdateOne {
+	mutation := newResearchGroupMemberMutation(c.config, OpUpdateOne, withResearchGroupMember(_m))
+	return &ResearchGroupMemberUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *ResearchGroupMemberClient) UpdateOneID(id int64) *ResearchGroupMemberUpdateOne {
+	mutation := newResearchGroupMemberMutation(c.config, OpUpdateOne, withResearchGroupMemberID(id))
+	return &ResearchGroupMemberUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for ResearchGroupMember.
+func (c *ResearchGroupMemberClient) Delete() *ResearchGroupMemberDelete {
+	mutation := newResearchGroupMemberMutation(c.config, OpDelete)
+	return &ResearchGroupMemberDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *ResearchGroupMemberClient) DeleteOne(_m *ResearchGroupMember) *ResearchGroupMemberDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *ResearchGroupMemberClient) DeleteOneID(id int64) *ResearchGroupMemberDeleteOne {
+	builder := c.Delete().Where(researchgroupmember.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &ResearchGroupMemberDeleteOne{builder}
+}
+
+// Query returns a query builder for ResearchGroupMember.
+func (c *ResearchGroupMemberClient) Query() *ResearchGroupMemberQuery {
+	return &ResearchGroupMemberQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeResearchGroupMember},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a ResearchGroupMember entity by its id.
+func (c *ResearchGroupMemberClient) Get(ctx context.Context, id int64) (*ResearchGroupMember, error) {
+	return c.Query().Where(researchgroupmember.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *ResearchGroupMemberClient) GetX(ctx context.Context, id int64) *ResearchGroupMember {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryResearchGroup queries the research_group edge of a ResearchGroupMember.
+func (c *ResearchGroupMemberClient) QueryResearchGroup(_m *ResearchGroupMember) *ResearchGroupQuery {
+	query := (&ResearchGroupClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(researchgroupmember.Table, researchgroupmember.FieldID, id),
+			sqlgraph.To(researchgroup.Table, researchgroup.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, researchgroupmember.ResearchGroupTable, researchgroupmember.ResearchGroupColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryUser queries the user edge of a ResearchGroupMember.
+func (c *ResearchGroupMemberClient) QueryUser(_m *ResearchGroupMember) *UserQuery {
+	query := (&UserClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(researchgroupmember.Table, researchgroupmember.FieldID, id),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, researchgroupmember.UserTable, researchgroupmember.UserColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *ResearchGroupMemberClient) Hooks() []Hook {
+	return c.hooks.ResearchGroupMember
+}
+
+// Interceptors returns the client interceptors.
+func (c *ResearchGroupMemberClient) Interceptors() []Interceptor {
+	return c.inters.ResearchGroupMember
+}
+
+func (c *ResearchGroupMemberClient) mutate(ctx context.Context, m *ResearchGroupMemberMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&ResearchGroupMemberCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&ResearchGroupMemberUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&ResearchGroupMemberUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&ResearchGroupMemberDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown ResearchGroupMember mutation op: %q", m.Op())
+	}
+}
+
+// ResearchGroupQuotaAuditClient is a client for the ResearchGroupQuotaAudit schema.
+type ResearchGroupQuotaAuditClient struct {
+	config
+}
+
+// NewResearchGroupQuotaAuditClient returns a client for the ResearchGroupQuotaAudit from the given config.
+func NewResearchGroupQuotaAuditClient(c config) *ResearchGroupQuotaAuditClient {
+	return &ResearchGroupQuotaAuditClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `researchgroupquotaaudit.Hooks(f(g(h())))`.
+func (c *ResearchGroupQuotaAuditClient) Use(hooks ...Hook) {
+	c.hooks.ResearchGroupQuotaAudit = append(c.hooks.ResearchGroupQuotaAudit, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `researchgroupquotaaudit.Intercept(f(g(h())))`.
+func (c *ResearchGroupQuotaAuditClient) Intercept(interceptors ...Interceptor) {
+	c.inters.ResearchGroupQuotaAudit = append(c.inters.ResearchGroupQuotaAudit, interceptors...)
+}
+
+// Create returns a builder for creating a ResearchGroupQuotaAudit entity.
+func (c *ResearchGroupQuotaAuditClient) Create() *ResearchGroupQuotaAuditCreate {
+	mutation := newResearchGroupQuotaAuditMutation(c.config, OpCreate)
+	return &ResearchGroupQuotaAuditCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of ResearchGroupQuotaAudit entities.
+func (c *ResearchGroupQuotaAuditClient) CreateBulk(builders ...*ResearchGroupQuotaAuditCreate) *ResearchGroupQuotaAuditCreateBulk {
+	return &ResearchGroupQuotaAuditCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *ResearchGroupQuotaAuditClient) MapCreateBulk(slice any, setFunc func(*ResearchGroupQuotaAuditCreate, int)) *ResearchGroupQuotaAuditCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &ResearchGroupQuotaAuditCreateBulk{err: fmt.Errorf("calling to ResearchGroupQuotaAuditClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*ResearchGroupQuotaAuditCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &ResearchGroupQuotaAuditCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for ResearchGroupQuotaAudit.
+func (c *ResearchGroupQuotaAuditClient) Update() *ResearchGroupQuotaAuditUpdate {
+	mutation := newResearchGroupQuotaAuditMutation(c.config, OpUpdate)
+	return &ResearchGroupQuotaAuditUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *ResearchGroupQuotaAuditClient) UpdateOne(_m *ResearchGroupQuotaAudit) *ResearchGroupQuotaAuditUpdateOne {
+	mutation := newResearchGroupQuotaAuditMutation(c.config, OpUpdateOne, withResearchGroupQuotaAudit(_m))
+	return &ResearchGroupQuotaAuditUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *ResearchGroupQuotaAuditClient) UpdateOneID(id int64) *ResearchGroupQuotaAuditUpdateOne {
+	mutation := newResearchGroupQuotaAuditMutation(c.config, OpUpdateOne, withResearchGroupQuotaAuditID(id))
+	return &ResearchGroupQuotaAuditUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for ResearchGroupQuotaAudit.
+func (c *ResearchGroupQuotaAuditClient) Delete() *ResearchGroupQuotaAuditDelete {
+	mutation := newResearchGroupQuotaAuditMutation(c.config, OpDelete)
+	return &ResearchGroupQuotaAuditDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *ResearchGroupQuotaAuditClient) DeleteOne(_m *ResearchGroupQuotaAudit) *ResearchGroupQuotaAuditDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *ResearchGroupQuotaAuditClient) DeleteOneID(id int64) *ResearchGroupQuotaAuditDeleteOne {
+	builder := c.Delete().Where(researchgroupquotaaudit.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &ResearchGroupQuotaAuditDeleteOne{builder}
+}
+
+// Query returns a query builder for ResearchGroupQuotaAudit.
+func (c *ResearchGroupQuotaAuditClient) Query() *ResearchGroupQuotaAuditQuery {
+	return &ResearchGroupQuotaAuditQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeResearchGroupQuotaAudit},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a ResearchGroupQuotaAudit entity by its id.
+func (c *ResearchGroupQuotaAuditClient) Get(ctx context.Context, id int64) (*ResearchGroupQuotaAudit, error) {
+	return c.Query().Where(researchgroupquotaaudit.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *ResearchGroupQuotaAuditClient) GetX(ctx context.Context, id int64) *ResearchGroupQuotaAudit {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryResearchGroup queries the research_group edge of a ResearchGroupQuotaAudit.
+func (c *ResearchGroupQuotaAuditClient) QueryResearchGroup(_m *ResearchGroupQuotaAudit) *ResearchGroupQuery {
+	query := (&ResearchGroupClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(researchgroupquotaaudit.Table, researchgroupquotaaudit.FieldID, id),
+			sqlgraph.To(researchgroup.Table, researchgroup.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, researchgroupquotaaudit.ResearchGroupTable, researchgroupquotaaudit.ResearchGroupColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *ResearchGroupQuotaAuditClient) Hooks() []Hook {
+	return c.hooks.ResearchGroupQuotaAudit
+}
+
+// Interceptors returns the client interceptors.
+func (c *ResearchGroupQuotaAuditClient) Interceptors() []Interceptor {
+	return c.inters.ResearchGroupQuotaAudit
+}
+
+func (c *ResearchGroupQuotaAuditClient) mutate(ctx context.Context, m *ResearchGroupQuotaAuditMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&ResearchGroupQuotaAuditCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&ResearchGroupQuotaAuditUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&ResearchGroupQuotaAuditUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&ResearchGroupQuotaAuditDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown ResearchGroupQuotaAudit mutation op: %q", m.Op())
+	}
+}
+
 // SecuritySecretClient is a client for the SecuritySecret schema.
 type SecuritySecretClient struct {
 	config
@@ -6064,6 +6619,22 @@ func (c *UsageLogClient) QuerySubscription(_m *UsageLog) *UserSubscriptionQuery 
 	return query
 }
 
+// QueryResearchGroup queries the research_group edge of a UsageLog.
+func (c *UsageLogClient) QueryResearchGroup(_m *UsageLog) *ResearchGroupQuery {
+	query := (&ResearchGroupClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(usagelog.Table, usagelog.FieldID, id),
+			sqlgraph.To(researchgroup.Table, researchgroup.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, usagelog.ResearchGroupTable, usagelog.ResearchGroupColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // Hooks returns the client hooks.
 func (c *UsageLogClient) Hooks() []Hook {
 	return c.hooks.UsageLog
@@ -6309,6 +6880,22 @@ func (c *UserClient) QueryUsageLogs(_m *User) *UsageLogQuery {
 	return query
 }
 
+// QueryOwnedAccounts queries the owned_accounts edge of a User.
+func (c *UserClient) QueryOwnedAccounts(_m *User) *AccountQuery {
+	query := (&AccountClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, id),
+			sqlgraph.To(account.Table, account.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, user.OwnedAccountsTable, user.OwnedAccountsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // QueryAttributeValues queries the attribute_values edge of a User.
 func (c *UserClient) QueryAttributeValues(_m *User) *UserAttributeValueQuery {
 	query := (&UserAttributeValueClient{config: c.config}).Query()
@@ -6398,6 +6985,38 @@ func (c *UserClient) QueryPlatformQuotas(_m *User) *UserPlatformQuotaQuery {
 			sqlgraph.From(user.Table, user.FieldID, id),
 			sqlgraph.To(userplatformquota.Table, userplatformquota.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, user.PlatformQuotasTable, user.PlatformQuotasColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryOwnedResearchGroups queries the owned_research_groups edge of a User.
+func (c *UserClient) QueryOwnedResearchGroups(_m *User) *ResearchGroupQuery {
+	query := (&ResearchGroupClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, id),
+			sqlgraph.To(researchgroup.Table, researchgroup.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, user.OwnedResearchGroupsTable, user.OwnedResearchGroupsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryResearchGroupMemberships queries the research_group_memberships edge of a User.
+func (c *UserClient) QueryResearchGroupMemberships(_m *User) *ResearchGroupMemberQuery {
+	query := (&ResearchGroupMemberClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, id),
+			sqlgraph.To(researchgroupmember.Table, researchgroupmember.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, user.ResearchGroupMembershipsTable, user.ResearchGroupMembershipsColumn),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil
@@ -7238,10 +7857,10 @@ type (
 		ChannelMonitor, ChannelMonitorDailyRollup, ChannelMonitorHistory,
 		ChannelMonitorRequestTemplate, ConversationBranch, ConversationEvent,
 		ConversationResponseRef, ConversationSession, ErrorPassthroughRule, Group,
-		IdempotencyRecord,
-		IdentityAdoptionDecision, PaymentAuditLog, PaymentOrder,
+		IdempotencyRecord, IdentityAdoptionDecision, PaymentAuditLog, PaymentOrder,
 		PaymentProviderInstance, PendingAuthSession, PromoCode, PromoCodeUsage, Proxy,
-		RedeemCode, SecuritySecret, Setting, SubscriptionPlan, TLSFingerprintProfile,
+		RedeemCode, ResearchGroup, ResearchGroupMember, ResearchGroupQuotaAudit,
+		SecuritySecret, Setting, SubscriptionPlan, TLSFingerprintProfile,
 		UsageCleanupTask, UsageLog, User, UserAllowedGroup, UserAttributeDefinition,
 		UserAttributeValue, UserPlatformQuota, UserSubscription []ent.Hook
 	}
@@ -7251,10 +7870,10 @@ type (
 		ChannelMonitor, ChannelMonitorDailyRollup, ChannelMonitorHistory,
 		ChannelMonitorRequestTemplate, ConversationBranch, ConversationEvent,
 		ConversationResponseRef, ConversationSession, ErrorPassthroughRule, Group,
-		IdempotencyRecord,
-		IdentityAdoptionDecision, PaymentAuditLog, PaymentOrder,
+		IdempotencyRecord, IdentityAdoptionDecision, PaymentAuditLog, PaymentOrder,
 		PaymentProviderInstance, PendingAuthSession, PromoCode, PromoCodeUsage, Proxy,
-		RedeemCode, SecuritySecret, Setting, SubscriptionPlan, TLSFingerprintProfile,
+		RedeemCode, ResearchGroup, ResearchGroupMember, ResearchGroupQuotaAudit,
+		SecuritySecret, Setting, SubscriptionPlan, TLSFingerprintProfile,
 		UsageCleanupTask, UsageLog, User, UserAllowedGroup, UserAttributeDefinition,
 		UserAttributeValue, UserPlatformQuota, UserSubscription []ent.Interceptor
 	}

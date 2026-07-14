@@ -1546,6 +1546,29 @@ func HasUsageLogsWith(preds ...predicate.UsageLog) predicate.User {
 	})
 }
 
+// HasOwnedAccounts applies the HasEdge predicate on the "owned_accounts" edge.
+func HasOwnedAccounts() predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, OwnedAccountsTable, OwnedAccountsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasOwnedAccountsWith applies the HasEdge predicate on the "owned_accounts" edge with a given conditions (other predicates).
+func HasOwnedAccountsWith(preds ...predicate.Account) predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := newOwnedAccountsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // HasAttributeValues applies the HasEdge predicate on the "attribute_values" edge.
 func HasAttributeValues() predicate.User {
 	return predicate.User(func(s *sql.Selector) {
@@ -1676,6 +1699,52 @@ func HasPlatformQuotas() predicate.User {
 func HasPlatformQuotasWith(preds ...predicate.UserPlatformQuota) predicate.User {
 	return predicate.User(func(s *sql.Selector) {
 		step := newPlatformQuotasStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasOwnedResearchGroups applies the HasEdge predicate on the "owned_research_groups" edge.
+func HasOwnedResearchGroups() predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, OwnedResearchGroupsTable, OwnedResearchGroupsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasOwnedResearchGroupsWith applies the HasEdge predicate on the "owned_research_groups" edge with a given conditions (other predicates).
+func HasOwnedResearchGroupsWith(preds ...predicate.ResearchGroup) predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := newOwnedResearchGroupsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasResearchGroupMemberships applies the HasEdge predicate on the "research_group_memberships" edge.
+func HasResearchGroupMemberships() predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, ResearchGroupMembershipsTable, ResearchGroupMembershipsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasResearchGroupMembershipsWith applies the HasEdge predicate on the "research_group_memberships" edge with a given conditions (other predicates).
+func HasResearchGroupMembershipsWith(preds ...predicate.ResearchGroupMember) predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := newResearchGroupMembershipsStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

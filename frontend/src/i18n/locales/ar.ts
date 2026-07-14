@@ -1,4 +1,5 @@
 import en from './en'
+import { arResearchGroup } from './researchGroupExtra'
 
 type LocaleMessages = Record<string, any>
 
@@ -8,9 +9,11 @@ export default {
   ...en,
   nav: {
     ...en.nav,
+    researchGroup: 'مجموعة البحث',
     ccSwitchDownload: 'تنزيل CC-Switch',
     ccSwitchGuide: 'دليل CC-Switch'
   },
+  researchGroup: arResearchGroup,
   keys: {
     ...en.keys,
     useKeyModal: {

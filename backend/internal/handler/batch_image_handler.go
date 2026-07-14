@@ -20,10 +20,11 @@ type BatchImageHandler struct {
 	service  *service.BatchImagePublicService
 	download *service.BatchImageDownloadService
 	cleanup  *service.BatchImageCleanupService
+	billing  *service.BillingCacheService
 }
 
-func NewBatchImageHandler(service *service.BatchImagePublicService, download *service.BatchImageDownloadService, cleanup *service.BatchImageCleanupService) *BatchImageHandler {
-	return &BatchImageHandler{service: service, download: download, cleanup: cleanup}
+func NewBatchImageHandler(service *service.BatchImagePublicService, download *service.BatchImageDownloadService, cleanup *service.BatchImageCleanupService, billing *service.BillingCacheService) *BatchImageHandler {
+	return &BatchImageHandler{service: service, download: download, cleanup: cleanup, billing: billing}
 }
 
 func (h *BatchImageHandler) Submit(c *gin.Context) {
@@ -35,6 +36,16 @@ func (h *BatchImageHandler) Submit(c *gin.Context) {
 	owner, ok := batchImageOwnerFromContext(c)
 	if !ok {
 		batchImageError(c, infraerrors.New(http.StatusUnauthorized, "API_KEY_REQUIRED", "API key is required"))
+		return
+	}
+	apiKey, ok := middleware.GetAPIKeyFromContext(c)
+	if !ok || apiKey == nil {
+		batchImageError(c, infraerrors.New(http.StatusUnauthorized, "API_KEY_REQUIRED", "API key is required"))
+		return
+	}
+	subscription, _ := middleware.GetSubscriptionFromContext(c)
+	if err := checkAndAttachBillingDecision(c, h.billing, apiKey.User, apiKey, apiKey.Group, subscription, service.QuotaPlatform(c.Request.Context(), apiKey)); err != nil {
+		batchImageError(c, err)
 		return
 	}
 	got, err := h.service.Submit(c.Request.Context(), owner, req, c.GetHeader("Idempotency-Key"))

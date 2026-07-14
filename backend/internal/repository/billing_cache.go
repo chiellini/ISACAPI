@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -15,13 +16,15 @@ import (
 )
 
 const (
-	billingBalanceKeyPrefix   = "billing:balance:"
-	billingSubKeyPrefix       = "billing:sub:"
-	billingRateLimitKeyPrefix = "apikey:rate:"
-	subCacheInvalidateChannel = "subscription:cache:invalidate"
-	billingCacheTTL           = 5 * time.Minute
-	billingCacheJitter        = 30 * time.Second
-	rateLimitCacheTTL         = 7 * 24 * time.Hour // 7 days matches the longest window
+	billingBalanceKeyPrefix         = "billing:balance:"
+	billingSubKeyPrefix             = "billing:sub:"
+	billingRateLimitKeyPrefix       = "apikey:rate:"
+	researchGroupFundingKeyPrefix   = "billing:research_group:funding:"
+	subCacheInvalidateChannel       = "subscription:cache:invalidate"
+	billingCacheTTL                 = 5 * time.Minute
+	billingCacheJitter              = 30 * time.Second
+	researchGroupFundingNegativeTTL = 5 * time.Second
+	rateLimitCacheTTL               = 7 * 24 * time.Hour // 7 days matches the longest window
 
 	// Rate limit window durations — must match service.RateLimitWindow* constants.
 	rateLimitWindow5h = 5 * time.Hour
@@ -47,6 +50,10 @@ func billingBalanceKey(userID int64) string {
 // billingSubKey generates the Redis key for subscription cache.
 func billingSubKey(userID, groupID int64) string {
 	return fmt.Sprintf("%s%d:%d", billingSubKeyPrefix, userID, groupID)
+}
+
+func researchGroupFundingKey(userID int64) string {
+	return fmt.Sprintf("%s%d", researchGroupFundingKeyPrefix, userID)
 }
 
 const (
@@ -138,6 +145,49 @@ var (
 
 type billingCache struct {
 	rdb *redis.Client
+}
+
+func (c *billingCache) GetResearchGroupFunding(ctx context.Context, userID int64) (*service.ResearchGroupFundingContext, bool, error) {
+	if c == nil || c.rdb == nil || userID <= 0 {
+		return nil, false, nil
+	}
+	raw, err := c.rdb.Get(ctx, researchGroupFundingKey(userID)).Bytes()
+	if errors.Is(err, redis.Nil) {
+		return nil, false, nil
+	}
+	if err != nil {
+		return nil, false, err
+	}
+	if string(raw) == "null" {
+		return nil, true, nil
+	}
+	var funding service.ResearchGroupFundingContext
+	if err := json.Unmarshal(raw, &funding); err != nil {
+		return nil, false, err
+	}
+	return &funding, true, nil
+}
+
+func (c *billingCache) SetResearchGroupFunding(ctx context.Context, userID int64, funding *service.ResearchGroupFundingContext) error {
+	if c == nil || c.rdb == nil || userID <= 0 {
+		return nil
+	}
+	raw, err := json.Marshal(funding)
+	if err != nil {
+		return err
+	}
+	ttl := jitteredTTL()
+	if funding == nil {
+		ttl = researchGroupFundingNegativeTTL
+	}
+	return c.rdb.Set(ctx, researchGroupFundingKey(userID), raw, ttl).Err()
+}
+
+func (c *billingCache) InvalidateResearchGroupFunding(ctx context.Context, userID int64) error {
+	if c == nil || c.rdb == nil || userID <= 0 {
+		return nil
+	}
+	return c.rdb.Del(ctx, researchGroupFundingKey(userID)).Err()
 }
 
 func NewBillingCache(rdb *redis.Client) service.BillingCache {

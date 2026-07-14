@@ -14,12 +14,14 @@ import (
 )
 
 const (
-	conditionalBalanceDeductSQL = `(?s)UPDATE users\s+SET balance = balance - \$1,\s+updated_at = NOW\(\)\s+WHERE id = \$2 AND deleted_at IS NULL AND balance >= \$1\s+RETURNING balance`
-	overdraftBalanceDeductSQL   = `(?s)UPDATE users\s+SET balance = balance - \$1,\s+updated_at = NOW\(\)\s+WHERE id = \$2 AND deleted_at IS NULL\s+RETURNING balance`
-	reserveBatchImageHoldSQL    = `(?s)UPDATE users\s+SET balance = balance - \$1,\s+frozen_balance = COALESCE\(frozen_balance, 0\) \+ \$1,\s+updated_at = NOW\(\)\s+WHERE id = \$2 AND deleted_at IS NULL AND balance >= \$1\s+RETURNING balance, frozen_balance`
-	captureBatchImageHoldSQL    = `(?s)UPDATE users\s+SET balance = balance\s+\+ CASE WHEN \$1 > \$2 THEN \$1 - \$2 ELSE 0 END\s+- CASE WHEN \$2 > \$1 THEN \$2 - \$1 ELSE 0 END,\s+frozen_balance = COALESCE\(frozen_balance, 0\) - \$1,\s+updated_at = NOW\(\)\s+WHERE id = \$3 AND deleted_at IS NULL AND COALESCE\(frozen_balance, 0\) >= \$1\s+RETURNING balance, frozen_balance`
-	releaseBatchImageHoldSQL    = `(?s)UPDATE users\s+SET balance = balance \+ \$1,\s+frozen_balance = COALESCE\(frozen_balance, 0\) - \$1,\s+updated_at = NOW\(\)\s+WHERE id = \$2 AND deleted_at IS NULL AND COALESCE\(frozen_balance, 0\) >= \$1\s+RETURNING balance, frozen_balance`
-	userExistsForBillingSQL     = `(?s)SELECT 1\s+FROM users\s+WHERE id = \$1 AND deleted_at IS NULL`
+	conditionalBalanceDeductSQL = `(?s)UPDATE users\s+SET balance = balance - \$1,\s+updated_at = NOW\(\)\s+WHERE id = \$2 AND balance >= \$1\s+RETURNING balance`
+	overdraftBalanceDeductSQL   = `(?s)UPDATE users\s+SET balance = balance - \$1,\s+updated_at = NOW\(\)\s+WHERE id = \$2\s+RETURNING balance`
+	reserveBatchImageHoldSQL    = `(?s)UPDATE users\s+SET balance = balance - \$1,\s+frozen_balance = COALESCE\(frozen_balance, 0\) \+ \$1,\s+updated_at = NOW\(\)\s+WHERE id = \$2 AND balance >= \$1\s+RETURNING balance, frozen_balance`
+	captureBatchImageHoldSQL    = `(?s)UPDATE users\s+SET balance = balance\s+\+ CASE WHEN \$1 > \$2 THEN \$1 - \$2 ELSE 0 END\s+- CASE WHEN \$2 > \$1 THEN \$2 - \$1 ELSE 0 END,\s+frozen_balance = COALESCE\(frozen_balance, 0\) - \$1,\s+updated_at = NOW\(\)\s+WHERE id = \$3 AND COALESCE\(frozen_balance, 0\) >= \$1\s+RETURNING balance, frozen_balance`
+	releaseBatchImageHoldSQL    = `(?s)UPDATE users\s+SET balance = balance \+ \$1,\s+frozen_balance = COALESCE\(frozen_balance, 0\) - \$1,\s+updated_at = NOW\(\)\s+WHERE id = \$2 AND COALESCE\(frozen_balance, 0\) >= \$1\s+RETURNING balance, frozen_balance`
+	userExistsForBillingSQL     = `(?s)SELECT 1\s+FROM users\s+WHERE id = \$1`
+	apiKeyQuotaIncrementSQL     = `(?s)UPDATE api_keys\s+SET quota_used = quota_used \+ \$1,.*WHERE id = \$2\s+RETURNING`
+	apiKeyRateLimitIncrementSQL = `(?s)UPDATE api_keys SET.*WHERE id = \$2`
 )
 
 func TestDeductUsageBillingBalance_UsesSufficientBalanceGuard(t *testing.T) {
@@ -40,6 +42,72 @@ func TestDeductUsageBillingBalance_UsesSufficientBalanceGuard(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, sufficient)
 	require.InDelta(t, 7.5, newBalance, 0.000001)
+	require.NoError(t, tx.Commit())
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestDeductUsageBillingBalance_AdmittedSnapshotCanChargeSoftDeletedPayer(t *testing.T) {
+	ctx := context.Background()
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+
+	mock.ExpectBegin()
+	tx, err := db.BeginTx(ctx, nil)
+	require.NoError(t, err)
+	// The UPDATE intentionally has no deleted_at predicate: deletion blocks new
+	// admission, but must not invalidate a payer snapshot already admitted.
+	mock.ExpectQuery(conditionalBalanceDeductSQL).
+		WithArgs(1.25, int64(42)).
+		WillReturnRows(sqlmock.NewRows([]string{"balance"}).AddRow(3.75))
+	mock.ExpectCommit()
+
+	newBalance, sufficient, err := deductUsageBillingBalance(ctx, tx, 42, 1.25)
+	require.NoError(t, err)
+	require.True(t, sufficient)
+	require.InDelta(t, 3.75, newBalance, 0.000001)
+	require.NoError(t, tx.Commit())
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestIncrementUsageBillingAPIKeyQuota_AdmittedSnapshotCanUpdateSoftDeletedKey(t *testing.T) {
+	ctx := context.Background()
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+
+	mock.ExpectBegin()
+	tx, err := db.BeginTx(ctx, nil)
+	require.NoError(t, err)
+	// No deleted_at predicate is intentional: admission already captured this
+	// key, so a concurrent student deletion must not roll back payer settlement.
+	mock.ExpectQuery(apiKeyQuotaIncrementSQL).
+		WithArgs(1.25, int64(7), service.StatusAPIKeyActive, service.StatusAPIKeyQuotaExhausted).
+		WillReturnRows(sqlmock.NewRows([]string{"exhausted"}).AddRow(false))
+	mock.ExpectCommit()
+
+	exhausted, err := incrementUsageBillingAPIKeyQuota(ctx, tx, 7, 1.25)
+	require.NoError(t, err)
+	require.False(t, exhausted)
+	require.NoError(t, tx.Commit())
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestIncrementUsageBillingAPIKeyRateLimit_AdmittedSnapshotCanUpdateSoftDeletedKey(t *testing.T) {
+	ctx := context.Background()
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+
+	mock.ExpectBegin()
+	tx, err := db.BeginTx(ctx, nil)
+	require.NoError(t, err)
+	mock.ExpectExec(apiKeyRateLimitIncrementSQL).
+		WithArgs(0.75, int64(7)).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectCommit()
+
+	require.NoError(t, incrementUsageBillingAPIKeyRateLimit(ctx, tx, 7, 0.75))
 	require.NoError(t, tx.Commit())
 	require.NoError(t, mock.ExpectationsWereMet())
 }
@@ -95,6 +163,45 @@ func TestApplyUsageBillingEffects_FlagsBalanceOverdraft(t *testing.T) {
 	require.NotNil(t, result.NewBalance)
 	require.InDelta(t, -5.0, *result.NewBalance, 0.000001)
 	require.True(t, result.BalanceOverdrafted)
+	require.NoError(t, tx.Commit())
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestApplyUsageBillingEffects_GroupSnapshotSettlesAfterMemberRemoval(t *testing.T) {
+	ctx := context.Background()
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+
+	mock.ExpectBegin()
+	tx, err := db.BeginTx(ctx, nil)
+	require.NoError(t, err)
+	mock.ExpectQuery(conditionalBalanceDeductSQL).
+		WithArgs(2.5, int64(7)).
+		WillReturnRows(sqlmock.NewRows([]string{"balance"}).AddRow(97.5))
+	// The captured member ID is authoritative for an admitted request. The SQL
+	// deliberately has no status predicate, so pause/removal cannot reroute or
+	// roll back a request after upstream work has started.
+	mock.ExpectExec(`(?s)UPDATE research_group_members.*WHERE id = \$3 AND research_group_id = \$4 AND user_id = \$5\s*$`).
+		WithArgs(sqlmock.AnyArg(), 2.5, int64(99), int64(88), int64(42)).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectExec(`(?s)INSERT INTO research_group_quota_audits.*VALUES \(\$1, \$2, \$3, \$4, \$5\)`).
+		WithArgs(int64(88), int64(99), int64(42), "usage_settled", 2.5).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectCommit()
+
+	result := &service.UsageBillingApplyResult{Applied: true}
+	err = (&usageBillingRepository{}).applyUsageBillingEffects(ctx, tx, &service.UsageBillingCommand{
+		UserID:                42,
+		PayerUserID:           7,
+		ResearchGroupID:       88,
+		ResearchGroupMemberID: 99,
+		FundingSource:         service.FundingSourceResearchGroup,
+		BalanceCost:           2.5,
+	}, result)
+	require.NoError(t, err)
+	require.NotNil(t, result.NewBalance)
+	require.InDelta(t, 97.5, *result.NewBalance, 0.000001)
 	require.NoError(t, tx.Commit())
 	require.NoError(t, mock.ExpectationsWereMet())
 }
@@ -165,6 +272,91 @@ func TestReserveUsageBillingBatchImageBalance_InsufficientBalance(t *testing.T) 
 
 	_, err = reserveUsageBillingBatchImageBalance(ctx, tx, &service.BatchImageBalanceHoldCommand{UserID: 42, HoldAmount: 10})
 	require.ErrorIs(t, err, service.ErrBatchImageInsufficientBalance)
+	require.NoError(t, tx.Rollback())
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestReserveUsageBillingBatchImageBalance_GroupHoldFallsBackAtomicallyToStudent(t *testing.T) {
+	ctx := context.Background()
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+
+	mock.ExpectBegin()
+	tx, err := db.BeginTx(ctx, nil)
+	require.NoError(t, err)
+	mock.ExpectExec(`SAVEPOINT research_group_batch_hold`).WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectQuery(reserveBatchImageHoldSQL).
+		WithArgs(2.5, int64(7)).
+		WillReturnError(sql.ErrNoRows)
+	mock.ExpectQuery(userExistsForBillingSQL).
+		WithArgs(int64(7)).
+		WillReturnRows(sqlmock.NewRows([]string{"?column?"}).AddRow(1))
+	mock.ExpectExec(`ROLLBACK TO SAVEPOINT research_group_batch_hold`).WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectExec(`RELEASE SAVEPOINT research_group_batch_hold`).WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectQuery(reserveBatchImageHoldSQL).
+		WithArgs(2.5, int64(42)).
+		WillReturnRows(sqlmock.NewRows([]string{"balance", "frozen_balance"}).AddRow(5.5, 2.5))
+	mock.ExpectExec(`(?s)UPDATE batch_image_jobs.*SET payer_user_id = \$1.*funding_source = \$2`).
+		WithArgs(int64(42), service.FundingSourceSelf, "imgbatch_fallback", int64(17)).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectCommit()
+
+	result, err := reserveUsageBillingBatchImageBalance(ctx, tx, &service.BatchImageBalanceHoldCommand{
+		UserID:                42,
+		PayerUserID:           7,
+		ResearchGroupID:       88,
+		ResearchGroupMemberID: 99,
+		FundingSource:         service.FundingSourceResearchGroup,
+		APIKeyID:              17,
+		BatchID:               "imgbatch_fallback",
+		HoldAmount:            2.5,
+	})
+	require.NoError(t, err)
+	require.Equal(t, int64(42), result.PayerUserID)
+	require.Equal(t, service.FundingSourceSelf, result.FundingSource)
+	require.Zero(t, result.ResearchGroupID)
+	require.NoError(t, tx.Commit())
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestReserveUsageBillingBatchImageBalance_GroupAndStudentInsufficient(t *testing.T) {
+	ctx := context.Background()
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+
+	mock.ExpectBegin()
+	tx, err := db.BeginTx(ctx, nil)
+	require.NoError(t, err)
+	mock.ExpectExec(`SAVEPOINT research_group_batch_hold`).WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectQuery(reserveBatchImageHoldSQL).
+		WithArgs(10.0, int64(7)).
+		WillReturnRows(sqlmock.NewRows([]string{"balance", "frozen_balance"}).AddRow(90.0, 10.0))
+	mock.ExpectQuery(`(?s)UPDATE research_group_members.*monthly_reserved_usd = monthly_reserved_usd \+ \$2`).
+		WithArgs(sqlmock.AnyArg(), 10.0, int64(99), int64(88), int64(42)).
+		WillReturnError(sql.ErrNoRows)
+	mock.ExpectExec(`ROLLBACK TO SAVEPOINT research_group_batch_hold`).WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectExec(`RELEASE SAVEPOINT research_group_batch_hold`).WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectQuery(reserveBatchImageHoldSQL).
+		WithArgs(10.0, int64(42)).
+		WillReturnError(sql.ErrNoRows)
+	mock.ExpectQuery(userExistsForBillingSQL).
+		WithArgs(int64(42)).
+		WillReturnRows(sqlmock.NewRows([]string{"?column?"}).AddRow(1))
+	mock.ExpectRollback()
+
+	_, err = reserveUsageBillingBatchImageBalance(ctx, tx, &service.BatchImageBalanceHoldCommand{
+		UserID:                42,
+		PayerUserID:           7,
+		ResearchGroupID:       88,
+		ResearchGroupMemberID: 99,
+		FundingSource:         service.FundingSourceResearchGroup,
+		APIKeyID:              17,
+		BatchID:               "imgbatch_insufficient",
+		HoldAmount:            10,
+	})
+	require.ErrorIs(t, err, service.ErrResearchGroupAndPersonalBalanceInsufficient)
 	require.NoError(t, tx.Rollback())
 	require.NoError(t, mock.ExpectationsWereMet())
 }

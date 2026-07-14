@@ -70,6 +70,11 @@ func AccountID(v int64) predicate.UsageLog {
 	return predicate.UsageLog(sql.FieldEQ(FieldAccountID, v))
 }
 
+// ProviderID applies equality check predicate on the "provider_id" field. It's identical to ProviderIDEQ.
+func ProviderID(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldProviderID, v))
+}
+
 // RequestID applies equality check predicate on the "request_id" field. It's identical to RequestIDEQ.
 func RequestID(v string) predicate.UsageLog {
 	return predicate.UsageLog(sql.FieldEQ(FieldRequestID, v))
@@ -118,6 +123,26 @@ func GroupID(v int64) predicate.UsageLog {
 // SubscriptionID applies equality check predicate on the "subscription_id" field. It's identical to SubscriptionIDEQ.
 func SubscriptionID(v int64) predicate.UsageLog {
 	return predicate.UsageLog(sql.FieldEQ(FieldSubscriptionID, v))
+}
+
+// PayerUserID applies equality check predicate on the "payer_user_id" field. It's identical to PayerUserIDEQ.
+func PayerUserID(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldPayerUserID, v))
+}
+
+// ResearchGroupID applies equality check predicate on the "research_group_id" field. It's identical to ResearchGroupIDEQ.
+func ResearchGroupID(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldResearchGroupID, v))
+}
+
+// ResearchGroupMemberID applies equality check predicate on the "research_group_member_id" field. It's identical to ResearchGroupMemberIDEQ.
+func ResearchGroupMemberID(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldResearchGroupMemberID, v))
+}
+
+// FundingSource applies equality check predicate on the "funding_source" field. It's identical to FundingSourceEQ.
+func FundingSource(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldFundingSource, v))
 }
 
 // InputTokens applies equality check predicate on the "input_tokens" field. It's identical to InputTokensEQ.
@@ -328,6 +353,56 @@ func AccountIDIn(vs ...int64) predicate.UsageLog {
 // AccountIDNotIn applies the NotIn predicate on the "account_id" field.
 func AccountIDNotIn(vs ...int64) predicate.UsageLog {
 	return predicate.UsageLog(sql.FieldNotIn(FieldAccountID, vs...))
+}
+
+// ProviderIDEQ applies the EQ predicate on the "provider_id" field.
+func ProviderIDEQ(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldProviderID, v))
+}
+
+// ProviderIDNEQ applies the NEQ predicate on the "provider_id" field.
+func ProviderIDNEQ(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNEQ(FieldProviderID, v))
+}
+
+// ProviderIDIn applies the In predicate on the "provider_id" field.
+func ProviderIDIn(vs ...int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIn(FieldProviderID, vs...))
+}
+
+// ProviderIDNotIn applies the NotIn predicate on the "provider_id" field.
+func ProviderIDNotIn(vs ...int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotIn(FieldProviderID, vs...))
+}
+
+// ProviderIDGT applies the GT predicate on the "provider_id" field.
+func ProviderIDGT(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGT(FieldProviderID, v))
+}
+
+// ProviderIDGTE applies the GTE predicate on the "provider_id" field.
+func ProviderIDGTE(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGTE(FieldProviderID, v))
+}
+
+// ProviderIDLT applies the LT predicate on the "provider_id" field.
+func ProviderIDLT(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLT(FieldProviderID, v))
+}
+
+// ProviderIDLTE applies the LTE predicate on the "provider_id" field.
+func ProviderIDLTE(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLTE(FieldProviderID, v))
+}
+
+// ProviderIDIsNil applies the IsNil predicate on the "provider_id" field.
+func ProviderIDIsNil() predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIsNull(FieldProviderID))
+}
+
+// ProviderIDNotNil applies the NotNil predicate on the "provider_id" field.
+func ProviderIDNotNil() predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotNull(FieldProviderID))
 }
 
 // RequestIDEQ applies the EQ predicate on the "request_id" field.
@@ -943,6 +1018,211 @@ func SubscriptionIDIsNil() predicate.UsageLog {
 // SubscriptionIDNotNil applies the NotNil predicate on the "subscription_id" field.
 func SubscriptionIDNotNil() predicate.UsageLog {
 	return predicate.UsageLog(sql.FieldNotNull(FieldSubscriptionID))
+}
+
+// PayerUserIDEQ applies the EQ predicate on the "payer_user_id" field.
+func PayerUserIDEQ(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldPayerUserID, v))
+}
+
+// PayerUserIDNEQ applies the NEQ predicate on the "payer_user_id" field.
+func PayerUserIDNEQ(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNEQ(FieldPayerUserID, v))
+}
+
+// PayerUserIDIn applies the In predicate on the "payer_user_id" field.
+func PayerUserIDIn(vs ...int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIn(FieldPayerUserID, vs...))
+}
+
+// PayerUserIDNotIn applies the NotIn predicate on the "payer_user_id" field.
+func PayerUserIDNotIn(vs ...int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotIn(FieldPayerUserID, vs...))
+}
+
+// PayerUserIDGT applies the GT predicate on the "payer_user_id" field.
+func PayerUserIDGT(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGT(FieldPayerUserID, v))
+}
+
+// PayerUserIDGTE applies the GTE predicate on the "payer_user_id" field.
+func PayerUserIDGTE(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGTE(FieldPayerUserID, v))
+}
+
+// PayerUserIDLT applies the LT predicate on the "payer_user_id" field.
+func PayerUserIDLT(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLT(FieldPayerUserID, v))
+}
+
+// PayerUserIDLTE applies the LTE predicate on the "payer_user_id" field.
+func PayerUserIDLTE(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLTE(FieldPayerUserID, v))
+}
+
+// PayerUserIDIsNil applies the IsNil predicate on the "payer_user_id" field.
+func PayerUserIDIsNil() predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIsNull(FieldPayerUserID))
+}
+
+// PayerUserIDNotNil applies the NotNil predicate on the "payer_user_id" field.
+func PayerUserIDNotNil() predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotNull(FieldPayerUserID))
+}
+
+// ResearchGroupIDEQ applies the EQ predicate on the "research_group_id" field.
+func ResearchGroupIDEQ(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldResearchGroupID, v))
+}
+
+// ResearchGroupIDNEQ applies the NEQ predicate on the "research_group_id" field.
+func ResearchGroupIDNEQ(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNEQ(FieldResearchGroupID, v))
+}
+
+// ResearchGroupIDIn applies the In predicate on the "research_group_id" field.
+func ResearchGroupIDIn(vs ...int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIn(FieldResearchGroupID, vs...))
+}
+
+// ResearchGroupIDNotIn applies the NotIn predicate on the "research_group_id" field.
+func ResearchGroupIDNotIn(vs ...int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotIn(FieldResearchGroupID, vs...))
+}
+
+// ResearchGroupIDIsNil applies the IsNil predicate on the "research_group_id" field.
+func ResearchGroupIDIsNil() predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIsNull(FieldResearchGroupID))
+}
+
+// ResearchGroupIDNotNil applies the NotNil predicate on the "research_group_id" field.
+func ResearchGroupIDNotNil() predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotNull(FieldResearchGroupID))
+}
+
+// ResearchGroupMemberIDEQ applies the EQ predicate on the "research_group_member_id" field.
+func ResearchGroupMemberIDEQ(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldResearchGroupMemberID, v))
+}
+
+// ResearchGroupMemberIDNEQ applies the NEQ predicate on the "research_group_member_id" field.
+func ResearchGroupMemberIDNEQ(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNEQ(FieldResearchGroupMemberID, v))
+}
+
+// ResearchGroupMemberIDIn applies the In predicate on the "research_group_member_id" field.
+func ResearchGroupMemberIDIn(vs ...int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIn(FieldResearchGroupMemberID, vs...))
+}
+
+// ResearchGroupMemberIDNotIn applies the NotIn predicate on the "research_group_member_id" field.
+func ResearchGroupMemberIDNotIn(vs ...int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotIn(FieldResearchGroupMemberID, vs...))
+}
+
+// ResearchGroupMemberIDGT applies the GT predicate on the "research_group_member_id" field.
+func ResearchGroupMemberIDGT(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGT(FieldResearchGroupMemberID, v))
+}
+
+// ResearchGroupMemberIDGTE applies the GTE predicate on the "research_group_member_id" field.
+func ResearchGroupMemberIDGTE(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGTE(FieldResearchGroupMemberID, v))
+}
+
+// ResearchGroupMemberIDLT applies the LT predicate on the "research_group_member_id" field.
+func ResearchGroupMemberIDLT(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLT(FieldResearchGroupMemberID, v))
+}
+
+// ResearchGroupMemberIDLTE applies the LTE predicate on the "research_group_member_id" field.
+func ResearchGroupMemberIDLTE(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLTE(FieldResearchGroupMemberID, v))
+}
+
+// ResearchGroupMemberIDIsNil applies the IsNil predicate on the "research_group_member_id" field.
+func ResearchGroupMemberIDIsNil() predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIsNull(FieldResearchGroupMemberID))
+}
+
+// ResearchGroupMemberIDNotNil applies the NotNil predicate on the "research_group_member_id" field.
+func ResearchGroupMemberIDNotNil() predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotNull(FieldResearchGroupMemberID))
+}
+
+// FundingSourceEQ applies the EQ predicate on the "funding_source" field.
+func FundingSourceEQ(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldFundingSource, v))
+}
+
+// FundingSourceNEQ applies the NEQ predicate on the "funding_source" field.
+func FundingSourceNEQ(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNEQ(FieldFundingSource, v))
+}
+
+// FundingSourceIn applies the In predicate on the "funding_source" field.
+func FundingSourceIn(vs ...string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIn(FieldFundingSource, vs...))
+}
+
+// FundingSourceNotIn applies the NotIn predicate on the "funding_source" field.
+func FundingSourceNotIn(vs ...string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotIn(FieldFundingSource, vs...))
+}
+
+// FundingSourceGT applies the GT predicate on the "funding_source" field.
+func FundingSourceGT(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGT(FieldFundingSource, v))
+}
+
+// FundingSourceGTE applies the GTE predicate on the "funding_source" field.
+func FundingSourceGTE(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGTE(FieldFundingSource, v))
+}
+
+// FundingSourceLT applies the LT predicate on the "funding_source" field.
+func FundingSourceLT(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLT(FieldFundingSource, v))
+}
+
+// FundingSourceLTE applies the LTE predicate on the "funding_source" field.
+func FundingSourceLTE(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLTE(FieldFundingSource, v))
+}
+
+// FundingSourceContains applies the Contains predicate on the "funding_source" field.
+func FundingSourceContains(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldContains(FieldFundingSource, v))
+}
+
+// FundingSourceHasPrefix applies the HasPrefix predicate on the "funding_source" field.
+func FundingSourceHasPrefix(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldHasPrefix(FieldFundingSource, v))
+}
+
+// FundingSourceHasSuffix applies the HasSuffix predicate on the "funding_source" field.
+func FundingSourceHasSuffix(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldHasSuffix(FieldFundingSource, v))
+}
+
+// FundingSourceIsNil applies the IsNil predicate on the "funding_source" field.
+func FundingSourceIsNil() predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIsNull(FieldFundingSource))
+}
+
+// FundingSourceNotNil applies the NotNil predicate on the "funding_source" field.
+func FundingSourceNotNil() predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotNull(FieldFundingSource))
+}
+
+// FundingSourceEqualFold applies the EqualFold predicate on the "funding_source" field.
+func FundingSourceEqualFold(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEqualFold(FieldFundingSource, v))
+}
+
+// FundingSourceContainsFold applies the ContainsFold predicate on the "funding_source" field.
+func FundingSourceContainsFold(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldContainsFold(FieldFundingSource, v))
 }
 
 // InputTokensEQ applies the EQ predicate on the "input_tokens" field.
@@ -2487,6 +2767,29 @@ func HasSubscription() predicate.UsageLog {
 func HasSubscriptionWith(preds ...predicate.UserSubscription) predicate.UsageLog {
 	return predicate.UsageLog(func(s *sql.Selector) {
 		step := newSubscriptionStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasResearchGroup applies the HasEdge predicate on the "research_group" edge.
+func HasResearchGroup() predicate.UsageLog {
+	return predicate.UsageLog(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, ResearchGroupTable, ResearchGroupColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasResearchGroupWith applies the HasEdge predicate on the "research_group" edge with a given conditions (other predicates).
+func HasResearchGroupWith(preds ...predicate.ResearchGroup) predicate.UsageLog {
+	return predicate.UsageLog(func(s *sql.Selector) {
+		step := newResearchGroupStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

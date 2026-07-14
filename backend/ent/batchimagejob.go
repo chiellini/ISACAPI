@@ -25,6 +25,16 @@ type BatchImageJob struct {
 	APIKeyID *int64 `json:"api_key_id,omitempty"`
 	// AccountID holds the value of the "account_id" field.
 	AccountID *int64 `json:"account_id,omitempty"`
+	// PayerUserID holds the value of the "payer_user_id" field.
+	PayerUserID *int64 `json:"payer_user_id,omitempty"`
+	// ResearchGroupID holds the value of the "research_group_id" field.
+	ResearchGroupID *int64 `json:"research_group_id,omitempty"`
+	// ResearchGroupMemberID holds the value of the "research_group_member_id" field.
+	ResearchGroupMemberID *int64 `json:"research_group_member_id,omitempty"`
+	// FundingSource holds the value of the "funding_source" field.
+	FundingSource *string `json:"funding_source,omitempty"`
+	// AccountProviderID holds the value of the "account_provider_id" field.
+	AccountProviderID *int64 `json:"account_provider_id,omitempty"`
 	// Provider holds the value of the "provider" field.
 	Provider string `json:"provider,omitempty"`
 	// Model holds the value of the "model" field.
@@ -107,9 +117,9 @@ func (*BatchImageJob) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case batchimagejob.FieldEstimatedCost, batchimagejob.FieldHoldAmount, batchimagejob.FieldActualCost:
 			values[i] = new(sql.NullFloat64)
-		case batchimagejob.FieldID, batchimagejob.FieldUserID, batchimagejob.FieldAPIKeyID, batchimagejob.FieldAccountID, batchimagejob.FieldItemCount, batchimagejob.FieldSuccessCount, batchimagejob.FieldFailCount, batchimagejob.FieldCancelledCount, batchimagejob.FieldRetryCount, batchimagejob.FieldVersion:
+		case batchimagejob.FieldID, batchimagejob.FieldUserID, batchimagejob.FieldAPIKeyID, batchimagejob.FieldAccountID, batchimagejob.FieldPayerUserID, batchimagejob.FieldResearchGroupID, batchimagejob.FieldResearchGroupMemberID, batchimagejob.FieldAccountProviderID, batchimagejob.FieldItemCount, batchimagejob.FieldSuccessCount, batchimagejob.FieldFailCount, batchimagejob.FieldCancelledCount, batchimagejob.FieldRetryCount, batchimagejob.FieldVersion:
 			values[i] = new(sql.NullInt64)
-		case batchimagejob.FieldBatchID, batchimagejob.FieldProvider, batchimagejob.FieldModel, batchimagejob.FieldTaskName, batchimagejob.FieldStatus, batchimagejob.FieldProviderJobName, batchimagejob.FieldProviderInputRef, batchimagejob.FieldProviderOutputRef, batchimagejob.FieldGcsInputURI, batchimagejob.FieldGcsOutputURI, batchimagejob.FieldCurrency, batchimagejob.FieldHoldID, batchimagejob.FieldIdempotencyKey, batchimagejob.FieldRequestHash, batchimagejob.FieldManifestHash, batchimagejob.FieldLastErrorCode, batchimagejob.FieldLastErrorMessage:
+		case batchimagejob.FieldBatchID, batchimagejob.FieldFundingSource, batchimagejob.FieldProvider, batchimagejob.FieldModel, batchimagejob.FieldTaskName, batchimagejob.FieldStatus, batchimagejob.FieldProviderJobName, batchimagejob.FieldProviderInputRef, batchimagejob.FieldProviderOutputRef, batchimagejob.FieldGcsInputURI, batchimagejob.FieldGcsOutputURI, batchimagejob.FieldCurrency, batchimagejob.FieldHoldID, batchimagejob.FieldIdempotencyKey, batchimagejob.FieldRequestHash, batchimagejob.FieldManifestHash, batchimagejob.FieldLastErrorCode, batchimagejob.FieldLastErrorMessage:
 			values[i] = new(sql.NullString)
 		case batchimagejob.FieldOutputExpiresAt, batchimagejob.FieldInputDeletedAt, batchimagejob.FieldOutputDeletedAt, batchimagejob.FieldDownloadedAt, batchimagejob.FieldUserDeletedAt, batchimagejob.FieldCreatedAt, batchimagejob.FieldUpdatedAt, batchimagejob.FieldSubmittedAt, batchimagejob.FieldStartedAt, batchimagejob.FieldFinishedAt, batchimagejob.FieldSettledAt:
 			values[i] = new(sql.NullTime)
@@ -159,6 +169,41 @@ func (_m *BatchImageJob) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.AccountID = new(int64)
 				*_m.AccountID = value.Int64
+			}
+		case batchimagejob.FieldPayerUserID:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field payer_user_id", values[i])
+			} else if value.Valid {
+				_m.PayerUserID = new(int64)
+				*_m.PayerUserID = value.Int64
+			}
+		case batchimagejob.FieldResearchGroupID:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field research_group_id", values[i])
+			} else if value.Valid {
+				_m.ResearchGroupID = new(int64)
+				*_m.ResearchGroupID = value.Int64
+			}
+		case batchimagejob.FieldResearchGroupMemberID:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field research_group_member_id", values[i])
+			} else if value.Valid {
+				_m.ResearchGroupMemberID = new(int64)
+				*_m.ResearchGroupMemberID = value.Int64
+			}
+		case batchimagejob.FieldFundingSource:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field funding_source", values[i])
+			} else if value.Valid {
+				_m.FundingSource = new(string)
+				*_m.FundingSource = value.String
+			}
+		case batchimagejob.FieldAccountProviderID:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field account_provider_id", values[i])
+			} else if value.Valid {
+				_m.AccountProviderID = new(int64)
+				*_m.AccountProviderID = value.Int64
 			}
 		case batchimagejob.FieldProvider:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -447,6 +492,31 @@ func (_m *BatchImageJob) String() string {
 	builder.WriteString(", ")
 	if v := _m.AccountID; v != nil {
 		builder.WriteString("account_id=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.PayerUserID; v != nil {
+		builder.WriteString("payer_user_id=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.ResearchGroupID; v != nil {
+		builder.WriteString("research_group_id=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.ResearchGroupMemberID; v != nil {
+		builder.WriteString("research_group_member_id=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.FundingSource; v != nil {
+		builder.WriteString("funding_source=")
+		builder.WriteString(*v)
+	}
+	builder.WriteString(", ")
+	if v := _m.AccountProviderID; v != nil {
+		builder.WriteString("account_provider_id=")
 		builder.WriteString(fmt.Sprintf("%v", *v))
 	}
 	builder.WriteString(", ")

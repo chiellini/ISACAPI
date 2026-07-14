@@ -1,7 +1,13 @@
 import zh from './zh'
+import { zhHantResearchGroup } from './researchGroupExtra'
 
 export default {
   ...zh,
+  nav: {
+    ...zh.nav,
+    researchGroup: '課題組'
+  },
+  researchGroup: zhHantResearchGroup,
   home: {
     ...zh.home,
     viewOnGithub: '在 GitHub 上查看',

@@ -9,6 +9,7 @@ import (
 
 	"github.com/alicebob/miniredis/v2"
 	"github.com/redis/go-redis/v9"
+	"github.com/stretchr/testify/require"
 
 	"github.com/Wei-Shaw/sub2api/internal/service"
 )
@@ -84,6 +85,45 @@ func TestUserPlatformQuotaCache_NilLimitSetThenGet(t *testing.T) {
 	if got.DailyLimitUSD != nil {
 		t.Errorf("DailyLimitUSD should be nil for unlimited, got %v", got.DailyLimitUSD)
 	}
+}
+
+func TestResearchGroupFundingCache_SetGetInvalidate(t *testing.T) {
+	c, _ := newMiniRedisCache(t)
+	ctx := context.Background()
+	windowStart := time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC)
+	in := &service.ResearchGroupFundingContext{
+		ResearchGroupID:       8,
+		ResearchGroupMemberID: 9,
+		MemberUserID:          10,
+		OwnerUserID:           11,
+		MonthlyLimitUSD:       50,
+		MonthlyUsageUSD:       12.5,
+		MonthlyReservedUSD:    2.5,
+		UsageWindowStart:      windowStart,
+	}
+	require.NoError(t, c.SetResearchGroupFunding(ctx, 10, in))
+
+	got, found, err := c.GetResearchGroupFunding(ctx, 10)
+	require.NoError(t, err)
+	require.True(t, found)
+	require.Equal(t, in, got)
+
+	require.NoError(t, c.InvalidateResearchGroupFunding(ctx, 10))
+	got, found, err = c.GetResearchGroupFunding(ctx, 10)
+	require.NoError(t, err)
+	require.False(t, found)
+	require.Nil(t, got)
+}
+
+func TestResearchGroupFundingCache_CachesNoMembership(t *testing.T) {
+	c, _ := newMiniRedisCache(t)
+	ctx := context.Background()
+	require.NoError(t, c.SetResearchGroupFunding(ctx, 12, nil))
+
+	got, found, err := c.GetResearchGroupFunding(ctx, 12)
+	require.NoError(t, err)
+	require.True(t, found)
+	require.Nil(t, got)
 }
 
 func TestUserPlatformQuotaCache_IncrMissIsNoop(t *testing.T) {

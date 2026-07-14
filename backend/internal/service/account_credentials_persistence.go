@@ -49,6 +49,12 @@ func isAllowedSparkShadowCredentialsUpdate(credentials map[string]any) bool {
 	return true
 }
 
+// IsAllowedSparkShadowCredentialsUpdate exposes the shared shadow credential
+// invariant to ownership-scoped persistence paths.
+func IsAllowedSparkShadowCredentialsUpdate(credentials map[string]any) bool {
+	return isAllowedSparkShadowCredentialsUpdate(credentials)
+}
+
 func sanitizeSparkShadowCredentials(credentials map[string]any) map[string]any {
 	if len(credentials) == 0 {
 		return map[string]any{}
@@ -60,4 +66,10 @@ func sanitizeSparkShadowCredentials(credentials map[string]any) map[string]any {
 		}
 	}
 	return out
+}
+
+// SanitizeSparkShadowCredentials returns the credential subset a spark shadow
+// is permitted to persist.
+func SanitizeSparkShadowCredentials(credentials map[string]any) map[string]any {
+	return sanitizeSparkShadowCredentials(credentials)
 }

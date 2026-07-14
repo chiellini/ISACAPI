@@ -113,7 +113,7 @@
         >
           <img :src="companyIconUrl" alt="ISACAI" class="h-8 w-8 shrink-0 rounded-md object-contain" />
           <span>
-            <span>软件开发交流 QQ 群：</span>
+            <span>如需联系，请加入 QQ 群：</span>
             <span class="font-semibold text-slate-900 dark:text-white">{{ qqGroup }}</span>
           </span>
         </div>
@@ -122,7 +122,7 @@
           class="mt-5 space-y-2 text-center text-xs text-slate-500 dark:text-slate-400"
           dir="ltr"
         >
-          <p>&copy; 2026 ISACAI. All rights reserved. 软件开发交流联系方式：{{ qqGroup }}</p>
+          <p>&copy; 2026 ISACAI. All rights reserved. 联系请加入 QQ 群：{{ qqGroup }}</p>
           <a
             href="https://beian.miit.gov.cn"
             target="_blank"

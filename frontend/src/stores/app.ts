@@ -29,7 +29,6 @@ export const useAppStore = defineStore('app', () => {
   const siteName = ref<string>('ISACAPI')
   const siteLogo = ref<string>('')
   const siteVersion = ref<string>('')
-  const contactInfo = ref<string>('')
   const apiBaseUrl = ref<string>('')
   const docUrl = ref<string>('')
   const cachedPublicSettings = ref<PublicSettings | null>(null)
@@ -289,18 +288,21 @@ export const useAppStore = defineStore('app', () => {
   /**
    * Apply settings to store state (internal helper to avoid code duplication)
    */
-  function applySettings(config: PublicSettings): void {
+  function applySettings(config: PublicSettings): PublicSettings {
+    const publicConfig = { ...config, contact_info: '' }
+
     if (typeof window !== 'undefined') {
-      window.__APP_CONFIG__ = { ...config }
+      window.__APP_CONFIG__ = publicConfig
     }
-    cachedPublicSettings.value = config
-    siteName.value = config.site_name || 'ISACAPI'
-    siteLogo.value = config.site_logo || ''
-    siteVersion.value = config.version || ''
-    contactInfo.value = config.contact_info || ''
-    apiBaseUrl.value = config.api_base_url || ''
-    docUrl.value = config.doc_url || ''
+    cachedPublicSettings.value = publicConfig
+    siteName.value = publicConfig.site_name || 'ISACAPI'
+    siteLogo.value = publicConfig.site_logo || ''
+    siteVersion.value = publicConfig.version || ''
+    apiBaseUrl.value = publicConfig.api_base_url || ''
+    docUrl.value = publicConfig.doc_url || ''
     publicSettingsLoaded.value = true
+
+    return publicConfig
   }
 
   /**
@@ -339,7 +341,7 @@ export const useAppStore = defineStore('app', () => {
         site_logo: siteLogo.value,
         site_subtitle: '',
         api_base_url: apiBaseUrl.value,
-        contact_info: contactInfo.value,
+        contact_info: '',
         doc_url: docUrl.value,
         home_content: '',
         hide_ccs_import_button: false,
@@ -384,10 +386,7 @@ export const useAppStore = defineStore('app', () => {
     }
 
     const request = apiRequest
-      .then((data) => {
-        applySettings(data)
-        return data
-      })
+      .then((data) => applySettings(data))
       .catch((error) => {
         console.error('Failed to fetch public settings:', error)
         return null
@@ -439,7 +438,6 @@ export const useAppStore = defineStore('app', () => {
     siteName,
     siteLogo,
     siteVersion,
-    contactInfo,
     apiBaseUrl,
     docUrl,
     cachedPublicSettings,

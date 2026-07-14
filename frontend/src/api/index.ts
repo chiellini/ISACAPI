@@ -21,6 +21,19 @@ export * as batchImageAPI from './batchImage'
 export { totpAPI } from './totp'
 export { default as announcementsAPI } from './announcements'
 export { channelMonitorUserAPI } from './channelMonitor'
+export { providerAPI } from './provider'
+export type {
+  ProviderAccountCreateRequest,
+  ProviderAccountUpdateRequest,
+  ProviderGroupSummary,
+  ProviderUsageResponse,
+  ProviderUsageTotals,
+} from './provider'
+export {
+  researchGroupAPI,
+  type ResearchGroupUsageItem,
+  type ResearchGroupUsageParams,
+} from './researchGroup'
 
 // Admin APIs
 export { adminAPI } from './admin'

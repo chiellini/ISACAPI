@@ -1,4 +1,5 @@
 import en from './en'
+import { jaResearchGroup } from './researchGroupExtra'
 
 type LocaleMessages = Record<string, any>
 
@@ -8,9 +9,11 @@ export default {
   ...en,
   nav: {
     ...en.nav,
+    researchGroup: '研究グループ',
     ccSwitchDownload: 'CC-Switch をダウンロード',
     ccSwitchGuide: 'CC-Switch ガイド'
   },
+  researchGroup: jaResearchGroup,
   keys: {
     ...en.keys,
     useKeyModal: {

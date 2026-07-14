@@ -16,6 +16,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/predicate"
+	"github.com/Wei-Shaw/sub2api/ent/researchgroup"
 	"github.com/Wei-Shaw/sub2api/ent/usagelog"
 	"github.com/Wei-Shaw/sub2api/ent/user"
 	"github.com/Wei-Shaw/sub2api/ent/usersubscription"
@@ -24,16 +25,17 @@ import (
 // UsageLogQuery is the builder for querying UsageLog entities.
 type UsageLogQuery struct {
 	config
-	ctx              *QueryContext
-	order            []usagelog.OrderOption
-	inters           []Interceptor
-	predicates       []predicate.UsageLog
-	withUser         *UserQuery
-	withAPIKey       *APIKeyQuery
-	withAccount      *AccountQuery
-	withGroup        *GroupQuery
-	withSubscription *UserSubscriptionQuery
-	modifiers        []func(*sql.Selector)
+	ctx               *QueryContext
+	order             []usagelog.OrderOption
+	inters            []Interceptor
+	predicates        []predicate.UsageLog
+	withUser          *UserQuery
+	withAPIKey        *APIKeyQuery
+	withAccount       *AccountQuery
+	withGroup         *GroupQuery
+	withSubscription  *UserSubscriptionQuery
+	withResearchGroup *ResearchGroupQuery
+	modifiers         []func(*sql.Selector)
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -173,6 +175,28 @@ func (_q *UsageLogQuery) QuerySubscription() *UserSubscriptionQuery {
 			sqlgraph.From(usagelog.Table, usagelog.FieldID, selector),
 			sqlgraph.To(usersubscription.Table, usersubscription.FieldID),
 			sqlgraph.Edge(sqlgraph.M2O, true, usagelog.SubscriptionTable, usagelog.SubscriptionColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryResearchGroup chains the current query on the "research_group" edge.
+func (_q *UsageLogQuery) QueryResearchGroup() *ResearchGroupQuery {
+	query := (&ResearchGroupClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(usagelog.Table, usagelog.FieldID, selector),
+			sqlgraph.To(researchgroup.Table, researchgroup.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, usagelog.ResearchGroupTable, usagelog.ResearchGroupColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -367,16 +391,17 @@ func (_q *UsageLogQuery) Clone() *UsageLogQuery {
 		return nil
 	}
 	return &UsageLogQuery{
-		config:           _q.config,
-		ctx:              _q.ctx.Clone(),
-		order:            append([]usagelog.OrderOption{}, _q.order...),
-		inters:           append([]Interceptor{}, _q.inters...),
-		predicates:       append([]predicate.UsageLog{}, _q.predicates...),
-		withUser:         _q.withUser.Clone(),
-		withAPIKey:       _q.withAPIKey.Clone(),
-		withAccount:      _q.withAccount.Clone(),
-		withGroup:        _q.withGroup.Clone(),
-		withSubscription: _q.withSubscription.Clone(),
+		config:            _q.config,
+		ctx:               _q.ctx.Clone(),
+		order:             append([]usagelog.OrderOption{}, _q.order...),
+		inters:            append([]Interceptor{}, _q.inters...),
+		predicates:        append([]predicate.UsageLog{}, _q.predicates...),
+		withUser:          _q.withUser.Clone(),
+		withAPIKey:        _q.withAPIKey.Clone(),
+		withAccount:       _q.withAccount.Clone(),
+		withGroup:         _q.withGroup.Clone(),
+		withSubscription:  _q.withSubscription.Clone(),
+		withResearchGroup: _q.withResearchGroup.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
@@ -435,6 +460,17 @@ func (_q *UsageLogQuery) WithSubscription(opts ...func(*UserSubscriptionQuery)) 
 		opt(query)
 	}
 	_q.withSubscription = query
+	return _q
+}
+
+// WithResearchGroup tells the query-builder to eager-load the nodes that are connected to
+// the "research_group" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *UsageLogQuery) WithResearchGroup(opts ...func(*ResearchGroupQuery)) *UsageLogQuery {
+	query := (&ResearchGroupClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withResearchGroup = query
 	return _q
 }
 
@@ -516,12 +552,13 @@ func (_q *UsageLogQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Usa
 	var (
 		nodes       = []*UsageLog{}
 		_spec       = _q.querySpec()
-		loadedTypes = [5]bool{
+		loadedTypes = [6]bool{
 			_q.withUser != nil,
 			_q.withAPIKey != nil,
 			_q.withAccount != nil,
 			_q.withGroup != nil,
 			_q.withSubscription != nil,
+			_q.withResearchGroup != nil,
 		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
@@ -572,6 +609,12 @@ func (_q *UsageLogQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Usa
 	if query := _q.withSubscription; query != nil {
 		if err := _q.loadSubscription(ctx, query, nodes, nil,
 			func(n *UsageLog, e *UserSubscription) { n.Edges.Subscription = e }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withResearchGroup; query != nil {
+		if err := _q.loadResearchGroup(ctx, query, nodes, nil,
+			func(n *UsageLog, e *ResearchGroup) { n.Edges.ResearchGroup = e }); err != nil {
 			return nil, err
 		}
 	}
@@ -729,6 +772,38 @@ func (_q *UsageLogQuery) loadSubscription(ctx context.Context, query *UserSubscr
 	}
 	return nil
 }
+func (_q *UsageLogQuery) loadResearchGroup(ctx context.Context, query *ResearchGroupQuery, nodes []*UsageLog, init func(*UsageLog), assign func(*UsageLog, *ResearchGroup)) error {
+	ids := make([]int64, 0, len(nodes))
+	nodeids := make(map[int64][]*UsageLog)
+	for i := range nodes {
+		if nodes[i].ResearchGroupID == nil {
+			continue
+		}
+		fk := *nodes[i].ResearchGroupID
+		if _, ok := nodeids[fk]; !ok {
+			ids = append(ids, fk)
+		}
+		nodeids[fk] = append(nodeids[fk], nodes[i])
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	query.Where(researchgroup.IDIn(ids...))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		nodes, ok := nodeids[n.ID]
+		if !ok {
+			return fmt.Errorf(`unexpected foreign-key "research_group_id" returned %v`, n.ID)
+		}
+		for i := range nodes {
+			assign(nodes[i], n)
+		}
+	}
+	return nil
+}
 
 func (_q *UsageLogQuery) sqlCount(ctx context.Context) (int, error) {
 	_spec := _q.querySpec()
@@ -772,6 +847,9 @@ func (_q *UsageLogQuery) querySpec() *sqlgraph.QuerySpec {
 		}
 		if _q.withSubscription != nil {
 			_spec.Node.AddColumnOnce(usagelog.FieldSubscriptionID)
+		}
+		if _q.withResearchGroup != nil {
+			_spec.Node.AddColumnOnce(usagelog.FieldResearchGroupID)
 		}
 	}
 	if ps := _q.predicates; len(ps) > 0 {

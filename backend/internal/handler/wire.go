@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/handler/admin"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 
@@ -42,6 +43,7 @@ func ProvideAdminHandlers(
 	affiliateHandler *admin.AffiliateHandler,
 	conversationHandler *admin.ConversationHandler,
 	complianceHandler *admin.ComplianceHandler,
+	researchGroupHandler *admin.ResearchGroupHandler,
 ) *AdminHandlers {
 	return &AdminHandlers{
 		Dashboard:              dashboardHandler,
@@ -77,6 +79,7 @@ func ProvideAdminHandlers(
 		Affiliate:              affiliateHandler,
 		Conversation:           conversationHandler,
 		Compliance:             complianceHandler,
+		ResearchGroup:          researchGroupHandler,
 	}
 }
 
@@ -96,6 +99,22 @@ func ProvideSettingHandler(settingService *service.SettingService, buildInfo Bui
 func ProvideAdminSettingHandler(settingService *service.SettingService, emailService *service.EmailService, turnstileService *service.TurnstileService, opsService *service.OpsService, paymentConfigService *service.PaymentConfigService, paymentService *service.PaymentService, userAttributeService *service.UserAttributeService, notificationEmailService *service.NotificationEmailService) *admin.SettingHandler {
 	h := admin.NewSettingHandler(settingService, emailService, turnstileService, opsService, paymentConfigService, paymentService, userAttributeService)
 	h.SetNotificationEmailService(notificationEmailService)
+	return h
+}
+
+// ProvideAuthHandler decorates the backwards-compatible constructor with the
+// research-group context dependency used by login and /auth/me responses.
+func ProvideAuthHandler(cfg *config.Config, authService *service.AuthService, userService *service.UserService, settingService *service.SettingService, promoService *service.PromoService, redeemService *service.RedeemService, totpService *service.TotpService, userAttributeService *service.UserAttributeService, researchGroupService *service.ResearchGroupService) *AuthHandler {
+	h := NewAuthHandler(cfg, authService, userService, settingService, promoService, redeemService, totpService, userAttributeService)
+	h.researchGroupService = researchGroupService
+	return h
+}
+
+// ProvideUserHandler decorates the backwards-compatible constructor with the
+// research-group context dependency used by profile responses.
+func ProvideUserHandler(userService *service.UserService, authService *service.AuthService, emailService *service.EmailService, emailCache service.EmailCache, affiliateService *service.AffiliateService, userPlatformQuotaRepo service.UserPlatformQuotaRepository, researchGroupService *service.ResearchGroupService) *UserHandler {
+	h := NewUserHandler(userService, authService, emailService, emailCache, affiliateService, userPlatformQuotaRepo)
+	h.researchGroupService = researchGroupService
 	return h
 }
 
@@ -119,6 +138,8 @@ func ProvideHandlers(
 	paymentWebhookHandler *PaymentWebhookHandler,
 	availableChannelHandler *AvailableChannelHandler,
 	batchImageHandler *BatchImageHandler,
+	researchGroupHandler *ResearchGroupHandler,
+	providerHandler *ProviderHandler,
 	_ *service.IdempotencyCoordinator,
 	_ *service.IdempotencyCleanupService,
 ) *Handlers {
@@ -141,14 +162,18 @@ func ProvideHandlers(
 		PaymentWebhook:   paymentWebhookHandler,
 		AvailableChannel: availableChannelHandler,
 		BatchImage:       batchImageHandler,
+		ResearchGroup:    researchGroupHandler,
+		Provider:         providerHandler,
 	}
 }
 
 // ProviderSet is the Wire provider set for all handlers
 var ProviderSet = wire.NewSet(
 	// Top-level handlers
-	NewAuthHandler,
-	NewUserHandler,
+	ProvideAuthHandler,
+	ProvideUserHandler,
+	NewResearchGroupHandler,
+	NewProviderHandler,
 	NewAPIKeyHandler,
 	NewUsageHandler,
 	NewRedeemHandler,
@@ -199,6 +224,7 @@ var ProviderSet = wire.NewSet(
 	admin.NewAffiliateHandler,
 	admin.NewConversationHandler,
 	admin.NewComplianceHandler,
+	admin.NewResearchGroupHandler,
 
 	// AdminHandlers and Handlers constructors
 	ProvideAdminHandlers,

@@ -21,6 +21,16 @@ const (
 	FieldAPIKeyID = "api_key_id"
 	// FieldAccountID holds the string denoting the account_id field in the database.
 	FieldAccountID = "account_id"
+	// FieldPayerUserID holds the string denoting the payer_user_id field in the database.
+	FieldPayerUserID = "payer_user_id"
+	// FieldResearchGroupID holds the string denoting the research_group_id field in the database.
+	FieldResearchGroupID = "research_group_id"
+	// FieldResearchGroupMemberID holds the string denoting the research_group_member_id field in the database.
+	FieldResearchGroupMemberID = "research_group_member_id"
+	// FieldFundingSource holds the string denoting the funding_source field in the database.
+	FieldFundingSource = "funding_source"
+	// FieldAccountProviderID holds the string denoting the account_provider_id field in the database.
+	FieldAccountProviderID = "account_provider_id"
 	// FieldProvider holds the string denoting the provider field in the database.
 	FieldProvider = "provider"
 	// FieldModel holds the string denoting the model field in the database.
@@ -104,6 +114,11 @@ var Columns = []string{
 	FieldUserID,
 	FieldAPIKeyID,
 	FieldAccountID,
+	FieldPayerUserID,
+	FieldResearchGroupID,
+	FieldResearchGroupMemberID,
+	FieldFundingSource,
+	FieldAccountProviderID,
 	FieldProvider,
 	FieldModel,
 	FieldTaskName,
@@ -155,6 +170,8 @@ func ValidColumn(column string) bool {
 var (
 	// BatchIDValidator is a validator for the "batch_id" field. It is called by the builders before save.
 	BatchIDValidator func(string) error
+	// FundingSourceValidator is a validator for the "funding_source" field. It is called by the builders before save.
+	FundingSourceValidator func(string) error
 	// ProviderValidator is a validator for the "provider" field. It is called by the builders before save.
 	ProviderValidator func(string) error
 	// ModelValidator is a validator for the "model" field. It is called by the builders before save.
@@ -237,6 +254,31 @@ func ByAPIKeyID(opts ...sql.OrderTermOption) OrderOption {
 // ByAccountID orders the results by the account_id field.
 func ByAccountID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldAccountID, opts...).ToFunc()
+}
+
+// ByPayerUserID orders the results by the payer_user_id field.
+func ByPayerUserID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldPayerUserID, opts...).ToFunc()
+}
+
+// ByResearchGroupID orders the results by the research_group_id field.
+func ByResearchGroupID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldResearchGroupID, opts...).ToFunc()
+}
+
+// ByResearchGroupMemberID orders the results by the research_group_member_id field.
+func ByResearchGroupMemberID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldResearchGroupMemberID, opts...).ToFunc()
+}
+
+// ByFundingSource orders the results by the funding_source field.
+func ByFundingSource(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldFundingSource, opts...).ToFunc()
+}
+
+// ByAccountProviderID orders the results by the account_provider_id field.
+func ByAccountProviderID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldAccountProviderID, opts...).ToFunc()
 }
 
 // ByProvider orders the results by the provider field.

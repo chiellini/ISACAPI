@@ -12,7 +12,7 @@
     <footer class="bg-white px-4 py-5 dark:bg-dark-950" dir="ltr">
       <div class="mx-auto flex max-w-6xl flex-col items-center justify-center gap-2 text-center text-sm text-slate-500 dark:text-dark-400">
         <img :src="companyIconUrl" alt="ISACAI" class="h-10 w-10 rounded-lg object-contain" />
-        <p>© 2026 ISACAI. All rights reserved. 软件开发交流联系方式：1027890648</p>
+        <p>© 2026 ISACAI. All rights reserved. 联系请加入 QQ 群：1027890648</p>
         <a
           href="https://beian.miit.gov.cn"
           target="_blank"
@@ -508,7 +508,7 @@
     <footer class="relative z-10 bg-white px-4 py-5 dark:bg-dark-950" dir="ltr">
       <div class="mx-auto flex max-w-6xl flex-col items-center justify-center gap-2 text-center text-sm text-slate-500 dark:text-dark-400">
         <img :src="companyIconUrl" alt="ISACAI" class="h-10 w-10 rounded-lg object-contain" />
-        <p>© 2026 ISACAI. All rights reserved. 软件开发交流联系方式：1027890648</p>
+        <p>© 2026 ISACAI. All rights reserved. 联系请加入 QQ 群：1027890648</p>
         <div class="flex flex-wrap items-center justify-center gap-4">
           <a
             href="https://beian.miit.gov.cn"
@@ -534,14 +534,6 @@
             class="transition-colors hover:text-slate-800 dark:hover:text-white"
           >
             {{ t('home.docs') }}
-          </a>
-          <a
-            :href="githubUrl"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="transition-colors hover:text-slate-800 dark:hover:text-white"
-          >
-            GitHub
           </a>
         </div>
       </div>
@@ -852,7 +844,6 @@ const providerLogos = [
 ] as const
 
 const publicStatusEnabled = computed(() => isFeatureFlagEnabled(FeatureFlags.publicStatus))
-const githubUrl = 'https://github.com/chiellini/ISACAPI'
 
 function toggleTheme() {
   isDark.value = !isDark.value

@@ -15,6 +15,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -25,6 +26,7 @@ import (
 	dbgroup "github.com/Wei-Shaw/sub2api/ent/group"
 	dbpredicate "github.com/Wei-Shaw/sub2api/ent/predicate"
 	dbproxy "github.com/Wei-Shaw/sub2api/ent/proxy"
+	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 	"github.com/Wei-Shaw/sub2api/internal/service"
@@ -95,7 +97,8 @@ func (r *accountRepository) Create(ctx context.Context, account *service.Account
 		SetStatus(account.Status).
 		SetErrorMessage(account.ErrorMessage).
 		SetSchedulable(account.Schedulable).
-		SetAutoPauseOnExpired(account.AutoPauseOnExpired)
+		SetAutoPauseOnExpired(account.AutoPauseOnExpired).
+		SetNillableProviderID(account.ProviderID)
 
 	if account.RateMultiplier != nil {
 		builder.SetRateMultiplier(*account.RateMultiplier)
@@ -152,7 +155,15 @@ func (r *accountRepository) Create(ctx context.Context, account *service.Account
 }
 
 func (r *accountRepository) GetByID(ctx context.Context, id int64) (*service.Account, error) {
-	m, err := r.client.Account.Query().Where(dbaccount.IDEQ(id)).Only(ctx)
+	return r.getByIDWithPredicates(ctx, dbaccount.IDEQ(id))
+}
+
+func (r *accountRepository) GetByIDForProvider(ctx context.Context, id, providerID int64) (*service.Account, error) {
+	return r.getByIDWithPredicates(ctx, dbaccount.IDEQ(id), dbaccount.ProviderIDEQ(providerID))
+}
+
+func (r *accountRepository) getByIDWithPredicates(ctx context.Context, predicates ...dbpredicate.Account) (*service.Account, error) {
+	m, err := r.client.Account.Query().Where(predicates...).Only(ctx)
 	if err != nil {
 		return nil, translatePersistenceError(err, service.ErrAccountNotFound, nil)
 	}
@@ -350,6 +361,12 @@ func (r *accountRepository) Update(ctx context.Context, account *service.Account
 		SetSchedulable(schedulable).
 		SetAutoPauseOnExpired(account.AutoPauseOnExpired)
 
+	if account.ProviderID != nil {
+		builder.SetProviderID(*account.ProviderID)
+	} else {
+		builder.ClearProviderID()
+	}
+
 	if account.RateMultiplier != nil {
 		builder.SetRateMultiplier(*account.RateMultiplier)
 	}
@@ -425,6 +442,207 @@ func (r *accountRepository) Update(ctx context.Context, account *service.Account
 	return nil
 }
 
+// UpdateForProvider applies the provider self-service allowlist while the
+// ownership row lock is held. Credentials are merged from the locked row so an
+// OAuth refresh racing with an edit cannot be overwritten by a stale response.
+// Group validation and replacement share the same transaction as the account
+// update, and the ownership predicate is repeated on the final UPDATE.
+func (r *accountRepository) UpdateForProvider(
+	ctx context.Context,
+	id, providerID int64,
+	input *service.ProviderAccountUpdateInput,
+) (*service.Account, error) {
+	if input == nil {
+		return nil, service.ErrAccountNilInput
+	}
+
+	tx, err := r.client.Tx(ctx)
+	if err != nil && !errors.Is(err, dbent.ErrTxStarted) {
+		return nil, err
+	}
+
+	var txClient *dbent.Client
+	if err == nil {
+		defer func() { _ = tx.Rollback() }()
+		txClient = tx.Client()
+	} else {
+		// Preserve repository behavior when a caller already owns a transaction.
+		txClient = r.client
+	}
+
+	locked, err := txClient.Account.Query().
+		Where(dbaccount.IDEQ(id), dbaccount.ProviderIDEQ(providerID)).
+		ForUpdate().
+		Only(ctx)
+	if err != nil {
+		return nil, translatePersistenceError(err, service.ErrAccountNotFound, nil)
+	}
+
+	currentGroupEntries, err := txClient.AccountGroup.Query().
+		Where(dbaccountgroup.AccountIDEQ(id)).
+		Order(dbent.Asc(dbaccountgroup.FieldPriority)).
+		All(ctx)
+	if err != nil {
+		return nil, err
+	}
+	currentGroupIDs := make([]int64, 0, len(currentGroupEntries))
+	for _, entry := range currentGroupEntries {
+		currentGroupIDs = append(currentGroupIDs, entry.GroupID)
+	}
+
+	var mergedCredentials map[string]any
+	if input.Credentials != nil {
+		if locked.ParentAccountID != nil && locked.QuotaDimension == dbaccount.QuotaDimensionSpark {
+			if !service.IsAllowedSparkShadowCredentialsUpdate(input.Credentials) {
+				return nil, infraerrors.BadRequest(
+					"SPARK_SHADOW_NO_CREDENTIALS",
+					"spark shadow accounts do not hold auth credentials; only model mapping can be configured on the shadow account",
+				)
+			}
+			mergedCredentials = service.SanitizeSparkShadowCredentials(input.Credentials)
+		} else {
+			mergedCredentials = service.MergePreservingSensitiveCreds(locked.Credentials, input.Credentials)
+			if err := service.NormalizeHeaderOverrideCredentials(mergedCredentials); err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	resultGroupIDs := currentGroupIDs
+	groupsByID := make(map[int64]*dbent.Group)
+	if input.GroupIDs != nil {
+		resultGroupIDs = append([]int64(nil), (*input.GroupIDs)...)
+		if len(resultGroupIDs) > 0 {
+			groups, err := txClient.Group.Query().
+				Where(dbgroup.IDIn(resultGroupIDs...)).
+				ForShare().
+				All(ctx)
+			if err != nil {
+				return nil, err
+			}
+			if len(groups) != len(resultGroupIDs) {
+				return nil, service.ErrGroupNotFound
+			}
+			for _, group := range groups {
+				groupsByID[group.ID] = group
+				if group.Status != service.StatusActive {
+					return nil, service.ErrGroupNotFound
+				}
+				if group.Platform != locked.Platform {
+					return nil, infraerrors.BadRequest(
+						"GROUP_PLATFORM_MISMATCH",
+						fmt.Sprintf("group %d platform %q does not match account platform %q", group.ID, group.Platform, locked.Platform),
+					)
+				}
+				if locked.Type == service.AccountTypeAPIKey && group.RequireOauthOnly {
+					return nil, infraerrors.BadRequest(
+						"GROUP_REQUIRES_OAUTH",
+						fmt.Sprintf("group %d only accepts non-apikey accounts", group.ID),
+					)
+				}
+			}
+		}
+	}
+
+	update := txClient.Account.Update().
+		Where(dbaccount.IDEQ(id), dbaccount.ProviderIDEQ(providerID))
+	if input.Name != nil {
+		update.SetName(*input.Name)
+	}
+	if input.NotesSet {
+		if input.Notes == nil {
+			update.ClearNotes()
+		} else {
+			update.SetNotes(*input.Notes)
+		}
+	}
+	if input.Credentials != nil {
+		update.SetCredentials(normalizeJSONMap(mergedCredentials))
+	}
+	if input.Concurrency != nil {
+		update.SetConcurrency(*input.Concurrency)
+	}
+	if input.Status != nil {
+		update.SetStatus(*input.Status)
+	}
+	affected, err := update.Save(ctx)
+	if err != nil {
+		return nil, translatePersistenceError(err, service.ErrAccountNotFound, nil)
+	}
+	if affected != 1 {
+		return nil, service.ErrAccountNotFound
+	}
+
+	if input.GroupIDs != nil {
+		if _, err := txClient.AccountGroup.Delete().
+			Where(dbaccountgroup.AccountIDEQ(id)).
+			Exec(ctx); err != nil {
+			return nil, err
+		}
+		if len(resultGroupIDs) > 0 {
+			builders := make([]*dbent.AccountGroupCreate, 0, len(resultGroupIDs))
+			for i, groupID := range resultGroupIDs {
+				builders = append(builders, txClient.AccountGroup.Create().
+					SetAccountID(id).
+					SetGroupID(groupID).
+					SetPriority(i+1),
+				)
+			}
+			if _, err := txClient.AccountGroup.CreateBulk(builders...).Save(ctx); err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	updatedEntity, err := txClient.Account.Query().
+		Where(dbaccount.IDEQ(id), dbaccount.ProviderIDEQ(providerID)).
+		Only(ctx)
+	if err != nil {
+		return nil, translatePersistenceError(err, service.ErrAccountNotFound, nil)
+	}
+	updated := accountEntityToService(updatedEntity)
+	updated.GroupIDs = append([]int64(nil), resultGroupIDs...)
+	if input.GroupIDs != nil && len(resultGroupIDs) > 0 {
+		updated.Groups = make([]*service.Group, 0, len(resultGroupIDs))
+		updated.AccountGroups = make([]service.AccountGroup, 0, len(resultGroupIDs))
+		for i, groupID := range resultGroupIDs {
+			group := groupEntityToService(groupsByID[groupID])
+			updated.Groups = append(updated.Groups, group)
+			updated.AccountGroups = append(updated.AccountGroups, service.AccountGroup{
+				AccountID: id,
+				GroupID:   groupID,
+				Priority:  i + 1,
+				Group:     group,
+			})
+		}
+	}
+
+	if tx != nil {
+		if err := tx.Commit(); err != nil {
+			return nil, err
+		}
+	}
+
+	if err := enqueueSchedulerOutbox(
+		ctx,
+		r.sql,
+		service.SchedulerOutboxEventAccountChanged,
+		&id,
+		nil,
+		buildSchedulerGroupPayload(resultGroupIDs),
+	); err != nil {
+		logger.LegacyPrintf("repository.account", "[SchedulerOutbox] enqueue provider account update failed: account=%d err=%v", id, err)
+	}
+	if input.GroupIDs != nil {
+		payload := buildSchedulerGroupPayload(mergeGroupIDs(currentGroupIDs, resultGroupIDs))
+		if err := enqueueSchedulerOutbox(ctx, r.sql, service.SchedulerOutboxEventAccountGroupsChanged, &id, nil, payload); err != nil {
+			logger.LegacyPrintf("repository.account", "[SchedulerOutbox] enqueue provider group update failed: account=%d err=%v", id, err)
+		}
+	}
+	r.syncSchedulerAccountSnapshot(ctx, id)
+	return updated, nil
+}
+
 func (r *accountRepository) UpdateCredentials(ctx context.Context, id int64, credentials map[string]any) error {
 	_, err := r.client.Account.UpdateOneID(id).
 		SetCredentials(normalizeJSONMap(credentials)).
@@ -474,6 +692,97 @@ func (r *accountRepository) Delete(ctx context.Context, id int64) error {
 	r.deleteSchedulerAccountSnapshot(ctx, id)
 	if err := enqueueSchedulerOutbox(ctx, r.sql, service.SchedulerOutboxEventAccountChanged, &id, nil, buildSchedulerGroupPayload(groupIDs)); err != nil {
 		logger.LegacyPrintf("repository.account", "[SchedulerOutbox] enqueue account delete failed: account=%d err=%v", id, err)
+	}
+	return nil
+}
+
+// DeleteForProvider performs the provider ownership check and the full account
+// cascade in one transaction. The parent row is locked before cleanup starts,
+// and the ownership predicate is repeated on the final DELETE as a defense in
+// depth against reassignment races.
+func (r *accountRepository) DeleteForProvider(ctx context.Context, id, providerID int64) error {
+	tx, err := r.client.Tx(ctx)
+	if err != nil && !errors.Is(err, dbent.ErrTxStarted) {
+		return err
+	}
+
+	var txClient *dbent.Client
+	if err == nil {
+		defer func() { _ = tx.Rollback() }()
+		txClient = tx.Client()
+	} else {
+		// Preserve Delete's behavior when called inside an existing transaction.
+		txClient = r.client
+	}
+
+	if _, err := txClient.Account.Query().
+		Where(dbaccount.IDEQ(id), dbaccount.ProviderIDEQ(providerID)).
+		ForUpdate().
+		Only(ctx); err != nil {
+		return translatePersistenceError(err, service.ErrAccountNotFound, nil)
+	}
+
+	shadowIDs, err := txClient.Account.Query().
+		Where(dbaccount.ParentAccountIDEQ(id), dbaccount.QuotaDimensionEQ(dbaccount.QuotaDimensionSpark)).
+		IDs(ctx)
+	if err != nil {
+		return err
+	}
+	accountIDs := make([]int64, 0, len(shadowIDs)+1)
+	accountIDs = append(accountIDs, shadowIDs...)
+	accountIDs = append(accountIDs, id)
+
+	groupIDsByAccount := make(map[int64][]int64, len(accountIDs))
+	groupEntries, err := txClient.AccountGroup.Query().
+		Where(dbaccountgroup.AccountIDIn(accountIDs...)).
+		All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, entry := range groupEntries {
+		groupIDsByAccount[entry.AccountID] = append(groupIDsByAccount[entry.AccountID], entry.GroupID)
+	}
+
+	if _, err := txClient.AccountGroup.Delete().Where(dbaccountgroup.AccountIDIn(accountIDs...)).Exec(ctx); err != nil {
+		return err
+	}
+	for _, accountID := range accountIDs {
+		if _, err := txClient.ExecContext(ctx, "DELETE FROM scheduled_test_plans WHERE account_id = $1", accountID); err != nil {
+			return err
+		}
+	}
+	if len(shadowIDs) > 0 {
+		if _, err := txClient.Account.Delete().Where(dbaccount.IDIn(shadowIDs...)).Exec(ctx); err != nil {
+			return err
+		}
+	}
+	deleted, err := txClient.Account.Delete().
+		Where(dbaccount.IDEQ(id), dbaccount.ProviderIDEQ(providerID)).
+		Exec(ctx)
+	if err != nil {
+		return translatePersistenceError(err, service.ErrAccountNotFound, nil)
+	}
+	if deleted != 1 {
+		return service.ErrAccountNotFound
+	}
+
+	if tx != nil {
+		if err := tx.Commit(); err != nil {
+			return err
+		}
+	}
+	for _, accountID := range accountIDs {
+		r.deleteSchedulerAccountSnapshot(ctx, accountID)
+		if err := enqueueSchedulerOutbox(
+			ctx,
+			r.sql,
+			service.SchedulerOutboxEventAccountChanged,
+			&accountID,
+			nil,
+			buildSchedulerGroupPayload(groupIDsByAccount[accountID]),
+		); err != nil {
+			logger.LegacyPrintf("repository.account", "[SchedulerOutbox] enqueue provider account delete failed: account=%d err=%v", accountID, err)
+		}
 	}
 	return nil
 }
@@ -580,6 +889,16 @@ func (r *accountRepository) accountListFilteredQuery(platform, accountType, stat
 
 func (r *accountRepository) ListWithFilters(ctx context.Context, params pagination.PaginationParams, platform, accountType, status, search string, groupID int64, privacyMode string) ([]service.Account, *pagination.PaginationResult, error) {
 	q := r.accountListFilteredQuery(platform, accountType, status, search, groupID, privacyMode)
+	return r.listWithFiltersQuery(ctx, params, q)
+}
+
+func (r *accountRepository) ListWithFiltersForProvider(ctx context.Context, params pagination.PaginationParams, platform, accountType, status, search string, groupID int64, privacyMode string, providerID int64) ([]service.Account, *pagination.PaginationResult, error) {
+	q := r.accountListFilteredQuery(platform, accountType, status, search, groupID, privacyMode).
+		Where(dbaccount.ProviderIDEQ(providerID))
+	return r.listWithFiltersQuery(ctx, params, q)
+}
+
+func (r *accountRepository) listWithFiltersQuery(ctx context.Context, params pagination.PaginationParams, q *dbent.AccountQuery) ([]service.Account, *pagination.PaginationResult, error) {
 	// Clone before Count so interceptor-appended predicates (SoftDeleteMixin's
 	// deleted_at IS NULL) don't accumulate on the shared builder and pollute the
 	// subsequent list query. Same pattern used in group_repo/promo_code_repo/user_repo
@@ -2093,6 +2412,7 @@ func accountEntityToService(m *dbent.Account) *service.Account {
 		Extra:                   copyJSONMap(m.Extra),
 		ProxyID:                 m.ProxyID,
 		ProxyFallbackOriginID:   m.ProxyFallbackOriginID,
+		ProviderID:              m.ProviderID,
 		Concurrency:             m.Concurrency,
 		Priority:                m.Priority,
 		RateMultiplier:          &rateMultiplier,

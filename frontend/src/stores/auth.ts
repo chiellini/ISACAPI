@@ -90,6 +90,17 @@ export const useAuthStore = defineStore('auth', () => {
     return user.value?.role === 'admin'
   })
 
+  const isProvider = computed(() => {
+    return user.value?.role === 'provider'
+  })
+
+  const researchGroupContext = computed(() => user.value?.research_group ?? null)
+  const isResearchGroupOwner = computed(() => researchGroupContext.value?.role === 'owner')
+  const isResearchGroupMember = computed(() => researchGroupContext.value?.role === 'member')
+  const hasPendingResearchGroupInvitation = computed(
+    () => isResearchGroupMember.value && researchGroupContext.value?.member?.status === 'pending'
+  )
+
   const isSimpleMode = computed(() => runMode.value === 'simple')
   const hasPendingAuthSession = computed(() => pendingAuthSession.value !== null)
 
@@ -481,6 +492,11 @@ export const useAuthStore = defineStore('auth', () => {
     // Computed
     isAuthenticated,
     isAdmin,
+    isProvider,
+    researchGroupContext,
+    isResearchGroupOwner,
+    isResearchGroupMember,
+    hasPendingResearchGroupInvitation,
     isSimpleMode,
     hasPendingAuthSession,
 

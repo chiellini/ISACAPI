@@ -55,12 +55,15 @@ func (r *BatchImageModelPricingResolver) BatchImageUnitPrice(ctx context.Context
 }
 
 type BatchImageSettlementService struct {
-	Repo         BatchImageRepository
-	BillingRepo  UsageBillingRepository
-	UsageLogRepo UsageLogRepository
-	Pricing      BatchImagePricingResolver
-	AuthCache    APIKeyAuthCacheInvalidator
-	Config       *config.Config
+	Repo          BatchImageRepository
+	BillingRepo   UsageBillingRepository
+	UsageLogRepo  UsageLogRepository
+	Pricing       BatchImagePricingResolver
+	AuthCache     APIKeyAuthCacheInvalidator
+	BillingCache  *BillingCacheService
+	UserRepo      UserRepository
+	BalanceNotify *BalanceNotifyService
+	Config        *config.Config
 }
 
 type BatchImageSettlementResult struct {
@@ -149,14 +152,16 @@ func (s *BatchImageSettlementService) Settle(ctx context.Context, batchID string
 		return nil, ErrBatchImageSettlementCostExceedsHold
 	}
 
-	if err := captureBatchImageBalanceHold(ctx, s.BillingRepo, job, actualCost, manifestHash); err != nil {
+	captureResult, err := captureBatchImageBalanceHold(ctx, s.BillingRepo, job, actualCost, manifestHash)
+	if err != nil {
 		msg := truncateBatchImageMessage(err.Error(), batchImageMaxErrorMessageLength)
 		if failErr := s.recordSettlementFailure(ctx, job, "SETTLEMENT_BILLING_FAILED", msg); failErr != nil {
 			return nil, failErr
 		}
 		return nil, err
 	}
-	s.invalidateAuthCache(ctx, job.UserID)
+	s.invalidateBillingCaches(ctx, job)
+	s.notifyPayerBalanceLow(ctx, job, actualCost, captureResult)
 
 	now := time.Now()
 	outputExpiresAt := now.Add(s.outputRetentionAfterTerminal())
@@ -230,7 +235,7 @@ func (s *BatchImageSettlementService) failExhaustedSettlement(ctx context.Contex
 		}
 		return ErrBatchImageSettlementBillingFailed.WithCause(err)
 	}
-	s.invalidateAuthCache(ctx, job.UserID)
+	s.invalidateBillingCaches(ctx, job)
 	msg := strings.TrimSpace(message)
 	if msg == "" {
 		msg = "settlement billing retry limit reached"
@@ -262,6 +267,11 @@ func (s *BatchImageSettlementService) recordUsageLog(ctx context.Context, job *B
 		UserID:                job.UserID,
 		APIKeyID:              *job.APIKeyID,
 		AccountID:             *job.AccountID,
+		ProviderID:            job.AccountProviderID,
+		PayerUserID:           job.PayerUserID,
+		ResearchGroupID:       job.ResearchGroupID,
+		ResearchGroupMemberID: job.ResearchGroupMemberID,
+		FundingSource:         job.FundingSource,
 		RequestID:             strings.TrimSpace(requestID),
 		Model:                 job.Model,
 		RequestedModel:        job.Model,
@@ -286,6 +296,31 @@ func (s *BatchImageSettlementService) invalidateAuthCache(ctx context.Context, u
 	if s != nil && s.AuthCache != nil && userID > 0 {
 		s.AuthCache.InvalidateAuthCacheByUserID(ctx, userID)
 	}
+}
+
+func (s *BatchImageSettlementService) invalidateBillingCaches(ctx context.Context, job *BatchImageJob) {
+	if s == nil {
+		return
+	}
+	invalidateBatchImageBillingCaches(ctx, s.AuthCache, s.BillingCache, job)
+}
+
+func (s *BatchImageSettlementService) notifyPayerBalanceLow(ctx context.Context, job *BatchImageJob, actualCost float64, result *BatchImageBalanceHoldResult) {
+	if s == nil || s.BalanceNotify == nil || s.UserRepo == nil || job == nil || actualCost <= 0 || result == nil || !result.Applied || result.NewBalance == nil {
+		return
+	}
+	payerUserID := job.UserID
+	if result.PayerUserID > 0 {
+		payerUserID = result.PayerUserID
+	} else if job.PayerUserID != nil && *job.PayerUserID > 0 {
+		payerUserID = *job.PayerUserID
+	}
+	payer, err := s.UserRepo.GetByID(ctx, payerUserID)
+	if err != nil || payer == nil {
+		logger.L().Warn("batch_image.load_payer_for_balance_notification_failed", zap.Int64("payer_user_id", payerUserID), zap.Error(err))
+		return
+	}
+	s.BalanceNotify.CheckBalanceAfterDeduction(ctx, payer, *result.NewBalance+actualCost, actualCost)
 }
 
 func (s *BatchImageSettlementService) settlementUnitPrice(ctx context.Context, job *BatchImageJob) (float64, error) {

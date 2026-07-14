@@ -1076,6 +1076,9 @@ func (_u *UsageLogUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			}
 		}
 	}
+	if _u.mutation.ProviderIDCleared() {
+		_spec.ClearField(usagelog.FieldProviderID, field.TypeInt64)
+	}
 	if value, ok := _u.mutation.RequestID(); ok {
 		_spec.SetField(usagelog.FieldRequestID, field.TypeString, value)
 	}
@@ -1120,6 +1123,15 @@ func (_u *UsageLogUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if _u.mutation.BillingModeCleared() {
 		_spec.ClearField(usagelog.FieldBillingMode, field.TypeString)
+	}
+	if _u.mutation.PayerUserIDCleared() {
+		_spec.ClearField(usagelog.FieldPayerUserID, field.TypeInt64)
+	}
+	if _u.mutation.ResearchGroupMemberIDCleared() {
+		_spec.ClearField(usagelog.FieldResearchGroupMemberID, field.TypeInt64)
+	}
+	if _u.mutation.FundingSourceCleared() {
+		_spec.ClearField(usagelog.FieldFundingSource, field.TypeString)
 	}
 	if value, ok := _u.mutation.InputTokens(); ok {
 		_spec.SetField(usagelog.FieldInputTokens, field.TypeInt, value)
@@ -2546,6 +2558,9 @@ func (_u *UsageLogUpdateOne) sqlSave(ctx context.Context) (_node *UsageLog, err 
 			}
 		}
 	}
+	if _u.mutation.ProviderIDCleared() {
+		_spec.ClearField(usagelog.FieldProviderID, field.TypeInt64)
+	}
 	if value, ok := _u.mutation.RequestID(); ok {
 		_spec.SetField(usagelog.FieldRequestID, field.TypeString, value)
 	}
@@ -2590,6 +2605,15 @@ func (_u *UsageLogUpdateOne) sqlSave(ctx context.Context) (_node *UsageLog, err 
 	}
 	if _u.mutation.BillingModeCleared() {
 		_spec.ClearField(usagelog.FieldBillingMode, field.TypeString)
+	}
+	if _u.mutation.PayerUserIDCleared() {
+		_spec.ClearField(usagelog.FieldPayerUserID, field.TypeInt64)
+	}
+	if _u.mutation.ResearchGroupMemberIDCleared() {
+		_spec.ClearField(usagelog.FieldResearchGroupMemberID, field.TypeInt64)
+	}
+	if _u.mutation.FundingSourceCleared() {
+		_spec.ClearField(usagelog.FieldFundingSource, field.TypeString)
 	}
 	if value, ok := _u.mutation.InputTokens(); ok {
 		_spec.SetField(usagelog.FieldInputTokens, field.TypeInt, value)

@@ -134,6 +134,12 @@ type UpdateAccountRequest struct {
 	ConfirmMixedChannelRisk *bool          `json:"confirm_mixed_channel_risk"` // 用户确认混合渠道风险
 }
 
+// UpdateAccountProviderRequest uses NullableInt64Field so the dedicated
+// assignment endpoint can distinguish an omitted field from an explicit null.
+type UpdateAccountProviderRequest struct {
+	ProviderID dto.NullableInt64Field `json:"provider_id"`
+}
+
 // BulkUpdateAccountsRequest represents the payload for bulk editing accounts
 type BulkUpdateAccountsRequest struct {
 	AccountIDs              []int64                   `json:"account_ids"`
@@ -917,6 +923,51 @@ func (h *AccountHandler) Update(c *gin.Context) {
 		h.scheduleOpenAIResponsesProbe(account)
 	}
 
+	response.Success(c, h.buildAccountResponseWithRuntime(c.Request.Context(), account))
+}
+
+// UpdateProvider assigns or clears an account's provider owner.
+// PUT /api/v1/admin/accounts/:id/provider
+func (h *AccountHandler) UpdateProvider(c *gin.Context) {
+	accountID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil || accountID <= 0 {
+		response.BadRequest(c, "Invalid account ID")
+		return
+	}
+
+	var req UpdateAccountProviderRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	if !req.ProviderID.Set {
+		response.BadRequest(c, "provider_id is required")
+		return
+	}
+	if req.ProviderID.Value != nil {
+		if *req.ProviderID.Value <= 0 {
+			response.ErrorFrom(c, infraerrors.BadRequest("INVALID_PROVIDER", "provider_id must be positive"))
+			return
+		}
+		provider, err := h.adminService.GetUser(c.Request.Context(), *req.ProviderID.Value)
+		if err != nil {
+			response.ErrorFrom(c, err)
+			return
+		}
+		if !provider.IsProvider() || !provider.IsActive() {
+			response.ErrorFrom(c, infraerrors.BadRequest("INVALID_PROVIDER", "provider must be an active provider user"))
+			return
+		}
+	}
+
+	providerID := req.ProviderID.Value
+	account, err := h.adminService.UpdateAccount(c.Request.Context(), accountID, &service.UpdateAccountInput{
+		ProviderID: &providerID,
+	})
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
 	response.Success(c, h.buildAccountResponseWithRuntime(c.Request.Context(), account))
 }
 

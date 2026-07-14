@@ -240,7 +240,7 @@
     @close="showRechargeDialog = false"
   >
     <p class="mb-4 text-sm text-gray-600 dark:text-dark-300">{{ t('common.rechargeContactHint') }}</p>
-    <OwnerContactInfo variant="plain" :columns="false" />
+    <QqGroupContact variant="plain" />
   </BaseDialog>
 </template>
 
@@ -249,7 +249,7 @@ import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import BaseDialog from '@/components/common/BaseDialog.vue'
-import OwnerContactInfo from '@/components/common/OwnerContactInfo.vue'
+import QqGroupContact from '@/components/common/QqGroupContact.vue'
 import Icon from '@/components/icons/Icon.vue'
 import type { UserDashboardStats as UserStatsType } from '@/api/usage'
 import type { PlatformQuotaItem } from '@/types'

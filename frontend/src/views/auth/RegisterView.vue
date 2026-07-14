@@ -266,7 +266,7 @@
         />
       </div>
 
-      <OwnerContactInfo />
+      <QqGroupContact />
     </div>
 
     <!-- Footer -->
@@ -294,7 +294,7 @@ import OidcOAuthSection from '@/components/auth/OidcOAuthSection.vue'
 import WechatOAuthSection from '@/components/auth/WechatOAuthSection.vue'
 import EmailOAuthButtons from '@/components/auth/EmailOAuthButtons.vue'
 import LoginAgreementPrompt from '@/components/auth/LoginAgreementPrompt.vue'
-import OwnerContactInfo from '@/components/common/OwnerContactInfo.vue'
+import QqGroupContact from '@/components/common/QqGroupContact.vue'
 import Icon from '@/components/icons/Icon.vue'
 import TurnstileWidget from '@/components/TurnstileWidget.vue'
 import { useAuthStore, useAppStore } from '@/stores'

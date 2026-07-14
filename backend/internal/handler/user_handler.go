@@ -22,6 +22,7 @@ type UserHandler struct {
 	emailCache            service.EmailCache
 	affiliateService      *service.AffiliateService
 	userPlatformQuotaRepo service.UserPlatformQuotaRepository
+	researchGroupService  *service.ResearchGroupService
 }
 
 // NewUserHandler creates a new UserHandler
@@ -535,7 +536,15 @@ func (h *UserHandler) buildUserProfileResponse(ctx context.Context, userID int64
 	if err != nil {
 		return userProfileResponse{}, err
 	}
-	return userProfileResponseFromService(user, identities), nil
+	out := userProfileResponseFromService(user, identities)
+	if h.researchGroupService != nil {
+		researchGroup, err := h.researchGroupService.GetAuthContext(ctx, userID)
+		if err != nil {
+			return userProfileResponse{}, err
+		}
+		out.User.ResearchGroup = researchGroup
+	}
+	return out, nil
 }
 
 func userProfileResponseFromService(user *service.User, identities service.UserIdentitySummarySet) userProfileResponse {

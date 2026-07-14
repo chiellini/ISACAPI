@@ -12,8 +12,24 @@ const (
 
 // Role constants
 const (
-	RoleAdmin = "admin"
-	RoleUser  = "user"
+	RoleAdmin    = "admin"
+	RoleProvider = "provider"
+	RoleUser     = "user"
+)
+
+// Research group statuses and funding attribution values.
+const (
+	ResearchGroupStatusActive    = "active"
+	ResearchGroupStatusPaused    = "paused"
+	ResearchGroupStatusDissolved = "dissolved"
+
+	ResearchGroupMemberStatusPending = "pending"
+	ResearchGroupMemberStatusActive  = "active"
+	ResearchGroupMemberStatusPaused  = "paused"
+	ResearchGroupMemberStatusRemoved = "removed"
+
+	FundingSourceSelf          = "self"
+	FundingSourceResearchGroup = "research_group"
 )
 
 // Platform constants

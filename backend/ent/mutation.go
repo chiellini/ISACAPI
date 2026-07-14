@@ -43,6 +43,9 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/promocodeusage"
 	"github.com/Wei-Shaw/sub2api/ent/proxy"
 	"github.com/Wei-Shaw/sub2api/ent/redeemcode"
+	"github.com/Wei-Shaw/sub2api/ent/researchgroup"
+	"github.com/Wei-Shaw/sub2api/ent/researchgroupmember"
+	"github.com/Wei-Shaw/sub2api/ent/researchgroupquotaaudit"
 	"github.com/Wei-Shaw/sub2api/ent/securitysecret"
 	"github.com/Wei-Shaw/sub2api/ent/setting"
 	"github.com/Wei-Shaw/sub2api/ent/subscriptionplan"
@@ -98,6 +101,9 @@ const (
 	TypePromoCodeUsage                = "PromoCodeUsage"
 	TypeProxy                         = "Proxy"
 	TypeRedeemCode                    = "RedeemCode"
+	TypeResearchGroup                 = "ResearchGroup"
+	TypeResearchGroupMember           = "ResearchGroupMember"
+	TypeResearchGroupQuotaAudit       = "ResearchGroupQuotaAudit"
 	TypeSecuritySecret                = "SecuritySecret"
 	TypeSetting                       = "Setting"
 	TypeSubscriptionPlan              = "SubscriptionPlan"
@@ -2332,6 +2338,8 @@ type AccountMutation struct {
 	clearedgroups               bool
 	proxy                       *int64
 	clearedproxy                bool
+	provider                    *int64
+	clearedprovider             bool
 	parent                      *int64
 	clearedparent               bool
 	children                    map[int64]struct{}
@@ -2910,6 +2918,55 @@ func (m *AccountMutation) ResetProxyFallbackOriginID() {
 	m.proxy_fallback_origin_id = nil
 	m.addproxy_fallback_origin_id = nil
 	delete(m.clearedFields, account.FieldProxyFallbackOriginID)
+}
+
+// SetProviderID sets the "provider_id" field.
+func (m *AccountMutation) SetProviderID(i int64) {
+	m.provider = &i
+}
+
+// ProviderID returns the value of the "provider_id" field in the mutation.
+func (m *AccountMutation) ProviderID() (r int64, exists bool) {
+	v := m.provider
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldProviderID returns the old "provider_id" field's value of the Account entity.
+// If the Account object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AccountMutation) OldProviderID(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldProviderID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldProviderID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldProviderID: %w", err)
+	}
+	return oldValue.ProviderID, nil
+}
+
+// ClearProviderID clears the value of the "provider_id" field.
+func (m *AccountMutation) ClearProviderID() {
+	m.provider = nil
+	m.clearedFields[account.FieldProviderID] = struct{}{}
+}
+
+// ProviderIDCleared returns if the "provider_id" field was cleared in this mutation.
+func (m *AccountMutation) ProviderIDCleared() bool {
+	_, ok := m.clearedFields[account.FieldProviderID]
+	return ok
+}
+
+// ResetProviderID resets all changes to the "provider_id" field.
+func (m *AccountMutation) ResetProviderID() {
+	m.provider = nil
+	delete(m.clearedFields, account.FieldProviderID)
 }
 
 // SetConcurrency sets the "concurrency" field.
@@ -3963,6 +4020,33 @@ func (m *AccountMutation) ResetProxy() {
 	m.clearedproxy = false
 }
 
+// ClearProvider clears the "provider" edge to the User entity.
+func (m *AccountMutation) ClearProvider() {
+	m.clearedprovider = true
+	m.clearedFields[account.FieldProviderID] = struct{}{}
+}
+
+// ProviderCleared reports if the "provider" edge to the User entity was cleared.
+func (m *AccountMutation) ProviderCleared() bool {
+	return m.ProviderIDCleared() || m.clearedprovider
+}
+
+// ProviderIDs returns the "provider" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// ProviderID instead. It exists only for internal usage by the builders.
+func (m *AccountMutation) ProviderIDs() (ids []int64) {
+	if id := m.provider; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetProvider resets all changes to the "provider" edge.
+func (m *AccountMutation) ResetProvider() {
+	m.provider = nil
+	m.clearedprovider = false
+}
+
 // SetParentID sets the "parent" edge to the Account entity by id.
 func (m *AccountMutation) SetParentID(id int64) {
 	m.parent = &id
@@ -4145,7 +4229,7 @@ func (m *AccountMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *AccountMutation) Fields() []string {
-	fields := make([]string, 0, 31)
+	fields := make([]string, 0, 32)
 	if m.created_at != nil {
 		fields = append(fields, account.FieldCreatedAt)
 	}
@@ -4178,6 +4262,9 @@ func (m *AccountMutation) Fields() []string {
 	}
 	if m.proxy_fallback_origin_id != nil {
 		fields = append(fields, account.FieldProxyFallbackOriginID)
+	}
+	if m.provider != nil {
+		fields = append(fields, account.FieldProviderID)
 	}
 	if m.concurrency != nil {
 		fields = append(fields, account.FieldConcurrency)
@@ -4269,6 +4356,8 @@ func (m *AccountMutation) Field(name string) (ent.Value, bool) {
 		return m.ProxyID()
 	case account.FieldProxyFallbackOriginID:
 		return m.ProxyFallbackOriginID()
+	case account.FieldProviderID:
+		return m.ProviderID()
 	case account.FieldConcurrency:
 		return m.Concurrency()
 	case account.FieldLoadFactor:
@@ -4340,6 +4429,8 @@ func (m *AccountMutation) OldField(ctx context.Context, name string) (ent.Value,
 		return m.OldProxyID(ctx)
 	case account.FieldProxyFallbackOriginID:
 		return m.OldProxyFallbackOriginID(ctx)
+	case account.FieldProviderID:
+		return m.OldProviderID(ctx)
 	case account.FieldConcurrency:
 		return m.OldConcurrency(ctx)
 	case account.FieldLoadFactor:
@@ -4465,6 +4556,13 @@ func (m *AccountMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetProxyFallbackOriginID(v)
+		return nil
+	case account.FieldProviderID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetProviderID(v)
 		return nil
 	case account.FieldConcurrency:
 		v, ok := value.(int)
@@ -4711,6 +4809,9 @@ func (m *AccountMutation) ClearedFields() []string {
 	if m.FieldCleared(account.FieldProxyFallbackOriginID) {
 		fields = append(fields, account.FieldProxyFallbackOriginID)
 	}
+	if m.FieldCleared(account.FieldProviderID) {
+		fields = append(fields, account.FieldProviderID)
+	}
 	if m.FieldCleared(account.FieldLoadFactor) {
 		fields = append(fields, account.FieldLoadFactor)
 	}
@@ -4775,6 +4876,9 @@ func (m *AccountMutation) ClearField(name string) error {
 		return nil
 	case account.FieldProxyFallbackOriginID:
 		m.ClearProxyFallbackOriginID()
+		return nil
+	case account.FieldProviderID:
+		m.ClearProviderID()
 		return nil
 	case account.FieldLoadFactor:
 		m.ClearLoadFactor()
@@ -4856,6 +4960,9 @@ func (m *AccountMutation) ResetField(name string) error {
 	case account.FieldProxyFallbackOriginID:
 		m.ResetProxyFallbackOriginID()
 		return nil
+	case account.FieldProviderID:
+		m.ResetProviderID()
+		return nil
 	case account.FieldConcurrency:
 		m.ResetConcurrency()
 		return nil
@@ -4922,12 +5029,15 @@ func (m *AccountMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *AccountMutation) AddedEdges() []string {
-	edges := make([]string, 0, 5)
+	edges := make([]string, 0, 6)
 	if m.groups != nil {
 		edges = append(edges, account.EdgeGroups)
 	}
 	if m.proxy != nil {
 		edges = append(edges, account.EdgeProxy)
+	}
+	if m.provider != nil {
+		edges = append(edges, account.EdgeProvider)
 	}
 	if m.parent != nil {
 		edges = append(edges, account.EdgeParent)
@@ -4955,6 +5065,10 @@ func (m *AccountMutation) AddedIDs(name string) []ent.Value {
 		if id := m.proxy; id != nil {
 			return []ent.Value{*id}
 		}
+	case account.EdgeProvider:
+		if id := m.provider; id != nil {
+			return []ent.Value{*id}
+		}
 	case account.EdgeParent:
 		if id := m.parent; id != nil {
 			return []ent.Value{*id}
@@ -4977,7 +5091,7 @@ func (m *AccountMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *AccountMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 5)
+	edges := make([]string, 0, 6)
 	if m.removedgroups != nil {
 		edges = append(edges, account.EdgeGroups)
 	}
@@ -5018,12 +5132,15 @@ func (m *AccountMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *AccountMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 5)
+	edges := make([]string, 0, 6)
 	if m.clearedgroups {
 		edges = append(edges, account.EdgeGroups)
 	}
 	if m.clearedproxy {
 		edges = append(edges, account.EdgeProxy)
+	}
+	if m.clearedprovider {
+		edges = append(edges, account.EdgeProvider)
 	}
 	if m.clearedparent {
 		edges = append(edges, account.EdgeParent)
@@ -5045,6 +5162,8 @@ func (m *AccountMutation) EdgeCleared(name string) bool {
 		return m.clearedgroups
 	case account.EdgeProxy:
 		return m.clearedproxy
+	case account.EdgeProvider:
+		return m.clearedprovider
 	case account.EdgeParent:
 		return m.clearedparent
 	case account.EdgeChildren:
@@ -5062,6 +5181,9 @@ func (m *AccountMutation) ClearEdge(name string) error {
 	case account.EdgeProxy:
 		m.ClearProxy()
 		return nil
+	case account.EdgeProvider:
+		m.ClearProvider()
+		return nil
 	case account.EdgeParent:
 		m.ClearParent()
 		return nil
@@ -5078,6 +5200,9 @@ func (m *AccountMutation) ResetEdge(name string) error {
 		return nil
 	case account.EdgeProxy:
 		m.ResetProxy()
+		return nil
+	case account.EdgeProvider:
+		m.ResetProvider()
 		return nil
 	case account.EdgeParent:
 		m.ResetParent()
@@ -11314,65 +11439,74 @@ func (m *BatchImageItemMutation) ResetEdge(name string) error {
 // BatchImageJobMutation represents an operation that mutates the BatchImageJob nodes in the graph.
 type BatchImageJobMutation struct {
 	config
-	op                  Op
-	typ                 string
-	id                  *int64
-	batch_id            *string
-	user_id             *int64
-	adduser_id          *int64
-	api_key_id          *int64
-	addapi_key_id       *int64
-	account_id          *int64
-	addaccount_id       *int64
-	provider            *string
-	model               *string
-	task_name           *string
-	status              *string
-	provider_job_name   *string
-	provider_input_ref  *string
-	provider_output_ref *string
-	gcs_input_uri       *string
-	gcs_output_uri      *string
-	item_count          *int
-	additem_count       *int
-	success_count       *int
-	addsuccess_count    *int
-	fail_count          *int
-	addfail_count       *int
-	cancelled_count     *int
-	addcancelled_count  *int
-	estimated_cost      *float64
-	addestimated_cost   *float64
-	hold_amount         *float64
-	addhold_amount      *float64
-	actual_cost         *float64
-	addactual_cost      *float64
-	currency            *string
-	hold_id             *string
-	idempotency_key     *string
-	request_hash        *string
-	manifest_hash       *string
-	retry_count         *int
-	addretry_count      *int
-	version             *int
-	addversion          *int
-	output_expires_at   *time.Time
-	input_deleted_at    *time.Time
-	output_deleted_at   *time.Time
-	downloaded_at       *time.Time
-	user_deleted_at     *time.Time
-	last_error_code     *string
-	last_error_message  *string
-	created_at          *time.Time
-	updated_at          *time.Time
-	submitted_at        *time.Time
-	started_at          *time.Time
-	finished_at         *time.Time
-	settled_at          *time.Time
-	clearedFields       map[string]struct{}
-	done                bool
-	oldValue            func(context.Context) (*BatchImageJob, error)
-	predicates          []predicate.BatchImageJob
+	op                          Op
+	typ                         string
+	id                          *int64
+	batch_id                    *string
+	user_id                     *int64
+	adduser_id                  *int64
+	api_key_id                  *int64
+	addapi_key_id               *int64
+	account_id                  *int64
+	addaccount_id               *int64
+	payer_user_id               *int64
+	addpayer_user_id            *int64
+	research_group_id           *int64
+	addresearch_group_id        *int64
+	research_group_member_id    *int64
+	addresearch_group_member_id *int64
+	funding_source              *string
+	account_provider_id         *int64
+	addaccount_provider_id      *int64
+	provider                    *string
+	model                       *string
+	task_name                   *string
+	status                      *string
+	provider_job_name           *string
+	provider_input_ref          *string
+	provider_output_ref         *string
+	gcs_input_uri               *string
+	gcs_output_uri              *string
+	item_count                  *int
+	additem_count               *int
+	success_count               *int
+	addsuccess_count            *int
+	fail_count                  *int
+	addfail_count               *int
+	cancelled_count             *int
+	addcancelled_count          *int
+	estimated_cost              *float64
+	addestimated_cost           *float64
+	hold_amount                 *float64
+	addhold_amount              *float64
+	actual_cost                 *float64
+	addactual_cost              *float64
+	currency                    *string
+	hold_id                     *string
+	idempotency_key             *string
+	request_hash                *string
+	manifest_hash               *string
+	retry_count                 *int
+	addretry_count              *int
+	version                     *int
+	addversion                  *int
+	output_expires_at           *time.Time
+	input_deleted_at            *time.Time
+	output_deleted_at           *time.Time
+	downloaded_at               *time.Time
+	user_deleted_at             *time.Time
+	last_error_code             *string
+	last_error_message          *string
+	created_at                  *time.Time
+	updated_at                  *time.Time
+	submitted_at                *time.Time
+	started_at                  *time.Time
+	finished_at                 *time.Time
+	settled_at                  *time.Time
+	clearedFields               map[string]struct{}
+	done                        bool
+	oldValue                    func(context.Context) (*BatchImageJob, error)
+	predicates                  []predicate.BatchImageJob
 }
 
 var _ ent.Mutation = (*BatchImageJobMutation)(nil)
@@ -11703,6 +11837,335 @@ func (m *BatchImageJobMutation) ResetAccountID() {
 	m.account_id = nil
 	m.addaccount_id = nil
 	delete(m.clearedFields, batchimagejob.FieldAccountID)
+}
+
+// SetPayerUserID sets the "payer_user_id" field.
+func (m *BatchImageJobMutation) SetPayerUserID(i int64) {
+	m.payer_user_id = &i
+	m.addpayer_user_id = nil
+}
+
+// PayerUserID returns the value of the "payer_user_id" field in the mutation.
+func (m *BatchImageJobMutation) PayerUserID() (r int64, exists bool) {
+	v := m.payer_user_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPayerUserID returns the old "payer_user_id" field's value of the BatchImageJob entity.
+// If the BatchImageJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *BatchImageJobMutation) OldPayerUserID(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPayerUserID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPayerUserID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPayerUserID: %w", err)
+	}
+	return oldValue.PayerUserID, nil
+}
+
+// AddPayerUserID adds i to the "payer_user_id" field.
+func (m *BatchImageJobMutation) AddPayerUserID(i int64) {
+	if m.addpayer_user_id != nil {
+		*m.addpayer_user_id += i
+	} else {
+		m.addpayer_user_id = &i
+	}
+}
+
+// AddedPayerUserID returns the value that was added to the "payer_user_id" field in this mutation.
+func (m *BatchImageJobMutation) AddedPayerUserID() (r int64, exists bool) {
+	v := m.addpayer_user_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearPayerUserID clears the value of the "payer_user_id" field.
+func (m *BatchImageJobMutation) ClearPayerUserID() {
+	m.payer_user_id = nil
+	m.addpayer_user_id = nil
+	m.clearedFields[batchimagejob.FieldPayerUserID] = struct{}{}
+}
+
+// PayerUserIDCleared returns if the "payer_user_id" field was cleared in this mutation.
+func (m *BatchImageJobMutation) PayerUserIDCleared() bool {
+	_, ok := m.clearedFields[batchimagejob.FieldPayerUserID]
+	return ok
+}
+
+// ResetPayerUserID resets all changes to the "payer_user_id" field.
+func (m *BatchImageJobMutation) ResetPayerUserID() {
+	m.payer_user_id = nil
+	m.addpayer_user_id = nil
+	delete(m.clearedFields, batchimagejob.FieldPayerUserID)
+}
+
+// SetResearchGroupID sets the "research_group_id" field.
+func (m *BatchImageJobMutation) SetResearchGroupID(i int64) {
+	m.research_group_id = &i
+	m.addresearch_group_id = nil
+}
+
+// ResearchGroupID returns the value of the "research_group_id" field in the mutation.
+func (m *BatchImageJobMutation) ResearchGroupID() (r int64, exists bool) {
+	v := m.research_group_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldResearchGroupID returns the old "research_group_id" field's value of the BatchImageJob entity.
+// If the BatchImageJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *BatchImageJobMutation) OldResearchGroupID(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldResearchGroupID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldResearchGroupID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldResearchGroupID: %w", err)
+	}
+	return oldValue.ResearchGroupID, nil
+}
+
+// AddResearchGroupID adds i to the "research_group_id" field.
+func (m *BatchImageJobMutation) AddResearchGroupID(i int64) {
+	if m.addresearch_group_id != nil {
+		*m.addresearch_group_id += i
+	} else {
+		m.addresearch_group_id = &i
+	}
+}
+
+// AddedResearchGroupID returns the value that was added to the "research_group_id" field in this mutation.
+func (m *BatchImageJobMutation) AddedResearchGroupID() (r int64, exists bool) {
+	v := m.addresearch_group_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearResearchGroupID clears the value of the "research_group_id" field.
+func (m *BatchImageJobMutation) ClearResearchGroupID() {
+	m.research_group_id = nil
+	m.addresearch_group_id = nil
+	m.clearedFields[batchimagejob.FieldResearchGroupID] = struct{}{}
+}
+
+// ResearchGroupIDCleared returns if the "research_group_id" field was cleared in this mutation.
+func (m *BatchImageJobMutation) ResearchGroupIDCleared() bool {
+	_, ok := m.clearedFields[batchimagejob.FieldResearchGroupID]
+	return ok
+}
+
+// ResetResearchGroupID resets all changes to the "research_group_id" field.
+func (m *BatchImageJobMutation) ResetResearchGroupID() {
+	m.research_group_id = nil
+	m.addresearch_group_id = nil
+	delete(m.clearedFields, batchimagejob.FieldResearchGroupID)
+}
+
+// SetResearchGroupMemberID sets the "research_group_member_id" field.
+func (m *BatchImageJobMutation) SetResearchGroupMemberID(i int64) {
+	m.research_group_member_id = &i
+	m.addresearch_group_member_id = nil
+}
+
+// ResearchGroupMemberID returns the value of the "research_group_member_id" field in the mutation.
+func (m *BatchImageJobMutation) ResearchGroupMemberID() (r int64, exists bool) {
+	v := m.research_group_member_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldResearchGroupMemberID returns the old "research_group_member_id" field's value of the BatchImageJob entity.
+// If the BatchImageJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *BatchImageJobMutation) OldResearchGroupMemberID(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldResearchGroupMemberID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldResearchGroupMemberID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldResearchGroupMemberID: %w", err)
+	}
+	return oldValue.ResearchGroupMemberID, nil
+}
+
+// AddResearchGroupMemberID adds i to the "research_group_member_id" field.
+func (m *BatchImageJobMutation) AddResearchGroupMemberID(i int64) {
+	if m.addresearch_group_member_id != nil {
+		*m.addresearch_group_member_id += i
+	} else {
+		m.addresearch_group_member_id = &i
+	}
+}
+
+// AddedResearchGroupMemberID returns the value that was added to the "research_group_member_id" field in this mutation.
+func (m *BatchImageJobMutation) AddedResearchGroupMemberID() (r int64, exists bool) {
+	v := m.addresearch_group_member_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearResearchGroupMemberID clears the value of the "research_group_member_id" field.
+func (m *BatchImageJobMutation) ClearResearchGroupMemberID() {
+	m.research_group_member_id = nil
+	m.addresearch_group_member_id = nil
+	m.clearedFields[batchimagejob.FieldResearchGroupMemberID] = struct{}{}
+}
+
+// ResearchGroupMemberIDCleared returns if the "research_group_member_id" field was cleared in this mutation.
+func (m *BatchImageJobMutation) ResearchGroupMemberIDCleared() bool {
+	_, ok := m.clearedFields[batchimagejob.FieldResearchGroupMemberID]
+	return ok
+}
+
+// ResetResearchGroupMemberID resets all changes to the "research_group_member_id" field.
+func (m *BatchImageJobMutation) ResetResearchGroupMemberID() {
+	m.research_group_member_id = nil
+	m.addresearch_group_member_id = nil
+	delete(m.clearedFields, batchimagejob.FieldResearchGroupMemberID)
+}
+
+// SetFundingSource sets the "funding_source" field.
+func (m *BatchImageJobMutation) SetFundingSource(s string) {
+	m.funding_source = &s
+}
+
+// FundingSource returns the value of the "funding_source" field in the mutation.
+func (m *BatchImageJobMutation) FundingSource() (r string, exists bool) {
+	v := m.funding_source
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldFundingSource returns the old "funding_source" field's value of the BatchImageJob entity.
+// If the BatchImageJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *BatchImageJobMutation) OldFundingSource(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldFundingSource is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldFundingSource requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldFundingSource: %w", err)
+	}
+	return oldValue.FundingSource, nil
+}
+
+// ClearFundingSource clears the value of the "funding_source" field.
+func (m *BatchImageJobMutation) ClearFundingSource() {
+	m.funding_source = nil
+	m.clearedFields[batchimagejob.FieldFundingSource] = struct{}{}
+}
+
+// FundingSourceCleared returns if the "funding_source" field was cleared in this mutation.
+func (m *BatchImageJobMutation) FundingSourceCleared() bool {
+	_, ok := m.clearedFields[batchimagejob.FieldFundingSource]
+	return ok
+}
+
+// ResetFundingSource resets all changes to the "funding_source" field.
+func (m *BatchImageJobMutation) ResetFundingSource() {
+	m.funding_source = nil
+	delete(m.clearedFields, batchimagejob.FieldFundingSource)
+}
+
+// SetAccountProviderID sets the "account_provider_id" field.
+func (m *BatchImageJobMutation) SetAccountProviderID(i int64) {
+	m.account_provider_id = &i
+	m.addaccount_provider_id = nil
+}
+
+// AccountProviderID returns the value of the "account_provider_id" field in the mutation.
+func (m *BatchImageJobMutation) AccountProviderID() (r int64, exists bool) {
+	v := m.account_provider_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAccountProviderID returns the old "account_provider_id" field's value of the BatchImageJob entity.
+// If the BatchImageJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *BatchImageJobMutation) OldAccountProviderID(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAccountProviderID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAccountProviderID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAccountProviderID: %w", err)
+	}
+	return oldValue.AccountProviderID, nil
+}
+
+// AddAccountProviderID adds i to the "account_provider_id" field.
+func (m *BatchImageJobMutation) AddAccountProviderID(i int64) {
+	if m.addaccount_provider_id != nil {
+		*m.addaccount_provider_id += i
+	} else {
+		m.addaccount_provider_id = &i
+	}
+}
+
+// AddedAccountProviderID returns the value that was added to the "account_provider_id" field in this mutation.
+func (m *BatchImageJobMutation) AddedAccountProviderID() (r int64, exists bool) {
+	v := m.addaccount_provider_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearAccountProviderID clears the value of the "account_provider_id" field.
+func (m *BatchImageJobMutation) ClearAccountProviderID() {
+	m.account_provider_id = nil
+	m.addaccount_provider_id = nil
+	m.clearedFields[batchimagejob.FieldAccountProviderID] = struct{}{}
+}
+
+// AccountProviderIDCleared returns if the "account_provider_id" field was cleared in this mutation.
+func (m *BatchImageJobMutation) AccountProviderIDCleared() bool {
+	_, ok := m.clearedFields[batchimagejob.FieldAccountProviderID]
+	return ok
+}
+
+// ResetAccountProviderID resets all changes to the "account_provider_id" field.
+func (m *BatchImageJobMutation) ResetAccountProviderID() {
+	m.account_provider_id = nil
+	m.addaccount_provider_id = nil
+	delete(m.clearedFields, batchimagejob.FieldAccountProviderID)
 }
 
 // SetProvider sets the "provider" field.
@@ -13503,7 +13966,7 @@ func (m *BatchImageJobMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *BatchImageJobMutation) Fields() []string {
-	fields := make([]string, 0, 40)
+	fields := make([]string, 0, 45)
 	if m.batch_id != nil {
 		fields = append(fields, batchimagejob.FieldBatchID)
 	}
@@ -13515,6 +13978,21 @@ func (m *BatchImageJobMutation) Fields() []string {
 	}
 	if m.account_id != nil {
 		fields = append(fields, batchimagejob.FieldAccountID)
+	}
+	if m.payer_user_id != nil {
+		fields = append(fields, batchimagejob.FieldPayerUserID)
+	}
+	if m.research_group_id != nil {
+		fields = append(fields, batchimagejob.FieldResearchGroupID)
+	}
+	if m.research_group_member_id != nil {
+		fields = append(fields, batchimagejob.FieldResearchGroupMemberID)
+	}
+	if m.funding_source != nil {
+		fields = append(fields, batchimagejob.FieldFundingSource)
+	}
+	if m.account_provider_id != nil {
+		fields = append(fields, batchimagejob.FieldAccountProviderID)
 	}
 	if m.provider != nil {
 		fields = append(fields, batchimagejob.FieldProvider)
@@ -13640,6 +14118,16 @@ func (m *BatchImageJobMutation) Field(name string) (ent.Value, bool) {
 		return m.APIKeyID()
 	case batchimagejob.FieldAccountID:
 		return m.AccountID()
+	case batchimagejob.FieldPayerUserID:
+		return m.PayerUserID()
+	case batchimagejob.FieldResearchGroupID:
+		return m.ResearchGroupID()
+	case batchimagejob.FieldResearchGroupMemberID:
+		return m.ResearchGroupMemberID()
+	case batchimagejob.FieldFundingSource:
+		return m.FundingSource()
+	case batchimagejob.FieldAccountProviderID:
+		return m.AccountProviderID()
 	case batchimagejob.FieldProvider:
 		return m.Provider()
 	case batchimagejob.FieldModel:
@@ -13729,6 +14217,16 @@ func (m *BatchImageJobMutation) OldField(ctx context.Context, name string) (ent.
 		return m.OldAPIKeyID(ctx)
 	case batchimagejob.FieldAccountID:
 		return m.OldAccountID(ctx)
+	case batchimagejob.FieldPayerUserID:
+		return m.OldPayerUserID(ctx)
+	case batchimagejob.FieldResearchGroupID:
+		return m.OldResearchGroupID(ctx)
+	case batchimagejob.FieldResearchGroupMemberID:
+		return m.OldResearchGroupMemberID(ctx)
+	case batchimagejob.FieldFundingSource:
+		return m.OldFundingSource(ctx)
+	case batchimagejob.FieldAccountProviderID:
+		return m.OldAccountProviderID(ctx)
 	case batchimagejob.FieldProvider:
 		return m.OldProvider(ctx)
 	case batchimagejob.FieldModel:
@@ -13837,6 +14335,41 @@ func (m *BatchImageJobMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetAccountID(v)
+		return nil
+	case batchimagejob.FieldPayerUserID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPayerUserID(v)
+		return nil
+	case batchimagejob.FieldResearchGroupID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetResearchGroupID(v)
+		return nil
+	case batchimagejob.FieldResearchGroupMemberID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetResearchGroupMemberID(v)
+		return nil
+	case batchimagejob.FieldFundingSource:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetFundingSource(v)
+		return nil
+	case batchimagejob.FieldAccountProviderID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAccountProviderID(v)
 		return nil
 	case batchimagejob.FieldProvider:
 		v, ok := value.(string)
@@ -14107,6 +14640,18 @@ func (m *BatchImageJobMutation) AddedFields() []string {
 	if m.addaccount_id != nil {
 		fields = append(fields, batchimagejob.FieldAccountID)
 	}
+	if m.addpayer_user_id != nil {
+		fields = append(fields, batchimagejob.FieldPayerUserID)
+	}
+	if m.addresearch_group_id != nil {
+		fields = append(fields, batchimagejob.FieldResearchGroupID)
+	}
+	if m.addresearch_group_member_id != nil {
+		fields = append(fields, batchimagejob.FieldResearchGroupMemberID)
+	}
+	if m.addaccount_provider_id != nil {
+		fields = append(fields, batchimagejob.FieldAccountProviderID)
+	}
 	if m.additem_count != nil {
 		fields = append(fields, batchimagejob.FieldItemCount)
 	}
@@ -14148,6 +14693,14 @@ func (m *BatchImageJobMutation) AddedField(name string) (ent.Value, bool) {
 		return m.AddedAPIKeyID()
 	case batchimagejob.FieldAccountID:
 		return m.AddedAccountID()
+	case batchimagejob.FieldPayerUserID:
+		return m.AddedPayerUserID()
+	case batchimagejob.FieldResearchGroupID:
+		return m.AddedResearchGroupID()
+	case batchimagejob.FieldResearchGroupMemberID:
+		return m.AddedResearchGroupMemberID()
+	case batchimagejob.FieldAccountProviderID:
+		return m.AddedAccountProviderID()
 	case batchimagejob.FieldItemCount:
 		return m.AddedItemCount()
 	case batchimagejob.FieldSuccessCount:
@@ -14195,6 +14748,34 @@ func (m *BatchImageJobMutation) AddField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.AddAccountID(v)
+		return nil
+	case batchimagejob.FieldPayerUserID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddPayerUserID(v)
+		return nil
+	case batchimagejob.FieldResearchGroupID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddResearchGroupID(v)
+		return nil
+	case batchimagejob.FieldResearchGroupMemberID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddResearchGroupMemberID(v)
+		return nil
+	case batchimagejob.FieldAccountProviderID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddAccountProviderID(v)
 		return nil
 	case batchimagejob.FieldItemCount:
 		v, ok := value.(int)
@@ -14272,6 +14853,21 @@ func (m *BatchImageJobMutation) ClearedFields() []string {
 	}
 	if m.FieldCleared(batchimagejob.FieldAccountID) {
 		fields = append(fields, batchimagejob.FieldAccountID)
+	}
+	if m.FieldCleared(batchimagejob.FieldPayerUserID) {
+		fields = append(fields, batchimagejob.FieldPayerUserID)
+	}
+	if m.FieldCleared(batchimagejob.FieldResearchGroupID) {
+		fields = append(fields, batchimagejob.FieldResearchGroupID)
+	}
+	if m.FieldCleared(batchimagejob.FieldResearchGroupMemberID) {
+		fields = append(fields, batchimagejob.FieldResearchGroupMemberID)
+	}
+	if m.FieldCleared(batchimagejob.FieldFundingSource) {
+		fields = append(fields, batchimagejob.FieldFundingSource)
+	}
+	if m.FieldCleared(batchimagejob.FieldAccountProviderID) {
+		fields = append(fields, batchimagejob.FieldAccountProviderID)
 	}
 	if m.FieldCleared(batchimagejob.FieldProviderJobName) {
 		fields = append(fields, batchimagejob.FieldProviderJobName)
@@ -14359,6 +14955,21 @@ func (m *BatchImageJobMutation) ClearField(name string) error {
 	case batchimagejob.FieldAccountID:
 		m.ClearAccountID()
 		return nil
+	case batchimagejob.FieldPayerUserID:
+		m.ClearPayerUserID()
+		return nil
+	case batchimagejob.FieldResearchGroupID:
+		m.ClearResearchGroupID()
+		return nil
+	case batchimagejob.FieldResearchGroupMemberID:
+		m.ClearResearchGroupMemberID()
+		return nil
+	case batchimagejob.FieldFundingSource:
+		m.ClearFundingSource()
+		return nil
+	case batchimagejob.FieldAccountProviderID:
+		m.ClearAccountProviderID()
+		return nil
 	case batchimagejob.FieldProviderJobName:
 		m.ClearProviderJobName()
 		return nil
@@ -14444,6 +15055,21 @@ func (m *BatchImageJobMutation) ResetField(name string) error {
 		return nil
 	case batchimagejob.FieldAccountID:
 		m.ResetAccountID()
+		return nil
+	case batchimagejob.FieldPayerUserID:
+		m.ResetPayerUserID()
+		return nil
+	case batchimagejob.FieldResearchGroupID:
+		m.ResetResearchGroupID()
+		return nil
+	case batchimagejob.FieldResearchGroupMemberID:
+		m.ResetResearchGroupMemberID()
+		return nil
+	case batchimagejob.FieldFundingSource:
+		m.ResetFundingSource()
+		return nil
+	case batchimagejob.FieldAccountProviderID:
+		m.ResetAccountProviderID()
 		return nil
 	case batchimagejob.FieldProvider:
 		m.ResetProvider()
@@ -42234,6 +42860,3302 @@ func (m *RedeemCodeMutation) ResetEdge(name string) error {
 	return fmt.Errorf("unknown RedeemCode edge %s", name)
 }
 
+// ResearchGroupMutation represents an operation that mutates the ResearchGroup nodes in the graph.
+type ResearchGroupMutation struct {
+	config
+	op                       Op
+	typ                      string
+	id                       *int64
+	name                     *string
+	status                   *string
+	created_at               *time.Time
+	updated_at               *time.Time
+	dissolved_at             *time.Time
+	clearedFields            map[string]struct{}
+	owner                    *int64
+	clearedowner             bool
+	members                  map[int64]struct{}
+	removedmembers           map[int64]struct{}
+	clearedmembers           bool
+	quota_audits             map[int64]struct{}
+	removedquota_audits      map[int64]struct{}
+	clearedquota_audits      bool
+	funded_usage_logs        map[int64]struct{}
+	removedfunded_usage_logs map[int64]struct{}
+	clearedfunded_usage_logs bool
+	done                     bool
+	oldValue                 func(context.Context) (*ResearchGroup, error)
+	predicates               []predicate.ResearchGroup
+}
+
+var _ ent.Mutation = (*ResearchGroupMutation)(nil)
+
+// researchgroupOption allows management of the mutation configuration using functional options.
+type researchgroupOption func(*ResearchGroupMutation)
+
+// newResearchGroupMutation creates new mutation for the ResearchGroup entity.
+func newResearchGroupMutation(c config, op Op, opts ...researchgroupOption) *ResearchGroupMutation {
+	m := &ResearchGroupMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeResearchGroup,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withResearchGroupID sets the ID field of the mutation.
+func withResearchGroupID(id int64) researchgroupOption {
+	return func(m *ResearchGroupMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *ResearchGroup
+		)
+		m.oldValue = func(ctx context.Context) (*ResearchGroup, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().ResearchGroup.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withResearchGroup sets the old ResearchGroup of the mutation.
+func withResearchGroup(node *ResearchGroup) researchgroupOption {
+	return func(m *ResearchGroupMutation) {
+		m.oldValue = func(context.Context) (*ResearchGroup, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m ResearchGroupMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m ResearchGroupMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *ResearchGroupMutation) ID() (id int64, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *ResearchGroupMutation) IDs(ctx context.Context) ([]int64, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int64{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().ResearchGroup.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetName sets the "name" field.
+func (m *ResearchGroupMutation) SetName(s string) {
+	m.name = &s
+}
+
+// Name returns the value of the "name" field in the mutation.
+func (m *ResearchGroupMutation) Name() (r string, exists bool) {
+	v := m.name
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldName returns the old "name" field's value of the ResearchGroup entity.
+// If the ResearchGroup object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ResearchGroupMutation) OldName(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldName is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldName requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldName: %w", err)
+	}
+	return oldValue.Name, nil
+}
+
+// ResetName resets all changes to the "name" field.
+func (m *ResearchGroupMutation) ResetName() {
+	m.name = nil
+}
+
+// SetOwnerUserID sets the "owner_user_id" field.
+func (m *ResearchGroupMutation) SetOwnerUserID(i int64) {
+	m.owner = &i
+}
+
+// OwnerUserID returns the value of the "owner_user_id" field in the mutation.
+func (m *ResearchGroupMutation) OwnerUserID() (r int64, exists bool) {
+	v := m.owner
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldOwnerUserID returns the old "owner_user_id" field's value of the ResearchGroup entity.
+// If the ResearchGroup object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ResearchGroupMutation) OldOwnerUserID(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldOwnerUserID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldOwnerUserID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldOwnerUserID: %w", err)
+	}
+	return oldValue.OwnerUserID, nil
+}
+
+// ClearOwnerUserID clears the value of the "owner_user_id" field.
+func (m *ResearchGroupMutation) ClearOwnerUserID() {
+	m.owner = nil
+	m.clearedFields[researchgroup.FieldOwnerUserID] = struct{}{}
+}
+
+// OwnerUserIDCleared returns if the "owner_user_id" field was cleared in this mutation.
+func (m *ResearchGroupMutation) OwnerUserIDCleared() bool {
+	_, ok := m.clearedFields[researchgroup.FieldOwnerUserID]
+	return ok
+}
+
+// ResetOwnerUserID resets all changes to the "owner_user_id" field.
+func (m *ResearchGroupMutation) ResetOwnerUserID() {
+	m.owner = nil
+	delete(m.clearedFields, researchgroup.FieldOwnerUserID)
+}
+
+// SetStatus sets the "status" field.
+func (m *ResearchGroupMutation) SetStatus(s string) {
+	m.status = &s
+}
+
+// Status returns the value of the "status" field in the mutation.
+func (m *ResearchGroupMutation) Status() (r string, exists bool) {
+	v := m.status
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStatus returns the old "status" field's value of the ResearchGroup entity.
+// If the ResearchGroup object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ResearchGroupMutation) OldStatus(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStatus is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStatus requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStatus: %w", err)
+	}
+	return oldValue.Status, nil
+}
+
+// ResetStatus resets all changes to the "status" field.
+func (m *ResearchGroupMutation) ResetStatus() {
+	m.status = nil
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *ResearchGroupMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *ResearchGroupMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the ResearchGroup entity.
+// If the ResearchGroup object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ResearchGroupMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *ResearchGroupMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *ResearchGroupMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *ResearchGroupMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the ResearchGroup entity.
+// If the ResearchGroup object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ResearchGroupMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *ResearchGroupMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// SetDissolvedAt sets the "dissolved_at" field.
+func (m *ResearchGroupMutation) SetDissolvedAt(t time.Time) {
+	m.dissolved_at = &t
+}
+
+// DissolvedAt returns the value of the "dissolved_at" field in the mutation.
+func (m *ResearchGroupMutation) DissolvedAt() (r time.Time, exists bool) {
+	v := m.dissolved_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDissolvedAt returns the old "dissolved_at" field's value of the ResearchGroup entity.
+// If the ResearchGroup object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ResearchGroupMutation) OldDissolvedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDissolvedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDissolvedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDissolvedAt: %w", err)
+	}
+	return oldValue.DissolvedAt, nil
+}
+
+// ClearDissolvedAt clears the value of the "dissolved_at" field.
+func (m *ResearchGroupMutation) ClearDissolvedAt() {
+	m.dissolved_at = nil
+	m.clearedFields[researchgroup.FieldDissolvedAt] = struct{}{}
+}
+
+// DissolvedAtCleared returns if the "dissolved_at" field was cleared in this mutation.
+func (m *ResearchGroupMutation) DissolvedAtCleared() bool {
+	_, ok := m.clearedFields[researchgroup.FieldDissolvedAt]
+	return ok
+}
+
+// ResetDissolvedAt resets all changes to the "dissolved_at" field.
+func (m *ResearchGroupMutation) ResetDissolvedAt() {
+	m.dissolved_at = nil
+	delete(m.clearedFields, researchgroup.FieldDissolvedAt)
+}
+
+// SetOwnerID sets the "owner" edge to the User entity by id.
+func (m *ResearchGroupMutation) SetOwnerID(id int64) {
+	m.owner = &id
+}
+
+// ClearOwner clears the "owner" edge to the User entity.
+func (m *ResearchGroupMutation) ClearOwner() {
+	m.clearedowner = true
+	m.clearedFields[researchgroup.FieldOwnerUserID] = struct{}{}
+}
+
+// OwnerCleared reports if the "owner" edge to the User entity was cleared.
+func (m *ResearchGroupMutation) OwnerCleared() bool {
+	return m.OwnerUserIDCleared() || m.clearedowner
+}
+
+// OwnerID returns the "owner" edge ID in the mutation.
+func (m *ResearchGroupMutation) OwnerID() (id int64, exists bool) {
+	if m.owner != nil {
+		return *m.owner, true
+	}
+	return
+}
+
+// OwnerIDs returns the "owner" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// OwnerID instead. It exists only for internal usage by the builders.
+func (m *ResearchGroupMutation) OwnerIDs() (ids []int64) {
+	if id := m.owner; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetOwner resets all changes to the "owner" edge.
+func (m *ResearchGroupMutation) ResetOwner() {
+	m.owner = nil
+	m.clearedowner = false
+}
+
+// AddMemberIDs adds the "members" edge to the ResearchGroupMember entity by ids.
+func (m *ResearchGroupMutation) AddMemberIDs(ids ...int64) {
+	if m.members == nil {
+		m.members = make(map[int64]struct{})
+	}
+	for i := range ids {
+		m.members[ids[i]] = struct{}{}
+	}
+}
+
+// ClearMembers clears the "members" edge to the ResearchGroupMember entity.
+func (m *ResearchGroupMutation) ClearMembers() {
+	m.clearedmembers = true
+}
+
+// MembersCleared reports if the "members" edge to the ResearchGroupMember entity was cleared.
+func (m *ResearchGroupMutation) MembersCleared() bool {
+	return m.clearedmembers
+}
+
+// RemoveMemberIDs removes the "members" edge to the ResearchGroupMember entity by IDs.
+func (m *ResearchGroupMutation) RemoveMemberIDs(ids ...int64) {
+	if m.removedmembers == nil {
+		m.removedmembers = make(map[int64]struct{})
+	}
+	for i := range ids {
+		delete(m.members, ids[i])
+		m.removedmembers[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedMembers returns the removed IDs of the "members" edge to the ResearchGroupMember entity.
+func (m *ResearchGroupMutation) RemovedMembersIDs() (ids []int64) {
+	for id := range m.removedmembers {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// MembersIDs returns the "members" edge IDs in the mutation.
+func (m *ResearchGroupMutation) MembersIDs() (ids []int64) {
+	for id := range m.members {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetMembers resets all changes to the "members" edge.
+func (m *ResearchGroupMutation) ResetMembers() {
+	m.members = nil
+	m.clearedmembers = false
+	m.removedmembers = nil
+}
+
+// AddQuotaAuditIDs adds the "quota_audits" edge to the ResearchGroupQuotaAudit entity by ids.
+func (m *ResearchGroupMutation) AddQuotaAuditIDs(ids ...int64) {
+	if m.quota_audits == nil {
+		m.quota_audits = make(map[int64]struct{})
+	}
+	for i := range ids {
+		m.quota_audits[ids[i]] = struct{}{}
+	}
+}
+
+// ClearQuotaAudits clears the "quota_audits" edge to the ResearchGroupQuotaAudit entity.
+func (m *ResearchGroupMutation) ClearQuotaAudits() {
+	m.clearedquota_audits = true
+}
+
+// QuotaAuditsCleared reports if the "quota_audits" edge to the ResearchGroupQuotaAudit entity was cleared.
+func (m *ResearchGroupMutation) QuotaAuditsCleared() bool {
+	return m.clearedquota_audits
+}
+
+// RemoveQuotaAuditIDs removes the "quota_audits" edge to the ResearchGroupQuotaAudit entity by IDs.
+func (m *ResearchGroupMutation) RemoveQuotaAuditIDs(ids ...int64) {
+	if m.removedquota_audits == nil {
+		m.removedquota_audits = make(map[int64]struct{})
+	}
+	for i := range ids {
+		delete(m.quota_audits, ids[i])
+		m.removedquota_audits[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedQuotaAudits returns the removed IDs of the "quota_audits" edge to the ResearchGroupQuotaAudit entity.
+func (m *ResearchGroupMutation) RemovedQuotaAuditsIDs() (ids []int64) {
+	for id := range m.removedquota_audits {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// QuotaAuditsIDs returns the "quota_audits" edge IDs in the mutation.
+func (m *ResearchGroupMutation) QuotaAuditsIDs() (ids []int64) {
+	for id := range m.quota_audits {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetQuotaAudits resets all changes to the "quota_audits" edge.
+func (m *ResearchGroupMutation) ResetQuotaAudits() {
+	m.quota_audits = nil
+	m.clearedquota_audits = false
+	m.removedquota_audits = nil
+}
+
+// AddFundedUsageLogIDs adds the "funded_usage_logs" edge to the UsageLog entity by ids.
+func (m *ResearchGroupMutation) AddFundedUsageLogIDs(ids ...int64) {
+	if m.funded_usage_logs == nil {
+		m.funded_usage_logs = make(map[int64]struct{})
+	}
+	for i := range ids {
+		m.funded_usage_logs[ids[i]] = struct{}{}
+	}
+}
+
+// ClearFundedUsageLogs clears the "funded_usage_logs" edge to the UsageLog entity.
+func (m *ResearchGroupMutation) ClearFundedUsageLogs() {
+	m.clearedfunded_usage_logs = true
+}
+
+// FundedUsageLogsCleared reports if the "funded_usage_logs" edge to the UsageLog entity was cleared.
+func (m *ResearchGroupMutation) FundedUsageLogsCleared() bool {
+	return m.clearedfunded_usage_logs
+}
+
+// RemoveFundedUsageLogIDs removes the "funded_usage_logs" edge to the UsageLog entity by IDs.
+func (m *ResearchGroupMutation) RemoveFundedUsageLogIDs(ids ...int64) {
+	if m.removedfunded_usage_logs == nil {
+		m.removedfunded_usage_logs = make(map[int64]struct{})
+	}
+	for i := range ids {
+		delete(m.funded_usage_logs, ids[i])
+		m.removedfunded_usage_logs[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedFundedUsageLogs returns the removed IDs of the "funded_usage_logs" edge to the UsageLog entity.
+func (m *ResearchGroupMutation) RemovedFundedUsageLogsIDs() (ids []int64) {
+	for id := range m.removedfunded_usage_logs {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// FundedUsageLogsIDs returns the "funded_usage_logs" edge IDs in the mutation.
+func (m *ResearchGroupMutation) FundedUsageLogsIDs() (ids []int64) {
+	for id := range m.funded_usage_logs {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetFundedUsageLogs resets all changes to the "funded_usage_logs" edge.
+func (m *ResearchGroupMutation) ResetFundedUsageLogs() {
+	m.funded_usage_logs = nil
+	m.clearedfunded_usage_logs = false
+	m.removedfunded_usage_logs = nil
+}
+
+// Where appends a list predicates to the ResearchGroupMutation builder.
+func (m *ResearchGroupMutation) Where(ps ...predicate.ResearchGroup) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the ResearchGroupMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *ResearchGroupMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.ResearchGroup, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *ResearchGroupMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *ResearchGroupMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (ResearchGroup).
+func (m *ResearchGroupMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *ResearchGroupMutation) Fields() []string {
+	fields := make([]string, 0, 6)
+	if m.name != nil {
+		fields = append(fields, researchgroup.FieldName)
+	}
+	if m.owner != nil {
+		fields = append(fields, researchgroup.FieldOwnerUserID)
+	}
+	if m.status != nil {
+		fields = append(fields, researchgroup.FieldStatus)
+	}
+	if m.created_at != nil {
+		fields = append(fields, researchgroup.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, researchgroup.FieldUpdatedAt)
+	}
+	if m.dissolved_at != nil {
+		fields = append(fields, researchgroup.FieldDissolvedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *ResearchGroupMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case researchgroup.FieldName:
+		return m.Name()
+	case researchgroup.FieldOwnerUserID:
+		return m.OwnerUserID()
+	case researchgroup.FieldStatus:
+		return m.Status()
+	case researchgroup.FieldCreatedAt:
+		return m.CreatedAt()
+	case researchgroup.FieldUpdatedAt:
+		return m.UpdatedAt()
+	case researchgroup.FieldDissolvedAt:
+		return m.DissolvedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *ResearchGroupMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case researchgroup.FieldName:
+		return m.OldName(ctx)
+	case researchgroup.FieldOwnerUserID:
+		return m.OldOwnerUserID(ctx)
+	case researchgroup.FieldStatus:
+		return m.OldStatus(ctx)
+	case researchgroup.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case researchgroup.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	case researchgroup.FieldDissolvedAt:
+		return m.OldDissolvedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown ResearchGroup field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ResearchGroupMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case researchgroup.FieldName:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetName(v)
+		return nil
+	case researchgroup.FieldOwnerUserID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetOwnerUserID(v)
+		return nil
+	case researchgroup.FieldStatus:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStatus(v)
+		return nil
+	case researchgroup.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case researchgroup.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	case researchgroup.FieldDissolvedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDissolvedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown ResearchGroup field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *ResearchGroupMutation) AddedFields() []string {
+	var fields []string
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *ResearchGroupMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ResearchGroupMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown ResearchGroup numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *ResearchGroupMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(researchgroup.FieldOwnerUserID) {
+		fields = append(fields, researchgroup.FieldOwnerUserID)
+	}
+	if m.FieldCleared(researchgroup.FieldDissolvedAt) {
+		fields = append(fields, researchgroup.FieldDissolvedAt)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *ResearchGroupMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *ResearchGroupMutation) ClearField(name string) error {
+	switch name {
+	case researchgroup.FieldOwnerUserID:
+		m.ClearOwnerUserID()
+		return nil
+	case researchgroup.FieldDissolvedAt:
+		m.ClearDissolvedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown ResearchGroup nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *ResearchGroupMutation) ResetField(name string) error {
+	switch name {
+	case researchgroup.FieldName:
+		m.ResetName()
+		return nil
+	case researchgroup.FieldOwnerUserID:
+		m.ResetOwnerUserID()
+		return nil
+	case researchgroup.FieldStatus:
+		m.ResetStatus()
+		return nil
+	case researchgroup.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case researchgroup.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	case researchgroup.FieldDissolvedAt:
+		m.ResetDissolvedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown ResearchGroup field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *ResearchGroupMutation) AddedEdges() []string {
+	edges := make([]string, 0, 4)
+	if m.owner != nil {
+		edges = append(edges, researchgroup.EdgeOwner)
+	}
+	if m.members != nil {
+		edges = append(edges, researchgroup.EdgeMembers)
+	}
+	if m.quota_audits != nil {
+		edges = append(edges, researchgroup.EdgeQuotaAudits)
+	}
+	if m.funded_usage_logs != nil {
+		edges = append(edges, researchgroup.EdgeFundedUsageLogs)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *ResearchGroupMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case researchgroup.EdgeOwner:
+		if id := m.owner; id != nil {
+			return []ent.Value{*id}
+		}
+	case researchgroup.EdgeMembers:
+		ids := make([]ent.Value, 0, len(m.members))
+		for id := range m.members {
+			ids = append(ids, id)
+		}
+		return ids
+	case researchgroup.EdgeQuotaAudits:
+		ids := make([]ent.Value, 0, len(m.quota_audits))
+		for id := range m.quota_audits {
+			ids = append(ids, id)
+		}
+		return ids
+	case researchgroup.EdgeFundedUsageLogs:
+		ids := make([]ent.Value, 0, len(m.funded_usage_logs))
+		for id := range m.funded_usage_logs {
+			ids = append(ids, id)
+		}
+		return ids
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *ResearchGroupMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 4)
+	if m.removedmembers != nil {
+		edges = append(edges, researchgroup.EdgeMembers)
+	}
+	if m.removedquota_audits != nil {
+		edges = append(edges, researchgroup.EdgeQuotaAudits)
+	}
+	if m.removedfunded_usage_logs != nil {
+		edges = append(edges, researchgroup.EdgeFundedUsageLogs)
+	}
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *ResearchGroupMutation) RemovedIDs(name string) []ent.Value {
+	switch name {
+	case researchgroup.EdgeMembers:
+		ids := make([]ent.Value, 0, len(m.removedmembers))
+		for id := range m.removedmembers {
+			ids = append(ids, id)
+		}
+		return ids
+	case researchgroup.EdgeQuotaAudits:
+		ids := make([]ent.Value, 0, len(m.removedquota_audits))
+		for id := range m.removedquota_audits {
+			ids = append(ids, id)
+		}
+		return ids
+	case researchgroup.EdgeFundedUsageLogs:
+		ids := make([]ent.Value, 0, len(m.removedfunded_usage_logs))
+		for id := range m.removedfunded_usage_logs {
+			ids = append(ids, id)
+		}
+		return ids
+	}
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *ResearchGroupMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 4)
+	if m.clearedowner {
+		edges = append(edges, researchgroup.EdgeOwner)
+	}
+	if m.clearedmembers {
+		edges = append(edges, researchgroup.EdgeMembers)
+	}
+	if m.clearedquota_audits {
+		edges = append(edges, researchgroup.EdgeQuotaAudits)
+	}
+	if m.clearedfunded_usage_logs {
+		edges = append(edges, researchgroup.EdgeFundedUsageLogs)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *ResearchGroupMutation) EdgeCleared(name string) bool {
+	switch name {
+	case researchgroup.EdgeOwner:
+		return m.clearedowner
+	case researchgroup.EdgeMembers:
+		return m.clearedmembers
+	case researchgroup.EdgeQuotaAudits:
+		return m.clearedquota_audits
+	case researchgroup.EdgeFundedUsageLogs:
+		return m.clearedfunded_usage_logs
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *ResearchGroupMutation) ClearEdge(name string) error {
+	switch name {
+	case researchgroup.EdgeOwner:
+		m.ClearOwner()
+		return nil
+	}
+	return fmt.Errorf("unknown ResearchGroup unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *ResearchGroupMutation) ResetEdge(name string) error {
+	switch name {
+	case researchgroup.EdgeOwner:
+		m.ResetOwner()
+		return nil
+	case researchgroup.EdgeMembers:
+		m.ResetMembers()
+		return nil
+	case researchgroup.EdgeQuotaAudits:
+		m.ResetQuotaAudits()
+		return nil
+	case researchgroup.EdgeFundedUsageLogs:
+		m.ResetFundedUsageLogs()
+		return nil
+	}
+	return fmt.Errorf("unknown ResearchGroup edge %s", name)
+}
+
+// ResearchGroupMemberMutation represents an operation that mutates the ResearchGroupMember nodes in the graph.
+type ResearchGroupMemberMutation struct {
+	config
+	op                      Op
+	typ                     string
+	id                      *int64
+	status                  *string
+	monthly_limit_usd       *float64
+	addmonthly_limit_usd    *float64
+	monthly_usage_usd       *float64
+	addmonthly_usage_usd    *float64
+	monthly_reserved_usd    *float64
+	addmonthly_reserved_usd *float64
+	usage_window_start      *time.Time
+	invited_at              *time.Time
+	accepted_at             *time.Time
+	paused_at               *time.Time
+	removed_at              *time.Time
+	created_at              *time.Time
+	updated_at              *time.Time
+	clearedFields           map[string]struct{}
+	research_group          *int64
+	clearedresearch_group   bool
+	user                    *int64
+	cleareduser             bool
+	done                    bool
+	oldValue                func(context.Context) (*ResearchGroupMember, error)
+	predicates              []predicate.ResearchGroupMember
+}
+
+var _ ent.Mutation = (*ResearchGroupMemberMutation)(nil)
+
+// researchgroupmemberOption allows management of the mutation configuration using functional options.
+type researchgroupmemberOption func(*ResearchGroupMemberMutation)
+
+// newResearchGroupMemberMutation creates new mutation for the ResearchGroupMember entity.
+func newResearchGroupMemberMutation(c config, op Op, opts ...researchgroupmemberOption) *ResearchGroupMemberMutation {
+	m := &ResearchGroupMemberMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeResearchGroupMember,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withResearchGroupMemberID sets the ID field of the mutation.
+func withResearchGroupMemberID(id int64) researchgroupmemberOption {
+	return func(m *ResearchGroupMemberMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *ResearchGroupMember
+		)
+		m.oldValue = func(ctx context.Context) (*ResearchGroupMember, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().ResearchGroupMember.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withResearchGroupMember sets the old ResearchGroupMember of the mutation.
+func withResearchGroupMember(node *ResearchGroupMember) researchgroupmemberOption {
+	return func(m *ResearchGroupMemberMutation) {
+		m.oldValue = func(context.Context) (*ResearchGroupMember, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m ResearchGroupMemberMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m ResearchGroupMemberMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *ResearchGroupMemberMutation) ID() (id int64, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *ResearchGroupMemberMutation) IDs(ctx context.Context) ([]int64, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int64{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().ResearchGroupMember.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetResearchGroupID sets the "research_group_id" field.
+func (m *ResearchGroupMemberMutation) SetResearchGroupID(i int64) {
+	m.research_group = &i
+}
+
+// ResearchGroupID returns the value of the "research_group_id" field in the mutation.
+func (m *ResearchGroupMemberMutation) ResearchGroupID() (r int64, exists bool) {
+	v := m.research_group
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldResearchGroupID returns the old "research_group_id" field's value of the ResearchGroupMember entity.
+// If the ResearchGroupMember object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ResearchGroupMemberMutation) OldResearchGroupID(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldResearchGroupID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldResearchGroupID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldResearchGroupID: %w", err)
+	}
+	return oldValue.ResearchGroupID, nil
+}
+
+// ResetResearchGroupID resets all changes to the "research_group_id" field.
+func (m *ResearchGroupMemberMutation) ResetResearchGroupID() {
+	m.research_group = nil
+}
+
+// SetUserID sets the "user_id" field.
+func (m *ResearchGroupMemberMutation) SetUserID(i int64) {
+	m.user = &i
+}
+
+// UserID returns the value of the "user_id" field in the mutation.
+func (m *ResearchGroupMemberMutation) UserID() (r int64, exists bool) {
+	v := m.user
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUserID returns the old "user_id" field's value of the ResearchGroupMember entity.
+// If the ResearchGroupMember object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ResearchGroupMemberMutation) OldUserID(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUserID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUserID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUserID: %w", err)
+	}
+	return oldValue.UserID, nil
+}
+
+// ResetUserID resets all changes to the "user_id" field.
+func (m *ResearchGroupMemberMutation) ResetUserID() {
+	m.user = nil
+}
+
+// SetStatus sets the "status" field.
+func (m *ResearchGroupMemberMutation) SetStatus(s string) {
+	m.status = &s
+}
+
+// Status returns the value of the "status" field in the mutation.
+func (m *ResearchGroupMemberMutation) Status() (r string, exists bool) {
+	v := m.status
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStatus returns the old "status" field's value of the ResearchGroupMember entity.
+// If the ResearchGroupMember object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ResearchGroupMemberMutation) OldStatus(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStatus is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStatus requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStatus: %w", err)
+	}
+	return oldValue.Status, nil
+}
+
+// ResetStatus resets all changes to the "status" field.
+func (m *ResearchGroupMemberMutation) ResetStatus() {
+	m.status = nil
+}
+
+// SetMonthlyLimitUsd sets the "monthly_limit_usd" field.
+func (m *ResearchGroupMemberMutation) SetMonthlyLimitUsd(f float64) {
+	m.monthly_limit_usd = &f
+	m.addmonthly_limit_usd = nil
+}
+
+// MonthlyLimitUsd returns the value of the "monthly_limit_usd" field in the mutation.
+func (m *ResearchGroupMemberMutation) MonthlyLimitUsd() (r float64, exists bool) {
+	v := m.monthly_limit_usd
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldMonthlyLimitUsd returns the old "monthly_limit_usd" field's value of the ResearchGroupMember entity.
+// If the ResearchGroupMember object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ResearchGroupMemberMutation) OldMonthlyLimitUsd(ctx context.Context) (v float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldMonthlyLimitUsd is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldMonthlyLimitUsd requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldMonthlyLimitUsd: %w", err)
+	}
+	return oldValue.MonthlyLimitUsd, nil
+}
+
+// AddMonthlyLimitUsd adds f to the "monthly_limit_usd" field.
+func (m *ResearchGroupMemberMutation) AddMonthlyLimitUsd(f float64) {
+	if m.addmonthly_limit_usd != nil {
+		*m.addmonthly_limit_usd += f
+	} else {
+		m.addmonthly_limit_usd = &f
+	}
+}
+
+// AddedMonthlyLimitUsd returns the value that was added to the "monthly_limit_usd" field in this mutation.
+func (m *ResearchGroupMemberMutation) AddedMonthlyLimitUsd() (r float64, exists bool) {
+	v := m.addmonthly_limit_usd
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetMonthlyLimitUsd resets all changes to the "monthly_limit_usd" field.
+func (m *ResearchGroupMemberMutation) ResetMonthlyLimitUsd() {
+	m.monthly_limit_usd = nil
+	m.addmonthly_limit_usd = nil
+}
+
+// SetMonthlyUsageUsd sets the "monthly_usage_usd" field.
+func (m *ResearchGroupMemberMutation) SetMonthlyUsageUsd(f float64) {
+	m.monthly_usage_usd = &f
+	m.addmonthly_usage_usd = nil
+}
+
+// MonthlyUsageUsd returns the value of the "monthly_usage_usd" field in the mutation.
+func (m *ResearchGroupMemberMutation) MonthlyUsageUsd() (r float64, exists bool) {
+	v := m.monthly_usage_usd
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldMonthlyUsageUsd returns the old "monthly_usage_usd" field's value of the ResearchGroupMember entity.
+// If the ResearchGroupMember object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ResearchGroupMemberMutation) OldMonthlyUsageUsd(ctx context.Context) (v float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldMonthlyUsageUsd is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldMonthlyUsageUsd requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldMonthlyUsageUsd: %w", err)
+	}
+	return oldValue.MonthlyUsageUsd, nil
+}
+
+// AddMonthlyUsageUsd adds f to the "monthly_usage_usd" field.
+func (m *ResearchGroupMemberMutation) AddMonthlyUsageUsd(f float64) {
+	if m.addmonthly_usage_usd != nil {
+		*m.addmonthly_usage_usd += f
+	} else {
+		m.addmonthly_usage_usd = &f
+	}
+}
+
+// AddedMonthlyUsageUsd returns the value that was added to the "monthly_usage_usd" field in this mutation.
+func (m *ResearchGroupMemberMutation) AddedMonthlyUsageUsd() (r float64, exists bool) {
+	v := m.addmonthly_usage_usd
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetMonthlyUsageUsd resets all changes to the "monthly_usage_usd" field.
+func (m *ResearchGroupMemberMutation) ResetMonthlyUsageUsd() {
+	m.monthly_usage_usd = nil
+	m.addmonthly_usage_usd = nil
+}
+
+// SetMonthlyReservedUsd sets the "monthly_reserved_usd" field.
+func (m *ResearchGroupMemberMutation) SetMonthlyReservedUsd(f float64) {
+	m.monthly_reserved_usd = &f
+	m.addmonthly_reserved_usd = nil
+}
+
+// MonthlyReservedUsd returns the value of the "monthly_reserved_usd" field in the mutation.
+func (m *ResearchGroupMemberMutation) MonthlyReservedUsd() (r float64, exists bool) {
+	v := m.monthly_reserved_usd
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldMonthlyReservedUsd returns the old "monthly_reserved_usd" field's value of the ResearchGroupMember entity.
+// If the ResearchGroupMember object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ResearchGroupMemberMutation) OldMonthlyReservedUsd(ctx context.Context) (v float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldMonthlyReservedUsd is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldMonthlyReservedUsd requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldMonthlyReservedUsd: %w", err)
+	}
+	return oldValue.MonthlyReservedUsd, nil
+}
+
+// AddMonthlyReservedUsd adds f to the "monthly_reserved_usd" field.
+func (m *ResearchGroupMemberMutation) AddMonthlyReservedUsd(f float64) {
+	if m.addmonthly_reserved_usd != nil {
+		*m.addmonthly_reserved_usd += f
+	} else {
+		m.addmonthly_reserved_usd = &f
+	}
+}
+
+// AddedMonthlyReservedUsd returns the value that was added to the "monthly_reserved_usd" field in this mutation.
+func (m *ResearchGroupMemberMutation) AddedMonthlyReservedUsd() (r float64, exists bool) {
+	v := m.addmonthly_reserved_usd
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetMonthlyReservedUsd resets all changes to the "monthly_reserved_usd" field.
+func (m *ResearchGroupMemberMutation) ResetMonthlyReservedUsd() {
+	m.monthly_reserved_usd = nil
+	m.addmonthly_reserved_usd = nil
+}
+
+// SetUsageWindowStart sets the "usage_window_start" field.
+func (m *ResearchGroupMemberMutation) SetUsageWindowStart(t time.Time) {
+	m.usage_window_start = &t
+}
+
+// UsageWindowStart returns the value of the "usage_window_start" field in the mutation.
+func (m *ResearchGroupMemberMutation) UsageWindowStart() (r time.Time, exists bool) {
+	v := m.usage_window_start
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUsageWindowStart returns the old "usage_window_start" field's value of the ResearchGroupMember entity.
+// If the ResearchGroupMember object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ResearchGroupMemberMutation) OldUsageWindowStart(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUsageWindowStart is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUsageWindowStart requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUsageWindowStart: %w", err)
+	}
+	return oldValue.UsageWindowStart, nil
+}
+
+// ResetUsageWindowStart resets all changes to the "usage_window_start" field.
+func (m *ResearchGroupMemberMutation) ResetUsageWindowStart() {
+	m.usage_window_start = nil
+}
+
+// SetInvitedAt sets the "invited_at" field.
+func (m *ResearchGroupMemberMutation) SetInvitedAt(t time.Time) {
+	m.invited_at = &t
+}
+
+// InvitedAt returns the value of the "invited_at" field in the mutation.
+func (m *ResearchGroupMemberMutation) InvitedAt() (r time.Time, exists bool) {
+	v := m.invited_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldInvitedAt returns the old "invited_at" field's value of the ResearchGroupMember entity.
+// If the ResearchGroupMember object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ResearchGroupMemberMutation) OldInvitedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldInvitedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldInvitedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldInvitedAt: %w", err)
+	}
+	return oldValue.InvitedAt, nil
+}
+
+// ResetInvitedAt resets all changes to the "invited_at" field.
+func (m *ResearchGroupMemberMutation) ResetInvitedAt() {
+	m.invited_at = nil
+}
+
+// SetAcceptedAt sets the "accepted_at" field.
+func (m *ResearchGroupMemberMutation) SetAcceptedAt(t time.Time) {
+	m.accepted_at = &t
+}
+
+// AcceptedAt returns the value of the "accepted_at" field in the mutation.
+func (m *ResearchGroupMemberMutation) AcceptedAt() (r time.Time, exists bool) {
+	v := m.accepted_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAcceptedAt returns the old "accepted_at" field's value of the ResearchGroupMember entity.
+// If the ResearchGroupMember object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ResearchGroupMemberMutation) OldAcceptedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAcceptedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAcceptedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAcceptedAt: %w", err)
+	}
+	return oldValue.AcceptedAt, nil
+}
+
+// ClearAcceptedAt clears the value of the "accepted_at" field.
+func (m *ResearchGroupMemberMutation) ClearAcceptedAt() {
+	m.accepted_at = nil
+	m.clearedFields[researchgroupmember.FieldAcceptedAt] = struct{}{}
+}
+
+// AcceptedAtCleared returns if the "accepted_at" field was cleared in this mutation.
+func (m *ResearchGroupMemberMutation) AcceptedAtCleared() bool {
+	_, ok := m.clearedFields[researchgroupmember.FieldAcceptedAt]
+	return ok
+}
+
+// ResetAcceptedAt resets all changes to the "accepted_at" field.
+func (m *ResearchGroupMemberMutation) ResetAcceptedAt() {
+	m.accepted_at = nil
+	delete(m.clearedFields, researchgroupmember.FieldAcceptedAt)
+}
+
+// SetPausedAt sets the "paused_at" field.
+func (m *ResearchGroupMemberMutation) SetPausedAt(t time.Time) {
+	m.paused_at = &t
+}
+
+// PausedAt returns the value of the "paused_at" field in the mutation.
+func (m *ResearchGroupMemberMutation) PausedAt() (r time.Time, exists bool) {
+	v := m.paused_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPausedAt returns the old "paused_at" field's value of the ResearchGroupMember entity.
+// If the ResearchGroupMember object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ResearchGroupMemberMutation) OldPausedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPausedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPausedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPausedAt: %w", err)
+	}
+	return oldValue.PausedAt, nil
+}
+
+// ClearPausedAt clears the value of the "paused_at" field.
+func (m *ResearchGroupMemberMutation) ClearPausedAt() {
+	m.paused_at = nil
+	m.clearedFields[researchgroupmember.FieldPausedAt] = struct{}{}
+}
+
+// PausedAtCleared returns if the "paused_at" field was cleared in this mutation.
+func (m *ResearchGroupMemberMutation) PausedAtCleared() bool {
+	_, ok := m.clearedFields[researchgroupmember.FieldPausedAt]
+	return ok
+}
+
+// ResetPausedAt resets all changes to the "paused_at" field.
+func (m *ResearchGroupMemberMutation) ResetPausedAt() {
+	m.paused_at = nil
+	delete(m.clearedFields, researchgroupmember.FieldPausedAt)
+}
+
+// SetRemovedAt sets the "removed_at" field.
+func (m *ResearchGroupMemberMutation) SetRemovedAt(t time.Time) {
+	m.removed_at = &t
+}
+
+// RemovedAt returns the value of the "removed_at" field in the mutation.
+func (m *ResearchGroupMemberMutation) RemovedAt() (r time.Time, exists bool) {
+	v := m.removed_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRemovedAt returns the old "removed_at" field's value of the ResearchGroupMember entity.
+// If the ResearchGroupMember object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ResearchGroupMemberMutation) OldRemovedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRemovedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRemovedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRemovedAt: %w", err)
+	}
+	return oldValue.RemovedAt, nil
+}
+
+// ClearRemovedAt clears the value of the "removed_at" field.
+func (m *ResearchGroupMemberMutation) ClearRemovedAt() {
+	m.removed_at = nil
+	m.clearedFields[researchgroupmember.FieldRemovedAt] = struct{}{}
+}
+
+// RemovedAtCleared returns if the "removed_at" field was cleared in this mutation.
+func (m *ResearchGroupMemberMutation) RemovedAtCleared() bool {
+	_, ok := m.clearedFields[researchgroupmember.FieldRemovedAt]
+	return ok
+}
+
+// ResetRemovedAt resets all changes to the "removed_at" field.
+func (m *ResearchGroupMemberMutation) ResetRemovedAt() {
+	m.removed_at = nil
+	delete(m.clearedFields, researchgroupmember.FieldRemovedAt)
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *ResearchGroupMemberMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *ResearchGroupMemberMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the ResearchGroupMember entity.
+// If the ResearchGroupMember object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ResearchGroupMemberMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *ResearchGroupMemberMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *ResearchGroupMemberMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *ResearchGroupMemberMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the ResearchGroupMember entity.
+// If the ResearchGroupMember object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ResearchGroupMemberMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *ResearchGroupMemberMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// ClearResearchGroup clears the "research_group" edge to the ResearchGroup entity.
+func (m *ResearchGroupMemberMutation) ClearResearchGroup() {
+	m.clearedresearch_group = true
+	m.clearedFields[researchgroupmember.FieldResearchGroupID] = struct{}{}
+}
+
+// ResearchGroupCleared reports if the "research_group" edge to the ResearchGroup entity was cleared.
+func (m *ResearchGroupMemberMutation) ResearchGroupCleared() bool {
+	return m.clearedresearch_group
+}
+
+// ResearchGroupIDs returns the "research_group" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// ResearchGroupID instead. It exists only for internal usage by the builders.
+func (m *ResearchGroupMemberMutation) ResearchGroupIDs() (ids []int64) {
+	if id := m.research_group; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetResearchGroup resets all changes to the "research_group" edge.
+func (m *ResearchGroupMemberMutation) ResetResearchGroup() {
+	m.research_group = nil
+	m.clearedresearch_group = false
+}
+
+// ClearUser clears the "user" edge to the User entity.
+func (m *ResearchGroupMemberMutation) ClearUser() {
+	m.cleareduser = true
+	m.clearedFields[researchgroupmember.FieldUserID] = struct{}{}
+}
+
+// UserCleared reports if the "user" edge to the User entity was cleared.
+func (m *ResearchGroupMemberMutation) UserCleared() bool {
+	return m.cleareduser
+}
+
+// UserIDs returns the "user" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// UserID instead. It exists only for internal usage by the builders.
+func (m *ResearchGroupMemberMutation) UserIDs() (ids []int64) {
+	if id := m.user; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetUser resets all changes to the "user" edge.
+func (m *ResearchGroupMemberMutation) ResetUser() {
+	m.user = nil
+	m.cleareduser = false
+}
+
+// Where appends a list predicates to the ResearchGroupMemberMutation builder.
+func (m *ResearchGroupMemberMutation) Where(ps ...predicate.ResearchGroupMember) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the ResearchGroupMemberMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *ResearchGroupMemberMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.ResearchGroupMember, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *ResearchGroupMemberMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *ResearchGroupMemberMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (ResearchGroupMember).
+func (m *ResearchGroupMemberMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *ResearchGroupMemberMutation) Fields() []string {
+	fields := make([]string, 0, 13)
+	if m.research_group != nil {
+		fields = append(fields, researchgroupmember.FieldResearchGroupID)
+	}
+	if m.user != nil {
+		fields = append(fields, researchgroupmember.FieldUserID)
+	}
+	if m.status != nil {
+		fields = append(fields, researchgroupmember.FieldStatus)
+	}
+	if m.monthly_limit_usd != nil {
+		fields = append(fields, researchgroupmember.FieldMonthlyLimitUsd)
+	}
+	if m.monthly_usage_usd != nil {
+		fields = append(fields, researchgroupmember.FieldMonthlyUsageUsd)
+	}
+	if m.monthly_reserved_usd != nil {
+		fields = append(fields, researchgroupmember.FieldMonthlyReservedUsd)
+	}
+	if m.usage_window_start != nil {
+		fields = append(fields, researchgroupmember.FieldUsageWindowStart)
+	}
+	if m.invited_at != nil {
+		fields = append(fields, researchgroupmember.FieldInvitedAt)
+	}
+	if m.accepted_at != nil {
+		fields = append(fields, researchgroupmember.FieldAcceptedAt)
+	}
+	if m.paused_at != nil {
+		fields = append(fields, researchgroupmember.FieldPausedAt)
+	}
+	if m.removed_at != nil {
+		fields = append(fields, researchgroupmember.FieldRemovedAt)
+	}
+	if m.created_at != nil {
+		fields = append(fields, researchgroupmember.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, researchgroupmember.FieldUpdatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *ResearchGroupMemberMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case researchgroupmember.FieldResearchGroupID:
+		return m.ResearchGroupID()
+	case researchgroupmember.FieldUserID:
+		return m.UserID()
+	case researchgroupmember.FieldStatus:
+		return m.Status()
+	case researchgroupmember.FieldMonthlyLimitUsd:
+		return m.MonthlyLimitUsd()
+	case researchgroupmember.FieldMonthlyUsageUsd:
+		return m.MonthlyUsageUsd()
+	case researchgroupmember.FieldMonthlyReservedUsd:
+		return m.MonthlyReservedUsd()
+	case researchgroupmember.FieldUsageWindowStart:
+		return m.UsageWindowStart()
+	case researchgroupmember.FieldInvitedAt:
+		return m.InvitedAt()
+	case researchgroupmember.FieldAcceptedAt:
+		return m.AcceptedAt()
+	case researchgroupmember.FieldPausedAt:
+		return m.PausedAt()
+	case researchgroupmember.FieldRemovedAt:
+		return m.RemovedAt()
+	case researchgroupmember.FieldCreatedAt:
+		return m.CreatedAt()
+	case researchgroupmember.FieldUpdatedAt:
+		return m.UpdatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *ResearchGroupMemberMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case researchgroupmember.FieldResearchGroupID:
+		return m.OldResearchGroupID(ctx)
+	case researchgroupmember.FieldUserID:
+		return m.OldUserID(ctx)
+	case researchgroupmember.FieldStatus:
+		return m.OldStatus(ctx)
+	case researchgroupmember.FieldMonthlyLimitUsd:
+		return m.OldMonthlyLimitUsd(ctx)
+	case researchgroupmember.FieldMonthlyUsageUsd:
+		return m.OldMonthlyUsageUsd(ctx)
+	case researchgroupmember.FieldMonthlyReservedUsd:
+		return m.OldMonthlyReservedUsd(ctx)
+	case researchgroupmember.FieldUsageWindowStart:
+		return m.OldUsageWindowStart(ctx)
+	case researchgroupmember.FieldInvitedAt:
+		return m.OldInvitedAt(ctx)
+	case researchgroupmember.FieldAcceptedAt:
+		return m.OldAcceptedAt(ctx)
+	case researchgroupmember.FieldPausedAt:
+		return m.OldPausedAt(ctx)
+	case researchgroupmember.FieldRemovedAt:
+		return m.OldRemovedAt(ctx)
+	case researchgroupmember.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case researchgroupmember.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown ResearchGroupMember field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ResearchGroupMemberMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case researchgroupmember.FieldResearchGroupID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetResearchGroupID(v)
+		return nil
+	case researchgroupmember.FieldUserID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUserID(v)
+		return nil
+	case researchgroupmember.FieldStatus:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStatus(v)
+		return nil
+	case researchgroupmember.FieldMonthlyLimitUsd:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetMonthlyLimitUsd(v)
+		return nil
+	case researchgroupmember.FieldMonthlyUsageUsd:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetMonthlyUsageUsd(v)
+		return nil
+	case researchgroupmember.FieldMonthlyReservedUsd:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetMonthlyReservedUsd(v)
+		return nil
+	case researchgroupmember.FieldUsageWindowStart:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUsageWindowStart(v)
+		return nil
+	case researchgroupmember.FieldInvitedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetInvitedAt(v)
+		return nil
+	case researchgroupmember.FieldAcceptedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAcceptedAt(v)
+		return nil
+	case researchgroupmember.FieldPausedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPausedAt(v)
+		return nil
+	case researchgroupmember.FieldRemovedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRemovedAt(v)
+		return nil
+	case researchgroupmember.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case researchgroupmember.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown ResearchGroupMember field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *ResearchGroupMemberMutation) AddedFields() []string {
+	var fields []string
+	if m.addmonthly_limit_usd != nil {
+		fields = append(fields, researchgroupmember.FieldMonthlyLimitUsd)
+	}
+	if m.addmonthly_usage_usd != nil {
+		fields = append(fields, researchgroupmember.FieldMonthlyUsageUsd)
+	}
+	if m.addmonthly_reserved_usd != nil {
+		fields = append(fields, researchgroupmember.FieldMonthlyReservedUsd)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *ResearchGroupMemberMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case researchgroupmember.FieldMonthlyLimitUsd:
+		return m.AddedMonthlyLimitUsd()
+	case researchgroupmember.FieldMonthlyUsageUsd:
+		return m.AddedMonthlyUsageUsd()
+	case researchgroupmember.FieldMonthlyReservedUsd:
+		return m.AddedMonthlyReservedUsd()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ResearchGroupMemberMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case researchgroupmember.FieldMonthlyLimitUsd:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddMonthlyLimitUsd(v)
+		return nil
+	case researchgroupmember.FieldMonthlyUsageUsd:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddMonthlyUsageUsd(v)
+		return nil
+	case researchgroupmember.FieldMonthlyReservedUsd:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddMonthlyReservedUsd(v)
+		return nil
+	}
+	return fmt.Errorf("unknown ResearchGroupMember numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *ResearchGroupMemberMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(researchgroupmember.FieldAcceptedAt) {
+		fields = append(fields, researchgroupmember.FieldAcceptedAt)
+	}
+	if m.FieldCleared(researchgroupmember.FieldPausedAt) {
+		fields = append(fields, researchgroupmember.FieldPausedAt)
+	}
+	if m.FieldCleared(researchgroupmember.FieldRemovedAt) {
+		fields = append(fields, researchgroupmember.FieldRemovedAt)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *ResearchGroupMemberMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *ResearchGroupMemberMutation) ClearField(name string) error {
+	switch name {
+	case researchgroupmember.FieldAcceptedAt:
+		m.ClearAcceptedAt()
+		return nil
+	case researchgroupmember.FieldPausedAt:
+		m.ClearPausedAt()
+		return nil
+	case researchgroupmember.FieldRemovedAt:
+		m.ClearRemovedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown ResearchGroupMember nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *ResearchGroupMemberMutation) ResetField(name string) error {
+	switch name {
+	case researchgroupmember.FieldResearchGroupID:
+		m.ResetResearchGroupID()
+		return nil
+	case researchgroupmember.FieldUserID:
+		m.ResetUserID()
+		return nil
+	case researchgroupmember.FieldStatus:
+		m.ResetStatus()
+		return nil
+	case researchgroupmember.FieldMonthlyLimitUsd:
+		m.ResetMonthlyLimitUsd()
+		return nil
+	case researchgroupmember.FieldMonthlyUsageUsd:
+		m.ResetMonthlyUsageUsd()
+		return nil
+	case researchgroupmember.FieldMonthlyReservedUsd:
+		m.ResetMonthlyReservedUsd()
+		return nil
+	case researchgroupmember.FieldUsageWindowStart:
+		m.ResetUsageWindowStart()
+		return nil
+	case researchgroupmember.FieldInvitedAt:
+		m.ResetInvitedAt()
+		return nil
+	case researchgroupmember.FieldAcceptedAt:
+		m.ResetAcceptedAt()
+		return nil
+	case researchgroupmember.FieldPausedAt:
+		m.ResetPausedAt()
+		return nil
+	case researchgroupmember.FieldRemovedAt:
+		m.ResetRemovedAt()
+		return nil
+	case researchgroupmember.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case researchgroupmember.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown ResearchGroupMember field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *ResearchGroupMemberMutation) AddedEdges() []string {
+	edges := make([]string, 0, 2)
+	if m.research_group != nil {
+		edges = append(edges, researchgroupmember.EdgeResearchGroup)
+	}
+	if m.user != nil {
+		edges = append(edges, researchgroupmember.EdgeUser)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *ResearchGroupMemberMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case researchgroupmember.EdgeResearchGroup:
+		if id := m.research_group; id != nil {
+			return []ent.Value{*id}
+		}
+	case researchgroupmember.EdgeUser:
+		if id := m.user; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *ResearchGroupMemberMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 2)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *ResearchGroupMemberMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *ResearchGroupMemberMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 2)
+	if m.clearedresearch_group {
+		edges = append(edges, researchgroupmember.EdgeResearchGroup)
+	}
+	if m.cleareduser {
+		edges = append(edges, researchgroupmember.EdgeUser)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *ResearchGroupMemberMutation) EdgeCleared(name string) bool {
+	switch name {
+	case researchgroupmember.EdgeResearchGroup:
+		return m.clearedresearch_group
+	case researchgroupmember.EdgeUser:
+		return m.cleareduser
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *ResearchGroupMemberMutation) ClearEdge(name string) error {
+	switch name {
+	case researchgroupmember.EdgeResearchGroup:
+		m.ClearResearchGroup()
+		return nil
+	case researchgroupmember.EdgeUser:
+		m.ClearUser()
+		return nil
+	}
+	return fmt.Errorf("unknown ResearchGroupMember unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *ResearchGroupMemberMutation) ResetEdge(name string) error {
+	switch name {
+	case researchgroupmember.EdgeResearchGroup:
+		m.ResetResearchGroup()
+		return nil
+	case researchgroupmember.EdgeUser:
+		m.ResetUser()
+		return nil
+	}
+	return fmt.Errorf("unknown ResearchGroupMember edge %s", name)
+}
+
+// ResearchGroupQuotaAuditMutation represents an operation that mutates the ResearchGroupQuotaAudit nodes in the graph.
+type ResearchGroupQuotaAuditMutation struct {
+	config
+	op                    Op
+	typ                   string
+	id                    *int64
+	member_id             *int64
+	addmember_id          *int64
+	actor_user_id         *int64
+	addactor_user_id      *int64
+	action                *string
+	amount_usd            *float64
+	addamount_usd         *float64
+	previous_value_usd    *float64
+	addprevious_value_usd *float64
+	new_value_usd         *float64
+	addnew_value_usd      *float64
+	metadata              *map[string]interface{}
+	created_at            *time.Time
+	clearedFields         map[string]struct{}
+	research_group        *int64
+	clearedresearch_group bool
+	done                  bool
+	oldValue              func(context.Context) (*ResearchGroupQuotaAudit, error)
+	predicates            []predicate.ResearchGroupQuotaAudit
+}
+
+var _ ent.Mutation = (*ResearchGroupQuotaAuditMutation)(nil)
+
+// researchgroupquotaauditOption allows management of the mutation configuration using functional options.
+type researchgroupquotaauditOption func(*ResearchGroupQuotaAuditMutation)
+
+// newResearchGroupQuotaAuditMutation creates new mutation for the ResearchGroupQuotaAudit entity.
+func newResearchGroupQuotaAuditMutation(c config, op Op, opts ...researchgroupquotaauditOption) *ResearchGroupQuotaAuditMutation {
+	m := &ResearchGroupQuotaAuditMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeResearchGroupQuotaAudit,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withResearchGroupQuotaAuditID sets the ID field of the mutation.
+func withResearchGroupQuotaAuditID(id int64) researchgroupquotaauditOption {
+	return func(m *ResearchGroupQuotaAuditMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *ResearchGroupQuotaAudit
+		)
+		m.oldValue = func(ctx context.Context) (*ResearchGroupQuotaAudit, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().ResearchGroupQuotaAudit.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withResearchGroupQuotaAudit sets the old ResearchGroupQuotaAudit of the mutation.
+func withResearchGroupQuotaAudit(node *ResearchGroupQuotaAudit) researchgroupquotaauditOption {
+	return func(m *ResearchGroupQuotaAuditMutation) {
+		m.oldValue = func(context.Context) (*ResearchGroupQuotaAudit, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m ResearchGroupQuotaAuditMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m ResearchGroupQuotaAuditMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *ResearchGroupQuotaAuditMutation) ID() (id int64, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *ResearchGroupQuotaAuditMutation) IDs(ctx context.Context) ([]int64, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int64{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().ResearchGroupQuotaAudit.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetResearchGroupID sets the "research_group_id" field.
+func (m *ResearchGroupQuotaAuditMutation) SetResearchGroupID(i int64) {
+	m.research_group = &i
+}
+
+// ResearchGroupID returns the value of the "research_group_id" field in the mutation.
+func (m *ResearchGroupQuotaAuditMutation) ResearchGroupID() (r int64, exists bool) {
+	v := m.research_group
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldResearchGroupID returns the old "research_group_id" field's value of the ResearchGroupQuotaAudit entity.
+// If the ResearchGroupQuotaAudit object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ResearchGroupQuotaAuditMutation) OldResearchGroupID(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldResearchGroupID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldResearchGroupID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldResearchGroupID: %w", err)
+	}
+	return oldValue.ResearchGroupID, nil
+}
+
+// ResetResearchGroupID resets all changes to the "research_group_id" field.
+func (m *ResearchGroupQuotaAuditMutation) ResetResearchGroupID() {
+	m.research_group = nil
+}
+
+// SetMemberID sets the "member_id" field.
+func (m *ResearchGroupQuotaAuditMutation) SetMemberID(i int64) {
+	m.member_id = &i
+	m.addmember_id = nil
+}
+
+// MemberID returns the value of the "member_id" field in the mutation.
+func (m *ResearchGroupQuotaAuditMutation) MemberID() (r int64, exists bool) {
+	v := m.member_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldMemberID returns the old "member_id" field's value of the ResearchGroupQuotaAudit entity.
+// If the ResearchGroupQuotaAudit object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ResearchGroupQuotaAuditMutation) OldMemberID(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldMemberID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldMemberID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldMemberID: %w", err)
+	}
+	return oldValue.MemberID, nil
+}
+
+// AddMemberID adds i to the "member_id" field.
+func (m *ResearchGroupQuotaAuditMutation) AddMemberID(i int64) {
+	if m.addmember_id != nil {
+		*m.addmember_id += i
+	} else {
+		m.addmember_id = &i
+	}
+}
+
+// AddedMemberID returns the value that was added to the "member_id" field in this mutation.
+func (m *ResearchGroupQuotaAuditMutation) AddedMemberID() (r int64, exists bool) {
+	v := m.addmember_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearMemberID clears the value of the "member_id" field.
+func (m *ResearchGroupQuotaAuditMutation) ClearMemberID() {
+	m.member_id = nil
+	m.addmember_id = nil
+	m.clearedFields[researchgroupquotaaudit.FieldMemberID] = struct{}{}
+}
+
+// MemberIDCleared returns if the "member_id" field was cleared in this mutation.
+func (m *ResearchGroupQuotaAuditMutation) MemberIDCleared() bool {
+	_, ok := m.clearedFields[researchgroupquotaaudit.FieldMemberID]
+	return ok
+}
+
+// ResetMemberID resets all changes to the "member_id" field.
+func (m *ResearchGroupQuotaAuditMutation) ResetMemberID() {
+	m.member_id = nil
+	m.addmember_id = nil
+	delete(m.clearedFields, researchgroupquotaaudit.FieldMemberID)
+}
+
+// SetActorUserID sets the "actor_user_id" field.
+func (m *ResearchGroupQuotaAuditMutation) SetActorUserID(i int64) {
+	m.actor_user_id = &i
+	m.addactor_user_id = nil
+}
+
+// ActorUserID returns the value of the "actor_user_id" field in the mutation.
+func (m *ResearchGroupQuotaAuditMutation) ActorUserID() (r int64, exists bool) {
+	v := m.actor_user_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldActorUserID returns the old "actor_user_id" field's value of the ResearchGroupQuotaAudit entity.
+// If the ResearchGroupQuotaAudit object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ResearchGroupQuotaAuditMutation) OldActorUserID(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldActorUserID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldActorUserID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldActorUserID: %w", err)
+	}
+	return oldValue.ActorUserID, nil
+}
+
+// AddActorUserID adds i to the "actor_user_id" field.
+func (m *ResearchGroupQuotaAuditMutation) AddActorUserID(i int64) {
+	if m.addactor_user_id != nil {
+		*m.addactor_user_id += i
+	} else {
+		m.addactor_user_id = &i
+	}
+}
+
+// AddedActorUserID returns the value that was added to the "actor_user_id" field in this mutation.
+func (m *ResearchGroupQuotaAuditMutation) AddedActorUserID() (r int64, exists bool) {
+	v := m.addactor_user_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearActorUserID clears the value of the "actor_user_id" field.
+func (m *ResearchGroupQuotaAuditMutation) ClearActorUserID() {
+	m.actor_user_id = nil
+	m.addactor_user_id = nil
+	m.clearedFields[researchgroupquotaaudit.FieldActorUserID] = struct{}{}
+}
+
+// ActorUserIDCleared returns if the "actor_user_id" field was cleared in this mutation.
+func (m *ResearchGroupQuotaAuditMutation) ActorUserIDCleared() bool {
+	_, ok := m.clearedFields[researchgroupquotaaudit.FieldActorUserID]
+	return ok
+}
+
+// ResetActorUserID resets all changes to the "actor_user_id" field.
+func (m *ResearchGroupQuotaAuditMutation) ResetActorUserID() {
+	m.actor_user_id = nil
+	m.addactor_user_id = nil
+	delete(m.clearedFields, researchgroupquotaaudit.FieldActorUserID)
+}
+
+// SetAction sets the "action" field.
+func (m *ResearchGroupQuotaAuditMutation) SetAction(s string) {
+	m.action = &s
+}
+
+// Action returns the value of the "action" field in the mutation.
+func (m *ResearchGroupQuotaAuditMutation) Action() (r string, exists bool) {
+	v := m.action
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAction returns the old "action" field's value of the ResearchGroupQuotaAudit entity.
+// If the ResearchGroupQuotaAudit object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ResearchGroupQuotaAuditMutation) OldAction(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAction is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAction requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAction: %w", err)
+	}
+	return oldValue.Action, nil
+}
+
+// ResetAction resets all changes to the "action" field.
+func (m *ResearchGroupQuotaAuditMutation) ResetAction() {
+	m.action = nil
+}
+
+// SetAmountUsd sets the "amount_usd" field.
+func (m *ResearchGroupQuotaAuditMutation) SetAmountUsd(f float64) {
+	m.amount_usd = &f
+	m.addamount_usd = nil
+}
+
+// AmountUsd returns the value of the "amount_usd" field in the mutation.
+func (m *ResearchGroupQuotaAuditMutation) AmountUsd() (r float64, exists bool) {
+	v := m.amount_usd
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAmountUsd returns the old "amount_usd" field's value of the ResearchGroupQuotaAudit entity.
+// If the ResearchGroupQuotaAudit object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ResearchGroupQuotaAuditMutation) OldAmountUsd(ctx context.Context) (v *float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAmountUsd is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAmountUsd requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAmountUsd: %w", err)
+	}
+	return oldValue.AmountUsd, nil
+}
+
+// AddAmountUsd adds f to the "amount_usd" field.
+func (m *ResearchGroupQuotaAuditMutation) AddAmountUsd(f float64) {
+	if m.addamount_usd != nil {
+		*m.addamount_usd += f
+	} else {
+		m.addamount_usd = &f
+	}
+}
+
+// AddedAmountUsd returns the value that was added to the "amount_usd" field in this mutation.
+func (m *ResearchGroupQuotaAuditMutation) AddedAmountUsd() (r float64, exists bool) {
+	v := m.addamount_usd
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearAmountUsd clears the value of the "amount_usd" field.
+func (m *ResearchGroupQuotaAuditMutation) ClearAmountUsd() {
+	m.amount_usd = nil
+	m.addamount_usd = nil
+	m.clearedFields[researchgroupquotaaudit.FieldAmountUsd] = struct{}{}
+}
+
+// AmountUsdCleared returns if the "amount_usd" field was cleared in this mutation.
+func (m *ResearchGroupQuotaAuditMutation) AmountUsdCleared() bool {
+	_, ok := m.clearedFields[researchgroupquotaaudit.FieldAmountUsd]
+	return ok
+}
+
+// ResetAmountUsd resets all changes to the "amount_usd" field.
+func (m *ResearchGroupQuotaAuditMutation) ResetAmountUsd() {
+	m.amount_usd = nil
+	m.addamount_usd = nil
+	delete(m.clearedFields, researchgroupquotaaudit.FieldAmountUsd)
+}
+
+// SetPreviousValueUsd sets the "previous_value_usd" field.
+func (m *ResearchGroupQuotaAuditMutation) SetPreviousValueUsd(f float64) {
+	m.previous_value_usd = &f
+	m.addprevious_value_usd = nil
+}
+
+// PreviousValueUsd returns the value of the "previous_value_usd" field in the mutation.
+func (m *ResearchGroupQuotaAuditMutation) PreviousValueUsd() (r float64, exists bool) {
+	v := m.previous_value_usd
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPreviousValueUsd returns the old "previous_value_usd" field's value of the ResearchGroupQuotaAudit entity.
+// If the ResearchGroupQuotaAudit object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ResearchGroupQuotaAuditMutation) OldPreviousValueUsd(ctx context.Context) (v *float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPreviousValueUsd is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPreviousValueUsd requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPreviousValueUsd: %w", err)
+	}
+	return oldValue.PreviousValueUsd, nil
+}
+
+// AddPreviousValueUsd adds f to the "previous_value_usd" field.
+func (m *ResearchGroupQuotaAuditMutation) AddPreviousValueUsd(f float64) {
+	if m.addprevious_value_usd != nil {
+		*m.addprevious_value_usd += f
+	} else {
+		m.addprevious_value_usd = &f
+	}
+}
+
+// AddedPreviousValueUsd returns the value that was added to the "previous_value_usd" field in this mutation.
+func (m *ResearchGroupQuotaAuditMutation) AddedPreviousValueUsd() (r float64, exists bool) {
+	v := m.addprevious_value_usd
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearPreviousValueUsd clears the value of the "previous_value_usd" field.
+func (m *ResearchGroupQuotaAuditMutation) ClearPreviousValueUsd() {
+	m.previous_value_usd = nil
+	m.addprevious_value_usd = nil
+	m.clearedFields[researchgroupquotaaudit.FieldPreviousValueUsd] = struct{}{}
+}
+
+// PreviousValueUsdCleared returns if the "previous_value_usd" field was cleared in this mutation.
+func (m *ResearchGroupQuotaAuditMutation) PreviousValueUsdCleared() bool {
+	_, ok := m.clearedFields[researchgroupquotaaudit.FieldPreviousValueUsd]
+	return ok
+}
+
+// ResetPreviousValueUsd resets all changes to the "previous_value_usd" field.
+func (m *ResearchGroupQuotaAuditMutation) ResetPreviousValueUsd() {
+	m.previous_value_usd = nil
+	m.addprevious_value_usd = nil
+	delete(m.clearedFields, researchgroupquotaaudit.FieldPreviousValueUsd)
+}
+
+// SetNewValueUsd sets the "new_value_usd" field.
+func (m *ResearchGroupQuotaAuditMutation) SetNewValueUsd(f float64) {
+	m.new_value_usd = &f
+	m.addnew_value_usd = nil
+}
+
+// NewValueUsd returns the value of the "new_value_usd" field in the mutation.
+func (m *ResearchGroupQuotaAuditMutation) NewValueUsd() (r float64, exists bool) {
+	v := m.new_value_usd
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldNewValueUsd returns the old "new_value_usd" field's value of the ResearchGroupQuotaAudit entity.
+// If the ResearchGroupQuotaAudit object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ResearchGroupQuotaAuditMutation) OldNewValueUsd(ctx context.Context) (v *float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldNewValueUsd is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldNewValueUsd requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldNewValueUsd: %w", err)
+	}
+	return oldValue.NewValueUsd, nil
+}
+
+// AddNewValueUsd adds f to the "new_value_usd" field.
+func (m *ResearchGroupQuotaAuditMutation) AddNewValueUsd(f float64) {
+	if m.addnew_value_usd != nil {
+		*m.addnew_value_usd += f
+	} else {
+		m.addnew_value_usd = &f
+	}
+}
+
+// AddedNewValueUsd returns the value that was added to the "new_value_usd" field in this mutation.
+func (m *ResearchGroupQuotaAuditMutation) AddedNewValueUsd() (r float64, exists bool) {
+	v := m.addnew_value_usd
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearNewValueUsd clears the value of the "new_value_usd" field.
+func (m *ResearchGroupQuotaAuditMutation) ClearNewValueUsd() {
+	m.new_value_usd = nil
+	m.addnew_value_usd = nil
+	m.clearedFields[researchgroupquotaaudit.FieldNewValueUsd] = struct{}{}
+}
+
+// NewValueUsdCleared returns if the "new_value_usd" field was cleared in this mutation.
+func (m *ResearchGroupQuotaAuditMutation) NewValueUsdCleared() bool {
+	_, ok := m.clearedFields[researchgroupquotaaudit.FieldNewValueUsd]
+	return ok
+}
+
+// ResetNewValueUsd resets all changes to the "new_value_usd" field.
+func (m *ResearchGroupQuotaAuditMutation) ResetNewValueUsd() {
+	m.new_value_usd = nil
+	m.addnew_value_usd = nil
+	delete(m.clearedFields, researchgroupquotaaudit.FieldNewValueUsd)
+}
+
+// SetMetadata sets the "metadata" field.
+func (m *ResearchGroupQuotaAuditMutation) SetMetadata(value map[string]interface{}) {
+	m.metadata = &value
+}
+
+// Metadata returns the value of the "metadata" field in the mutation.
+func (m *ResearchGroupQuotaAuditMutation) Metadata() (r map[string]interface{}, exists bool) {
+	v := m.metadata
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldMetadata returns the old "metadata" field's value of the ResearchGroupQuotaAudit entity.
+// If the ResearchGroupQuotaAudit object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ResearchGroupQuotaAuditMutation) OldMetadata(ctx context.Context) (v map[string]interface{}, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldMetadata is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldMetadata requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldMetadata: %w", err)
+	}
+	return oldValue.Metadata, nil
+}
+
+// ClearMetadata clears the value of the "metadata" field.
+func (m *ResearchGroupQuotaAuditMutation) ClearMetadata() {
+	m.metadata = nil
+	m.clearedFields[researchgroupquotaaudit.FieldMetadata] = struct{}{}
+}
+
+// MetadataCleared returns if the "metadata" field was cleared in this mutation.
+func (m *ResearchGroupQuotaAuditMutation) MetadataCleared() bool {
+	_, ok := m.clearedFields[researchgroupquotaaudit.FieldMetadata]
+	return ok
+}
+
+// ResetMetadata resets all changes to the "metadata" field.
+func (m *ResearchGroupQuotaAuditMutation) ResetMetadata() {
+	m.metadata = nil
+	delete(m.clearedFields, researchgroupquotaaudit.FieldMetadata)
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *ResearchGroupQuotaAuditMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *ResearchGroupQuotaAuditMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the ResearchGroupQuotaAudit entity.
+// If the ResearchGroupQuotaAudit object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ResearchGroupQuotaAuditMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *ResearchGroupQuotaAuditMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// ClearResearchGroup clears the "research_group" edge to the ResearchGroup entity.
+func (m *ResearchGroupQuotaAuditMutation) ClearResearchGroup() {
+	m.clearedresearch_group = true
+	m.clearedFields[researchgroupquotaaudit.FieldResearchGroupID] = struct{}{}
+}
+
+// ResearchGroupCleared reports if the "research_group" edge to the ResearchGroup entity was cleared.
+func (m *ResearchGroupQuotaAuditMutation) ResearchGroupCleared() bool {
+	return m.clearedresearch_group
+}
+
+// ResearchGroupIDs returns the "research_group" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// ResearchGroupID instead. It exists only for internal usage by the builders.
+func (m *ResearchGroupQuotaAuditMutation) ResearchGroupIDs() (ids []int64) {
+	if id := m.research_group; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetResearchGroup resets all changes to the "research_group" edge.
+func (m *ResearchGroupQuotaAuditMutation) ResetResearchGroup() {
+	m.research_group = nil
+	m.clearedresearch_group = false
+}
+
+// Where appends a list predicates to the ResearchGroupQuotaAuditMutation builder.
+func (m *ResearchGroupQuotaAuditMutation) Where(ps ...predicate.ResearchGroupQuotaAudit) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the ResearchGroupQuotaAuditMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *ResearchGroupQuotaAuditMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.ResearchGroupQuotaAudit, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *ResearchGroupQuotaAuditMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *ResearchGroupQuotaAuditMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (ResearchGroupQuotaAudit).
+func (m *ResearchGroupQuotaAuditMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *ResearchGroupQuotaAuditMutation) Fields() []string {
+	fields := make([]string, 0, 9)
+	if m.research_group != nil {
+		fields = append(fields, researchgroupquotaaudit.FieldResearchGroupID)
+	}
+	if m.member_id != nil {
+		fields = append(fields, researchgroupquotaaudit.FieldMemberID)
+	}
+	if m.actor_user_id != nil {
+		fields = append(fields, researchgroupquotaaudit.FieldActorUserID)
+	}
+	if m.action != nil {
+		fields = append(fields, researchgroupquotaaudit.FieldAction)
+	}
+	if m.amount_usd != nil {
+		fields = append(fields, researchgroupquotaaudit.FieldAmountUsd)
+	}
+	if m.previous_value_usd != nil {
+		fields = append(fields, researchgroupquotaaudit.FieldPreviousValueUsd)
+	}
+	if m.new_value_usd != nil {
+		fields = append(fields, researchgroupquotaaudit.FieldNewValueUsd)
+	}
+	if m.metadata != nil {
+		fields = append(fields, researchgroupquotaaudit.FieldMetadata)
+	}
+	if m.created_at != nil {
+		fields = append(fields, researchgroupquotaaudit.FieldCreatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *ResearchGroupQuotaAuditMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case researchgroupquotaaudit.FieldResearchGroupID:
+		return m.ResearchGroupID()
+	case researchgroupquotaaudit.FieldMemberID:
+		return m.MemberID()
+	case researchgroupquotaaudit.FieldActorUserID:
+		return m.ActorUserID()
+	case researchgroupquotaaudit.FieldAction:
+		return m.Action()
+	case researchgroupquotaaudit.FieldAmountUsd:
+		return m.AmountUsd()
+	case researchgroupquotaaudit.FieldPreviousValueUsd:
+		return m.PreviousValueUsd()
+	case researchgroupquotaaudit.FieldNewValueUsd:
+		return m.NewValueUsd()
+	case researchgroupquotaaudit.FieldMetadata:
+		return m.Metadata()
+	case researchgroupquotaaudit.FieldCreatedAt:
+		return m.CreatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *ResearchGroupQuotaAuditMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case researchgroupquotaaudit.FieldResearchGroupID:
+		return m.OldResearchGroupID(ctx)
+	case researchgroupquotaaudit.FieldMemberID:
+		return m.OldMemberID(ctx)
+	case researchgroupquotaaudit.FieldActorUserID:
+		return m.OldActorUserID(ctx)
+	case researchgroupquotaaudit.FieldAction:
+		return m.OldAction(ctx)
+	case researchgroupquotaaudit.FieldAmountUsd:
+		return m.OldAmountUsd(ctx)
+	case researchgroupquotaaudit.FieldPreviousValueUsd:
+		return m.OldPreviousValueUsd(ctx)
+	case researchgroupquotaaudit.FieldNewValueUsd:
+		return m.OldNewValueUsd(ctx)
+	case researchgroupquotaaudit.FieldMetadata:
+		return m.OldMetadata(ctx)
+	case researchgroupquotaaudit.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown ResearchGroupQuotaAudit field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ResearchGroupQuotaAuditMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case researchgroupquotaaudit.FieldResearchGroupID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetResearchGroupID(v)
+		return nil
+	case researchgroupquotaaudit.FieldMemberID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetMemberID(v)
+		return nil
+	case researchgroupquotaaudit.FieldActorUserID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetActorUserID(v)
+		return nil
+	case researchgroupquotaaudit.FieldAction:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAction(v)
+		return nil
+	case researchgroupquotaaudit.FieldAmountUsd:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAmountUsd(v)
+		return nil
+	case researchgroupquotaaudit.FieldPreviousValueUsd:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPreviousValueUsd(v)
+		return nil
+	case researchgroupquotaaudit.FieldNewValueUsd:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetNewValueUsd(v)
+		return nil
+	case researchgroupquotaaudit.FieldMetadata:
+		v, ok := value.(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetMetadata(v)
+		return nil
+	case researchgroupquotaaudit.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown ResearchGroupQuotaAudit field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *ResearchGroupQuotaAuditMutation) AddedFields() []string {
+	var fields []string
+	if m.addmember_id != nil {
+		fields = append(fields, researchgroupquotaaudit.FieldMemberID)
+	}
+	if m.addactor_user_id != nil {
+		fields = append(fields, researchgroupquotaaudit.FieldActorUserID)
+	}
+	if m.addamount_usd != nil {
+		fields = append(fields, researchgroupquotaaudit.FieldAmountUsd)
+	}
+	if m.addprevious_value_usd != nil {
+		fields = append(fields, researchgroupquotaaudit.FieldPreviousValueUsd)
+	}
+	if m.addnew_value_usd != nil {
+		fields = append(fields, researchgroupquotaaudit.FieldNewValueUsd)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *ResearchGroupQuotaAuditMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case researchgroupquotaaudit.FieldMemberID:
+		return m.AddedMemberID()
+	case researchgroupquotaaudit.FieldActorUserID:
+		return m.AddedActorUserID()
+	case researchgroupquotaaudit.FieldAmountUsd:
+		return m.AddedAmountUsd()
+	case researchgroupquotaaudit.FieldPreviousValueUsd:
+		return m.AddedPreviousValueUsd()
+	case researchgroupquotaaudit.FieldNewValueUsd:
+		return m.AddedNewValueUsd()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ResearchGroupQuotaAuditMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case researchgroupquotaaudit.FieldMemberID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddMemberID(v)
+		return nil
+	case researchgroupquotaaudit.FieldActorUserID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddActorUserID(v)
+		return nil
+	case researchgroupquotaaudit.FieldAmountUsd:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddAmountUsd(v)
+		return nil
+	case researchgroupquotaaudit.FieldPreviousValueUsd:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddPreviousValueUsd(v)
+		return nil
+	case researchgroupquotaaudit.FieldNewValueUsd:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddNewValueUsd(v)
+		return nil
+	}
+	return fmt.Errorf("unknown ResearchGroupQuotaAudit numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *ResearchGroupQuotaAuditMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(researchgroupquotaaudit.FieldMemberID) {
+		fields = append(fields, researchgroupquotaaudit.FieldMemberID)
+	}
+	if m.FieldCleared(researchgroupquotaaudit.FieldActorUserID) {
+		fields = append(fields, researchgroupquotaaudit.FieldActorUserID)
+	}
+	if m.FieldCleared(researchgroupquotaaudit.FieldAmountUsd) {
+		fields = append(fields, researchgroupquotaaudit.FieldAmountUsd)
+	}
+	if m.FieldCleared(researchgroupquotaaudit.FieldPreviousValueUsd) {
+		fields = append(fields, researchgroupquotaaudit.FieldPreviousValueUsd)
+	}
+	if m.FieldCleared(researchgroupquotaaudit.FieldNewValueUsd) {
+		fields = append(fields, researchgroupquotaaudit.FieldNewValueUsd)
+	}
+	if m.FieldCleared(researchgroupquotaaudit.FieldMetadata) {
+		fields = append(fields, researchgroupquotaaudit.FieldMetadata)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *ResearchGroupQuotaAuditMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *ResearchGroupQuotaAuditMutation) ClearField(name string) error {
+	switch name {
+	case researchgroupquotaaudit.FieldMemberID:
+		m.ClearMemberID()
+		return nil
+	case researchgroupquotaaudit.FieldActorUserID:
+		m.ClearActorUserID()
+		return nil
+	case researchgroupquotaaudit.FieldAmountUsd:
+		m.ClearAmountUsd()
+		return nil
+	case researchgroupquotaaudit.FieldPreviousValueUsd:
+		m.ClearPreviousValueUsd()
+		return nil
+	case researchgroupquotaaudit.FieldNewValueUsd:
+		m.ClearNewValueUsd()
+		return nil
+	case researchgroupquotaaudit.FieldMetadata:
+		m.ClearMetadata()
+		return nil
+	}
+	return fmt.Errorf("unknown ResearchGroupQuotaAudit nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *ResearchGroupQuotaAuditMutation) ResetField(name string) error {
+	switch name {
+	case researchgroupquotaaudit.FieldResearchGroupID:
+		m.ResetResearchGroupID()
+		return nil
+	case researchgroupquotaaudit.FieldMemberID:
+		m.ResetMemberID()
+		return nil
+	case researchgroupquotaaudit.FieldActorUserID:
+		m.ResetActorUserID()
+		return nil
+	case researchgroupquotaaudit.FieldAction:
+		m.ResetAction()
+		return nil
+	case researchgroupquotaaudit.FieldAmountUsd:
+		m.ResetAmountUsd()
+		return nil
+	case researchgroupquotaaudit.FieldPreviousValueUsd:
+		m.ResetPreviousValueUsd()
+		return nil
+	case researchgroupquotaaudit.FieldNewValueUsd:
+		m.ResetNewValueUsd()
+		return nil
+	case researchgroupquotaaudit.FieldMetadata:
+		m.ResetMetadata()
+		return nil
+	case researchgroupquotaaudit.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown ResearchGroupQuotaAudit field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *ResearchGroupQuotaAuditMutation) AddedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.research_group != nil {
+		edges = append(edges, researchgroupquotaaudit.EdgeResearchGroup)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *ResearchGroupQuotaAuditMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case researchgroupquotaaudit.EdgeResearchGroup:
+		if id := m.research_group; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *ResearchGroupQuotaAuditMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 1)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *ResearchGroupQuotaAuditMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *ResearchGroupQuotaAuditMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.clearedresearch_group {
+		edges = append(edges, researchgroupquotaaudit.EdgeResearchGroup)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *ResearchGroupQuotaAuditMutation) EdgeCleared(name string) bool {
+	switch name {
+	case researchgroupquotaaudit.EdgeResearchGroup:
+		return m.clearedresearch_group
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *ResearchGroupQuotaAuditMutation) ClearEdge(name string) error {
+	switch name {
+	case researchgroupquotaaudit.EdgeResearchGroup:
+		m.ClearResearchGroup()
+		return nil
+	}
+	return fmt.Errorf("unknown ResearchGroupQuotaAudit unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *ResearchGroupQuotaAuditMutation) ResetEdge(name string) error {
+	switch name {
+	case researchgroupquotaaudit.EdgeResearchGroup:
+		m.ResetResearchGroup()
+		return nil
+	}
+	return fmt.Errorf("unknown ResearchGroupQuotaAudit edge %s", name)
+}
+
 // SecuritySecretMutation represents an operation that mutates the SecuritySecret nodes in the graph.
 type SecuritySecretMutation struct {
 	config
@@ -46784,6 +50706,8 @@ type UsageLogMutation struct {
 	op                          Op
 	typ                         string
 	id                          *int64
+	provider_id                 *int64
+	addprovider_id              *int64
 	request_id                  *string
 	model                       *string
 	requested_model             *string
@@ -46793,6 +50717,11 @@ type UsageLogMutation struct {
 	model_mapping_chain         *string
 	billing_tier                *string
 	billing_mode                *string
+	payer_user_id               *int64
+	addpayer_user_id            *int64
+	research_group_member_id    *int64
+	addresearch_group_member_id *int64
+	funding_source              *string
 	input_tokens                *int
 	addinput_tokens             *int
 	output_tokens               *int
@@ -46855,6 +50784,8 @@ type UsageLogMutation struct {
 	clearedgroup                bool
 	subscription                *int64
 	clearedsubscription         bool
+	research_group              *int64
+	clearedresearch_group       bool
 	done                        bool
 	oldValue                    func(context.Context) (*UsageLog, error)
 	predicates                  []predicate.UsageLog
@@ -47064,6 +50995,76 @@ func (m *UsageLogMutation) OldAccountID(ctx context.Context) (v int64, err error
 // ResetAccountID resets all changes to the "account_id" field.
 func (m *UsageLogMutation) ResetAccountID() {
 	m.account = nil
+}
+
+// SetProviderID sets the "provider_id" field.
+func (m *UsageLogMutation) SetProviderID(i int64) {
+	m.provider_id = &i
+	m.addprovider_id = nil
+}
+
+// ProviderID returns the value of the "provider_id" field in the mutation.
+func (m *UsageLogMutation) ProviderID() (r int64, exists bool) {
+	v := m.provider_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldProviderID returns the old "provider_id" field's value of the UsageLog entity.
+// If the UsageLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UsageLogMutation) OldProviderID(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldProviderID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldProviderID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldProviderID: %w", err)
+	}
+	return oldValue.ProviderID, nil
+}
+
+// AddProviderID adds i to the "provider_id" field.
+func (m *UsageLogMutation) AddProviderID(i int64) {
+	if m.addprovider_id != nil {
+		*m.addprovider_id += i
+	} else {
+		m.addprovider_id = &i
+	}
+}
+
+// AddedProviderID returns the value that was added to the "provider_id" field in this mutation.
+func (m *UsageLogMutation) AddedProviderID() (r int64, exists bool) {
+	v := m.addprovider_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearProviderID clears the value of the "provider_id" field.
+func (m *UsageLogMutation) ClearProviderID() {
+	m.provider_id = nil
+	m.addprovider_id = nil
+	m.clearedFields[usagelog.FieldProviderID] = struct{}{}
+}
+
+// ProviderIDCleared returns if the "provider_id" field was cleared in this mutation.
+func (m *UsageLogMutation) ProviderIDCleared() bool {
+	_, ok := m.clearedFields[usagelog.FieldProviderID]
+	return ok
+}
+
+// ResetProviderID resets all changes to the "provider_id" field.
+func (m *UsageLogMutation) ResetProviderID() {
+	m.provider_id = nil
+	m.addprovider_id = nil
+	delete(m.clearedFields, usagelog.FieldProviderID)
 }
 
 // SetRequestID sets the "request_id" field.
@@ -47549,6 +51550,244 @@ func (m *UsageLogMutation) SubscriptionIDCleared() bool {
 func (m *UsageLogMutation) ResetSubscriptionID() {
 	m.subscription = nil
 	delete(m.clearedFields, usagelog.FieldSubscriptionID)
+}
+
+// SetPayerUserID sets the "payer_user_id" field.
+func (m *UsageLogMutation) SetPayerUserID(i int64) {
+	m.payer_user_id = &i
+	m.addpayer_user_id = nil
+}
+
+// PayerUserID returns the value of the "payer_user_id" field in the mutation.
+func (m *UsageLogMutation) PayerUserID() (r int64, exists bool) {
+	v := m.payer_user_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPayerUserID returns the old "payer_user_id" field's value of the UsageLog entity.
+// If the UsageLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UsageLogMutation) OldPayerUserID(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPayerUserID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPayerUserID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPayerUserID: %w", err)
+	}
+	return oldValue.PayerUserID, nil
+}
+
+// AddPayerUserID adds i to the "payer_user_id" field.
+func (m *UsageLogMutation) AddPayerUserID(i int64) {
+	if m.addpayer_user_id != nil {
+		*m.addpayer_user_id += i
+	} else {
+		m.addpayer_user_id = &i
+	}
+}
+
+// AddedPayerUserID returns the value that was added to the "payer_user_id" field in this mutation.
+func (m *UsageLogMutation) AddedPayerUserID() (r int64, exists bool) {
+	v := m.addpayer_user_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearPayerUserID clears the value of the "payer_user_id" field.
+func (m *UsageLogMutation) ClearPayerUserID() {
+	m.payer_user_id = nil
+	m.addpayer_user_id = nil
+	m.clearedFields[usagelog.FieldPayerUserID] = struct{}{}
+}
+
+// PayerUserIDCleared returns if the "payer_user_id" field was cleared in this mutation.
+func (m *UsageLogMutation) PayerUserIDCleared() bool {
+	_, ok := m.clearedFields[usagelog.FieldPayerUserID]
+	return ok
+}
+
+// ResetPayerUserID resets all changes to the "payer_user_id" field.
+func (m *UsageLogMutation) ResetPayerUserID() {
+	m.payer_user_id = nil
+	m.addpayer_user_id = nil
+	delete(m.clearedFields, usagelog.FieldPayerUserID)
+}
+
+// SetResearchGroupID sets the "research_group_id" field.
+func (m *UsageLogMutation) SetResearchGroupID(i int64) {
+	m.research_group = &i
+}
+
+// ResearchGroupID returns the value of the "research_group_id" field in the mutation.
+func (m *UsageLogMutation) ResearchGroupID() (r int64, exists bool) {
+	v := m.research_group
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldResearchGroupID returns the old "research_group_id" field's value of the UsageLog entity.
+// If the UsageLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UsageLogMutation) OldResearchGroupID(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldResearchGroupID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldResearchGroupID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldResearchGroupID: %w", err)
+	}
+	return oldValue.ResearchGroupID, nil
+}
+
+// ClearResearchGroupID clears the value of the "research_group_id" field.
+func (m *UsageLogMutation) ClearResearchGroupID() {
+	m.research_group = nil
+	m.clearedFields[usagelog.FieldResearchGroupID] = struct{}{}
+}
+
+// ResearchGroupIDCleared returns if the "research_group_id" field was cleared in this mutation.
+func (m *UsageLogMutation) ResearchGroupIDCleared() bool {
+	_, ok := m.clearedFields[usagelog.FieldResearchGroupID]
+	return ok
+}
+
+// ResetResearchGroupID resets all changes to the "research_group_id" field.
+func (m *UsageLogMutation) ResetResearchGroupID() {
+	m.research_group = nil
+	delete(m.clearedFields, usagelog.FieldResearchGroupID)
+}
+
+// SetResearchGroupMemberID sets the "research_group_member_id" field.
+func (m *UsageLogMutation) SetResearchGroupMemberID(i int64) {
+	m.research_group_member_id = &i
+	m.addresearch_group_member_id = nil
+}
+
+// ResearchGroupMemberID returns the value of the "research_group_member_id" field in the mutation.
+func (m *UsageLogMutation) ResearchGroupMemberID() (r int64, exists bool) {
+	v := m.research_group_member_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldResearchGroupMemberID returns the old "research_group_member_id" field's value of the UsageLog entity.
+// If the UsageLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UsageLogMutation) OldResearchGroupMemberID(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldResearchGroupMemberID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldResearchGroupMemberID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldResearchGroupMemberID: %w", err)
+	}
+	return oldValue.ResearchGroupMemberID, nil
+}
+
+// AddResearchGroupMemberID adds i to the "research_group_member_id" field.
+func (m *UsageLogMutation) AddResearchGroupMemberID(i int64) {
+	if m.addresearch_group_member_id != nil {
+		*m.addresearch_group_member_id += i
+	} else {
+		m.addresearch_group_member_id = &i
+	}
+}
+
+// AddedResearchGroupMemberID returns the value that was added to the "research_group_member_id" field in this mutation.
+func (m *UsageLogMutation) AddedResearchGroupMemberID() (r int64, exists bool) {
+	v := m.addresearch_group_member_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearResearchGroupMemberID clears the value of the "research_group_member_id" field.
+func (m *UsageLogMutation) ClearResearchGroupMemberID() {
+	m.research_group_member_id = nil
+	m.addresearch_group_member_id = nil
+	m.clearedFields[usagelog.FieldResearchGroupMemberID] = struct{}{}
+}
+
+// ResearchGroupMemberIDCleared returns if the "research_group_member_id" field was cleared in this mutation.
+func (m *UsageLogMutation) ResearchGroupMemberIDCleared() bool {
+	_, ok := m.clearedFields[usagelog.FieldResearchGroupMemberID]
+	return ok
+}
+
+// ResetResearchGroupMemberID resets all changes to the "research_group_member_id" field.
+func (m *UsageLogMutation) ResetResearchGroupMemberID() {
+	m.research_group_member_id = nil
+	m.addresearch_group_member_id = nil
+	delete(m.clearedFields, usagelog.FieldResearchGroupMemberID)
+}
+
+// SetFundingSource sets the "funding_source" field.
+func (m *UsageLogMutation) SetFundingSource(s string) {
+	m.funding_source = &s
+}
+
+// FundingSource returns the value of the "funding_source" field in the mutation.
+func (m *UsageLogMutation) FundingSource() (r string, exists bool) {
+	v := m.funding_source
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldFundingSource returns the old "funding_source" field's value of the UsageLog entity.
+// If the UsageLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UsageLogMutation) OldFundingSource(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldFundingSource is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldFundingSource requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldFundingSource: %w", err)
+	}
+	return oldValue.FundingSource, nil
+}
+
+// ClearFundingSource clears the value of the "funding_source" field.
+func (m *UsageLogMutation) ClearFundingSource() {
+	m.funding_source = nil
+	m.clearedFields[usagelog.FieldFundingSource] = struct{}{}
+}
+
+// FundingSourceCleared returns if the "funding_source" field was cleared in this mutation.
+func (m *UsageLogMutation) FundingSourceCleared() bool {
+	_, ok := m.clearedFields[usagelog.FieldFundingSource]
+	return ok
+}
+
+// ResetFundingSource resets all changes to the "funding_source" field.
+func (m *UsageLogMutation) ResetFundingSource() {
+	m.funding_source = nil
+	delete(m.clearedFields, usagelog.FieldFundingSource)
 }
 
 // SetInputTokens sets the "input_tokens" field.
@@ -49362,6 +53601,33 @@ func (m *UsageLogMutation) ResetSubscription() {
 	m.clearedsubscription = false
 }
 
+// ClearResearchGroup clears the "research_group" edge to the ResearchGroup entity.
+func (m *UsageLogMutation) ClearResearchGroup() {
+	m.clearedresearch_group = true
+	m.clearedFields[usagelog.FieldResearchGroupID] = struct{}{}
+}
+
+// ResearchGroupCleared reports if the "research_group" edge to the ResearchGroup entity was cleared.
+func (m *UsageLogMutation) ResearchGroupCleared() bool {
+	return m.ResearchGroupIDCleared() || m.clearedresearch_group
+}
+
+// ResearchGroupIDs returns the "research_group" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// ResearchGroupID instead. It exists only for internal usage by the builders.
+func (m *UsageLogMutation) ResearchGroupIDs() (ids []int64) {
+	if id := m.research_group; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetResearchGroup resets all changes to the "research_group" edge.
+func (m *UsageLogMutation) ResetResearchGroup() {
+	m.research_group = nil
+	m.clearedresearch_group = false
+}
+
 // Where appends a list predicates to the UsageLogMutation builder.
 func (m *UsageLogMutation) Where(ps ...predicate.UsageLog) {
 	m.predicates = append(m.predicates, ps...)
@@ -49396,7 +53662,7 @@ func (m *UsageLogMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *UsageLogMutation) Fields() []string {
-	fields := make([]string, 0, 44)
+	fields := make([]string, 0, 49)
 	if m.user != nil {
 		fields = append(fields, usagelog.FieldUserID)
 	}
@@ -49405,6 +53671,9 @@ func (m *UsageLogMutation) Fields() []string {
 	}
 	if m.account != nil {
 		fields = append(fields, usagelog.FieldAccountID)
+	}
+	if m.provider_id != nil {
+		fields = append(fields, usagelog.FieldProviderID)
 	}
 	if m.request_id != nil {
 		fields = append(fields, usagelog.FieldRequestID)
@@ -49435,6 +53704,18 @@ func (m *UsageLogMutation) Fields() []string {
 	}
 	if m.subscription != nil {
 		fields = append(fields, usagelog.FieldSubscriptionID)
+	}
+	if m.payer_user_id != nil {
+		fields = append(fields, usagelog.FieldPayerUserID)
+	}
+	if m.research_group != nil {
+		fields = append(fields, usagelog.FieldResearchGroupID)
+	}
+	if m.research_group_member_id != nil {
+		fields = append(fields, usagelog.FieldResearchGroupMemberID)
+	}
+	if m.funding_source != nil {
+		fields = append(fields, usagelog.FieldFundingSource)
 	}
 	if m.input_tokens != nil {
 		fields = append(fields, usagelog.FieldInputTokens)
@@ -49543,6 +53824,8 @@ func (m *UsageLogMutation) Field(name string) (ent.Value, bool) {
 		return m.APIKeyID()
 	case usagelog.FieldAccountID:
 		return m.AccountID()
+	case usagelog.FieldProviderID:
+		return m.ProviderID()
 	case usagelog.FieldRequestID:
 		return m.RequestID()
 	case usagelog.FieldModel:
@@ -49563,6 +53846,14 @@ func (m *UsageLogMutation) Field(name string) (ent.Value, bool) {
 		return m.GroupID()
 	case usagelog.FieldSubscriptionID:
 		return m.SubscriptionID()
+	case usagelog.FieldPayerUserID:
+		return m.PayerUserID()
+	case usagelog.FieldResearchGroupID:
+		return m.ResearchGroupID()
+	case usagelog.FieldResearchGroupMemberID:
+		return m.ResearchGroupMemberID()
+	case usagelog.FieldFundingSource:
+		return m.FundingSource()
 	case usagelog.FieldInputTokens:
 		return m.InputTokens()
 	case usagelog.FieldOutputTokens:
@@ -49640,6 +53931,8 @@ func (m *UsageLogMutation) OldField(ctx context.Context, name string) (ent.Value
 		return m.OldAPIKeyID(ctx)
 	case usagelog.FieldAccountID:
 		return m.OldAccountID(ctx)
+	case usagelog.FieldProviderID:
+		return m.OldProviderID(ctx)
 	case usagelog.FieldRequestID:
 		return m.OldRequestID(ctx)
 	case usagelog.FieldModel:
@@ -49660,6 +53953,14 @@ func (m *UsageLogMutation) OldField(ctx context.Context, name string) (ent.Value
 		return m.OldGroupID(ctx)
 	case usagelog.FieldSubscriptionID:
 		return m.OldSubscriptionID(ctx)
+	case usagelog.FieldPayerUserID:
+		return m.OldPayerUserID(ctx)
+	case usagelog.FieldResearchGroupID:
+		return m.OldResearchGroupID(ctx)
+	case usagelog.FieldResearchGroupMemberID:
+		return m.OldResearchGroupMemberID(ctx)
+	case usagelog.FieldFundingSource:
+		return m.OldFundingSource(ctx)
 	case usagelog.FieldInputTokens:
 		return m.OldInputTokens(ctx)
 	case usagelog.FieldOutputTokens:
@@ -49752,6 +54053,13 @@ func (m *UsageLogMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetAccountID(v)
 		return nil
+	case usagelog.FieldProviderID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetProviderID(v)
+		return nil
 	case usagelog.FieldRequestID:
 		v, ok := value.(string)
 		if !ok {
@@ -49821,6 +54129,34 @@ func (m *UsageLogMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetSubscriptionID(v)
+		return nil
+	case usagelog.FieldPayerUserID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPayerUserID(v)
+		return nil
+	case usagelog.FieldResearchGroupID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetResearchGroupID(v)
+		return nil
+	case usagelog.FieldResearchGroupMemberID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetResearchGroupMemberID(v)
+		return nil
+	case usagelog.FieldFundingSource:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetFundingSource(v)
 		return nil
 	case usagelog.FieldInputTokens:
 		v, ok := value.(int)
@@ -50047,8 +54383,17 @@ func (m *UsageLogMutation) SetField(name string, value ent.Value) error {
 // this mutation.
 func (m *UsageLogMutation) AddedFields() []string {
 	var fields []string
+	if m.addprovider_id != nil {
+		fields = append(fields, usagelog.FieldProviderID)
+	}
 	if m.addchannel_id != nil {
 		fields = append(fields, usagelog.FieldChannelID)
+	}
+	if m.addpayer_user_id != nil {
+		fields = append(fields, usagelog.FieldPayerUserID)
+	}
+	if m.addresearch_group_member_id != nil {
+		fields = append(fields, usagelog.FieldResearchGroupMemberID)
 	}
 	if m.addinput_tokens != nil {
 		fields = append(fields, usagelog.FieldInputTokens)
@@ -50118,8 +54463,14 @@ func (m *UsageLogMutation) AddedFields() []string {
 // was not set, or was not defined in the schema.
 func (m *UsageLogMutation) AddedField(name string) (ent.Value, bool) {
 	switch name {
+	case usagelog.FieldProviderID:
+		return m.AddedProviderID()
 	case usagelog.FieldChannelID:
 		return m.AddedChannelID()
+	case usagelog.FieldPayerUserID:
+		return m.AddedPayerUserID()
+	case usagelog.FieldResearchGroupMemberID:
+		return m.AddedResearchGroupMemberID()
 	case usagelog.FieldInputTokens:
 		return m.AddedInputTokens()
 	case usagelog.FieldOutputTokens:
@@ -50169,12 +54520,33 @@ func (m *UsageLogMutation) AddedField(name string) (ent.Value, bool) {
 // type.
 func (m *UsageLogMutation) AddField(name string, value ent.Value) error {
 	switch name {
+	case usagelog.FieldProviderID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddProviderID(v)
+		return nil
 	case usagelog.FieldChannelID:
 		v, ok := value.(int64)
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.AddChannelID(v)
+		return nil
+	case usagelog.FieldPayerUserID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddPayerUserID(v)
+		return nil
+	case usagelog.FieldResearchGroupMemberID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddResearchGroupMemberID(v)
 		return nil
 	case usagelog.FieldInputTokens:
 		v, ok := value.(int)
@@ -50324,6 +54696,9 @@ func (m *UsageLogMutation) AddField(name string, value ent.Value) error {
 // mutation.
 func (m *UsageLogMutation) ClearedFields() []string {
 	var fields []string
+	if m.FieldCleared(usagelog.FieldProviderID) {
+		fields = append(fields, usagelog.FieldProviderID)
+	}
 	if m.FieldCleared(usagelog.FieldRequestedModel) {
 		fields = append(fields, usagelog.FieldRequestedModel)
 	}
@@ -50347,6 +54722,18 @@ func (m *UsageLogMutation) ClearedFields() []string {
 	}
 	if m.FieldCleared(usagelog.FieldSubscriptionID) {
 		fields = append(fields, usagelog.FieldSubscriptionID)
+	}
+	if m.FieldCleared(usagelog.FieldPayerUserID) {
+		fields = append(fields, usagelog.FieldPayerUserID)
+	}
+	if m.FieldCleared(usagelog.FieldResearchGroupID) {
+		fields = append(fields, usagelog.FieldResearchGroupID)
+	}
+	if m.FieldCleared(usagelog.FieldResearchGroupMemberID) {
+		fields = append(fields, usagelog.FieldResearchGroupMemberID)
+	}
+	if m.FieldCleared(usagelog.FieldFundingSource) {
+		fields = append(fields, usagelog.FieldFundingSource)
 	}
 	if m.FieldCleared(usagelog.FieldAccountRateMultiplier) {
 		fields = append(fields, usagelog.FieldAccountRateMultiplier)
@@ -50398,6 +54785,9 @@ func (m *UsageLogMutation) FieldCleared(name string) bool {
 // error if the field is not defined in the schema.
 func (m *UsageLogMutation) ClearField(name string) error {
 	switch name {
+	case usagelog.FieldProviderID:
+		m.ClearProviderID()
+		return nil
 	case usagelog.FieldRequestedModel:
 		m.ClearRequestedModel()
 		return nil
@@ -50421,6 +54811,18 @@ func (m *UsageLogMutation) ClearField(name string) error {
 		return nil
 	case usagelog.FieldSubscriptionID:
 		m.ClearSubscriptionID()
+		return nil
+	case usagelog.FieldPayerUserID:
+		m.ClearPayerUserID()
+		return nil
+	case usagelog.FieldResearchGroupID:
+		m.ClearResearchGroupID()
+		return nil
+	case usagelog.FieldResearchGroupMemberID:
+		m.ClearResearchGroupMemberID()
+		return nil
+	case usagelog.FieldFundingSource:
+		m.ClearFundingSource()
 		return nil
 	case usagelog.FieldAccountRateMultiplier:
 		m.ClearAccountRateMultiplier()
@@ -50475,6 +54877,9 @@ func (m *UsageLogMutation) ResetField(name string) error {
 	case usagelog.FieldAccountID:
 		m.ResetAccountID()
 		return nil
+	case usagelog.FieldProviderID:
+		m.ResetProviderID()
+		return nil
 	case usagelog.FieldRequestID:
 		m.ResetRequestID()
 		return nil
@@ -50504,6 +54909,18 @@ func (m *UsageLogMutation) ResetField(name string) error {
 		return nil
 	case usagelog.FieldSubscriptionID:
 		m.ResetSubscriptionID()
+		return nil
+	case usagelog.FieldPayerUserID:
+		m.ResetPayerUserID()
+		return nil
+	case usagelog.FieldResearchGroupID:
+		m.ResetResearchGroupID()
+		return nil
+	case usagelog.FieldResearchGroupMemberID:
+		m.ResetResearchGroupMemberID()
+		return nil
+	case usagelog.FieldFundingSource:
+		m.ResetFundingSource()
 		return nil
 	case usagelog.FieldInputTokens:
 		m.ResetInputTokens()
@@ -50604,7 +55021,7 @@ func (m *UsageLogMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *UsageLogMutation) AddedEdges() []string {
-	edges := make([]string, 0, 5)
+	edges := make([]string, 0, 6)
 	if m.user != nil {
 		edges = append(edges, usagelog.EdgeUser)
 	}
@@ -50619,6 +55036,9 @@ func (m *UsageLogMutation) AddedEdges() []string {
 	}
 	if m.subscription != nil {
 		edges = append(edges, usagelog.EdgeSubscription)
+	}
+	if m.research_group != nil {
+		edges = append(edges, usagelog.EdgeResearchGroup)
 	}
 	return edges
 }
@@ -50647,13 +55067,17 @@ func (m *UsageLogMutation) AddedIDs(name string) []ent.Value {
 		if id := m.subscription; id != nil {
 			return []ent.Value{*id}
 		}
+	case usagelog.EdgeResearchGroup:
+		if id := m.research_group; id != nil {
+			return []ent.Value{*id}
+		}
 	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *UsageLogMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 5)
+	edges := make([]string, 0, 6)
 	return edges
 }
 
@@ -50665,7 +55089,7 @@ func (m *UsageLogMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *UsageLogMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 5)
+	edges := make([]string, 0, 6)
 	if m.cleareduser {
 		edges = append(edges, usagelog.EdgeUser)
 	}
@@ -50680,6 +55104,9 @@ func (m *UsageLogMutation) ClearedEdges() []string {
 	}
 	if m.clearedsubscription {
 		edges = append(edges, usagelog.EdgeSubscription)
+	}
+	if m.clearedresearch_group {
+		edges = append(edges, usagelog.EdgeResearchGroup)
 	}
 	return edges
 }
@@ -50698,6 +55125,8 @@ func (m *UsageLogMutation) EdgeCleared(name string) bool {
 		return m.clearedgroup
 	case usagelog.EdgeSubscription:
 		return m.clearedsubscription
+	case usagelog.EdgeResearchGroup:
+		return m.clearedresearch_group
 	}
 	return false
 }
@@ -50720,6 +55149,9 @@ func (m *UsageLogMutation) ClearEdge(name string) error {
 		return nil
 	case usagelog.EdgeSubscription:
 		m.ClearSubscription()
+		return nil
+	case usagelog.EdgeResearchGroup:
+		m.ClearResearchGroup()
 		return nil
 	}
 	return fmt.Errorf("unknown UsageLog unique edge %s", name)
@@ -50744,6 +55176,9 @@ func (m *UsageLogMutation) ResetEdge(name string) error {
 	case usagelog.EdgeSubscription:
 		m.ResetSubscription()
 		return nil
+	case usagelog.EdgeResearchGroup:
+		m.ResetResearchGroup()
+		return nil
 	}
 	return fmt.Errorf("unknown UsageLog edge %s", name)
 }
@@ -50751,82 +55186,91 @@ func (m *UsageLogMutation) ResetEdge(name string) error {
 // UserMutation represents an operation that mutates the User nodes in the graph.
 type UserMutation struct {
 	config
-	op                            Op
-	typ                           string
-	id                            *int64
-	created_at                    *time.Time
-	updated_at                    *time.Time
-	deleted_at                    *time.Time
-	email                         *string
-	password_hash                 *string
-	role                          *string
-	balance                       *float64
-	addbalance                    *float64
-	frozen_balance                *float64
-	addfrozen_balance             *float64
-	concurrency                   *int
-	addconcurrency                *int
-	status                        *string
-	username                      *string
-	notes                         *string
-	totp_secret_encrypted         *string
-	totp_enabled                  *bool
-	totp_enabled_at               *time.Time
-	signup_source                 *string
-	last_login_at                 *time.Time
-	last_active_at                *time.Time
-	balance_notify_enabled        *bool
-	balance_notify_threshold_type *string
-	balance_notify_threshold      *float64
-	addbalance_notify_threshold   *float64
-	balance_notify_extra_emails   *string
-	total_recharged               *float64
-	addtotal_recharged            *float64
-	rpm_limit                     *int
-	addrpm_limit                  *int
-	clearedFields                 map[string]struct{}
-	api_keys                      map[int64]struct{}
-	removedapi_keys               map[int64]struct{}
-	clearedapi_keys               bool
-	redeem_codes                  map[int64]struct{}
-	removedredeem_codes           map[int64]struct{}
-	clearedredeem_codes           bool
-	subscriptions                 map[int64]struct{}
-	removedsubscriptions          map[int64]struct{}
-	clearedsubscriptions          bool
-	assigned_subscriptions        map[int64]struct{}
-	removedassigned_subscriptions map[int64]struct{}
-	clearedassigned_subscriptions bool
-	announcement_reads            map[int64]struct{}
-	removedannouncement_reads     map[int64]struct{}
-	clearedannouncement_reads     bool
-	allowed_groups                map[int64]struct{}
-	removedallowed_groups         map[int64]struct{}
-	clearedallowed_groups         bool
-	usage_logs                    map[int64]struct{}
-	removedusage_logs             map[int64]struct{}
-	clearedusage_logs             bool
-	attribute_values              map[int64]struct{}
-	removedattribute_values       map[int64]struct{}
-	clearedattribute_values       bool
-	promo_code_usages             map[int64]struct{}
-	removedpromo_code_usages      map[int64]struct{}
-	clearedpromo_code_usages      bool
-	payment_orders                map[int64]struct{}
-	removedpayment_orders         map[int64]struct{}
-	clearedpayment_orders         bool
-	auth_identities               map[int64]struct{}
-	removedauth_identities        map[int64]struct{}
-	clearedauth_identities        bool
-	pending_auth_sessions         map[int64]struct{}
-	removedpending_auth_sessions  map[int64]struct{}
-	clearedpending_auth_sessions  bool
-	platform_quotas               map[int64]struct{}
-	removedplatform_quotas        map[int64]struct{}
-	clearedplatform_quotas        bool
-	done                          bool
-	oldValue                      func(context.Context) (*User, error)
-	predicates                    []predicate.User
+	op                                Op
+	typ                               string
+	id                                *int64
+	created_at                        *time.Time
+	updated_at                        *time.Time
+	deleted_at                        *time.Time
+	email                             *string
+	password_hash                     *string
+	role                              *string
+	balance                           *float64
+	addbalance                        *float64
+	frozen_balance                    *float64
+	addfrozen_balance                 *float64
+	concurrency                       *int
+	addconcurrency                    *int
+	status                            *string
+	username                          *string
+	notes                             *string
+	totp_secret_encrypted             *string
+	totp_enabled                      *bool
+	totp_enabled_at                   *time.Time
+	signup_source                     *string
+	last_login_at                     *time.Time
+	last_active_at                    *time.Time
+	balance_notify_enabled            *bool
+	balance_notify_threshold_type     *string
+	balance_notify_threshold          *float64
+	addbalance_notify_threshold       *float64
+	balance_notify_extra_emails       *string
+	total_recharged                   *float64
+	addtotal_recharged                *float64
+	rpm_limit                         *int
+	addrpm_limit                      *int
+	clearedFields                     map[string]struct{}
+	api_keys                          map[int64]struct{}
+	removedapi_keys                   map[int64]struct{}
+	clearedapi_keys                   bool
+	redeem_codes                      map[int64]struct{}
+	removedredeem_codes               map[int64]struct{}
+	clearedredeem_codes               bool
+	subscriptions                     map[int64]struct{}
+	removedsubscriptions              map[int64]struct{}
+	clearedsubscriptions              bool
+	assigned_subscriptions            map[int64]struct{}
+	removedassigned_subscriptions     map[int64]struct{}
+	clearedassigned_subscriptions     bool
+	announcement_reads                map[int64]struct{}
+	removedannouncement_reads         map[int64]struct{}
+	clearedannouncement_reads         bool
+	allowed_groups                    map[int64]struct{}
+	removedallowed_groups             map[int64]struct{}
+	clearedallowed_groups             bool
+	usage_logs                        map[int64]struct{}
+	removedusage_logs                 map[int64]struct{}
+	clearedusage_logs                 bool
+	owned_accounts                    map[int64]struct{}
+	removedowned_accounts             map[int64]struct{}
+	clearedowned_accounts             bool
+	attribute_values                  map[int64]struct{}
+	removedattribute_values           map[int64]struct{}
+	clearedattribute_values           bool
+	promo_code_usages                 map[int64]struct{}
+	removedpromo_code_usages          map[int64]struct{}
+	clearedpromo_code_usages          bool
+	payment_orders                    map[int64]struct{}
+	removedpayment_orders             map[int64]struct{}
+	clearedpayment_orders             bool
+	auth_identities                   map[int64]struct{}
+	removedauth_identities            map[int64]struct{}
+	clearedauth_identities            bool
+	pending_auth_sessions             map[int64]struct{}
+	removedpending_auth_sessions      map[int64]struct{}
+	clearedpending_auth_sessions      bool
+	platform_quotas                   map[int64]struct{}
+	removedplatform_quotas            map[int64]struct{}
+	clearedplatform_quotas            bool
+	owned_research_groups             map[int64]struct{}
+	removedowned_research_groups      map[int64]struct{}
+	clearedowned_research_groups      bool
+	research_group_memberships        map[int64]struct{}
+	removedresearch_group_memberships map[int64]struct{}
+	clearedresearch_group_memberships bool
+	done                              bool
+	oldValue                          func(context.Context) (*User, error)
+	predicates                        []predicate.User
 }
 
 var _ ent.Mutation = (*UserMutation)(nil)
@@ -52368,6 +56812,60 @@ func (m *UserMutation) ResetUsageLogs() {
 	m.removedusage_logs = nil
 }
 
+// AddOwnedAccountIDs adds the "owned_accounts" edge to the Account entity by ids.
+func (m *UserMutation) AddOwnedAccountIDs(ids ...int64) {
+	if m.owned_accounts == nil {
+		m.owned_accounts = make(map[int64]struct{})
+	}
+	for i := range ids {
+		m.owned_accounts[ids[i]] = struct{}{}
+	}
+}
+
+// ClearOwnedAccounts clears the "owned_accounts" edge to the Account entity.
+func (m *UserMutation) ClearOwnedAccounts() {
+	m.clearedowned_accounts = true
+}
+
+// OwnedAccountsCleared reports if the "owned_accounts" edge to the Account entity was cleared.
+func (m *UserMutation) OwnedAccountsCleared() bool {
+	return m.clearedowned_accounts
+}
+
+// RemoveOwnedAccountIDs removes the "owned_accounts" edge to the Account entity by IDs.
+func (m *UserMutation) RemoveOwnedAccountIDs(ids ...int64) {
+	if m.removedowned_accounts == nil {
+		m.removedowned_accounts = make(map[int64]struct{})
+	}
+	for i := range ids {
+		delete(m.owned_accounts, ids[i])
+		m.removedowned_accounts[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedOwnedAccounts returns the removed IDs of the "owned_accounts" edge to the Account entity.
+func (m *UserMutation) RemovedOwnedAccountsIDs() (ids []int64) {
+	for id := range m.removedowned_accounts {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// OwnedAccountsIDs returns the "owned_accounts" edge IDs in the mutation.
+func (m *UserMutation) OwnedAccountsIDs() (ids []int64) {
+	for id := range m.owned_accounts {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetOwnedAccounts resets all changes to the "owned_accounts" edge.
+func (m *UserMutation) ResetOwnedAccounts() {
+	m.owned_accounts = nil
+	m.clearedowned_accounts = false
+	m.removedowned_accounts = nil
+}
+
 // AddAttributeValueIDs adds the "attribute_values" edge to the UserAttributeValue entity by ids.
 func (m *UserMutation) AddAttributeValueIDs(ids ...int64) {
 	if m.attribute_values == nil {
@@ -52690,6 +57188,114 @@ func (m *UserMutation) ResetPlatformQuotas() {
 	m.platform_quotas = nil
 	m.clearedplatform_quotas = false
 	m.removedplatform_quotas = nil
+}
+
+// AddOwnedResearchGroupIDs adds the "owned_research_groups" edge to the ResearchGroup entity by ids.
+func (m *UserMutation) AddOwnedResearchGroupIDs(ids ...int64) {
+	if m.owned_research_groups == nil {
+		m.owned_research_groups = make(map[int64]struct{})
+	}
+	for i := range ids {
+		m.owned_research_groups[ids[i]] = struct{}{}
+	}
+}
+
+// ClearOwnedResearchGroups clears the "owned_research_groups" edge to the ResearchGroup entity.
+func (m *UserMutation) ClearOwnedResearchGroups() {
+	m.clearedowned_research_groups = true
+}
+
+// OwnedResearchGroupsCleared reports if the "owned_research_groups" edge to the ResearchGroup entity was cleared.
+func (m *UserMutation) OwnedResearchGroupsCleared() bool {
+	return m.clearedowned_research_groups
+}
+
+// RemoveOwnedResearchGroupIDs removes the "owned_research_groups" edge to the ResearchGroup entity by IDs.
+func (m *UserMutation) RemoveOwnedResearchGroupIDs(ids ...int64) {
+	if m.removedowned_research_groups == nil {
+		m.removedowned_research_groups = make(map[int64]struct{})
+	}
+	for i := range ids {
+		delete(m.owned_research_groups, ids[i])
+		m.removedowned_research_groups[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedOwnedResearchGroups returns the removed IDs of the "owned_research_groups" edge to the ResearchGroup entity.
+func (m *UserMutation) RemovedOwnedResearchGroupsIDs() (ids []int64) {
+	for id := range m.removedowned_research_groups {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// OwnedResearchGroupsIDs returns the "owned_research_groups" edge IDs in the mutation.
+func (m *UserMutation) OwnedResearchGroupsIDs() (ids []int64) {
+	for id := range m.owned_research_groups {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetOwnedResearchGroups resets all changes to the "owned_research_groups" edge.
+func (m *UserMutation) ResetOwnedResearchGroups() {
+	m.owned_research_groups = nil
+	m.clearedowned_research_groups = false
+	m.removedowned_research_groups = nil
+}
+
+// AddResearchGroupMembershipIDs adds the "research_group_memberships" edge to the ResearchGroupMember entity by ids.
+func (m *UserMutation) AddResearchGroupMembershipIDs(ids ...int64) {
+	if m.research_group_memberships == nil {
+		m.research_group_memberships = make(map[int64]struct{})
+	}
+	for i := range ids {
+		m.research_group_memberships[ids[i]] = struct{}{}
+	}
+}
+
+// ClearResearchGroupMemberships clears the "research_group_memberships" edge to the ResearchGroupMember entity.
+func (m *UserMutation) ClearResearchGroupMemberships() {
+	m.clearedresearch_group_memberships = true
+}
+
+// ResearchGroupMembershipsCleared reports if the "research_group_memberships" edge to the ResearchGroupMember entity was cleared.
+func (m *UserMutation) ResearchGroupMembershipsCleared() bool {
+	return m.clearedresearch_group_memberships
+}
+
+// RemoveResearchGroupMembershipIDs removes the "research_group_memberships" edge to the ResearchGroupMember entity by IDs.
+func (m *UserMutation) RemoveResearchGroupMembershipIDs(ids ...int64) {
+	if m.removedresearch_group_memberships == nil {
+		m.removedresearch_group_memberships = make(map[int64]struct{})
+	}
+	for i := range ids {
+		delete(m.research_group_memberships, ids[i])
+		m.removedresearch_group_memberships[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedResearchGroupMemberships returns the removed IDs of the "research_group_memberships" edge to the ResearchGroupMember entity.
+func (m *UserMutation) RemovedResearchGroupMembershipsIDs() (ids []int64) {
+	for id := range m.removedresearch_group_memberships {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResearchGroupMembershipsIDs returns the "research_group_memberships" edge IDs in the mutation.
+func (m *UserMutation) ResearchGroupMembershipsIDs() (ids []int64) {
+	for id := range m.research_group_memberships {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetResearchGroupMemberships resets all changes to the "research_group_memberships" edge.
+func (m *UserMutation) ResetResearchGroupMemberships() {
+	m.research_group_memberships = nil
+	m.clearedresearch_group_memberships = false
+	m.removedresearch_group_memberships = nil
 }
 
 // Where appends a list predicates to the UserMutation builder.
@@ -53330,7 +57936,7 @@ func (m *UserMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *UserMutation) AddedEdges() []string {
-	edges := make([]string, 0, 13)
+	edges := make([]string, 0, 16)
 	if m.api_keys != nil {
 		edges = append(edges, user.EdgeAPIKeys)
 	}
@@ -53352,6 +57958,9 @@ func (m *UserMutation) AddedEdges() []string {
 	if m.usage_logs != nil {
 		edges = append(edges, user.EdgeUsageLogs)
 	}
+	if m.owned_accounts != nil {
+		edges = append(edges, user.EdgeOwnedAccounts)
+	}
 	if m.attribute_values != nil {
 		edges = append(edges, user.EdgeAttributeValues)
 	}
@@ -53369,6 +57978,12 @@ func (m *UserMutation) AddedEdges() []string {
 	}
 	if m.platform_quotas != nil {
 		edges = append(edges, user.EdgePlatformQuotas)
+	}
+	if m.owned_research_groups != nil {
+		edges = append(edges, user.EdgeOwnedResearchGroups)
+	}
+	if m.research_group_memberships != nil {
+		edges = append(edges, user.EdgeResearchGroupMemberships)
 	}
 	return edges
 }
@@ -53419,6 +58034,12 @@ func (m *UserMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case user.EdgeOwnedAccounts:
+		ids := make([]ent.Value, 0, len(m.owned_accounts))
+		for id := range m.owned_accounts {
+			ids = append(ids, id)
+		}
+		return ids
 	case user.EdgeAttributeValues:
 		ids := make([]ent.Value, 0, len(m.attribute_values))
 		for id := range m.attribute_values {
@@ -53455,13 +58076,25 @@ func (m *UserMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case user.EdgeOwnedResearchGroups:
+		ids := make([]ent.Value, 0, len(m.owned_research_groups))
+		for id := range m.owned_research_groups {
+			ids = append(ids, id)
+		}
+		return ids
+	case user.EdgeResearchGroupMemberships:
+		ids := make([]ent.Value, 0, len(m.research_group_memberships))
+		for id := range m.research_group_memberships {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *UserMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 13)
+	edges := make([]string, 0, 16)
 	if m.removedapi_keys != nil {
 		edges = append(edges, user.EdgeAPIKeys)
 	}
@@ -53483,6 +58116,9 @@ func (m *UserMutation) RemovedEdges() []string {
 	if m.removedusage_logs != nil {
 		edges = append(edges, user.EdgeUsageLogs)
 	}
+	if m.removedowned_accounts != nil {
+		edges = append(edges, user.EdgeOwnedAccounts)
+	}
 	if m.removedattribute_values != nil {
 		edges = append(edges, user.EdgeAttributeValues)
 	}
@@ -53500,6 +58136,12 @@ func (m *UserMutation) RemovedEdges() []string {
 	}
 	if m.removedplatform_quotas != nil {
 		edges = append(edges, user.EdgePlatformQuotas)
+	}
+	if m.removedowned_research_groups != nil {
+		edges = append(edges, user.EdgeOwnedResearchGroups)
+	}
+	if m.removedresearch_group_memberships != nil {
+		edges = append(edges, user.EdgeResearchGroupMemberships)
 	}
 	return edges
 }
@@ -53550,6 +58192,12 @@ func (m *UserMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case user.EdgeOwnedAccounts:
+		ids := make([]ent.Value, 0, len(m.removedowned_accounts))
+		for id := range m.removedowned_accounts {
+			ids = append(ids, id)
+		}
+		return ids
 	case user.EdgeAttributeValues:
 		ids := make([]ent.Value, 0, len(m.removedattribute_values))
 		for id := range m.removedattribute_values {
@@ -53586,13 +58234,25 @@ func (m *UserMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case user.EdgeOwnedResearchGroups:
+		ids := make([]ent.Value, 0, len(m.removedowned_research_groups))
+		for id := range m.removedowned_research_groups {
+			ids = append(ids, id)
+		}
+		return ids
+	case user.EdgeResearchGroupMemberships:
+		ids := make([]ent.Value, 0, len(m.removedresearch_group_memberships))
+		for id := range m.removedresearch_group_memberships {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *UserMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 13)
+	edges := make([]string, 0, 16)
 	if m.clearedapi_keys {
 		edges = append(edges, user.EdgeAPIKeys)
 	}
@@ -53614,6 +58274,9 @@ func (m *UserMutation) ClearedEdges() []string {
 	if m.clearedusage_logs {
 		edges = append(edges, user.EdgeUsageLogs)
 	}
+	if m.clearedowned_accounts {
+		edges = append(edges, user.EdgeOwnedAccounts)
+	}
 	if m.clearedattribute_values {
 		edges = append(edges, user.EdgeAttributeValues)
 	}
@@ -53631,6 +58294,12 @@ func (m *UserMutation) ClearedEdges() []string {
 	}
 	if m.clearedplatform_quotas {
 		edges = append(edges, user.EdgePlatformQuotas)
+	}
+	if m.clearedowned_research_groups {
+		edges = append(edges, user.EdgeOwnedResearchGroups)
+	}
+	if m.clearedresearch_group_memberships {
+		edges = append(edges, user.EdgeResearchGroupMemberships)
 	}
 	return edges
 }
@@ -53653,6 +58322,8 @@ func (m *UserMutation) EdgeCleared(name string) bool {
 		return m.clearedallowed_groups
 	case user.EdgeUsageLogs:
 		return m.clearedusage_logs
+	case user.EdgeOwnedAccounts:
+		return m.clearedowned_accounts
 	case user.EdgeAttributeValues:
 		return m.clearedattribute_values
 	case user.EdgePromoCodeUsages:
@@ -53665,6 +58336,10 @@ func (m *UserMutation) EdgeCleared(name string) bool {
 		return m.clearedpending_auth_sessions
 	case user.EdgePlatformQuotas:
 		return m.clearedplatform_quotas
+	case user.EdgeOwnedResearchGroups:
+		return m.clearedowned_research_groups
+	case user.EdgeResearchGroupMemberships:
+		return m.clearedresearch_group_memberships
 	}
 	return false
 }
@@ -53702,6 +58377,9 @@ func (m *UserMutation) ResetEdge(name string) error {
 	case user.EdgeUsageLogs:
 		m.ResetUsageLogs()
 		return nil
+	case user.EdgeOwnedAccounts:
+		m.ResetOwnedAccounts()
+		return nil
 	case user.EdgeAttributeValues:
 		m.ResetAttributeValues()
 		return nil
@@ -53719,6 +58397,12 @@ func (m *UserMutation) ResetEdge(name string) error {
 		return nil
 	case user.EdgePlatformQuotas:
 		m.ResetPlatformQuotas()
+		return nil
+	case user.EdgeOwnedResearchGroups:
+		m.ResetOwnedResearchGroups()
+		return nil
+	case user.EdgeResearchGroupMemberships:
+		m.ResetResearchGroupMemberships()
 		return nil
 	}
 	return fmt.Errorf("unknown User edge %s", name)

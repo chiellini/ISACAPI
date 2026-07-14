@@ -280,6 +280,18 @@
           <template #cell-groups="{ row }">
             <AccountGroupsCell :groups="row.groups" :max-display="4" />
           </template>
+          <template #cell-provider="{ row }">
+            <button
+              type="button"
+              class="group flex max-w-48 flex-col items-start rounded-lg px-2 py-1 text-left transition-colors hover:bg-primary-50 dark:hover:bg-primary-900/20"
+              @click="openProviderAssignment(row)"
+            >
+              <span class="truncate text-sm text-gray-700 dark:text-gray-200">{{ accountProviderLabel(row) }}</span>
+              <span class="text-xs text-primary-600 opacity-0 transition-opacity group-hover:opacity-100 dark:text-primary-400">
+                {{ t('provider.admin.assign') }}
+              </span>
+            </button>
+          </template>
           <template #header-usage="{ column }">
             <div class="flex items-center">
               <span>{{ column.label }}</span>
@@ -394,6 +406,12 @@
     </TablePageLayout>
     <CreateAccountModal :show="showCreate" :proxies="proxies" :groups="groups" @close="showCreate = false" @created="reload" />
     <EditAccountModal :show="showEdit" :account="edAcc" :proxies="proxies" :groups="groups" @close="showEdit = false" @updated="handleAccountUpdated" />
+    <ProviderAssignmentModal
+      :show="showProviderAssignment"
+      :account="providerAssignmentAccount"
+      @close="showProviderAssignment = false"
+      @saved="handleProviderAssigned"
+    />
     <ReAuthAccountModal :show="showReAuth" :account="reAuthAcc" @close="closeReAuthModal" @reauthorized="handleAccountUpdated" />
     <AccountTestModal :show="showTest" :account="testingAcc" @close="closeTestModal" />
     <AccountStatsModal :show="showStats" :account="statsAcc" @close="closeStatsModal" />
@@ -448,6 +466,7 @@ import AccountTableFilters from '@/components/admin/account/AccountTableFilters.
 import AccountBulkActionsBar from '@/components/admin/account/AccountBulkActionsBar.vue'
 import AccountActionMenu from '@/components/admin/account/AccountActionMenu.vue'
 import ImportDataModal from '@/components/admin/account/ImportDataModal.vue'
+import ProviderAssignmentModal from '@/components/admin/account/ProviderAssignmentModal.vue'
 import ReAuthAccountModal from '@/components/admin/account/ReAuthAccountModal.vue'
 import AccountTestModal from '@/components/admin/account/AccountTestModal.vue'
 import AccountStatsModal from '@/components/admin/account/AccountStatsModal.vue'
@@ -530,6 +549,7 @@ const showTest = ref(false)
 const showStats = ref(false)
 const showErrorPassthrough = ref(false)
 const showTLSFingerprintProfiles = ref(false)
+const showProviderAssignment = ref(false)
 const edAcc = ref<Account | null>(null)
 const tempUnschedAcc = ref<Account | null>(null)
 const deletingAcc = ref<Account | null>(null)
@@ -537,6 +557,7 @@ const creatingShadowAcc = ref<Account | null>(null)
 const reAuthAcc = ref<Account | null>(null)
 const testingAcc = ref<Account | null>(null)
 const statsAcc = ref<Account | null>(null)
+const providerAssignmentAccount = ref<Account | null>(null)
 const showSchedulePanel = ref(false)
 const scheduleAcc = ref<Account | null>(null)
 const scheduleModelOptions = ref<SelectOption[]>([])
@@ -1248,6 +1269,7 @@ const allColumns = computed(() => {
   if (!authStore.isSimpleMode) {
     c.push({ key: 'groups', label: t('admin.accounts.columns.groups'), sortable: false })
   }
+  c.push({ key: 'provider', label: t('provider.admin.providerColumn'), sortable: false })
   c.push(
     { key: 'usage', label: t('admin.accounts.columns.usageWindows'), sortable: false },
     { key: 'proxy', label: t('admin.accounts.columns.proxy'), sortable: false },
@@ -1616,6 +1638,17 @@ const patchAccountInList = (updatedAccount: Account) => {
 const handleAccountUpdated = (updatedAccount: Account) => {
   patchAccountInList(updatedAccount)
   enterAutoRefreshSilentWindow()
+}
+const accountProviderLabel = (account: Account) =>
+  account.provider?.username || account.provider?.email || (account.provider_id ? `#${account.provider_id}` : t('provider.admin.unassigned'))
+const openProviderAssignment = (account: Account) => {
+  providerAssignmentAccount.value = account
+  showProviderAssignment.value = true
+}
+const handleProviderAssigned = (updatedAccount: Account) => {
+  handleAccountUpdated(updatedAccount)
+  providerAssignmentAccount.value = null
+  showProviderAssignment.value = false
 }
 const formatExportTimestamp = () => {
   const now = new Date()

@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -13,6 +14,7 @@ var (
 	ErrAccountNotFound      = infraerrors.NotFound("ACCOUNT_NOT_FOUND", "account not found")
 	ErrAccountNilInput      = infraerrors.BadRequest("ACCOUNT_NIL_INPUT", "account input cannot be nil")
 	ErrAccountNotInFallback = infraerrors.BadRequest("ACCOUNT_NOT_IN_FALLBACK", "account is not in proxy fallback state")
+	ErrProviderAccountRepositoryUnsupported = errors.New("provider account repository is not supported")
 )
 
 const AccountListGroupUngrouped int64 = -1
@@ -88,6 +90,28 @@ type AccountRepository interface {
 	// ListShadowsByParent 返回指定父账号的影子账号；当前实现仅查 quota_dimension='spark'（唯一预设）。
 	// ⚠️ 新增影子维度时：须更新此函数（或新增维度专用列举），并检查所有调用点（级联删除/一母一影校验/type 守卫），否则会静默漏掉新维度。
 	ListShadowsByParent(ctx context.Context, parentID int64) ([]*Account, error)
+}
+
+// ProviderAccountRepository is the optional, narrow ownership-scoped extension
+// implemented by the Ent account repository. Keeping it separate avoids forcing
+// gateway-focused AccountRepository stubs to implement admin-only operations.
+type ProviderAccountRepository interface {
+	GetByIDForProvider(ctx context.Context, id, providerID int64) (*Account, error)
+	ListWithFiltersForProvider(ctx context.Context, params pagination.PaginationParams, platform, accountType, status, search string, groupID int64, privacyMode string, providerID int64) ([]Account, *pagination.PaginationResult, error)
+	UpdateForProvider(ctx context.Context, id, providerID int64, input *ProviderAccountUpdateInput) (*Account, error)
+	DeleteForProvider(ctx context.Context, id, providerID int64) error
+}
+
+// ProviderAccountUpdateInput is an allowlist by construction. Provider
+// self-service code cannot express ownership or scheduling mutations here.
+type ProviderAccountUpdateInput struct {
+	Name        *string
+	NotesSet    bool
+	Notes       *string
+	Credentials map[string]any
+	Concurrency *int
+	Status      *string
+	GroupIDs    *[]int64
 }
 
 // AccountBulkUpdate describes the fields that can be updated in a bulk operation.
@@ -219,6 +243,81 @@ func (s *AccountService) GetByID(ctx context.Context, id int64) (*Account, error
 	return account, nil
 }
 
+// GetByIDForProvider returns an account only when it belongs to providerID.
+// Ownership misses intentionally use the repository's account-not-found error
+// so callers do not leak whether another provider owns the account.
+func (s *AccountService) GetByIDForProvider(ctx context.Context, id, providerID int64) (*Account, error) {
+	repo, ok := s.accountRepo.(ProviderAccountRepository)
+	if !ok {
+		return nil, ErrProviderAccountRepositoryUnsupported
+	}
+	account, err := repo.GetByIDForProvider(ctx, id, providerID)
+	if err != nil {
+		return nil, fmt.Errorf("get provider account: %w", err)
+	}
+	return account, nil
+}
+
+// UpdateForProvider applies only provider-safe fields through an atomic,
+// ownership-scoped repository operation.
+func (s *AccountService) UpdateForProvider(ctx context.Context, id, providerID int64, input *ProviderAccountUpdateInput) (*Account, error) {
+	if input == nil {
+		return nil, ErrAccountNilInput
+	}
+	normalized := *input
+	if normalized.Name != nil && *normalized.Name == "" {
+		return nil, infraerrors.BadRequest("INVALID_ACCOUNT_NAME", "account name must not be empty")
+	}
+	if normalized.NotesSet {
+		normalized.Notes = normalizeAccountNotes(normalized.Notes)
+	}
+	if normalized.Concurrency != nil && *normalized.Concurrency <= 0 {
+		return nil, infraerrors.BadRequest("INVALID_ACCOUNT_CONCURRENCY", "concurrency must be positive")
+	}
+	if normalized.Status != nil && *normalized.Status != StatusActive && *normalized.Status != "inactive" {
+		return nil, infraerrors.BadRequest("INVALID_ACCOUNT_STATUS", "provider account status must be active or inactive")
+	}
+	if normalized.GroupIDs != nil {
+		seen := make(map[int64]struct{}, len(*normalized.GroupIDs))
+		groupIDs := make([]int64, 0, len(*normalized.GroupIDs))
+		for _, groupID := range *normalized.GroupIDs {
+			if groupID <= 0 {
+				return nil, ErrGroupNotFound
+			}
+			if _, ok := seen[groupID]; ok {
+				continue
+			}
+			seen[groupID] = struct{}{}
+			groupIDs = append(groupIDs, groupID)
+		}
+		normalized.GroupIDs = &groupIDs
+	}
+
+	repo, ok := s.accountRepo.(ProviderAccountRepository)
+	if !ok {
+		return nil, ErrProviderAccountRepositoryUnsupported
+	}
+	account, err := repo.UpdateForProvider(ctx, id, providerID, &normalized)
+	if err != nil {
+		return nil, fmt.Errorf("update provider account: %w", err)
+	}
+	return account, nil
+}
+
+// DeleteForProvider atomically deletes an account only while it is still owned
+// by providerID. The repository capability also preserves account cascade and
+// scheduler cleanup semantics inside the ownership-guarded operation.
+func (s *AccountService) DeleteForProvider(ctx context.Context, id, providerID int64) error {
+	repo, ok := s.accountRepo.(ProviderAccountRepository)
+	if !ok {
+		return ErrProviderAccountRepositoryUnsupported
+	}
+	if err := repo.DeleteForProvider(ctx, id, providerID); err != nil {
+		return fmt.Errorf("delete provider account: %w", err)
+	}
+	return nil
+}
+
 // List 获取账号列表
 func (s *AccountService) List(ctx context.Context, params pagination.PaginationParams) ([]Account, *pagination.PaginationResult, error) {
 	accounts, pagination, err := s.accountRepo.List(ctx, params)
@@ -226,6 +325,28 @@ func (s *AccountService) List(ctx context.Context, params pagination.PaginationP
 		return nil, nil, fmt.Errorf("list accounts: %w", err)
 	}
 	return accounts, pagination, nil
+}
+
+// ListWithFiltersForProvider lists only accounts owned by providerID.
+func (s *AccountService) ListWithFiltersForProvider(
+	ctx context.Context,
+	params pagination.PaginationParams,
+	platform, accountType, status, search string,
+	groupID int64,
+	privacyMode string,
+	providerID int64,
+) ([]Account, *pagination.PaginationResult, error) {
+	repo, ok := s.accountRepo.(ProviderAccountRepository)
+	if !ok {
+		return nil, nil, ErrProviderAccountRepositoryUnsupported
+	}
+	accounts, result, err := repo.ListWithFiltersForProvider(
+		ctx, params, platform, accountType, status, search, groupID, privacyMode, providerID,
+	)
+	if err != nil {
+		return nil, nil, fmt.Errorf("list provider accounts: %w", err)
+	}
+	return accounts, result, nil
 }
 
 // ListByPlatform 根据平台获取账号列表

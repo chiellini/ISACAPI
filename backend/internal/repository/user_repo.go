@@ -33,6 +33,7 @@ type userRepository struct {
 }
 
 var _ service.RedeemUserAdjustmentRepository = (*userRepository)(nil)
+var _ service.ResearchGroupUserDeletionPreparer = (*userRepository)(nil)
 
 func NewUserRepository(client *dbent.Client, sqlDB *sql.DB) service.UserRepository {
 	return newUserRepositoryWithSQL(client, sqlDB)
@@ -40,6 +41,55 @@ func NewUserRepository(client *dbent.Client, sqlDB *sql.DB) service.UserReposito
 
 func newUserRepositoryWithSQL(client *dbent.Client, sqlq sqlExecutor) *userRepository {
 	return &userRepository{client: client, sql: sqlq}
+}
+
+// PrepareResearchGroupUserDeletion runs inside an existing Ent transaction
+// when one is present. Owners must explicitly dissolve first; students are
+// detached while their account row still exists so the audit snapshot can
+// retain both identifiers.
+func (r *userRepository) PrepareResearchGroupUserDeletion(ctx context.Context, userID, actorUserID int64) error {
+	exec := txAwareSQLExecutor(ctx, r.sql, r.client)
+	if exec == nil {
+		return fmt.Errorf("sql executor is not configured")
+	}
+	if err := lockResearchGroupUser(ctx, exec, userID); err != nil {
+		return err
+	}
+	rows, err := exec.QueryContext(ctx, `
+		SELECT 1 FROM research_groups
+		WHERE owner_user_id = $1 AND status <> 'dissolved'
+		LIMIT 1`, userID)
+	if err != nil {
+		return err
+	}
+	isOwner := rows.Next()
+	rowsErr := rows.Err()
+	if closeErr := rows.Close(); closeErr != nil && rowsErr == nil {
+		return closeErr
+	}
+	if rowsErr != nil {
+		return rowsErr
+	}
+	if isOwner {
+		return service.ErrResearchGroupOwnerMustDissolve
+	}
+
+	var actor any
+	if actorUserID > 0 {
+		actor = actorUserID
+	}
+	_, err = exec.ExecContext(ctx, `
+		WITH removed AS (
+			UPDATE research_group_members
+			SET status = 'removed', removed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+			WHERE user_id = $1 AND status IN ('pending', 'active', 'paused')
+			RETURNING id, research_group_id
+		)
+		INSERT INTO research_group_quota_audits
+			(research_group_id, member_id, actor_user_id, action, metadata)
+		SELECT research_group_id, id, $2, 'member_user_deleted', '{}'::jsonb
+		FROM removed`, userID, actor)
+	return err
 }
 
 func (r *userRepository) Create(ctx context.Context, userIn *service.User) error {
@@ -365,6 +415,9 @@ func (r *userRepository) Delete(ctx context.Context, id int64) error {
 	// 复用 context 中已存在的事务（如 AdminService.DeleteUser 把删 Key 与删 User 包在同一事务中），
 	// 由调用方负责提交/回滚，保证两者的原子性。
 	if existingTx := dbent.TxFromContext(ctx); existingTx != nil {
+		if err := r.PrepareResearchGroupUserDeletion(ctx, id, 0); err != nil {
+			return err
+		}
 		return r.deleteUser(ctx, existingTx.Client(), id)
 	}
 
@@ -373,13 +426,20 @@ func (r *userRepository) Delete(ctx context.Context, id int64) error {
 		return translatePersistenceError(err, service.ErrUserNotFound, nil)
 	}
 	exec := r.client
+	opCtx := ctx
 	if err == nil {
 		defer func() { _ = tx.Rollback() }()
 		exec = tx.Client()
+		opCtx = dbent.NewTxContext(ctx, tx)
 	}
 	// err == dbent.ErrTxStarted 时复用当前事务（exec = r.client）。
 
-	if err := r.deleteUser(ctx, exec, id); err != nil {
+	// Keep research-group cleanup and user deletion in the same transaction.
+	// This second guard also closes the race after any service-level precheck.
+	if err := r.PrepareResearchGroupUserDeletion(opCtx, id, 0); err != nil {
+		return err
+	}
+	if err := r.deleteUser(opCtx, exec, id); err != nil {
 		return err
 	}
 

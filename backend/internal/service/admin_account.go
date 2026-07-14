@@ -86,6 +86,21 @@ func (s *adminServiceImpl) CreateAccount(ctx context.Context, input *CreateAccou
 	}
 
 	// 检查混合渠道风险（除非用户已确认）
+	if input.Type == AccountTypeAPIKey && len(groupIDs) > 0 {
+		for _, groupID := range groupIDs {
+			group, err := s.groupRepo.GetByID(ctx, groupID)
+			if err != nil {
+				return nil, err
+			}
+			if group.RequireOAuthOnly {
+				return nil, infraerrors.BadRequest(
+					"GROUP_REQUIRES_OAUTH",
+					fmt.Sprintf("group %d only accepts non-apikey accounts", groupID),
+				)
+			}
+		}
+	}
+
 	if len(groupIDs) > 0 && !input.SkipMixedChannelCheck {
 		if err := s.checkMixedChannelRisk(ctx, 0, input.Platform, groupIDs); err != nil {
 			return nil, err
@@ -105,6 +120,7 @@ func (s *adminServiceImpl) CreateAccount(ctx context.Context, input *CreateAccou
 		Credentials: input.Credentials,
 		Extra:       input.Extra,
 		ProxyID:     input.ProxyID,
+		ProviderID:  input.ProviderID,
 		Concurrency: normalizeAccountConcurrency(input.Platform, input.Type, input.Concurrency),
 		Priority:    input.Priority,
 		Status:      StatusActive,
@@ -179,13 +195,24 @@ func (s *adminServiceImpl) CreateAccount(ctx context.Context, input *CreateAccou
 }
 
 func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *UpdateAccountInput) (*Account, error) {
+	if input == nil {
+		return nil, ErrAccountNilInput
+	}
 	account, err := s.accountRepo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
+	if input.RequiredProviderID != nil &&
+		(account.ProviderID == nil || *account.ProviderID != *input.RequiredProviderID) {
+		return nil, ErrAccountNotFound
+	}
 	// 安全/身份不变量(影子账号):通用更新路径被 edit/re-auth/refresh/batch 共用,
 	// 必须在此守住,否则仅在创建时的保证可被这些路径绕过。
 	if account.IsCredentialShadow() {
+		if input.ProviderID != nil {
+			return nil, infraerrors.New(http.StatusBadRequest, "SPARK_SHADOW_PROVIDER_INHERITED",
+				"spark shadow account provider is inherited from its parent and cannot be assigned directly")
+		}
 		// 影子绝不持有凭据(凭据只在母账号)——外审 F5。
 		if !isAllowedSparkShadowCredentialsUpdate(input.Credentials) {
 			return nil, infraerrors.Newf(http.StatusBadRequest, "SPARK_SHADOW_NO_CREDENTIALS",
@@ -211,6 +238,19 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 		}
 	}
 	wasOveragesEnabled := account.IsOveragesEnabled()
+	if input.ProviderID != nil {
+		nextProviderID := *input.ProviderID
+		if nextProviderID != nil {
+			if account.LoadFactor == nil {
+				loadFactor := account.EffectiveLoadFactor()
+				account.LoadFactor = &loadFactor
+			}
+			providerID := *nextProviderID
+			account.ProviderID = &providerID
+		} else {
+			account.ProviderID = nil
+		}
+	}
 
 	if input.Name != "" {
 		account.Name = input.Name
@@ -331,6 +371,11 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 	// 影子自身 proxy 不可独立编辑(见上),故对影子的更新不触发传播。
 	if input.ProxyID != nil && !account.IsCredentialShadow() {
 		if err := s.propagateProxyToShadows(ctx, id, account.ProxyID); err != nil {
+			return nil, err
+		}
+	}
+	if input.ProviderID != nil && !account.IsCredentialShadow() {
+		if err := s.propagateProviderToShadows(ctx, id, account.ProviderID); err != nil {
 			return nil, err
 		}
 	}
@@ -742,9 +787,14 @@ func (s *adminServiceImpl) CreateShadow(ctx context.Context, parentID int64, opt
 		ParentAccountID: &parentID,
 		QuotaDimension:  QuotaDimensionSpark,
 		ProxyID:         parent.ProxyID,
+		ProviderID:      parent.ProviderID,
 		Priority:        priority,
 		Concurrency:     concurrency,
 		Schedulable:     true,
+	}
+	if shadow.ProviderID != nil && shadow.LoadFactor == nil {
+		loadFactor := shadow.EffectiveLoadFactor()
+		shadow.LoadFactor = &loadFactor
 	}
 
 	// 5. 持久化（Create 填充 shadow.ID）。并发竞态:预查(步骤2)放行后另一请求抢先建成,本次会撞
@@ -781,6 +831,31 @@ func (s *adminServiceImpl) CreateShadow(ctx context.Context, parentID int64, opt
 // Calling this for a non-parent account is a harmless no-op.
 func (s *adminServiceImpl) propagateProxyToShadows(ctx context.Context, parentID int64, proxyID *int64) error {
 	return propagateAccountProxyToShadows(ctx, s.accountRepo, parentID, proxyID)
+}
+
+// propagateProviderToShadows keeps credential-shadow ownership aligned with
+// the parent. Direct shadow assignment is rejected by UpdateAccount.
+func (s *adminServiceImpl) propagateProviderToShadows(ctx context.Context, parentID int64, providerID *int64) error {
+	shadows, err := s.accountRepo.ListShadowsByParent(ctx, parentID)
+	if err != nil {
+		return fmt.Errorf("list spark shadows for provider propagation: %w", err)
+	}
+	for _, shadow := range shadows {
+		if providerID == nil {
+			shadow.ProviderID = nil
+		} else {
+			if shadow.LoadFactor == nil {
+				loadFactor := shadow.EffectiveLoadFactor()
+				shadow.LoadFactor = &loadFactor
+			}
+			value := *providerID
+			shadow.ProviderID = &value
+		}
+		if err := s.accountRepo.Update(ctx, shadow); err != nil {
+			return fmt.Errorf("update spark shadow %d provider: %w", shadow.ID, err)
+		}
+	}
+	return nil
 }
 
 // propagateAccountProxyToShadows 把母账号的 proxy 同步到其所有 spark 影子(影子 proxy 恒继承母账号)。

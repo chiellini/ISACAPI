@@ -19,20 +19,24 @@ type UsageBillingCommand struct {
 	RequestFingerprint string
 	RequestPayloadHash string
 
-	UserID              int64
-	AccountID           int64
-	SubscriptionID      *int64
-	AccountType         string
-	Model               string
-	ServiceTier         string
-	ReasoningEffort     string
-	BillingType         int8
-	InputTokens         int
-	OutputTokens        int
-	CacheCreationTokens int
-	CacheReadTokens     int
-	ImageCount          int
-	MediaType           string
+	UserID                int64
+	PayerUserID           int64
+	ResearchGroupID       int64
+	ResearchGroupMemberID int64
+	FundingSource         string
+	AccountID             int64
+	SubscriptionID        *int64
+	AccountType           string
+	Model                 string
+	ServiceTier           string
+	ReasoningEffort       string
+	BillingType           int8
+	InputTokens           int
+	OutputTokens          int
+	CacheCreationTokens   int
+	CacheReadTokens       int
+	ImageCount            int
+	MediaType             string
 
 	BalanceCost         float64
 	SubscriptionCost    float64
@@ -46,6 +50,11 @@ func (c *UsageBillingCommand) Normalize() {
 		return
 	}
 	c.RequestID = strings.TrimSpace(c.RequestID)
+	decision := (&BillingDecision{CallerUserID: c.UserID, PayerUserID: c.PayerUserID, ResearchGroupID: c.ResearchGroupID, ResearchGroupMemberID: c.ResearchGroupMemberID, FundingSource: c.FundingSource}).Normalize(c.UserID)
+	c.PayerUserID = decision.PayerUserID
+	c.ResearchGroupID = decision.ResearchGroupID
+	c.ResearchGroupMemberID = decision.ResearchGroupMemberID
+	c.FundingSource = decision.FundingSource
 	if strings.TrimSpace(c.RequestFingerprint) == "" {
 		c.RequestFingerprint = buildUsageBillingFingerprint(c)
 	}
@@ -56,10 +65,14 @@ func buildUsageBillingFingerprint(c *UsageBillingCommand) string {
 		return ""
 	}
 	raw := fmt.Sprintf(
-		"%d|%d|%d|%s|%s|%s|%s|%d|%d|%d|%d|%d|%d|%s|%d|%0.10f|%0.10f|%0.10f|%0.10f|%0.10f",
+		"%d|%d|%d|%d|%d|%d|%s|%s|%s|%s|%s|%d|%d|%d|%d|%d|%d|%s|%d|%0.10f|%0.10f|%0.10f|%0.10f|%0.10f",
 		c.UserID,
+		c.PayerUserID,
+		c.ResearchGroupID,
+		c.ResearchGroupMemberID,
 		c.AccountID,
 		c.APIKeyID,
+		strings.TrimSpace(c.FundingSource),
 		strings.TrimSpace(c.AccountType),
 		strings.TrimSpace(c.Model),
 		strings.TrimSpace(c.ServiceTier),
@@ -112,23 +125,31 @@ type AccountQuotaState struct {
 }
 
 type UsageBillingApplyResult struct {
-	Applied              bool
-	APIKeyQuotaExhausted bool
-	NewBalance           *float64           // post-deduction balance (nil = no balance deduction)
-	BalanceOverdrafted   bool               // true when the sufficient-balance guard missed and debt was still recorded
-	QuotaState           *AccountQuotaState // post-increment quota state (nil = no quota increment)
+	Applied               bool
+	APIKeyQuotaExhausted  bool
+	NewBalance            *float64           // post-deduction balance (nil = no balance deduction)
+	BalanceOverdrafted    bool               // true when the sufficient-balance guard missed and debt was still recorded
+	QuotaState            *AccountQuotaState // post-increment quota state (nil = no quota increment)
+	PayerUserID           int64
+	ResearchGroupID       int64
+	ResearchGroupMemberID int64
+	FundingSource         string
 }
 
 // BatchImageBalanceHoldCommand describes an idempotent balance hold operation.
 type BatchImageBalanceHoldCommand struct {
-	RequestID          string
-	APIKeyID           int64
-	RequestFingerprint string
-	RequestPayloadHash string
-	UserID             int64
-	BatchID            string
-	HoldAmount         float64
-	ActualAmount       float64
+	RequestID             string
+	APIKeyID              int64
+	RequestFingerprint    string
+	RequestPayloadHash    string
+	UserID                int64
+	PayerUserID           int64
+	ResearchGroupID       int64
+	ResearchGroupMemberID int64
+	FundingSource         string
+	BatchID               string
+	HoldAmount            float64
+	ActualAmount          float64
 }
 
 func (c *BatchImageBalanceHoldCommand) Normalize() {
@@ -137,6 +158,11 @@ func (c *BatchImageBalanceHoldCommand) Normalize() {
 	}
 	c.RequestID = strings.TrimSpace(c.RequestID)
 	c.BatchID = strings.TrimSpace(c.BatchID)
+	decision := (&BillingDecision{CallerUserID: c.UserID, PayerUserID: c.PayerUserID, ResearchGroupID: c.ResearchGroupID, ResearchGroupMemberID: c.ResearchGroupMemberID, FundingSource: c.FundingSource}).Normalize(c.UserID)
+	c.PayerUserID = decision.PayerUserID
+	c.ResearchGroupID = decision.ResearchGroupID
+	c.ResearchGroupMemberID = decision.ResearchGroupMemberID
+	c.FundingSource = decision.FundingSource
 	if strings.TrimSpace(c.RequestFingerprint) == "" {
 		c.RequestFingerprint = buildBatchImageBalanceHoldFingerprint(c)
 	}
@@ -147,9 +173,13 @@ func buildBatchImageBalanceHoldFingerprint(c *BatchImageBalanceHoldCommand) stri
 		return ""
 	}
 	raw := fmt.Sprintf(
-		"%d|%d|%s|%0.10f|%0.10f",
+		"%d|%d|%d|%d|%d|%s|%s|%0.10f|%0.10f",
 		c.UserID,
+		c.PayerUserID,
+		c.ResearchGroupID,
+		c.ResearchGroupMemberID,
 		c.APIKeyID,
+		strings.TrimSpace(c.FundingSource),
 		strings.TrimSpace(c.BatchID),
 		c.HoldAmount,
 		c.ActualAmount,
@@ -162,9 +192,13 @@ func buildBatchImageBalanceHoldFingerprint(c *BatchImageBalanceHoldCommand) stri
 }
 
 type BatchImageBalanceHoldResult struct {
-	Applied       bool
-	NewBalance    *float64
-	FrozenBalance *float64
+	Applied               bool
+	NewBalance            *float64
+	FrozenBalance         *float64
+	PayerUserID           int64
+	ResearchGroupID       int64
+	ResearchGroupMemberID int64
+	FundingSource         string
 }
 
 type UsageBillingRepository interface {

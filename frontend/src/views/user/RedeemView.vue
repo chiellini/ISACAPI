@@ -184,12 +184,6 @@
                 <li>{{ t('redeem.codeRule2') }}</li>
                 <li>
                   {{ t('redeem.codeRule3') }}
-                  <span
-                    v-if="contactInfo"
-                    class="ml-1.5 inline-flex items-center rounded-md bg-primary-200/50 px-2 py-0.5 text-xs font-medium text-primary-800 dark:bg-primary-800/40 dark:text-primary-200"
-                  >
-                    {{ contactInfo }}
-                  </span>
                 </li>
                 <li>{{ t('redeem.codeRule4') }}</li>
               </ul>
@@ -198,10 +192,10 @@
         </div>
       </div>
 
-      <!-- Contact Admin -->
+      <!-- QQ group contact -->
       <div class="card">
         <div class="p-6">
-          <OwnerContactInfo variant="plain" :columns="true" />
+          <QqGroupContact variant="plain" />
         </div>
       </div>
 
@@ -354,10 +348,10 @@ import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import { useAppStore } from '@/stores/app'
 import { useSubscriptionStore } from '@/stores/subscriptions'
-import { redeemAPI, authAPI, type RedeemHistoryItem } from '@/api'
+import { redeemAPI, type RedeemHistoryItem } from '@/api'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import Icon from '@/components/icons/Icon.vue'
-import OwnerContactInfo from '@/components/common/OwnerContactInfo.vue'
+import QqGroupContact from '@/components/common/QqGroupContact.vue'
 import { formatDateTime } from '@/utils/format'
 
 const { t } = useI18n()
@@ -383,7 +377,6 @@ const errorMessage = ref('')
 // History data
 const history = ref<RedeemHistoryItem[]>([])
 const loadingHistory = ref(false)
-const contactInfo = ref('')
 
 // Helper functions for history display
 const isBalanceType = (type: string) => {
@@ -486,12 +479,6 @@ const handleRedeem = async () => {
 
 onMounted(async () => {
   fetchHistory()
-  try {
-    const settings = await authAPI.getPublicSettings()
-    contactInfo.value = settings.contact_info || ''
-  } catch (error) {
-    console.error('Failed to load contact info:', error)
-  }
 })
 </script>
 
