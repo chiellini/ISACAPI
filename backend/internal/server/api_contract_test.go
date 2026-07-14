@@ -53,6 +53,7 @@ func TestAPIContracts(t *testing.T) {
 					"email_bound": true,
 					"username": "alice",
 						"role": "user",
+						"is_super_admin": false,
 						"balance": 12.5,
 						"frozen_balance": 0,
 						"concurrency": 5,
@@ -994,6 +995,7 @@ func TestAPIContracts(t *testing.T) {
 					service.SettingKeyRegistrationEnabled:              "true",
 					service.SettingKeyEmailVerifyEnabled:               "false",
 					service.SettingKeyRegistrationEmailSuffixWhitelist: "[]",
+					service.SettingKeySiteName:                         "ISACAPI",
 				})
 			},
 			method:     http.MethodGet,

@@ -402,6 +402,52 @@ func TestBatchImagePublicService_Submit(t *testing.T) {
 		require.Equal(t, []string{first.ID}, queue.enqueued)
 	})
 
+	t.Run("idempotency is user scoped across api keys", func(t *testing.T) {
+		svc, _, _, gemini, _ := newTestBatchImagePublicService(true)
+		req := validBatchImageSubmitRequest()
+
+		first, err := svc.Submit(ctx, BatchImageOwner{UserID: 11, APIKeyID: 22}, req, "user-key")
+		require.NoError(t, err)
+		second, err := svc.Submit(ctx, BatchImageOwner{UserID: 11, APIKeyID: 23}, req, "user-key")
+		require.NoError(t, err)
+
+		require.Equal(t, first.ID, second.ID)
+		require.Len(t, gemini.submits, 1)
+		require.Len(t, svc.BillingRepo.(*fakeBatchImageBillingRepo).reserves, 1)
+	})
+
+	t.Run("create conflict replays winner without a second hold", func(t *testing.T) {
+		svc, baseRepo, _, gemini, _ := newTestBatchImagePublicService(true)
+		req := validBatchImageSubmitRequest()
+		normalized, err := svc.validateSubmitRequest(req)
+		require.NoError(t, err)
+		requestHash := HashBatchImageSubmitRequest(normalized)
+		apiKeyID := int64(22)
+		winner := &BatchImageJob{
+			BatchID:        "imgbatch_concurrent_winner",
+			UserID:         11,
+			APIKeyID:       &apiKeyID,
+			Provider:       BatchImageProviderGeminiAPI,
+			Model:          normalized.Model,
+			Status:         BatchImageJobStatusCreated,
+			ItemCount:      len(normalized.Items),
+			EstimatedCost:  0.25,
+			IdempotencyKey: batchImageStringPtr("racing-key"),
+			RequestHash:    batchImageStringPtr(requestHash),
+			CreatedAt:      time.Now(),
+		}
+		conflictRepo := &idempotencyCreateConflictRepo{fakeBatchImageRepository: baseRepo, winner: winner}
+		svc.Repo = conflictRepo
+
+		got, err := svc.Submit(ctx, testBatchImageOwner(), req, "racing-key")
+		require.NoError(t, err)
+		require.Equal(t, winner.BatchID, got.ID)
+		require.Equal(t, 2, conflictRepo.lookupCalls)
+		require.Equal(t, 1, conflictRepo.createCalls)
+		require.Empty(t, svc.BillingRepo.(*fakeBatchImageBillingRepo).reserves)
+		require.Empty(t, gemini.submits)
+	})
+
 	t.Run("idempotency conflict rejects changed request", func(t *testing.T) {
 		svc, _, _, _, _ := newTestBatchImagePublicService(true)
 		req := validBatchImageSubmitRequest()
@@ -738,6 +784,26 @@ func newTestBatchImagePublicService(enabled bool) (*BatchImagePublicService, *fa
 
 func testBatchImageOwner() BatchImageOwner {
 	return BatchImageOwner{UserID: 11, APIKeyID: 22}
+}
+
+type idempotencyCreateConflictRepo struct {
+	*fakeBatchImageRepository
+	winner      *BatchImageJob
+	lookupCalls int
+	createCalls int
+}
+
+func (r *idempotencyCreateConflictRepo) GetBatchImageJobByIdempotencyKey(context.Context, int64, int64, string) (*BatchImageJob, error) {
+	r.lookupCalls++
+	if r.lookupCalls == 1 {
+		return nil, ErrBatchImageJobNotFound
+	}
+	return r.winner, nil
+}
+
+func (r *idempotencyCreateConflictRepo) CreateBatchImageJob(context.Context, CreateBatchImageJobParams) (*BatchImageJob, error) {
+	r.createCalls++
+	return nil, ErrBatchImageJobExists
 }
 
 type fakeBatchImageAuthCacheInvalidator struct {

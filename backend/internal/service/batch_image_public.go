@@ -216,16 +216,7 @@ func (s *BatchImagePublicService) Submit(ctx context.Context, owner BatchImageOw
 	if idempotencyKey != "" {
 		existing, err := s.Repo.GetBatchImageJobByIdempotencyKey(ctx, owner.UserID, owner.APIKeyID, idempotencyKey)
 		if err == nil {
-			if batchImageDerefString(existing.RequestHash) != requestHash {
-				return nil, ErrBatchImageIdempotencyConflict
-			}
-			if existing.Status == BatchImageJobStatusSubmitted && s.Queue != nil {
-				if enqueueErr := s.Queue.Enqueue(ctx, existing.BatchID); enqueueErr != nil && !errors.Is(enqueueErr, ErrBatchImageAlreadyQueued) {
-					_ = s.Repo.RecordBatchImageJobSubmitFailure(ctx, existing.BatchID, "QUEUE_FAILED", sanitizeBatchImagePublicMessage(enqueueErr.Error()), false)
-					return nil, ErrBatchImageQueueFailed
-				}
-			}
-			return BatchImageJobToPublic(existing), nil
+			return s.replayIdempotentSubmit(ctx, existing, requestHash)
 		}
 		if !errors.Is(err, ErrBatchImageJobNotFound) {
 			return nil, err
@@ -291,6 +282,18 @@ func (s *BatchImagePublicService) Submit(ctx context.Context, owner BatchImageOw
 		RequestHash:             batchImageStringPtr(requestHash),
 	})
 	if err != nil {
+		// The optimistic read above is not a lock. The partial unique index is
+		// the serialization point: a loser replays the winning job and must not
+		// enter the balance-hold path a second time.
+		if idempotencyKey != "" && errors.Is(err, ErrBatchImageJobExists) {
+			existing, lookupErr := s.Repo.GetBatchImageJobByIdempotencyKey(ctx, owner.UserID, owner.APIKeyID, idempotencyKey)
+			if lookupErr == nil {
+				return s.replayIdempotentSubmit(ctx, existing, requestHash)
+			}
+			if !errors.Is(lookupErr, ErrBatchImageJobNotFound) {
+				return nil, lookupErr
+			}
+		}
 		return nil, err
 	}
 	if err := reserveBatchImageBalanceHold(ctx, s.BillingRepo, job, requestHash); err != nil {
@@ -405,6 +408,19 @@ func (s *BatchImagePublicService) Submit(ctx context.Context, owner BatchImageOw
 		return nil, err
 	}
 	return BatchImageJobToPublic(created), nil
+}
+
+func (s *BatchImagePublicService) replayIdempotentSubmit(ctx context.Context, existing *BatchImageJob, requestHash string) (*BatchImagePublicBatch, error) {
+	if existing == nil || batchImageDerefString(existing.RequestHash) != requestHash {
+		return nil, ErrBatchImageIdempotencyConflict
+	}
+	if existing.Status == BatchImageJobStatusSubmitted && s.Queue != nil {
+		if enqueueErr := s.Queue.Enqueue(ctx, existing.BatchID); enqueueErr != nil && !errors.Is(enqueueErr, ErrBatchImageAlreadyQueued) {
+			_ = s.Repo.RecordBatchImageJobSubmitFailure(ctx, existing.BatchID, "QUEUE_FAILED", sanitizeBatchImagePublicMessage(enqueueErr.Error()), false)
+			return nil, ErrBatchImageQueueFailed
+		}
+	}
+	return BatchImageJobToPublic(existing), nil
 }
 
 func (s *BatchImagePublicService) releaseFailedSubmitHold(ctx context.Context, job *BatchImageJob, requestHash string) error {

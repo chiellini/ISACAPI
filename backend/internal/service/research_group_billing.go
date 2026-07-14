@@ -64,6 +64,24 @@ func WithBillingDecision(ctx context.Context, decision *BillingDecision) context
 	return context.WithValue(ctx, billingDecisionContextKey{}, &copy)
 }
 
+// CopyBillingDecisionContext transfers the immutable admission-time payer
+// snapshot between contexts. Usage recording runs on a detached worker context,
+// so relying on normal context ancestry would silently lose the selected payer.
+func CopyBillingDecisionContext(target context.Context, source context.Context) context.Context {
+	if target == nil {
+		target = context.Background()
+	}
+	if source == nil {
+		return target
+	}
+	decision, ok := source.Value(billingDecisionContextKey{}).(*BillingDecision)
+	if !ok || decision == nil {
+		return target
+	}
+	copy := *decision
+	return context.WithValue(target, billingDecisionContextKey{}, &copy)
+}
+
 func BillingDecisionFromContext(ctx context.Context, callerUserID int64) *BillingDecision {
 	if ctx != nil {
 		if decision, ok := ctx.Value(billingDecisionContextKey{}).(*BillingDecision); ok && decision != nil {

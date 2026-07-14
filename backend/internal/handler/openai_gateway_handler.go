@@ -9,6 +9,7 @@ import (
 	"runtime/debug"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
@@ -89,7 +90,85 @@ func usageRecordContext(parent context.Context, base context.Context) context.Co
 	if rate := service.ModelAliasRateFromContext(parent); rate > 0 {
 		base = service.WithModelAliasRate(base, rate)
 	}
+	base = service.CopyBillingDecisionContext(base, parent)
 	return base
+}
+
+func cyberPolicyRecordContext(parent context.Context) (context.Context, context.CancelFunc) {
+	return context.WithTimeout(usageRecordContext(parent, context.Background()), 30*time.Second)
+}
+
+type openAIWSTurnBillingChecker func(context.Context) (*service.BillingDecision, error)
+
+// openAIWSTurnBillingState keeps one immutable payer decision per WebSocket
+// turn. The connection context contains turn 1's admission decision, but later
+// turns are new billable requests and must not silently reuse it.
+type openAIWSTurnBillingState struct {
+	mu           sync.Mutex
+	callerUserID int64
+	decisions    map[int]*service.BillingDecision
+	check        openAIWSTurnBillingChecker
+}
+
+func newOpenAIWSTurnBillingState(callerUserID int64, initial *service.BillingDecision, check openAIWSTurnBillingChecker) *openAIWSTurnBillingState {
+	state := &openAIWSTurnBillingState{
+		callerUserID: callerUserID,
+		decisions:    make(map[int]*service.BillingDecision),
+		check:        check,
+	}
+	state.decisions[1] = initial.Normalize(callerUserID)
+	return state
+}
+
+// Admit checks a new turn once. Turn 1 was already checked before the upstream
+// connection was selected, and same-turn transport retries reuse the captured
+// decision instead of changing payer mid-request.
+func (s *openAIWSTurnBillingState) Admit(ctx context.Context, turn int) error {
+	if s == nil || turn <= 1 {
+		return nil
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, ok := s.decisions[turn]; ok {
+		return nil
+	}
+	if s.check == nil {
+		return errors.New("websocket turn billing checker is nil")
+	}
+	decision, err := s.check(ctx)
+	if err != nil {
+		return err
+	}
+	s.decisions[turn] = decision.Normalize(s.callerUserID)
+	return nil
+}
+
+// Context returns an isolated settlement context for the requested turn. A
+// missing later-turn snapshot fails safe to self-pay instead of falling back to
+// the connection context's (possibly research-group funded) turn 1 decision.
+func (s *openAIWSTurnBillingState) Context(base context.Context, turn int) context.Context {
+	if base == nil {
+		base = context.Background()
+	}
+	if s == nil {
+		return base
+	}
+	s.mu.Lock()
+	decision := s.decisions[turn]
+	s.mu.Unlock()
+	if decision == nil {
+		decision = service.SelfBillingDecision(s.callerUserID)
+	}
+	return service.WithBillingDecision(base, decision.Normalize(s.callerUserID))
+}
+
+func (s *openAIWSTurnBillingState) Forget(turn int) {
+	if s == nil {
+		return
+	}
+	s.mu.Lock()
+	delete(s.decisions, turn)
+	s.mu.Unlock()
 }
 
 func wrapUsageRecordTaskContext(parent context.Context, task service.UsageRecordTask) service.UsageRecordTask {
@@ -1495,6 +1574,20 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 		closeOpenAIClientWS(wsConn, coderws.StatusPolicyViolation, "billing check failed")
 		return
 	}
+	turnBilling := newOpenAIWSTurnBillingState(
+		subject.UserID,
+		service.BillingDecisionFromContext(ctx, subject.UserID),
+		func(checkCtx context.Context) (*service.BillingDecision, error) {
+			return h.billingCacheService.CheckBillingEligibility(
+				checkCtx,
+				apiKey.User,
+				apiKey,
+				apiKey.Group,
+				subscription,
+				service.QuotaPlatform(checkCtx, apiKey),
+			)
+		},
+	)
 
 	sessionHash := h.gatewayService.GenerateSessionHashWithFallback(
 		c,
@@ -1609,6 +1702,13 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 					writeContentModerationWSError(ctx, wsConn, decision)
 					return service.NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, decision.Message, nil)
 				}
+				if err := turnBilling.Admit(ctx, turn); err != nil {
+					reqLog.Info("openai.websocket_turn_billing_eligibility_check_failed",
+						zap.Int("turn", turn),
+						zap.Error(err),
+					)
+					return service.NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, "billing check failed", err)
+				}
 				return nil
 			},
 			BeforeTurn: func(turn int) error {
@@ -1647,12 +1747,16 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 				return nil
 			},
 			AfterTurn: func(turn int, result *service.OpenAIForwardResult, turnErr error) {
+				turnCtx := turnBilling.Context(ctx, turn)
+				if result != nil {
+					defer turnBilling.Forget(turn)
+				}
 				// F1: cyber 标记按 turn 生命周期清理——defer 保证任意早返回路径都执行；
 				// CyberBlocked 必须在 submit 前同步预捕获（task 闭包由 worker 池异步执行，
 				// 届时 defer 已清除标记）。
 				defer clearCyberPolicyTurnState(c)
 				releaseTurnSlots()
-				h.recordCyberPolicyIfMarked(c, apiKey, account, subscription, reqModel, turnErr != nil, cyberBlockKey, channelMappingWS.ToUsageFields(reqModel, ""), requestPayloadHash)
+				h.recordCyberPolicyIfMarkedWithContext(turnCtx, c, apiKey, account, subscription, reqModel, turnErr != nil, cyberBlockKey, channelMappingWS.ToUsageFields(reqModel, ""), requestPayloadHash)
 				if service.GetOpsCyberPolicy(c) != nil {
 					cyberBlockedThisConn = true
 				}
@@ -1681,9 +1785,9 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 				h.gatewayService.ReportOpenAIAccountScheduleResult(account.ID, true, result.FirstTokenMs)
 				inboundEndpoint := GetInboundEndpoint(c)
 				upstreamEndpoint := resolveOpenAIUpstreamEndpoint(c, account, result)
-				quotaPlatform := service.QuotaPlatform(c.Request.Context(), apiKey)
+				quotaPlatform := service.QuotaPlatform(turnCtx, apiKey)
 				cyberBlocked := service.GetOpsCyberPolicy(c) != nil
-				h.submitOpenAIUsageRecordTask(ctx, result, func(taskCtx context.Context) {
+				h.submitOpenAIUsageRecordTask(turnCtx, result, func(taskCtx context.Context) {
 					if err := h.gatewayService.RecordUsage(taskCtx, &service.OpenAIRecordUsageInput{
 						Result:             result,
 						APIKey:             apiKey,
@@ -2508,6 +2612,14 @@ func (h *OpenAIGatewayHandler) enqueueCyberSessionBlockedOpsEntry(c *gin.Context
 // 当前请求已发给用户，本方法只做事后记录，不影响响应。forwardErrored 为 true 时才写用量行，
 // 避免与正常 RecordUsage(forward 成功路径)重复。每请求至多记录一次。
 func (h *OpenAIGatewayHandler) recordCyberPolicyIfMarked(c *gin.Context, apiKey *service.APIKey, account *service.Account, subscription *service.UserSubscription, model string, forwardErrored bool, cyberBlockKey string, channelFields service.ChannelUsageFields, requestPayloadHash string) {
+	parentCtx := context.Background()
+	if c != nil && c.Request != nil {
+		parentCtx = c.Request.Context()
+	}
+	h.recordCyberPolicyIfMarkedWithContext(parentCtx, c, apiKey, account, subscription, model, forwardErrored, cyberBlockKey, channelFields, requestPayloadHash)
+}
+
+func (h *OpenAIGatewayHandler) recordCyberPolicyIfMarkedWithContext(parentCtx context.Context, c *gin.Context, apiKey *service.APIKey, account *service.Account, subscription *service.UserSubscription, model string, forwardErrored bool, cyberBlockKey string, channelFields service.ChannelUsageFields, requestPayloadHash string) {
 	mark := service.GetOpsCyberPolicy(c)
 	if mark == nil {
 		return
@@ -2582,8 +2694,9 @@ func (h *OpenAIGatewayHandler) recordCyberPolicyIfMarked(c *gin.Context, apiKey 
 		ClientIP:        clientIPStr,
 		CreatedAt:       time.Now(),
 	}
+	quotaPlatform := service.QuotaPlatform(parentCtx, apiKey)
 	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		ctx, cancel := cyberPolicyRecordContext(parentCtx)
 		defer cancel()
 		if cmSvc != nil {
 			cmSvc.RecordCyberPolicyEvent(ctx, service.CyberPolicyRecordInput{
@@ -2619,6 +2732,7 @@ func (h *OpenAIGatewayHandler) recordCyberPolicyIfMarked(c *gin.Context, apiKey 
 				IPAddress:          clientIPStr,
 				RequestPayloadHash: requestPayloadHash,
 				APIKeyService:      apiKeySvc,
+				QuotaPlatform:      quotaPlatform,
 				ChannelUsageFields: channelFields,
 			})
 		}

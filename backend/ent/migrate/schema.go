@@ -617,9 +617,9 @@ var (
 				Columns: []*schema.Column{BatchImageJobsColumns[10], BatchImageJobsColumns[13]},
 			},
 			{
-				Name:    "batchimagejob_idempotency_key",
-				Unique:  false,
-				Columns: []*schema.Column{BatchImageJobsColumns[28]},
+				Name:    "batchimagejob_user_id_idempotency_key",
+				Unique:  true,
+				Columns: []*schema.Column{BatchImageJobsColumns[2], BatchImageJobsColumns[28]},
 				Annotation: &entsql.IndexAnnotation{
 					Where: "idempotency_key IS NOT NULL AND idempotency_key <> ''",
 				},

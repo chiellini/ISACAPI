@@ -340,7 +340,7 @@ describe('EmailVerifyView', () => {
         verify_code: '123456',
       })
     )
-    expect(apiClientPostMock.mock.calls[0][1]).not.toHaveProperty('aff_code')
+    expect(apiClientPostMock.mock.calls[0][1]).toHaveProperty('aff_code', 'AFF123')
     expect(persistOAuthTokenContextMock).toHaveBeenCalledWith({
       access_token: 'oauth-access-token',
       refresh_token: 'oauth-refresh-token',

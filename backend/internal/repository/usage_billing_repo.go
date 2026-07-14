@@ -118,21 +118,22 @@ func (r *usageBillingRepository) claimUsageBillingRequest(ctx context.Context, t
 }
 
 func (r *usageBillingRepository) ReserveBatchImageBalance(ctx context.Context, cmd *service.BatchImageBalanceHoldCommand) (*service.BatchImageBalanceHoldResult, error) {
-	return r.applyBatchImageBalanceHold(ctx, cmd, reserveUsageBillingBatchImageBalance)
+	return r.applyBatchImageBalanceHold(ctx, cmd, reserveUsageBillingBatchImageBalance, false)
 }
 
 func (r *usageBillingRepository) CaptureBatchImageBalance(ctx context.Context, cmd *service.BatchImageBalanceHoldCommand) (*service.BatchImageBalanceHoldResult, error) {
-	return r.applyBatchImageBalanceHold(ctx, cmd, captureUsageBillingBatchImageBalance)
+	return r.applyBatchImageBalanceHold(ctx, cmd, captureUsageBillingBatchImageBalance, false)
 }
 
 func (r *usageBillingRepository) ReleaseBatchImageBalance(ctx context.Context, cmd *service.BatchImageBalanceHoldCommand) (*service.BatchImageBalanceHoldResult, error) {
-	return r.applyBatchImageBalanceHold(ctx, cmd, releaseUsageBillingBatchImageBalance)
+	return r.applyBatchImageBalanceHold(ctx, cmd, releaseUsageBillingBatchImageBalance, true)
 }
 
 func (r *usageBillingRepository) applyBatchImageBalanceHold(
 	ctx context.Context,
 	cmd *service.BatchImageBalanceHoldCommand,
 	apply func(context.Context, *sql.Tx, *service.BatchImageBalanceHoldCommand) (*service.BatchImageBalanceHoldResult, error),
+	requireExistingHold bool,
 ) (_ *service.BatchImageBalanceHoldResult, err error) {
 	if cmd == nil {
 		return &service.BatchImageBalanceHoldResult{}, nil
@@ -154,6 +155,20 @@ func (r *usageBillingRepository) applyBatchImageBalanceHold(
 			_ = tx.Rollback()
 		}
 	}()
+
+	if requireExistingHold {
+		// A release may race the reserve transaction before its hold claim is
+		// visible. Do not consume the release dedup key for that no-op: recovery
+		// can retry after reserve commits instead of leaving funds frozen forever.
+		held, heldErr := batchImageHoldClaimExists(ctx, tx, service.BatchImageHoldRequestID(cmd.BatchID), cmd.APIKeyID)
+		if heldErr != nil {
+			return nil, heldErr
+		}
+		if !held {
+			logger.LegacyPrintf("repository.usage_billing", "[BatchImage] release deferred, hold claim is not visible: batch=%s", cmd.BatchID)
+			return &service.BatchImageBalanceHoldResult{Applied: false}, nil
+		}
+	}
 
 	applied, err := r.claimUsageBillingRequest(ctx, tx, cmd.RequestID, cmd.APIKeyID, cmd.RequestFingerprint)
 	if err != nil {

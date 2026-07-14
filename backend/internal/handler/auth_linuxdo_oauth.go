@@ -605,12 +605,7 @@ func (h *AuthHandler) CompleteLinuxDoOAuthRegistration(c *gin.Context) {
 	clearOAuthPendingSessionCookie(c, secureCookie)
 	clearOAuthPendingBrowserCookie(c, secureCookie)
 
-	c.JSON(http.StatusOK, gin.H{
-		"access_token":  tokenPair.AccessToken,
-		"refresh_token": tokenPair.RefreshToken,
-		"expires_in":    tokenPair.ExpiresIn,
-		"token_type":    "Bearer",
-	})
+	h.writeOAuthTokenPairResponse(c, user, tokenPair)
 }
 
 func (h *AuthHandler) getLinuxDoOAuthConfig(ctx context.Context) (config.LinuxDoConnectConfig, error) {

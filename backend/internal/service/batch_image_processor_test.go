@@ -444,9 +444,9 @@ func (r *fakeBatchImageRepository) GetBatchImageJobByBatchID(_ context.Context, 
 	return job, nil
 }
 
-func (r *fakeBatchImageRepository) GetBatchImageJobByIdempotencyKey(_ context.Context, userID, apiKeyID int64, key string) (*BatchImageJob, error) {
+func (r *fakeBatchImageRepository) GetBatchImageJobByIdempotencyKey(_ context.Context, userID, _ int64, key string) (*BatchImageJob, error) {
 	for _, job := range r.jobs {
-		if job.UserID == userID && job.APIKeyID != nil && *job.APIKeyID == apiKeyID && batchImageDerefString(job.IdempotencyKey) == key {
+		if job.UserID == userID && batchImageDerefString(job.IdempotencyKey) == key {
 			return job, nil
 		}
 	}

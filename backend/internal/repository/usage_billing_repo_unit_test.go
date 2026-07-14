@@ -451,3 +451,65 @@ func TestReleaseUsageBillingBatchImageBalance_SkipsWhenHoldNeverReserved(t *test
 	require.NoError(t, tx.Commit())
 	require.NoError(t, mock.ExpectationsWereMet())
 }
+
+func TestUsageBillingRepositoryRelease_NoVisibleHoldDoesNotConsumeDedupAndCanRetry(t *testing.T) {
+	ctx := context.Background()
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+
+	batchID := "imgbatch_reserve_release_race"
+	apiKeyID := int64(7)
+	holdRequestID := service.BatchImageHoldRequestID(batchID)
+	releaseRequestID := service.BatchImageReleaseRequestID(batchID)
+	cmd := &service.BatchImageBalanceHoldCommand{
+		RequestID:  releaseRequestID,
+		APIKeyID:   apiKeyID,
+		UserID:     42,
+		BatchID:    batchID,
+		HoldAmount: 1,
+	}
+
+	// The reserve transaction has not committed yet, so neither dedup table
+	// exposes its hold claim. The release must roll back without inserting its
+	// own dedup key, otherwise a later retry could never release the hold.
+	mock.ExpectBegin()
+	mock.ExpectQuery(`SELECT 1\s+FROM usage_billing_dedup\s+WHERE request_id = \$1 AND api_key_id = \$2`).
+		WithArgs(holdRequestID, apiKeyID).
+		WillReturnError(sql.ErrNoRows)
+	mock.ExpectQuery(`SELECT 1\s+FROM usage_billing_dedup_archive\s+WHERE request_id = \$1 AND api_key_id = \$2`).
+		WithArgs(holdRequestID, apiKeyID).
+		WillReturnError(sql.ErrNoRows)
+	mock.ExpectRollback()
+
+	first, err := (&usageBillingRepository{db: db}).ReleaseBatchImageBalance(ctx, cmd)
+	require.NoError(t, err)
+	require.False(t, first.Applied)
+
+	// Once the reserve claim is visible, the exact same release request can
+	// claim its dedup key and return the frozen funds exactly once.
+	mock.ExpectBegin()
+	mock.ExpectQuery(`SELECT 1\s+FROM usage_billing_dedup\s+WHERE request_id = \$1 AND api_key_id = \$2`).
+		WithArgs(holdRequestID, apiKeyID).
+		WillReturnRows(sqlmock.NewRows([]string{"?column?"}).AddRow(1))
+	mock.ExpectQuery(`(?s)INSERT INTO usage_billing_dedup.*ON CONFLICT \(request_id, api_key_id\) DO NOTHING.*RETURNING id`).
+		WithArgs(releaseRequestID, apiKeyID, sqlmock.AnyArg()).
+		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(101))
+	mock.ExpectQuery(`SELECT request_fingerprint\s+FROM usage_billing_dedup_archive\s+WHERE request_id = \$1 AND api_key_id = \$2`).
+		WithArgs(releaseRequestID, apiKeyID).
+		WillReturnError(sql.ErrNoRows)
+	mock.ExpectQuery(`SELECT 1\s+FROM usage_billing_dedup\s+WHERE request_id = \$1 AND api_key_id = \$2`).
+		WithArgs(holdRequestID, apiKeyID).
+		WillReturnRows(sqlmock.NewRows([]string{"?column?"}).AddRow(1))
+	mock.ExpectQuery(releaseBatchImageHoldSQL).
+		WithArgs(1.0, int64(42)).
+		WillReturnRows(sqlmock.NewRows([]string{"balance", "frozen_balance"}).AddRow(10.0, 0.0))
+	mock.ExpectCommit()
+
+	second, err := (&usageBillingRepository{db: db}).ReleaseBatchImageBalance(ctx, cmd)
+	require.NoError(t, err)
+	require.True(t, second.Applied)
+	require.InDelta(t, 10.0, *second.NewBalance, 0.000001)
+	require.InDelta(t, 0.0, *second.FrozenBalance, 0.000001)
+	require.NoError(t, mock.ExpectationsWereMet())
+}

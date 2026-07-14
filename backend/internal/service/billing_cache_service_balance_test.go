@@ -26,11 +26,12 @@ type balanceEligibilityCacheStub struct {
 
 type researchGroupBillingCacheStub struct {
 	billingCacheWorkerStub
-	balances       map[int64]float64
-	fundingReadErr error
-	cachedFunding  *ResearchGroupFundingContext
-	fundingFound   bool
-	setFunding     *ResearchGroupFundingContext
+	balances        map[int64]float64
+	fundingReadErr  error
+	cachedFunding   *ResearchGroupFundingContext
+	fundingFound    bool
+	setFunding      *ResearchGroupFundingContext
+	setFundingCalls atomic.Int64
 }
 
 func (s *researchGroupBillingCacheStub) GetUserBalance(_ context.Context, userID int64) (float64, error) {
@@ -42,6 +43,7 @@ func (s *researchGroupBillingCacheStub) GetResearchGroupFunding(context.Context,
 }
 
 func (s *researchGroupBillingCacheStub) SetResearchGroupFunding(_ context.Context, _ int64, funding *ResearchGroupFundingContext) error {
+	s.setFundingCalls.Add(1)
 	s.setFunding = funding
 	return nil
 }
@@ -171,6 +173,35 @@ func TestCheckBillingEligibility_StalePositiveFundingCacheIsRevalidated(t *testi
 	require.Equal(t, FundingSourceSelf, decision.FundingSource)
 	require.Equal(t, int64(1), repo.calls.Load())
 	require.Nil(t, cache.setFunding)
+}
+
+func TestCheckBillingEligibility_NegativeFundingCacheIsRevalidatedAndRefreshed(t *testing.T) {
+	funding := &ResearchGroupFundingContext{
+		ResearchGroupID:       81,
+		ResearchGroupMemberID: 91,
+		MemberUserID:          1,
+		OwnerUserID:           2,
+		MonthlyLimitUSD:       100,
+		UsageWindowStart:      timezone.StartOfMonth(timezone.Now()),
+	}
+	cache := &researchGroupBillingCacheStub{
+		balances:      map[int64]float64{1: 10, 2: 20},
+		cachedFunding: nil,
+		fundingFound:  true,
+	}
+	repo := &researchGroupFundingRepoStub{funding: funding}
+	svc := NewBillingCacheService(cache, nil, nil, nil, nil, nil, &config.Config{}, nil, repo)
+	t.Cleanup(svc.Stop)
+
+	decision, err := svc.CheckBillingEligibility(context.Background(), &User{ID: 1}, nil, nil, nil, "")
+	require.NoError(t, err)
+	require.Equal(t, int64(2), decision.PayerUserID)
+	require.Equal(t, int64(81), decision.ResearchGroupID)
+	require.Equal(t, int64(91), decision.ResearchGroupMemberID)
+	require.Equal(t, FundingSourceResearchGroup, decision.FundingSource)
+	require.Equal(t, int64(1), repo.calls.Load())
+	require.Equal(t, int64(1), cache.setFundingCalls.Load())
+	require.Same(t, funding, cache.setFunding)
 }
 
 func TestSyncBalanceCacheAfterDeduction_InvalidatesExhaustedBalance(t *testing.T) {

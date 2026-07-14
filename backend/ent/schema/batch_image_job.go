@@ -86,7 +86,11 @@ func (BatchImageJob) Indexes() []ent.Index {
 		index.Fields("research_group_member_id", "created_at"),
 		index.Fields("status"),
 		index.Fields("provider", "status"),
-		index.Fields("idempotency_key").Annotations(entsql.IndexWhere("idempotency_key IS NOT NULL AND idempotency_key <> ''")),
+		// Idempotency keys are scoped to the authenticated user. The unique
+		// partial index is the serialization point for concurrent submissions.
+		index.Fields("user_id", "idempotency_key").
+			Unique().
+			Annotations(entsql.IndexWhere("idempotency_key IS NOT NULL AND idempotency_key <> ''")),
 		index.Fields("manifest_hash").Unique().Annotations(entsql.IndexWhere("manifest_hash IS NOT NULL AND manifest_hash <> ''")),
 		index.Fields("output_expires_at"),
 		index.Fields("downloaded_at"),

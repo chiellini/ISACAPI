@@ -824,14 +824,11 @@ func (s *BillingCacheService) resolveBalanceBillingDecision(ctx context.Context,
 
 func (s *BillingCacheService) getResearchGroupFundingContext(ctx context.Context, userID int64) (*ResearchGroupFundingContext, error) {
 	if cache, ok := s.cache.(ResearchGroupFundingCache); ok && cache != nil {
-		if funding, found, err := cache.GetResearchGroupFunding(ctx, userID); err == nil && found {
-			// A negative cache entry is safe to trust: stale data can only make the
-			// caller pay personally. Positive entries are always revalidated in DB,
-			// so a failed Redis invalidation cannot keep a paused/removed/exhausted
-			// member funded until the cache TTL expires.
-			if funding == nil {
-				return nil, nil
-			}
+		if _, found, err := cache.GetResearchGroupFunding(ctx, userID); err == nil && found {
+			// Both positive and negative entries must be revalidated. In particular,
+			// trusting a cached null after an invitation is accepted (or funding is
+			// resumed) would charge the student personally when Redis invalidation
+			// failed. The cache remains a best-effort snapshot, never the authority.
 			if s.researchGroupRepo == nil {
 				return nil, nil
 			}

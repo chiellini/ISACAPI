@@ -58,10 +58,10 @@ func (r *batchImageRepository) GetBatchImageJobByBatchID(ctx context.Context, ba
 	return job, nil
 }
 
-func (r *batchImageRepository) GetBatchImageJobByIdempotencyKey(ctx context.Context, userID, apiKeyID int64, key string) (*service.BatchImageJob, error) {
+func (r *batchImageRepository) GetBatchImageJobByIdempotencyKey(ctx context.Context, userID, _ int64, key string) (*service.BatchImageJob, error) {
 	job, err := scanBatchImageJob(r.sql.QueryRowContext(ctx, batchImageJobSelectSQL+`
- WHERE user_id = $1 AND api_key_id = $2 AND idempotency_key = $3
- ORDER BY id DESC LIMIT 1`, userID, apiKeyID, key))
+ WHERE user_id = $1 AND idempotency_key = $2
+	 ORDER BY id DESC LIMIT 1`, userID, key))
 	if err != nil {
 		return nil, translatePersistenceError(err, service.ErrBatchImageJobNotFound, nil)
 	}

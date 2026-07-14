@@ -86,6 +86,49 @@ type AuthResponse struct {
 	User         *dto.User `json:"user"`
 }
 
+// authResponseWithTokens is the single response constructor for every
+// successful interactive login flow. Keeping user enrichment here prevents
+// password and OAuth endpoints from drifting on research-group context.
+func (h *AuthHandler) authResponseWithTokens(
+	ctx context.Context,
+	user *service.User,
+	accessToken string,
+	refreshToken string,
+	expiresIn int,
+) (*AuthResponse, error) {
+	if err := ensureLoginUserActive(user); err != nil {
+		return nil, err
+	}
+	userDTO, err := h.userDTOWithResearchGroup(ctx, user)
+	if err != nil {
+		return nil, err
+	}
+	return &AuthResponse{
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+		ExpiresIn:    expiresIn,
+		TokenType:    "Bearer",
+		User:         userDTO,
+	}, nil
+}
+
+func (h *AuthHandler) authResponseFromTokenPair(
+	ctx context.Context,
+	user *service.User,
+	tokenPair *service.TokenPair,
+) (*AuthResponse, error) {
+	if tokenPair == nil {
+		return nil, infraerrors.InternalServer("TOKEN_PAIR_MISSING", "failed to generate token pair")
+	}
+	return h.authResponseWithTokens(
+		ctx,
+		user,
+		tokenPair.AccessToken,
+		tokenPair.RefreshToken,
+		tokenPair.ExpiresIn,
+	)
+}
+
 func ensureLoginUserActive(user *service.User) error {
 	if user == nil {
 		return infraerrors.Unauthorized("INVALID_USER", "user not found")
@@ -103,11 +146,6 @@ func (h *AuthHandler) respondWithTokenPair(c *gin.Context, user *service.User) {
 		response.ErrorFrom(c, err)
 		return
 	}
-	userDTO, err := h.userDTOWithResearchGroup(c.Request.Context(), user)
-	if err != nil {
-		response.ErrorFrom(c, err)
-		return
-	}
 
 	tokenPair, err := h.authService.GenerateTokenPair(c.Request.Context(), user, "")
 	if err != nil {
@@ -118,20 +156,20 @@ func (h *AuthHandler) respondWithTokenPair(c *gin.Context, user *service.User) {
 			response.InternalError(c, "Failed to generate token")
 			return
 		}
-		response.Success(c, AuthResponse{
-			AccessToken: token,
-			TokenType:   "Bearer",
-			User:        userDTO,
-		})
+		authResponse, responseErr := h.authResponseWithTokens(c.Request.Context(), user, token, "", 0)
+		if responseErr != nil {
+			response.ErrorFrom(c, responseErr)
+			return
+		}
+		response.Success(c, authResponse)
 		return
 	}
-	response.Success(c, AuthResponse{
-		AccessToken:  tokenPair.AccessToken,
-		RefreshToken: tokenPair.RefreshToken,
-		ExpiresIn:    tokenPair.ExpiresIn,
-		TokenType:    "Bearer",
-		User:         userDTO,
-	})
+	authResponse, err := h.authResponseFromTokenPair(c.Request.Context(), user, tokenPair)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, authResponse)
 }
 
 func (h *AuthHandler) userDTOWithResearchGroup(ctx context.Context, user *service.User) (*dto.User, error) {

@@ -50,6 +50,18 @@ func (s *openAIRecordUsageAccountRepoStub) GetByID(_ context.Context, _ int64) (
 	return s.account, nil
 }
 
+type openAIRecordUsagePlatformQuotaRepoStub struct {
+	UserPlatformQuotaRepository
+	calls        int
+	lastPlatform string
+}
+
+func (s *openAIRecordUsagePlatformQuotaRepoStub) IncrementUsageWithReset(_ context.Context, _ int64, platform string, _ float64, _ time.Time) error {
+	s.calls++
+	s.lastPlatform = platform
+	return nil
+}
+
 func (s *openAIRecordUsageBillingRepoStub) Apply(ctx context.Context, cmd *UsageBillingCommand) (*UsageBillingApplyResult, error) {
 	s.calls++
 	s.lastCmd = cmd
@@ -74,18 +86,22 @@ func TestRecordCyberPolicyUsageLog_BillsRealUpstreamTokens(t *testing.T) {
 	userRepo := &openAIRecordUsageUserRepoStub{}
 	subRepo := &openAIRecordUsageSubRepoStub{}
 	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo, nil)
+	platformRepo := &openAIRecordUsagePlatformQuotaRepoStub{}
+	svc.userPlatformQuotaRepo = platformRepo
+	svc.billingCacheService.cfg = svc.cfg
 	usage := OpenAIUsage{InputTokens: 1200, OutputTokens: 300}
 
 	// 流式 cyber：上游 response.failed 报告了真实 token，须按真实 token 计费并扣费，
 	// 与 WS cyber / 正常请求口径一致（不再是 tokens=0 免费行）。
 	svc.RecordCyberPolicyUsageLog(context.Background(), CyberPolicyUsageInput{
-		APIKey:       &APIKey{ID: 2, User: &User{ID: 1}},
-		Account:      &Account{ID: 3},
-		RequestID:    "rid-cyber-stream",
-		Model:        "gpt-5.1",
-		Stream:       true,
-		InputTokens:  1200,
-		OutputTokens: 300,
+		APIKey:        &APIKey{ID: 2, User: &User{ID: 1}},
+		Account:       &Account{ID: 3},
+		RequestID:     "rid-cyber-stream",
+		Model:         "gpt-5.1",
+		Stream:        true,
+		InputTokens:   1200,
+		OutputTokens:  300,
+		QuotaPlatform: PlatformAntigravity,
 	})
 
 	require.Equal(t, 1, usageRepo.calls)
@@ -101,6 +117,8 @@ func TestRecordCyberPolicyUsageLog_BillsRealUpstreamTokens(t *testing.T) {
 	require.InDelta(t, expected.ActualCost, usageRepo.lastLog.ActualCost, 1e-12)
 	require.Equal(t, 1, userRepo.deductCalls, "按真实 token 扣费，与 WS/正常请求一致")
 	require.InDelta(t, expected.ActualCost, userRepo.lastAmount, 1e-12)
+	require.Equal(t, 1, platformRepo.calls)
+	require.Equal(t, PlatformAntigravity, platformRepo.lastPlatform)
 }
 
 func TestRecordCyberPolicyUsageLog_NonStreamZeroTokensZeroCost(t *testing.T) {
