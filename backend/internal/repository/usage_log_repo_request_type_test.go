@@ -95,6 +95,11 @@ func TestUsageLogRepositoryCreateSyncRequestTypeAndLegacyFields(t *testing.T) {
 			sqlmock.AnyArg(), // billing_mode
 			sqlmock.AnyArg(), // account_stats_cost
 			createdAt,
+			sqlmock.AnyArg(), // provider_id
+			sqlmock.AnyArg(), // payer_user_id
+			sqlmock.AnyArg(), // research_group_id
+			sqlmock.AnyArg(), // research_group_member_id
+			sqlmock.AnyArg(), // funding_source
 		).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "created_at"}).AddRow(int64(99), createdAt))
 
@@ -182,6 +187,11 @@ func TestUsageLogRepositoryCreate_PersistsServiceTier(t *testing.T) {
 			sqlmock.AnyArg(), // billing_mode
 			sqlmock.AnyArg(), // account_stats_cost
 			createdAt,
+			sqlmock.AnyArg(), // provider_id
+			sqlmock.AnyArg(), // payer_user_id
+			sqlmock.AnyArg(), // research_group_id
+			sqlmock.AnyArg(), // research_group_member_id
+			sqlmock.AnyArg(), // funding_source
 		).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "created_at"}).AddRow(int64(100), createdAt))
 
@@ -254,14 +264,14 @@ func TestPrepareUsageLogInsert_ArgCountMatchesTypes(t *testing.T) {
 	})
 
 	require.Len(t, prepared.args, len(usageLogInsertArgTypes))
-	require.Len(t, prepared.args, 58)
-	require.Equal(t, sql.NullInt64{Int64: providerID, Valid: true}, prepared.args[53])
-	require.Equal(t, sql.NullInt64{Int64: payerUserID, Valid: true}, prepared.args[54])
-	require.Equal(t, sql.NullInt64{Int64: researchGroupID, Valid: true}, prepared.args[55])
-	require.Equal(t, sql.NullInt64{Int64: researchGroupMemberID, Valid: true}, prepared.args[56])
-	require.Equal(t, sql.NullString{String: fundingSource, Valid: true}, prepared.args[57])
-	require.Equal(t, "bigint", usageLogInsertArgTypes[53])
-	require.Equal(t, "text", usageLogInsertArgTypes[57])
+	require.Len(t, prepared.args, 59)
+	require.Equal(t, sql.NullInt64{Int64: providerID, Valid: true}, prepared.args[54])
+	require.Equal(t, sql.NullInt64{Int64: payerUserID, Valid: true}, prepared.args[55])
+	require.Equal(t, sql.NullInt64{Int64: researchGroupID, Valid: true}, prepared.args[56])
+	require.Equal(t, sql.NullInt64{Int64: researchGroupMemberID, Valid: true}, prepared.args[57])
+	require.Equal(t, sql.NullString{String: fundingSource, Valid: true}, prepared.args[58])
+	require.Equal(t, "bigint", usageLogInsertArgTypes[54])
+	require.Equal(t, "text", usageLogInsertArgTypes[58])
 }
 
 func TestPrepareUsageLogInsert_PersistsImageSizeMetadata(t *testing.T) {
