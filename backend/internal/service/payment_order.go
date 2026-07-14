@@ -351,7 +351,8 @@ func (s *PaymentService) selectCreateOrderInstance(ctx context.Context, req Crea
 	if err != nil {
 		return nil, err
 	}
-	sel, err := s.loadBalancer.SelectInstance(selectCtx, "", req.PaymentType, payment.Strategy(cfg.LoadBalanceStrategy), payAmount)
+	providerKey := createOrderProviderKeyFromPaymentSource(req)
+	sel, err := s.loadBalancer.SelectInstance(selectCtx, providerKey, req.PaymentType, payment.Strategy(cfg.LoadBalanceStrategy), payAmount)
 	if err != nil {
 		return nil, infraerrors.ServiceUnavailable("PAYMENT_GATEWAY_ERROR", "method_not_configured").
 			WithMetadata(map[string]string{"payment_type": req.PaymentType})
@@ -360,6 +361,14 @@ func (s *PaymentService) selectCreateOrderInstance(ctx context.Context, req Crea
 		return nil, infraerrors.TooManyRequests("NO_AVAILABLE_INSTANCE", "no_available_instance")
 	}
 	return sel, nil
+}
+
+func createOrderProviderKeyFromPaymentSource(req CreateOrderRequest) string {
+	providerKey, ok := VisibleMethodProviderKeyForSource(req.PaymentType, NormalizePaymentSource(req.PaymentSource))
+	if !ok {
+		return ""
+	}
+	return providerKey
 }
 
 func (s *PaymentService) prepareCreateOrderSelectionContext(ctx context.Context, req CreateOrderRequest) (context.Context, error) {

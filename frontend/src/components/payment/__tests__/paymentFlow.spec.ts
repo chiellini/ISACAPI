@@ -305,6 +305,21 @@ describe('buildCreateOrderPayload', () => {
     })
   })
 
+  it('uses an explicit payment source when provided', () => {
+    expect(buildCreateOrderPayload({
+      amount: 68,
+      paymentType: 'wxpay',
+      paymentSource: 'easypay_wxpay',
+      orderType: 'balance',
+      origin: 'https://app.example.com',
+      isMobile: false,
+      isWechatBrowser: false,
+    })).toMatchObject({
+      payment_type: 'wxpay',
+      payment_source: 'easypay_wxpay',
+    })
+  })
+
   it('passes the generic EasyPay method through to order creation', () => {
     expect(buildCreateOrderPayload({
       amount: 68,

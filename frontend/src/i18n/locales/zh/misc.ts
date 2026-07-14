@@ -320,6 +320,7 @@ export default {
     fee: '手续费',
     actualPay: '实付金额',
     createOrder: '确认支付',
+    easypayChannel: '易支付通道',
     methods: {
       easypay: '易支付',
       alipay: '支付宝',

@@ -70,6 +70,27 @@
                 :selected="selectedMethod"
                 @select="selectedMethod = $event"
               />
+              <div v-if="selectedMethod === 'easypay'" class="mt-4">
+                <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {{ t('payment.easypayChannel') }}
+                </label>
+                <div class="grid grid-cols-2 gap-3">
+                  <button
+                    v-for="channel in easypayChannels"
+                    :key="channel"
+                    type="button"
+                    :class="[
+                      'flex h-10 items-center justify-center rounded-lg border px-3 text-sm font-semibold transition-all',
+                      selectedEasyPayChannel === channel
+                        ? easypayChannelSelectedClass(channel)
+                        : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400 dark:border-dark-600 dark:bg-dark-800 dark:text-gray-200 dark:hover:border-dark-500',
+                    ]"
+                    @click="selectedEasyPayChannel = channel"
+                  >
+                    {{ t(`payment.methods.${channel}`) }}
+                  </button>
+                </div>
+              </div>
             </div>
             <div v-if="validAmount > 0" class="card p-6">
               <div class="space-y-2 text-sm">
@@ -165,6 +186,27 @@
                   :selected="selectedMethod"
                   @select="selectedMethod = $event"
                 />
+                <div v-if="selectedMethod === 'easypay'" class="mt-4">
+                  <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {{ t('payment.easypayChannel') }}
+                  </label>
+                  <div class="grid grid-cols-2 gap-3">
+                    <button
+                      v-for="channel in easypayChannels"
+                      :key="channel"
+                      type="button"
+                      :class="[
+                        'flex h-10 items-center justify-center rounded-lg border px-3 text-sm font-semibold transition-all',
+                        selectedEasyPayChannel === channel
+                          ? easypayChannelSelectedClass(channel)
+                          : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400 dark:border-dark-600 dark:bg-dark-800 dark:text-gray-200 dark:hover:border-dark-500',
+                      ]"
+                      @click="selectedEasyPayChannel = channel"
+                    >
+                      {{ t(`payment.methods.${channel}`) }}
+                    </button>
+                  </div>
+                </div>
               </div>
               <div v-if="feeRate > 0 && selectedPlan.price > 0" class="card p-6">
                 <div class="space-y-2 text-sm">
@@ -339,6 +381,9 @@ const errorHintMessage = ref('')
 const activeTab = ref<'recharge' | 'subscription'>('recharge')
 const amount = ref<number | null>(null)
 const selectedMethod = ref('')
+const easypayChannels = ['alipay', 'wxpay'] as const
+type EasyPayChannel = typeof easypayChannels[number]
+const selectedEasyPayChannel = ref<EasyPayChannel>('alipay')
 const selectedPlan = ref<SubscriptionPlan | null>(null)
 const previewImage = ref('')
 
@@ -348,6 +393,7 @@ interface CreateOrderOptions {
   openid?: string
   wechatResumeToken?: string
   paymentType?: string
+  paymentSource?: string
   isResume?: boolean
   mobileQrFallbackAttempted?: boolean
 }
@@ -705,6 +751,24 @@ const canSubmitSubscription = computed(() =>
     && selectedLimit.value?.available !== false
 )
 
+function easyPayPaymentSource(channel: EasyPayChannel): string {
+  return channel === 'wxpay' ? 'easypay_wxpay' : 'easypay_alipay'
+}
+
+function resolveCreateOrderPaymentSelection(rawMethod: string, paymentSource?: string): { paymentType: string; paymentSource?: string } {
+  const method = rawMethod.trim()
+  if (method === 'easypay' && !paymentSource) {
+    return {
+      paymentType: selectedEasyPayChannel.value,
+      paymentSource: easyPayPaymentSource(selectedEasyPayChannel.value),
+    }
+  }
+  return {
+    paymentType: normalizeVisibleMethod(method) || method,
+    paymentSource,
+  }
+}
+
 // Auto-switch to first available method when current selection can't handle the amount
 watch(() => [validAmount.value, selectedMethod.value] as const, ([amt, method]) => {
   if (amt <= 0 || amountFitsMethod(amt, method)) return
@@ -716,12 +780,19 @@ watch(() => [validAmount.value, selectedMethod.value] as const, ([amt, method]) 
 const paymentButtonClass = computed(() => {
   const m = selectedMethod.value
   if (!m) return 'btn-primary'
+  if (m === 'easypay') return selectedEasyPayChannel.value === 'wxpay' ? 'btn-wxpay' : 'btn-alipay'
   if (isBuiltInAlipayMethod(m)) return 'btn-alipay'
   if (isBuiltInWxpayMethod(m)) return 'btn-wxpay'
   if (m === 'stripe') return 'btn-stripe'
   if (m === 'airwallex') return 'btn-airwallex'
   return 'btn-primary'
 })
+
+function easypayChannelSelectedClass(channel: EasyPayChannel): string {
+  return channel === 'wxpay'
+    ? 'border-[#09BB07] bg-green-50 text-gray-900 shadow-sm dark:bg-green-950 dark:text-gray-100'
+    : 'border-[#02A9F1] bg-blue-50 text-gray-900 shadow-sm dark:bg-blue-950 dark:text-gray-100'
+}
 
 // Subscription confirm: platform accent colors (clean card, no gradient)
 const planBadgeClass = computed(() => platformBadgeClass(selectedPlan.value?.group_platform || ''))
@@ -782,11 +853,13 @@ async function createOrder(orderAmount: number, orderType: OrderType, planId?: n
   submitting.value = true
   errorMessage.value = ''
   errorHintMessage.value = ''
-  const requestType = normalizeVisibleMethod(options.paymentType || selectedMethod.value) || options.paymentType || selectedMethod.value
+  const paymentSelection = resolveCreateOrderPaymentSelection(options.paymentType || selectedMethod.value, options.paymentSource)
+  const requestType = paymentSelection.paymentType
   try {
     const payload = buildCreateOrderPayload({
       amount: orderAmount,
       paymentType: requestType,
+      paymentSource: paymentSelection.paymentSource,
       orderType,
       planId,
       origin: typeof window !== 'undefined' ? window.location.origin : '',
@@ -893,6 +966,7 @@ async function createOrder(orderAmount: number, orderType: OrderType, planId?: n
               orderType,
               planId,
               paymentType: visibleMethod,
+              paymentSource: paymentSelection.paymentSource,
               attempted: options.mobileQrFallbackAttempted === true,
             },
           )
@@ -940,13 +1014,14 @@ async function createOrder(orderAmount: number, orderType: OrderType, planId?: n
       orderType,
       planId,
       paymentType: requestType,
+      paymentSource: paymentSelection.paymentSource,
       attempted: options.mobileQrFallbackAttempted === true,
     })) {
       return
     } else {
       const handled = applyScenarioError(
         err,
-        normalizeVisibleMethod(options.paymentType || selectedMethod.value) || selectedMethod.value,
+        requestType,
       )
       if (!handled) {
         errorMessage.value = extractI18nErrorMessage(err, t, 'payment.errors', extractApiErrorMessage(err, t('payment.result.failed')))
@@ -967,6 +1042,7 @@ interface MobileQrFallbackContext {
   orderType: OrderType
   planId?: number
   paymentType: string
+  paymentSource?: string
   attempted: boolean
 }
 
@@ -1013,6 +1089,7 @@ async function attemptMobileQrFallback(err: unknown, context: MobileQrFallbackCo
     const payload = buildCreateOrderPayload({
       amount: context.orderAmount,
       paymentType: visibleMethod,
+      paymentSource: context.paymentSource,
       orderType: context.orderType,
       planId: context.planId,
       origin: typeof window !== 'undefined' ? window.location.origin : '',

@@ -96,3 +96,55 @@ func TestUsesOfficialWxpayVisibleMethodRespectsConfiguredSourceWhenMultipleProvi
 		})
 	}
 }
+
+func TestCreateOrderProviderKeyFromPaymentSource(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		req  CreateOrderRequest
+		want string
+	}{
+		{
+			name: "easypay alipay source",
+			req: CreateOrderRequest{
+				PaymentType:   payment.TypeAlipay,
+				PaymentSource: VisibleMethodSourceEasyPayAlipay,
+			},
+			want: payment.TypeEasyPay,
+		},
+		{
+			name: "easypay wxpay source",
+			req: CreateOrderRequest{
+				PaymentType:   payment.TypeWxpay,
+				PaymentSource: VisibleMethodSourceEasyPayWechat,
+			},
+			want: payment.TypeEasyPay,
+		},
+		{
+			name: "hosted redirect leaves provider unspecified",
+			req: CreateOrderRequest{
+				PaymentType:   payment.TypeWxpay,
+				PaymentSource: PaymentSourceHostedRedirect,
+			},
+			want: "",
+		},
+		{
+			name: "mismatched source leaves provider unspecified",
+			req: CreateOrderRequest{
+				PaymentType:   payment.TypeAlipay,
+				PaymentSource: VisibleMethodSourceEasyPayWechat,
+			},
+			want: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			if got := createOrderProviderKeyFromPaymentSource(tt.req); got != tt.want {
+				t.Fatalf("createOrderProviderKeyFromPaymentSource() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}

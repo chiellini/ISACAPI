@@ -296,6 +296,7 @@ export default {
     fee: 'Fee',
     actualPay: 'Actual Payment',
     createOrder: 'Confirm Payment',
+    easypayChannel: 'EasyPay Channel',
     methods: {
       easypay: 'EasyPay',
       alipay: 'Alipay',
