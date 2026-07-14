@@ -633,7 +633,8 @@ export default {
       createdAt: 'Created',
       totalRecharged: 'Total Recharged',
       roles: {
-        admin: 'Admin',
+        superAdmin: 'Super Administrator',
+        admin: 'Administrator',
         provider: 'Provider',
         user: 'User'
       },

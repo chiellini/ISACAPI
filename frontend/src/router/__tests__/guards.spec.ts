@@ -51,6 +51,7 @@ vi.mock('@/api/auth', () => ({
 interface MockAuthState {
   isAuthenticated: boolean
   isAdmin: boolean
+  isSuperAdmin?: boolean
   isSimpleMode: boolean
   backendModeEnabled: boolean
   hasPendingAuthSession: boolean
@@ -67,6 +68,7 @@ function simulateGuard(
 ): string | null {
   const requiresAuth = toMeta.requiresAuth !== false
   const requiresAdmin = toMeta.requiresAdmin === true
+  const requiresSuperAdmin = toMeta.requiresSuperAdmin === true
 
   if (toPath === '/setup' && authState.setupNeedsSetup === false) {
     return resolveCompletedSetupRedirectPath(authState.isAuthenticated, authState.isAdmin)
@@ -112,6 +114,10 @@ function simulateGuard(
   // 需要管理员但不是管理员
   if (requiresAdmin && !authState.isAdmin) {
     return '/dashboard'
+  }
+
+  if (requiresSuperAdmin && !authState.isSuperAdmin) {
+    return '/admin/dashboard'
   }
 
   // 简易模式限制
@@ -331,6 +337,35 @@ describe('路由守卫逻辑', () => {
         hasPendingAuthSession: false,
       }
       const redirect = simulateGuard('/keys', {}, authState)
+      expect(redirect).toBeNull()
+    })
+  })
+
+  describe('super-administrator routes', () => {
+    const ordinaryAdmin: MockAuthState = {
+      isAuthenticated: true,
+      isAdmin: true,
+      isSuperAdmin: false,
+      isSimpleMode: false,
+      backendModeEnabled: false,
+      hasPendingAuthSession: false,
+    }
+
+    it('redirects ordinary administrators to the admin dashboard', () => {
+      const redirect = simulateGuard(
+        '/admin/settings',
+        { requiresAdmin: true, requiresSuperAdmin: true },
+        ordinaryAdmin
+      )
+      expect(redirect).toBe('/admin/dashboard')
+    })
+
+    it('allows super administrators', () => {
+      const redirect = simulateGuard(
+        '/admin/settings',
+        { requiresAdmin: true, requiresSuperAdmin: true },
+        { ...ordinaryAdmin, isSuperAdmin: true }
+      )
       expect(redirect).toBeNull()
     })
   })

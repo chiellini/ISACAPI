@@ -110,6 +110,7 @@
           {{ t('common.close') }}
         </button>
         <button
+          v-if="canReset"
           type="button"
           class="btn btn-primary"
           :disabled="!isActive || resetting"
@@ -154,6 +155,7 @@ import { formatDateTime } from '@/utils/format'
 const props = defineProps<{
   show: boolean
   account: Account | null
+  canReset: boolean
 }>()
 
 const emit = defineEmits<{

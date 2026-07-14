@@ -646,6 +646,7 @@ export default {
     linkedProfileSourcesDescription: 'Some profile details may stay synced from third-party sign-in methods.',
     securityTitle: 'Security Settings',
     securityDescription: 'Password, two-factor authentication, and alerts live in the right rail.',
+    superAdministrator: 'Super Administrator',
     administrator: 'Administrator',
     user: 'User',
     username: 'Username',

@@ -18,6 +18,8 @@ const (
 	ContextKeyUser ContextKey = "user"
 	// ContextKeyUserRole 当前用户角色（string）
 	ContextKeyUserRole ContextKey = "user_role"
+	// ContextKeyIsSuperAdmin indicates whether the authenticated admin matches ADMIN_EMAIL.
+	ContextKeyIsSuperAdmin ContextKey = "is_super_admin"
 	// ContextKeyAPIKey API密钥上下文键
 	ContextKeyAPIKey ContextKey = "api_key"
 	// ContextKeySubscription 订阅上下文键

@@ -124,4 +124,23 @@ describe('AccountActionMenu — spark shadow 按钮可见性', () => {
 
     wrapper.unmount()
   })
+
+  it('ordinary administrators can view statistics but cannot mutate accounts', () => {
+    const account = makeAccount({ platform: 'openai', type: 'oauth', parent_account_id: null })
+    const wrapper = mount(AccountActionMenu, {
+      props: { show: true, account, position, canManage: false },
+      attachTo: document.body,
+    })
+
+    const body = getBodyText()
+    expect(body).toContain('admin.accounts.viewStats')
+    expect(body).not.toContain('admin.accounts.testConnection')
+    expect(body).not.toContain('admin.scheduledTests.schedule')
+    expect(body).not.toContain('admin.accounts.reAuthorize')
+    expect(body).not.toContain('admin.accounts.refreshToken')
+    expect(body).not.toContain('admin.accounts.createSparkShadow')
+    expect(body).not.toContain('admin.accounts.setPrivacy')
+
+    wrapper.unmount()
+  })
 })

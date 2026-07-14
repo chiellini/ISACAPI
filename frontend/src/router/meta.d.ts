@@ -20,6 +20,12 @@ declare module 'vue-router' {
     requiresAdmin?: boolean
 
     /**
+     * Whether this route is reserved for the ADMIN_EMAIL account
+     * @default false
+     */
+    requiresSuperAdmin?: boolean
+
+    /**
      * Whether this route requires provider role
      * @default false
      */

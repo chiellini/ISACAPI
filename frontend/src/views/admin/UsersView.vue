@@ -234,6 +234,7 @@
               </div>
               <!-- Attributes Config Button -->
               <button
+                v-if="canManageUsers"
                 @click="showAttributesModal = true"
                 class="btn btn-secondary px-2 md:px-3"
                 :title="t('admin.users.attributes.configButton')"
@@ -244,7 +245,7 @@
             </div>
 
             <!-- Create User Button (full width on mobile, auto width on desktop) -->
-            <button @click="showCreateModal = true" class="btn btn-primary flex-1 md:flex-initial">
+            <button v-if="canManageUsers" @click="showCreateModal = true" class="btn btn-primary flex-1 md:flex-initial">
               <Icon name="plus" size="md" class="mr-2" />
               {{ t('admin.users.createUser') }}
             </button>
@@ -311,9 +312,9 @@
             </div>
           </template>
 
-          <template #cell-role="{ value }">
-            <span :class="['badge', value === 'admin' ? 'badge-purple' : value === 'provider' ? 'badge-blue' : 'badge-gray']">
-              {{ t('admin.users.roles.' + value) }}
+          <template #cell-role="{ value, row }">
+            <span :class="['badge', row.is_super_admin ? 'badge-danger' : value === 'admin' ? 'badge-purple' : value === 'provider' ? 'badge-blue' : 'badge-gray']">
+              {{ row.is_super_admin ? t('admin.users.roles.superAdmin') : t('admin.users.roles.' + value) }}
             </span>
           </template>
 
@@ -322,8 +323,9 @@
               <!-- 专属分组行 -->
               <span
                 v-if="getUserGroups(row).exclusive.length > 0"
-                class="group/ex relative inline-flex cursor-pointer items-center gap-1 whitespace-nowrap text-xs"
-                @click.stop="toggleExpandedGroup(row.id)"
+                class="group/ex relative inline-flex items-center gap-1 whitespace-nowrap text-xs"
+                :class="canManageUsers ? 'cursor-pointer' : 'cursor-default'"
+                @click.stop="canManageUsers && toggleExpandedGroup(row.id)"
               >
                 <Icon name="shield" size="xs" class="h-3.5 w-3.5 text-purple-500 dark:text-purple-400" />
                 <span class="font-medium text-purple-600 dark:text-purple-400">{{ getUserGroups(row).exclusive.length }}</span>
@@ -340,7 +342,7 @@
                 </div>
                 <!-- 点击展开分组操作菜单 -->
                 <div
-                  v-if="expandedGroupUserId === row.id"
+                  v-if="canManageUsers && expandedGroupUserId === row.id"
                   class="absolute left-0 top-full z-50 mt-1.5 min-w-[160px] overflow-hidden rounded-lg border border-gray-200 bg-white py-1 text-xs shadow-xl dark:border-dark-600 dark:bg-dark-700"
                 >
                   <div class="border-b border-gray-100 px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider text-gray-400 dark:border-dark-600 dark:text-dark-400">
@@ -423,6 +425,7 @@
                 </div>
               </div>
               <button
+                v-if="canManageUsers"
                 @click.stop="handleDeposit(row)"
                 class="rounded px-2 py-0.5 text-xs font-medium text-emerald-600 transition-colors hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-900/20"
                 :title="t('admin.users.deposit')"
@@ -434,6 +437,7 @@
 
           <template #cell-balance_platform_quota="{ row }">
             <button
+              v-if="canManageUsers"
               type="button"
               class="block text-left underline decoration-dashed decoration-gray-300 underline-offset-4 transition-colors hover:decoration-primary-400 dark:decoration-dark-500"
               :title="t('admin.users.platformQuota.cellColumnTooltip')"
@@ -441,6 +445,7 @@
             >
               <UserPlatformQuotaCell :quotas="platformQuotaStats[row.id]" />
             </button>
+            <UserPlatformQuotaCell v-else :quotas="platformQuotaStats[row.id]" />
           </template>
 
           <!-- 用量列自定义表头：列名 + 单个排序图标按钮，点击展开"今日/近30天"菜单。
@@ -589,6 +594,7 @@
             <div class="flex items-center gap-1">
               <!-- Edit Button -->
               <button
+                v-if="canManageUsers"
                 @click="handleEdit(row)"
                 class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-primary-600 dark:hover:bg-dark-700 dark:hover:text-primary-400"
               >
@@ -598,7 +604,7 @@
 
               <!-- Toggle Status Button (not for admin) -->
               <button
-                v-if="row.role !== 'admin'"
+                v-if="canManageUsers && row.role !== 'admin'"
                 @click="handleToggleStatus(row)"
                 :class="[
                   'flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors',
@@ -637,7 +643,7 @@
             <EmptyState
               :title="t('admin.users.noUsersYet')"
               :description="t('admin.users.createFirstUser')"
-              :action-text="t('admin.users.createUser')"
+              :action-text="canManageUsers ? t('admin.users.createUser') : undefined"
               @action="showCreateModal = true"
             />
           </template>
@@ -678,6 +684,7 @@
 
               <!-- Allowed Groups -->
               <button
+                v-if="canManageUsers"
                 @click="handleAllowedGroups(user); closeActionMenu()"
                 class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-dark-700"
               >
@@ -685,10 +692,11 @@
                 {{ t('admin.users.groups') }}
               </button>
 
-              <div class="my-1 border-t border-gray-100 dark:border-dark-700"></div>
+              <div v-if="canManageUsers" class="my-1 border-t border-gray-100 dark:border-dark-700"></div>
 
               <!-- Deposit -->
               <button
+                v-if="canManageUsers"
                 @click="handleDeposit(user); closeActionMenu()"
                 class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-dark-700"
               >
@@ -698,6 +706,7 @@
 
               <!-- Withdraw -->
               <button
+                v-if="canManageUsers"
                 @click="handleWithdraw(user); closeActionMenu()"
                 class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-dark-700"
               >
@@ -709,6 +718,7 @@
 
               <!-- Platform Quotas -->
               <button
+                v-if="canManageUsers"
                 @click="handlePlatformQuota(user); closeActionMenu()"
                 class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-dark-700"
               >
@@ -725,11 +735,11 @@
                 {{ t('admin.users.balanceHistory') }}
               </button>
 
-              <div class="my-1 border-t border-gray-100 dark:border-dark-700"></div>
+              <div v-if="canManageUsers" class="my-1 border-t border-gray-100 dark:border-dark-700"></div>
 
               <!-- Delete (not for admin) -->
               <button
-                v-if="user.role !== 'admin'"
+                v-if="canManageUsers && user.role !== 'admin'"
                 @click="handleDelete(user); closeActionMenu()"
                 class="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
               >
@@ -751,7 +761,7 @@
       @close="closePlatformQuotaModal"
       @success="loadUsers"
     />
-    <UserApiKeysModal :show="showApiKeysModal" :user="viewingUser" @close="closeApiKeysModal" />
+    <UserApiKeysModal :show="showApiKeysModal" :user="viewingUser" :can-manage="canManageUsers" @close="closeApiKeysModal" />
     <UserAllowedGroupsModal :show="showAllowedGroupsModal" :user="allowedGroupsUser" @close="closeAllowedGroupsModal" @success="loadUsers" />
     <UserBalanceModal :show="showBalanceModal" :user="balanceUser" :operation="balanceOperation" @close="closeBalanceModal" @success="loadUsers" />
     <UserBalanceHistoryModal :show="showBalanceHistoryModal" :user="balanceHistoryUser" @close="closeBalanceHistoryModal" @deposit="handleDepositFromHistory" @withdraw="handleWithdrawFromHistory" />
@@ -764,6 +774,7 @@
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
+import { useAuthStore } from '@/stores/auth'
 import { getPersistedPageSize } from '@/composables/usePersistedPageSize'
 import { formatDateTime } from '@/utils/format'
 import Icon from '@/components/icons/Icon.vue'
@@ -799,6 +810,8 @@ import UserBalanceHistoryModal from '@/components/admin/user/UserBalanceHistoryM
 import GroupReplaceModal from '@/components/admin/user/GroupReplaceModal.vue'
 
 const appStore = useAppStore()
+const authStore = useAuthStore()
+const canManageUsers = computed(() => authStore.isSuperAdmin)
 
 // Generate dynamic attribute columns from enabled definitions
 const attributeColumns = computed<Column[]>(() =>

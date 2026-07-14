@@ -57,6 +57,22 @@ beforeEach(() => {
   vi.mocked(queryOpenAIQuota).mockReset()
 })
 
+describe('OpenAIQuotaResetCell permissions', () => {
+  it('keeps quota queries visible but hides reset for ordinary administrators', () => {
+    const account = makeAccount({ parent_account_id: null })
+    const wrapper = mount(OpenAIQuotaResetCell, {
+      props: { account, allowReset: false }
+    })
+
+    const buttons = wrapper.findAll('button')
+    expect(buttons).toHaveLength(1)
+    expect(buttons[0].text()).toContain('admin.accounts.openaiQuotaReset.count')
+    expect(wrapper.text()).not.toContain('admin.accounts.openaiQuotaReset.reset')
+
+    wrapper.unmount()
+  })
+})
+
 describe('OpenAIQuotaResetCell — 外审 F6:影子禁用重置', () => {
   it('影子账号(parent_account_id 非空)的 reset 按钮被禁用且提示在母账号重置', () => {
     const account = makeAccount({ parent_account_id: 100 })

@@ -110,13 +110,20 @@ func RegisterAdminRoutes(
 		// 邀请返利（专属用户管理）
 		registerAffiliateRoutes(admin, h)
 
-		// 对话存档（仅管理员查看/删除）
+		// 对话存档（仅超级管理员查看/删除）
 		registerConversationRoutes(admin, h)
 	}
 }
 
+func superAdminOnly(group *gin.RouterGroup) *gin.RouterGroup {
+	protected := group.Group("")
+	protected.Use(middleware.RequireSuperAdmin())
+	return protected
+}
+
 func registerConversationRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 	conv := admin.Group("/conversations")
+	conv.Use(middleware.RequireSuperAdmin())
 	{
 		conv.GET("", h.Admin.Conversation.ListSessions)
 		conv.GET("/:id", h.Admin.Conversation.GetSession)
@@ -124,7 +131,7 @@ func registerConversationRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		conv.DELETE("/:id", h.Admin.Conversation.DeleteSession)
 	}
 	// 批量导出独立路径，避免与 /conversations/:id 的参数段冲突。
-	admin.GET("/conversation-exports", h.Admin.Conversation.ExportAll)
+	admin.GET("/conversation-exports", middleware.RequireSuperAdmin(), h.Admin.Conversation.ExportAll)
 }
 
 func registerAdminComplianceRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
@@ -151,6 +158,7 @@ func registerContentModerationRoutes(admin *gin.RouterGroup, h *handler.Handlers
 
 func registerAdminAPIKeyRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 	apiKeys := admin.Group("/api-keys")
+	apiKeys.Use(middleware.RequireSuperAdmin())
 	{
 		apiKeys.PUT("/:id", h.Admin.APIKey.UpdateGroup)
 	}
@@ -262,49 +270,51 @@ func registerDashboardRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 
 func registerUserManagementRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 	users := admin.Group("/users")
+	writes := superAdminOnly(users)
 	{
 		users.GET("", h.Admin.User.List)
 		users.GET("/:id", h.Admin.User.GetByID)
-		users.POST("/:id/auth-identities", h.Admin.User.BindAuthIdentity)
-		users.POST("", h.Admin.User.Create)
-		users.PUT("/:id", h.Admin.User.Update)
-		users.DELETE("/:id", h.Admin.User.Delete)
-		users.POST("/:id/balance", h.Admin.User.UpdateBalance)
+		writes.POST("/:id/auth-identities", h.Admin.User.BindAuthIdentity)
+		writes.POST("", h.Admin.User.Create)
+		writes.PUT("/:id", h.Admin.User.Update)
+		writes.DELETE("/:id", h.Admin.User.Delete)
+		writes.POST("/:id/balance", h.Admin.User.UpdateBalance)
 		users.GET("/:id/api-keys", h.Admin.User.GetUserAPIKeys)
 		users.GET("/:id/usage", h.Admin.User.GetUserUsage)
 		users.GET("/:id/balance-history", h.Admin.User.GetBalanceHistory)
-		users.POST("/:id/replace-group", h.Admin.User.ReplaceGroup)
+		writes.POST("/:id/replace-group", h.Admin.User.ReplaceGroup)
 		users.GET("/:id/rpm-status", h.Admin.User.GetUserRPMStatus)
-		users.POST("/batch-concurrency", h.Admin.User.BatchUpdateConcurrency)
+		writes.POST("/batch-concurrency", h.Admin.User.BatchUpdateConcurrency)
 		users.GET("/:id/platform-quotas", h.Admin.User.GetUserPlatformQuotas)
-		users.PUT("/:id/platform-quotas", h.Admin.User.UpdateUserPlatformQuotas)
-		users.POST("/:id/platform-quotas/reset", h.Admin.User.ResetUserPlatformQuotaWindow)
+		writes.PUT("/:id/platform-quotas", h.Admin.User.UpdateUserPlatformQuotas)
+		writes.POST("/:id/platform-quotas/reset", h.Admin.User.ResetUserPlatformQuotaWindow)
 
 		// User attribute values
 		users.GET("/:id/attributes", h.Admin.UserAttribute.GetUserAttributes)
-		users.PUT("/:id/attributes", h.Admin.UserAttribute.UpdateUserAttributes)
+		writes.PUT("/:id/attributes", h.Admin.UserAttribute.UpdateUserAttributes)
 	}
 }
 
 func registerGroupRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 	groups := admin.Group("/groups")
+	writes := superAdminOnly(groups)
 	{
 		groups.GET("", h.Admin.Group.List)
 		groups.GET("/all", h.Admin.Group.GetAll)
 		groups.GET("/usage-summary", h.Admin.Group.GetUsageSummary)
 		groups.GET("/capacity-summary", h.Admin.Group.GetCapacitySummary)
-		groups.PUT("/sort-order", h.Admin.Group.UpdateSortOrder)
+		writes.PUT("/sort-order", h.Admin.Group.UpdateSortOrder)
 		groups.GET("/:id/models-list-candidates", h.Admin.Group.GetModelsListCandidates)
 		groups.GET("/:id", h.Admin.Group.GetByID)
-		groups.POST("", h.Admin.Group.Create)
-		groups.PUT("/:id", h.Admin.Group.Update)
-		groups.DELETE("/:id", h.Admin.Group.Delete)
+		writes.POST("", h.Admin.Group.Create)
+		writes.PUT("/:id", h.Admin.Group.Update)
+		writes.DELETE("/:id", h.Admin.Group.Delete)
 		groups.GET("/:id/stats", h.Admin.Group.GetStats)
 		groups.GET("/:id/rate-multipliers", h.Admin.Group.GetGroupRateMultipliers)
-		groups.PUT("/:id/rate-multipliers", h.Admin.Group.BatchSetGroupRateMultipliers)
-		groups.DELETE("/:id/rate-multipliers", h.Admin.Group.ClearGroupRateMultipliers)
-		groups.PUT("/:id/rpm-overrides", h.Admin.Group.BatchSetGroupRPMOverrides)
-		groups.DELETE("/:id/rpm-overrides", h.Admin.Group.ClearGroupRPMOverrides)
+		writes.PUT("/:id/rate-multipliers", h.Admin.Group.BatchSetGroupRateMultipliers)
+		writes.DELETE("/:id/rate-multipliers", h.Admin.Group.ClearGroupRateMultipliers)
+		writes.PUT("/:id/rpm-overrides", h.Admin.Group.BatchSetGroupRPMOverrides)
+		writes.DELETE("/:id/rpm-overrides", h.Admin.Group.ClearGroupRPMOverrides)
 		groups.GET("/:id/api-keys", h.Admin.Group.GetGroupAPIKeys)
 	}
 }
@@ -321,59 +331,60 @@ func registerResearchGroupRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 
 func registerAccountRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 	accounts := admin.Group("/accounts")
+	writes := superAdminOnly(accounts)
 	{
 		accounts.GET("", h.Admin.Account.List)
 		accounts.GET("/:id", h.Admin.Account.GetByID)
-		accounts.POST("", h.Admin.Account.Create)
-		accounts.POST("/check-mixed-channel", h.Admin.Account.CheckMixedChannel)
-		accounts.POST("/import/codex-session", h.Admin.Account.ImportCodexSession)
-		accounts.POST("/sync/crs", h.Admin.Account.SyncFromCRS)
-		accounts.POST("/sync/crs/preview", h.Admin.Account.PreviewFromCRS)
-		accounts.PUT("/:id", h.Admin.Account.Update)
-		accounts.PUT("/:id/provider", h.Admin.Account.UpdateProvider)
-		accounts.DELETE("/:id", h.Admin.Account.Delete)
-		accounts.POST("/:id/test", h.Admin.Account.Test)
-		accounts.POST("/:id/recover-state", h.Admin.Account.RecoverState)
-		accounts.POST("/:id/refresh", h.Admin.Account.Refresh)
-		accounts.POST("/:id/apply-oauth-credentials", h.Admin.Account.ApplyOAuthCredentials)
-		accounts.POST("/:id/set-privacy", h.Admin.Account.SetPrivacy)
-		accounts.POST("/:id/refresh-tier", h.Admin.Account.RefreshTier)
+		writes.POST("", h.Admin.Account.Create)
+		writes.POST("/check-mixed-channel", h.Admin.Account.CheckMixedChannel)
+		writes.POST("/import/codex-session", h.Admin.Account.ImportCodexSession)
+		writes.POST("/sync/crs", h.Admin.Account.SyncFromCRS)
+		writes.POST("/sync/crs/preview", h.Admin.Account.PreviewFromCRS)
+		writes.PUT("/:id", h.Admin.Account.Update)
+		writes.PUT("/:id/provider", h.Admin.Account.UpdateProvider)
+		writes.DELETE("/:id", h.Admin.Account.Delete)
+		writes.POST("/:id/test", h.Admin.Account.Test)
+		writes.POST("/:id/recover-state", h.Admin.Account.RecoverState)
+		writes.POST("/:id/refresh", h.Admin.Account.Refresh)
+		writes.POST("/:id/apply-oauth-credentials", h.Admin.Account.ApplyOAuthCredentials)
+		writes.POST("/:id/set-privacy", h.Admin.Account.SetPrivacy)
+		writes.POST("/:id/refresh-tier", h.Admin.Account.RefreshTier)
 		accounts.GET("/:id/stats", h.Admin.Account.GetStats)
-		accounts.POST("/:id/clear-error", h.Admin.Account.ClearError)
-		accounts.POST("/:id/revert-proxy-fallback", h.Admin.Account.RevertProxyFallback)
+		writes.POST("/:id/clear-error", h.Admin.Account.ClearError)
+		writes.POST("/:id/revert-proxy-fallback", h.Admin.Account.RevertProxyFallback)
 		accounts.GET("/:id/usage", h.Admin.Account.GetUsage)
 		accounts.GET("/:id/today-stats", h.Admin.Account.GetTodayStats)
 		accounts.POST("/today-stats/batch", h.Admin.Account.GetBatchTodayStats)
-		accounts.POST("/:id/clear-rate-limit", h.Admin.Account.ClearRateLimit)
-		accounts.POST("/:id/reset-quota", h.Admin.Account.ResetQuota)
+		writes.POST("/:id/clear-rate-limit", h.Admin.Account.ClearRateLimit)
+		writes.POST("/:id/reset-quota", h.Admin.Account.ResetQuota)
 		accounts.GET("/:id/temp-unschedulable", h.Admin.Account.GetTempUnschedulable)
-		accounts.DELETE("/:id/temp-unschedulable", h.Admin.Account.ClearTempUnschedulable)
-		accounts.POST("/:id/schedulable", h.Admin.Account.SetSchedulable)
-		accounts.POST("/models/sync-upstream-preview", h.Admin.Account.SyncUpstreamModelsPreview)
+		writes.DELETE("/:id/temp-unschedulable", h.Admin.Account.ClearTempUnschedulable)
+		writes.POST("/:id/schedulable", h.Admin.Account.SetSchedulable)
+		writes.POST("/models/sync-upstream-preview", h.Admin.Account.SyncUpstreamModelsPreview)
 		accounts.GET("/:id/models", h.Admin.Account.GetAvailableModels)
-		accounts.POST("/:id/models/sync-upstream", h.Admin.Account.SyncUpstreamModels)
-		accounts.POST("/batch", h.Admin.Account.BatchCreate)
-		accounts.GET("/data", h.Admin.Account.ExportData)
-		accounts.POST("/data", h.Admin.Account.ImportData)
-		accounts.POST("/batch-update-credentials", h.Admin.Account.BatchUpdateCredentials)
-		accounts.POST("/batch-refresh-tier", h.Admin.Account.BatchRefreshTier)
-		accounts.POST("/bulk-update", h.Admin.Account.BulkUpdate)
-		accounts.POST("/batch-clear-error", h.Admin.Account.BatchClearError)
-		accounts.POST("/batch-refresh", h.Admin.Account.BatchRefresh)
+		writes.POST("/:id/models/sync-upstream", h.Admin.Account.SyncUpstreamModels)
+		writes.POST("/batch", h.Admin.Account.BatchCreate)
+		writes.GET("/data", h.Admin.Account.ExportData)
+		writes.POST("/data", h.Admin.Account.ImportData)
+		writes.POST("/batch-update-credentials", h.Admin.Account.BatchUpdateCredentials)
+		writes.POST("/batch-refresh-tier", h.Admin.Account.BatchRefreshTier)
+		writes.POST("/bulk-update", h.Admin.Account.BulkUpdate)
+		writes.POST("/batch-clear-error", h.Admin.Account.BatchClearError)
+		writes.POST("/batch-refresh", h.Admin.Account.BatchRefresh)
 
 		// Antigravity 默认模型映射
 		accounts.GET("/antigravity/default-model-mapping", h.Admin.Account.GetAntigravityDefaultModelMapping)
 
 		// Spark 影子账号
-		accounts.POST("/:id/shadow", h.Admin.OpenAIOAuth.CreateShadow)
+		writes.POST("/:id/shadow", h.Admin.OpenAIOAuth.CreateShadow)
 
 		// Claude OAuth routes
-		accounts.POST("/generate-auth-url", h.Admin.OAuth.GenerateAuthURL)
-		accounts.POST("/generate-setup-token-url", h.Admin.OAuth.GenerateSetupTokenURL)
-		accounts.POST("/exchange-code", h.Admin.OAuth.ExchangeCode)
-		accounts.POST("/exchange-setup-token-code", h.Admin.OAuth.ExchangeSetupTokenCode)
-		accounts.POST("/cookie-auth", h.Admin.OAuth.CookieAuth)
-		accounts.POST("/setup-token-cookie-auth", h.Admin.OAuth.SetupTokenCookieAuth)
+		writes.POST("/generate-auth-url", h.Admin.OAuth.GenerateAuthURL)
+		writes.POST("/generate-setup-token-url", h.Admin.OAuth.GenerateSetupTokenURL)
+		writes.POST("/exchange-code", h.Admin.OAuth.ExchangeCode)
+		writes.POST("/exchange-setup-token-code", h.Admin.OAuth.ExchangeSetupTokenCode)
+		writes.POST("/cookie-auth", h.Admin.OAuth.CookieAuth)
+		writes.POST("/setup-token-cookie-auth", h.Admin.OAuth.SetupTokenCookieAuth)
 	}
 }
 
@@ -398,29 +409,32 @@ func registerAnnouncementRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 
 func registerOpenAIOAuthRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 	openai := admin.Group("/openai")
+	writes := superAdminOnly(openai)
 	{
-		openai.POST("/generate-auth-url", h.Admin.OpenAIOAuth.GenerateAuthURL)
-		openai.POST("/exchange-code", h.Admin.OpenAIOAuth.ExchangeCode)
-		openai.POST("/refresh-token", h.Admin.OpenAIOAuth.RefreshToken)
-		openai.POST("/accounts/:id/refresh", h.Admin.OpenAIOAuth.RefreshAccountToken)
-		openai.POST("/create-from-oauth", h.Admin.OpenAIOAuth.CreateAccountFromOAuth)
-		openai.POST("/create-from-codex-pat", h.Admin.OpenAIOAuth.CreateAccountFromCodexPAT)
+		writes.POST("/generate-auth-url", h.Admin.OpenAIOAuth.GenerateAuthURL)
+		writes.POST("/exchange-code", h.Admin.OpenAIOAuth.ExchangeCode)
+		writes.POST("/refresh-token", h.Admin.OpenAIOAuth.RefreshToken)
+		writes.POST("/accounts/:id/refresh", h.Admin.OpenAIOAuth.RefreshAccountToken)
+		writes.POST("/create-from-oauth", h.Admin.OpenAIOAuth.CreateAccountFromOAuth)
+		writes.POST("/create-from-codex-pat", h.Admin.OpenAIOAuth.CreateAccountFromCodexPAT)
 		openai.GET("/accounts/:id/quota", h.Admin.OpenAIOAuth.QueryQuota)
-		openai.POST("/accounts/:id/reset-quota", h.Admin.OpenAIOAuth.ResetQuota)
+		writes.POST("/accounts/:id/reset-quota", h.Admin.OpenAIOAuth.ResetQuota)
 	}
 }
 
 func registerGeminiOAuthRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 	gemini := admin.Group("/gemini")
+	writes := superAdminOnly(gemini)
 	{
-		gemini.POST("/oauth/auth-url", h.Admin.GeminiOAuth.GenerateAuthURL)
-		gemini.POST("/oauth/exchange-code", h.Admin.GeminiOAuth.ExchangeCode)
+		writes.POST("/oauth/auth-url", h.Admin.GeminiOAuth.GenerateAuthURL)
+		writes.POST("/oauth/exchange-code", h.Admin.GeminiOAuth.ExchangeCode)
 		gemini.GET("/oauth/capabilities", h.Admin.GeminiOAuth.GetCapabilities)
 	}
 }
 
 func registerAntigravityOAuthRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 	antigravity := admin.Group("/antigravity")
+	antigravity.Use(middleware.RequireSuperAdmin())
 	{
 		antigravity.POST("/oauth/auth-url", h.Admin.AntigravityOAuth.GenerateAuthURL)
 		antigravity.POST("/oauth/exchange-code", h.Admin.AntigravityOAuth.ExchangeCode)
@@ -430,36 +444,38 @@ func registerAntigravityOAuthRoutes(admin *gin.RouterGroup, h *handler.Handlers)
 
 func registerGrokOAuthRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 	grok := admin.Group("/grok")
+	writes := superAdminOnly(grok)
 	{
-		grok.POST("/oauth/auth-url", h.Admin.GrokOAuth.GenerateAuthURL)
-		grok.POST("/oauth/exchange-code", h.Admin.GrokOAuth.ExchangeCode)
-		grok.POST("/oauth/refresh-token", h.Admin.GrokOAuth.RefreshToken)
-		grok.POST("/oauth/create-from-oauth", h.Admin.GrokOAuth.CreateAccountFromOAuth)
-		grok.POST("/sso-to-oauth", h.Admin.GrokOAuth.CreateAccountsFromSSO)
-		grok.POST("/accounts/:id/refresh", h.Admin.GrokOAuth.RefreshAccountToken)
+		writes.POST("/oauth/auth-url", h.Admin.GrokOAuth.GenerateAuthURL)
+		writes.POST("/oauth/exchange-code", h.Admin.GrokOAuth.ExchangeCode)
+		writes.POST("/oauth/refresh-token", h.Admin.GrokOAuth.RefreshToken)
+		writes.POST("/oauth/create-from-oauth", h.Admin.GrokOAuth.CreateAccountFromOAuth)
+		writes.POST("/sso-to-oauth", h.Admin.GrokOAuth.CreateAccountsFromSSO)
+		writes.POST("/accounts/:id/refresh", h.Admin.GrokOAuth.RefreshAccountToken)
 		grok.GET("/accounts/:id/quota", h.Admin.GrokOAuth.QueryQuota)
-		grok.POST("/accounts/:id/reset-quota", h.Admin.GrokOAuth.ResetQuota)
+		writes.POST("/accounts/:id/reset-quota", h.Admin.GrokOAuth.ResetQuota)
 		grok.GET("/runtime-sanity", h.Admin.GrokOAuth.RuntimeSanity)
 	}
 }
 
 func registerProxyRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 	proxies := admin.Group("/proxies")
+	writes := superAdminOnly(proxies)
 	{
 		proxies.GET("", h.Admin.Proxy.List)
 		proxies.GET("/all", h.Admin.Proxy.GetAll)
-		proxies.GET("/data", h.Admin.Proxy.ExportData)
-		proxies.POST("/data", h.Admin.Proxy.ImportData)
+		writes.GET("/data", h.Admin.Proxy.ExportData)
+		writes.POST("/data", h.Admin.Proxy.ImportData)
 		proxies.GET("/:id", h.Admin.Proxy.GetByID)
-		proxies.POST("", h.Admin.Proxy.Create)
-		proxies.PUT("/:id", h.Admin.Proxy.Update)
-		proxies.DELETE("/:id", h.Admin.Proxy.Delete)
-		proxies.POST("/:id/test", h.Admin.Proxy.Test)
-		proxies.POST("/:id/quality-check", h.Admin.Proxy.CheckQuality)
+		writes.POST("", h.Admin.Proxy.Create)
+		writes.PUT("/:id", h.Admin.Proxy.Update)
+		writes.DELETE("/:id", h.Admin.Proxy.Delete)
+		writes.POST("/:id/test", h.Admin.Proxy.Test)
+		writes.POST("/:id/quality-check", h.Admin.Proxy.CheckQuality)
 		proxies.GET("/:id/stats", h.Admin.Proxy.GetStats)
 		proxies.GET("/:id/accounts", h.Admin.Proxy.GetProxyAccounts)
-		proxies.POST("/batch-delete", h.Admin.Proxy.BatchDelete)
-		proxies.POST("/batch", h.Admin.Proxy.BatchCreate)
+		writes.POST("/batch-delete", h.Admin.Proxy.BatchDelete)
+		writes.POST("/batch", h.Admin.Proxy.BatchCreate)
 	}
 }
 
@@ -493,40 +509,41 @@ func registerPromoCodeRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 
 func registerSettingsRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 	adminSettings := admin.Group("/settings")
+	writes := superAdminOnly(adminSettings)
 	{
 		adminSettings.GET("", h.Admin.Setting.GetSettings)
-		adminSettings.PUT("", h.Admin.Setting.UpdateSettings)
-		adminSettings.POST("/test-smtp", h.Admin.Setting.TestSMTPConnection)
-		adminSettings.POST("/send-test-email", h.Admin.Setting.SendTestEmail)
-		adminSettings.GET("/email-templates", h.Admin.Setting.ListEmailTemplates)
-		adminSettings.POST("/email-template-preview", h.Admin.Setting.PreviewEmailTemplate)
-		adminSettings.GET("/email-templates/:event/:locale", h.Admin.Setting.GetEmailTemplate)
-		adminSettings.PUT("/email-templates/:event/:locale", h.Admin.Setting.UpdateEmailTemplate)
-		adminSettings.POST("/email-templates/:event/:locale/restore-official", h.Admin.Setting.RestoreOfficialEmailTemplate)
+		writes.PUT("", h.Admin.Setting.UpdateSettings)
+		writes.POST("/test-smtp", h.Admin.Setting.TestSMTPConnection)
+		writes.POST("/send-test-email", h.Admin.Setting.SendTestEmail)
+		writes.GET("/email-templates", h.Admin.Setting.ListEmailTemplates)
+		writes.POST("/email-template-preview", h.Admin.Setting.PreviewEmailTemplate)
+		writes.GET("/email-templates/:event/:locale", h.Admin.Setting.GetEmailTemplate)
+		writes.PUT("/email-templates/:event/:locale", h.Admin.Setting.UpdateEmailTemplate)
+		writes.POST("/email-templates/:event/:locale/restore-official", h.Admin.Setting.RestoreOfficialEmailTemplate)
 		// Admin API Key 管理
-		adminSettings.GET("/admin-api-key", h.Admin.Setting.GetAdminAPIKey)
-		adminSettings.POST("/admin-api-key/regenerate", h.Admin.Setting.RegenerateAdminAPIKey)
-		adminSettings.DELETE("/admin-api-key", h.Admin.Setting.DeleteAdminAPIKey)
+		writes.GET("/admin-api-key", h.Admin.Setting.GetAdminAPIKey)
+		writes.POST("/admin-api-key/regenerate", h.Admin.Setting.RegenerateAdminAPIKey)
+		writes.DELETE("/admin-api-key", h.Admin.Setting.DeleteAdminAPIKey)
 		// 529过载冷却配置
-		adminSettings.GET("/overload-cooldown", h.Admin.Setting.GetOverloadCooldownSettings)
-		adminSettings.PUT("/overload-cooldown", h.Admin.Setting.UpdateOverloadCooldownSettings)
+		writes.GET("/overload-cooldown", h.Admin.Setting.GetOverloadCooldownSettings)
+		writes.PUT("/overload-cooldown", h.Admin.Setting.UpdateOverloadCooldownSettings)
 		// 429默认回避配置
-		adminSettings.GET("/rate-limit-429-cooldown", h.Admin.Setting.GetRateLimit429CooldownSettings)
-		adminSettings.PUT("/rate-limit-429-cooldown", h.Admin.Setting.UpdateRateLimit429CooldownSettings)
+		writes.GET("/rate-limit-429-cooldown", h.Admin.Setting.GetRateLimit429CooldownSettings)
+		writes.PUT("/rate-limit-429-cooldown", h.Admin.Setting.UpdateRateLimit429CooldownSettings)
 		// 流超时处理配置
-		adminSettings.GET("/stream-timeout", h.Admin.Setting.GetStreamTimeoutSettings)
-		adminSettings.PUT("/stream-timeout", h.Admin.Setting.UpdateStreamTimeoutSettings)
+		writes.GET("/stream-timeout", h.Admin.Setting.GetStreamTimeoutSettings)
+		writes.PUT("/stream-timeout", h.Admin.Setting.UpdateStreamTimeoutSettings)
 		// 请求整流器配置
-		adminSettings.GET("/rectifier", h.Admin.Setting.GetRectifierSettings)
-		adminSettings.PUT("/rectifier", h.Admin.Setting.UpdateRectifierSettings)
+		writes.GET("/rectifier", h.Admin.Setting.GetRectifierSettings)
+		writes.PUT("/rectifier", h.Admin.Setting.UpdateRectifierSettings)
 		// Beta 策略配置
-		adminSettings.GET("/beta-policy", h.Admin.Setting.GetBetaPolicySettings)
-		adminSettings.PUT("/beta-policy", h.Admin.Setting.UpdateBetaPolicySettings)
+		writes.GET("/beta-policy", h.Admin.Setting.GetBetaPolicySettings)
+		writes.PUT("/beta-policy", h.Admin.Setting.UpdateBetaPolicySettings)
 		// Web Search 模拟配置
-		adminSettings.GET("/web-search-emulation", h.Admin.Setting.GetWebSearchEmulationConfig)
-		adminSettings.PUT("/web-search-emulation", h.Admin.Setting.UpdateWebSearchEmulationConfig)
-		adminSettings.POST("/web-search-emulation/test", h.Admin.Setting.TestWebSearchEmulation)
-		adminSettings.POST("/web-search-emulation/reset-usage", h.Admin.Setting.ResetWebSearchUsage)
+		writes.GET("/web-search-emulation", h.Admin.Setting.GetWebSearchEmulationConfig)
+		writes.PUT("/web-search-emulation", h.Admin.Setting.UpdateWebSearchEmulationConfig)
+		writes.POST("/web-search-emulation/test", h.Admin.Setting.TestWebSearchEmulation)
+		writes.POST("/web-search-emulation/reset-usage", h.Admin.Setting.ResetWebSearchUsage)
 	}
 }
 
@@ -626,22 +643,24 @@ func registerUsageRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 
 func registerUserAttributeRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 	attrs := admin.Group("/user-attributes")
+	writes := superAdminOnly(attrs)
 	{
 		attrs.GET("", h.Admin.UserAttribute.ListDefinitions)
-		attrs.POST("", h.Admin.UserAttribute.CreateDefinition)
+		writes.POST("", h.Admin.UserAttribute.CreateDefinition)
 		attrs.POST("/batch", h.Admin.UserAttribute.GetBatchUserAttributes)
-		attrs.PUT("/reorder", h.Admin.UserAttribute.ReorderDefinitions)
-		attrs.PUT("/:id", h.Admin.UserAttribute.UpdateDefinition)
-		attrs.DELETE("/:id", h.Admin.UserAttribute.DeleteDefinition)
+		writes.PUT("/reorder", h.Admin.UserAttribute.ReorderDefinitions)
+		writes.PUT("/:id", h.Admin.UserAttribute.UpdateDefinition)
+		writes.DELETE("/:id", h.Admin.UserAttribute.DeleteDefinition)
 	}
 }
 
 func registerScheduledTestRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 	plans := admin.Group("/scheduled-test-plans")
+	writes := superAdminOnly(plans)
 	{
-		plans.POST("", h.Admin.ScheduledTest.Create)
-		plans.PUT("/:id", h.Admin.ScheduledTest.Update)
-		plans.DELETE("/:id", h.Admin.ScheduledTest.Delete)
+		writes.POST("", h.Admin.ScheduledTest.Create)
+		writes.PUT("/:id", h.Admin.ScheduledTest.Update)
+		writes.DELETE("/:id", h.Admin.ScheduledTest.Delete)
 		plans.GET("/:id/results", h.Admin.ScheduledTest.ListResults)
 	}
 	// Nested under accounts
@@ -650,6 +669,7 @@ func registerScheduledTestRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 
 func registerErrorPassthroughRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 	rules := admin.Group("/error-passthrough-rules")
+	rules.Use(middleware.RequireSuperAdmin())
 	{
 		rules.GET("", h.Admin.ErrorPassthrough.List)
 		rules.GET("/:id", h.Admin.ErrorPassthrough.GetByID)
@@ -661,6 +681,7 @@ func registerErrorPassthroughRoutes(admin *gin.RouterGroup, h *handler.Handlers)
 
 func registerTLSFingerprintProfileRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 	profiles := admin.Group("/tls-fingerprint-profiles")
+	profiles.Use(middleware.RequireSuperAdmin())
 	{
 		profiles.GET("", h.Admin.TLSFingerprintProfile.List)
 		profiles.GET("/:id", h.Admin.TLSFingerprintProfile.GetByID)

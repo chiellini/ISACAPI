@@ -63,3 +63,13 @@ describe('AppSidebar CC-Switch guide entry', () => {
     expect(componentSource).toContain('const personalNavItems = computed((): NavItem[] => finalizeNav(buildSelfNavItems(false)))')
   })
 })
+
+describe('AppSidebar super administrator navigation', () => {
+  it('shows conversation archives only to super administrators', () => {
+    const conversationItem = componentSource
+      .split('\n')
+      .find((line) => line.includes("path: '/admin/conversations'"))
+
+    expect(conversationItem).toContain('featureFlag: flagSuperAdmin')
+  })
+})

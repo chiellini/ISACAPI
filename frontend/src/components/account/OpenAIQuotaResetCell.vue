@@ -39,6 +39,7 @@
       </button>
 
       <button
+        v-if="allowReset"
         type="button"
         class="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-medium text-orange-600 transition-colors hover:bg-orange-50 disabled:cursor-not-allowed disabled:opacity-50 dark:text-orange-400 dark:hover:bg-orange-900/30"
         :disabled="resetting || loading || !canReset"
@@ -143,9 +144,12 @@ import {
 } from '@/api/admin/accounts'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   account: Account
-}>()
+  allowReset?: boolean
+}>(), {
+  allowReset: true
+})
 
 const { t } = useI18n()
 
@@ -173,7 +177,7 @@ const resetCreditExpirations = computed(() =>
 )
 const primaryResetCreditExpiry = computed(() => resetCreditExpirations.value[0] ?? '')
 const hiddenResetCreditCount = computed(() => Math.max(resetCreditExpirations.value.length - 1, 0))
-const canReset = computed(() => availableResetCount.value > 0 && !isShadow.value)
+const canReset = computed(() => props.allowReset && availableResetCount.value > 0 && !isShadow.value)
 
 const resetCreditDetailsTitle = computed(() =>
   resetCreditExpirations.value

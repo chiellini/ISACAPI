@@ -350,6 +350,31 @@ describe('useAuthStore', () => {
     })
   })
 
+  describe('isSuperAdmin', () => {
+    it('returns true only when the backend marks the admin as super administrator', async () => {
+      mockLogin.mockResolvedValue({
+        ...fakeAuthResponse,
+        user: { ...fakeAdminUser, is_super_admin: true }
+      })
+      const store = useAuthStore()
+
+      await store.login({ email: 'admin@example.com', password: '123456' })
+
+      expect(store.isAdmin).toBe(true)
+      expect(store.isSuperAdmin).toBe(true)
+    })
+
+    it('returns false for an ordinary administrator', async () => {
+      mockLogin.mockResolvedValue({ ...fakeAuthResponse, user: { ...fakeAdminUser } })
+      const store = useAuthStore()
+
+      await store.login({ email: 'admin@example.com', password: '123456' })
+
+      expect(store.isAdmin).toBe(true)
+      expect(store.isSuperAdmin).toBe(false)
+    })
+  })
+
   describe('isProvider', () => {
     it('is true only for provider users', async () => {
       mockLogin.mockResolvedValue({ ...fakeAuthResponse, user: { ...fakeProviderUser } })
