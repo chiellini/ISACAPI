@@ -47,6 +47,7 @@ services:
       - SERVER_HOST=0.0.0.0
       - SERVER_PORT=8080
       - SERVER_MODE=${SERVER_MODE:-release}
+      - ENABLE_SERVER_TIMING=${ENABLE_SERVER_TIMING:-false}
       - RUN_MODE=${RUN_MODE:-standard}
       # 注册接口防刷密钥（反薅羊毛）。必须与前端构建变量 VITE_REG_GUARD_TOKEN 一致。
       - SERVER_REGISTER_GUARD_TOKEN=${SERVER_REGISTER_GUARD_TOKEN:-}

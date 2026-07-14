@@ -117,6 +117,20 @@ func normalizeUserRole(role, fallback string) (string, error) {
 	return role, nil
 }
 
+func (s *adminServiceImpl) requireSuperAdminForRoleChange(ctx context.Context, actorAdminID int64) error {
+	if actorAdminID <= 0 {
+		return infraerrors.Forbidden("SUPER_ADMIN_REQUIRED", "only the first admin can change user roles")
+	}
+	firstAdmin, err := s.userRepo.GetFirstAdmin(ctx)
+	if err != nil {
+		return fmt.Errorf("get first admin: %w", err)
+	}
+	if firstAdmin == nil || firstAdmin.ID != actorAdminID {
+		return infraerrors.Forbidden("SUPER_ADMIN_REQUIRED", "only the first admin can change user roles")
+	}
+	return nil
+}
+
 func (s *adminServiceImpl) CreateUser(ctx context.Context, input *CreateUserInput) (*User, error) {
 	balance := 0.0
 	if input.Balance != nil {
@@ -129,6 +143,11 @@ func (s *adminServiceImpl) CreateUser(ctx context.Context, input *CreateUserInpu
 	role, err := normalizeUserRole(input.Role, RoleUser)
 	if err != nil {
 		return nil, err
+	}
+	if role != RoleUser {
+		if err := s.requireSuperAdminForRoleChange(ctx, input.ActorAdminID); err != nil {
+			return nil, err
+		}
 	}
 
 	user := &User{
@@ -244,10 +263,20 @@ func (s *adminServiceImpl) UpdateUser(ctx context.Context, id int64, input *Upda
 		if err != nil {
 			return nil, err
 		}
+		if role != user.Role {
+			if err := s.requireSuperAdminForRoleChange(ctx, input.ActorAdminID); err != nil {
+				return nil, err
+			}
+		}
 		// 防锁死保护：不允许降级系统中最后一个管理员（自我降级已在 handler 层拦截，
 		// 此处兜底覆盖跨管理员互降导致零 admin 的场景）。
 		if user.Role == RoleAdmin && role != RoleAdmin {
 			if err := s.ensureNotLastAdmin(ctx); err != nil {
+				return nil, err
+			}
+		}
+		if role != user.Role {
+			if err := s.requireSuperAdminForRoleChange(ctx, input.ActorAdminID); err != nil {
 				return nil, err
 			}
 		}
