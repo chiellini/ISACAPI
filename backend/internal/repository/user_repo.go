@@ -504,7 +504,9 @@ func (r *userRepository) ListWithFilters(ctx context.Context, params pagination.
 	if filters.Status != "" {
 		q = q.Where(dbuser.StatusEQ(filters.Status))
 	}
-	if filters.Role != "" {
+	if len(filters.Roles) > 0 {
+		q = q.Where(dbuser.RoleIn(filters.Roles...))
+	} else if filters.Role != "" {
 		q = q.Where(dbuser.RoleEQ(filters.Role))
 	}
 	if filters.Search != "" {
@@ -1015,7 +1017,7 @@ func (r *userRepository) RemoveGroupFromUserAllowedGroups(ctx context.Context, u
 func (r *userRepository) GetFirstAdmin(ctx context.Context) (*service.User, error) {
 	m, err := r.client.User.Query().
 		Where(
-			dbuser.RoleEQ(service.RoleAdmin),
+			dbuser.RoleIn(service.RoleAdmin, service.RoleAdminProvider),
 			dbuser.StatusEQ(service.StatusActive),
 		).
 		Order(dbent.Asc(dbuser.FieldID)).

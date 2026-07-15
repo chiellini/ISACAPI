@@ -32,7 +32,7 @@ func ensureSimpleModeAdminConcurrency(ctx context.Context, client *dbent.Client)
 
 	if _, err := client.User.Update().
 		Where(
-			dbuser.RoleEQ(service.RoleAdmin),
+			dbuser.RoleIn(service.RoleAdmin, service.RoleAdminProvider),
 			dbuser.ConcurrencyEQ(simpleModeLegacyAdminConcurrency),
 		).
 		SetConcurrency(simpleModeTargetAdminConcurrency).

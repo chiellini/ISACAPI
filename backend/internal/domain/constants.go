@@ -12,9 +12,10 @@ const (
 
 // Role constants
 const (
-	RoleAdmin    = "admin"
-	RoleProvider = "provider"
-	RoleUser     = "user"
+	RoleAdmin         = "admin"
+	RoleAdminProvider = "admin_provider"
+	RoleProvider      = "provider"
+	RoleUser          = "user"
 )
 
 // Research group statuses and funding attribution values.

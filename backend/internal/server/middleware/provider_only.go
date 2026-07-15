@@ -16,7 +16,7 @@ func ProviderOnly() gin.HandlerFunc {
 			return
 		}
 
-		if role != service.RoleProvider {
+		if !service.IsProviderRole(role) {
 			AbortWithError(c, 403, "FORBIDDEN", "Provider access required")
 			return
 		}

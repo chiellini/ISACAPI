@@ -1493,7 +1493,7 @@ func (r *stubUserRepo) GetByEmail(ctx context.Context, email string) (*service.U
 
 func (r *stubUserRepo) GetFirstAdmin(ctx context.Context) (*service.User, error) {
 	for _, user := range r.users {
-		if user.Role == service.RoleAdmin && user.Status == service.StatusActive {
+		if user.IsAdmin() && user.Status == service.StatusActive {
 			clone := *user
 			return &clone, nil
 		}

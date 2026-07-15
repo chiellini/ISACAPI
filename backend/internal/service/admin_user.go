@@ -111,8 +111,8 @@ func normalizeUserRole(role, fallback string) (string, error) {
 	if role == "" {
 		return fallback, nil
 	}
-	if role != RoleAdmin && role != RoleProvider && role != RoleUser {
-		return "", fmt.Errorf("invalid role: %q (must be %s, %s, or %s)", role, RoleAdmin, RoleProvider, RoleUser)
+	if role != RoleAdmin && role != RoleAdminProvider && role != RoleProvider && role != RoleUser {
+		return "", fmt.Errorf("invalid role: %q (must be %s, %s, %s, or %s)", role, RoleAdmin, RoleAdminProvider, RoleProvider, RoleUser)
 	}
 	return role, nil
 }
@@ -172,7 +172,7 @@ func (s *adminServiceImpl) CreateUser(ctx context.Context, input *CreateUserInpu
 		return nil, err
 	}
 	// 创建管理员属权限敏感操作，落审计日志（含操作者），便于事后追溯。
-	if user.Role == RoleAdmin {
+	if user.IsAdmin() {
 		logger.LegacyPrintf("service.admin", "audit: admin user created actor_admin_id=%d target_user_id=%d",
 			input.ActorAdminID, user.ID)
 	}
@@ -187,7 +187,7 @@ func (s *adminServiceImpl) ensureNotLastAdmin(ctx context.Context) error {
 	noSubs := false
 	_, result, err := s.userRepo.ListWithFilters(ctx,
 		pagination.PaginationParams{Page: 1, PageSize: 1},
-		UserListFilters{Role: RoleAdmin, IncludeSubscriptions: &noSubs},
+		UserListFilters{Roles: []string{RoleAdmin, RoleAdminProvider}, IncludeSubscriptions: &noSubs},
 	)
 	if err != nil {
 		return fmt.Errorf("count admin users: %w", err)
@@ -245,7 +245,7 @@ func (s *adminServiceImpl) UpdateUser(ctx context.Context, id int64, input *Upda
 	}
 
 	// Protect admin users: cannot disable admin accounts
-	if user.Role == "admin" && input.Status == "disabled" {
+	if user.IsAdmin() && input.Status == StatusDisabled {
 		return nil, errors.New("cannot disable admin user")
 	}
 
@@ -288,7 +288,7 @@ func (s *adminServiceImpl) UpdateUser(ctx context.Context, id int64, input *Upda
 		}
 		// 防锁死保护：不允许降级系统中最后一个管理员（自我降级已在 handler 层拦截，
 		// 此处兜底覆盖跨管理员互降导致零 admin 的场景）。
-		if user.Role == RoleAdmin && role != RoleAdmin {
+		if user.IsAdmin() && !IsAdminRole(role) {
 			if err := s.ensureNotLastAdmin(ctx); err != nil {
 				return nil, err
 			}
@@ -383,7 +383,7 @@ func (s *adminServiceImpl) DeleteUser(ctx context.Context, id int64) error {
 	if err != nil {
 		return err
 	}
-	if user.Role == "admin" {
+	if user.IsAdmin() {
 		return errors.New("cannot delete admin user")
 	}
 

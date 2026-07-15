@@ -87,11 +87,11 @@ export const useAuthStore = defineStore('auth', () => {
   })
 
   const isAdmin = computed(() => {
-    return user.value?.role === 'admin'
+    return user.value?.role === 'admin' || user.value?.role === 'admin_provider'
   })
 
   const isProvider = computed(() => {
-    return user.value?.role === 'provider'
+    return user.value?.role === 'provider' || user.value?.role === 'admin_provider'
   })
 
   const isSuperAdmin = computed(() => {

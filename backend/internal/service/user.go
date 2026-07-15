@@ -65,11 +65,23 @@ type User struct {
 }
 
 func (u *User) IsAdmin() bool {
-	return u.Role == RoleAdmin
+	return IsAdminRole(u.Role)
 }
 
 func (u *User) IsProvider() bool {
-	return u.Role == RoleProvider
+	return IsProviderRole(u.Role)
+}
+
+func IsAdminRole(role string) bool {
+	return role == RoleAdmin || role == RoleAdminProvider
+}
+
+func IsProviderRole(role string) bool {
+	return role == RoleProvider || role == RoleAdminProvider
+}
+
+func IsOperatorRole(role string) bool {
+	return IsAdminRole(role) || IsProviderRole(role)
 }
 
 func (u *User) IsActive() bool {

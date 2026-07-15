@@ -11,13 +11,14 @@ describe('provider navigation and isolation', () => {
     expect(routerSource).toContain("path: '/provider/usage'")
     expect(routerSource).toContain("path: '/admin/providers/:id/usage'")
     expect(routerSource).toContain('requiresProvider: true')
-    expect(routerSource).toContain("if (authStore.isProvider && !requiresProvider && to.path !== '/profile')")
+    expect(routerSource).toContain("if (authStore.isProvider && !authStore.isAdmin && !requiresProvider && to.path !== '/profile')")
   })
 
   it('shows a dedicated provider sidebar and keeps scheduling controls out of the form', () => {
     expect(sidebarSource).toContain('v-else-if="isProvider"')
     expect(sidebarSource).toContain("path: '/provider/accounts'")
     expect(sidebarSource).toContain("path: '/provider/usage'")
+    expect(sidebarSource).toContain('...(authStore.isProvider')
     expect(formSource).not.toContain('priority')
     expect(formSource).not.toContain('load_factor')
     expect(formSource).not.toContain('rate_multiplier')
@@ -31,4 +32,3 @@ describe('provider navigation and isolation', () => {
     expect(zh.provider.admin.viewUsage).toBeTruthy()
   })
 })
-

@@ -523,7 +523,9 @@ export default {
       deleteConfirm: "确定要删除用户 '{email}' 吗？此操作无法撤销。",
       roles: {
         superAdmin: '超级管理员',
+        superAdminProvider: '超级管理员 + 供号方',
         admin: '普通管理员',
+        admin_provider: '管理员 + 供号方',
         provider: '供号方',
         user: '用户'
       },

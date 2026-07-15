@@ -31,6 +31,7 @@
           <option value="user">{{ t('admin.users.roles.user') }}</option>
           <option value="provider">{{ t('admin.users.roles.provider') }}</option>
           <option value="admin">{{ t('admin.users.roles.admin') }}</option>
+          <option value="admin_provider">{{ t('admin.users.roles.admin_provider') }}</option>
         </select>
         <input v-else :value="t('admin.users.roles.user')" type="text" class="input" disabled />
       </div>

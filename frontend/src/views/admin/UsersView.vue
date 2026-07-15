@@ -23,12 +23,13 @@
             </div>
 
             <!-- Role Filter (visible when enabled) -->
-            <div v-if="visibleFilters.has('role')" class="w-full sm:w-32">
+            <div v-if="visibleFilters.has('role')" class="w-full sm:w-48">
               <Select
                 v-model="filters.role"
                 :options="[
                   { value: '', label: t('admin.users.allRoles') },
                   { value: 'admin', label: t('admin.users.admin') },
+                  { value: 'admin_provider', label: t('admin.users.roles.admin_provider') },
                   { value: 'provider', label: t('admin.users.provider') },
                   { value: 'user', label: t('admin.users.user') }
                 ]"
@@ -313,8 +314,8 @@
           </template>
 
           <template #cell-role="{ value, row }">
-            <span :class="['badge', row.is_super_admin ? 'badge-danger' : value === 'admin' ? 'badge-purple' : value === 'provider' ? 'badge-blue' : 'badge-gray']">
-              {{ row.is_super_admin ? t('admin.users.roles.superAdmin') : t('admin.users.roles.' + value) }}
+            <span :class="['badge', row.is_super_admin ? 'badge-danger' : (value === 'admin' || value === 'admin_provider') ? 'badge-purple' : value === 'provider' ? 'badge-blue' : 'badge-gray']">
+              {{ row.is_super_admin ? t(value === 'admin_provider' ? 'admin.users.roles.superAdminProvider' : 'admin.users.roles.superAdmin') : t('admin.users.roles.' + value) }}
             </span>
           </template>
 
@@ -604,7 +605,7 @@
 
               <!-- Toggle Status Button (not for admin) -->
               <button
-                v-if="canManageUsers && row.role !== 'admin'"
+                v-if="canManageUsers && row.role !== 'admin' && row.role !== 'admin_provider'"
                 @click="handleToggleStatus(row)"
                 :class="[
                   'flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors',
@@ -619,7 +620,7 @@
               </button>
 
               <RouterLink
-                v-if="row.role === 'provider'"
+                v-if="row.role === 'provider' || row.role === 'admin_provider'"
                 :to="`/admin/providers/${row.id}/usage`"
                 class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-900/20 dark:hover:text-blue-400"
               >
@@ -739,7 +740,7 @@
 
               <!-- Delete (not for admin) -->
               <button
-                v-if="canManageUsers && user.role !== 'admin'"
+                v-if="canManageUsers && user.role !== 'admin' && user.role !== 'admin_provider'"
                 @click="handleDelete(user); closeActionMenu()"
                 class="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
               >

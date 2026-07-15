@@ -51,6 +51,14 @@ const fakeProviderUser = {
   role: 'provider' as const,
 }
 
+const fakeAdminProviderUser = {
+  ...fakeUser,
+  id: 4,
+  username: 'admin-provider',
+  email: 'admin-provider@example.com',
+  role: 'admin_provider' as const,
+}
+
 const fakeAuthResponse = {
   access_token: 'test-token-123',
   refresh_token: 'refresh-token-456',
@@ -384,6 +392,16 @@ describe('useAuthStore', () => {
 
       expect(store.isProvider).toBe(true)
       expect(store.isAdmin).toBe(false)
+    })
+
+    it('exposes both capabilities for an administrator-provider user', async () => {
+      mockLogin.mockResolvedValue({ ...fakeAuthResponse, user: { ...fakeAdminProviderUser } })
+      const store = useAuthStore()
+
+      await store.login({ email: fakeAdminProviderUser.email, password: '123456' })
+
+      expect(store.isAdmin).toBe(true)
+      expect(store.isProvider).toBe(true)
     })
   })
 

@@ -20,6 +20,7 @@ func TestProviderOnly(t *testing.T) {
 		wantStatus int
 	}{
 		{name: "provider_allowed", role: service.RoleProvider, setRole: true, wantStatus: http.StatusOK},
+		{name: "admin_provider_allowed", role: service.RoleAdminProvider, setRole: true, wantStatus: http.StatusOK},
 		{name: "admin_forbidden", role: service.RoleAdmin, setRole: true, wantStatus: http.StatusForbidden},
 		{name: "user_forbidden", role: service.RoleUser, setRole: true, wantStatus: http.StatusForbidden},
 		{name: "missing_role_unauthorized", wantStatus: http.StatusUnauthorized},
@@ -48,4 +49,23 @@ func TestProviderOnly(t *testing.T) {
 			require.Equal(t, tc.wantStatus, w.Code)
 		})
 	}
+}
+
+func TestAdminOnlyAllowsCombinedRole(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	router.Use(func(c *gin.Context) {
+		c.Set(string(ContextKeyUserRole), service.RoleAdminProvider)
+		c.Next()
+	})
+	router.Use(AdminOnly())
+	router.GET("/admin", func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/admin", nil)
+	router.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code)
 }

@@ -954,7 +954,7 @@ router.beforeEach(async (to, _from, next) => {
   }
 
   // Providers have a dedicated operations surface. Profile remains shared.
-  if (authStore.isProvider && !requiresProvider && to.path !== '/profile') {
+  if (authStore.isProvider && !authStore.isAdmin && !requiresProvider && to.path !== '/profile') {
     next('/provider/accounts')
     return
   }

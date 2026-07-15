@@ -120,7 +120,7 @@ export interface ResearchGroupContext {
   usage_summary?: ResearchGroupUsageSummary
 }
 
-export type UserRole = 'admin' | 'provider' | 'user'
+export type UserRole = 'admin' | 'admin_provider' | 'provider' | 'user'
 
 export interface User {
   id: number

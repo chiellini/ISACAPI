@@ -742,7 +742,7 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 	}
 
 	// Backend mode: block roles outside the admin/provider operations surface.
-	if h.settingSvc.IsBackendModeEnabled(c.Request.Context()) && result.UserRole != service.RoleAdmin && result.UserRole != service.RoleProvider {
+	if h.settingSvc.IsBackendModeEnabled(c.Request.Context()) && !service.IsOperatorRole(result.UserRole) {
 		response.Forbidden(c, "Backend mode is active. Only admin or provider login is allowed.")
 		return
 	}

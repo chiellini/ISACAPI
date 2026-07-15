@@ -634,7 +634,9 @@ export default {
       totalRecharged: 'Total Recharged',
       roles: {
         superAdmin: 'Super Administrator',
+        superAdminProvider: 'Super Administrator + Provider',
         admin: 'Administrator',
+        admin_provider: 'Administrator + Provider',
         provider: 'Provider',
         user: 'User'
       },
