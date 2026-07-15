@@ -336,6 +336,7 @@ func registerAccountRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		accounts.GET("", h.Admin.Account.List)
 		accounts.GET("/:id", h.Admin.Account.GetByID)
 		writes.POST("", h.Admin.Account.Create)
+		writes.POST("/:id/duplicate", h.Admin.Account.Duplicate)
 		writes.POST("/check-mixed-channel", h.Admin.Account.CheckMixedChannel)
 		writes.POST("/import/codex-session", h.Admin.Account.ImportCodexSession)
 		writes.POST("/sync/crs", h.Admin.Account.SyncFromCRS)
