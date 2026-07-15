@@ -4,6 +4,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"strconv"
 	"testing"
 	"time"
@@ -324,7 +325,11 @@ func TestFinishRefundSuccessStatusesFinalize(t *testing.T) {
 				Save(ctx)
 			require.NoError(t, err)
 
-			svc := &PaymentService{entClient: client}
+			affiliateRepo := &paymentFulfillmentAffiliateRepoStub{reverseAmount: 20}
+			svc := &PaymentService{
+				entClient:        client,
+				affiliateService: NewAffiliateService(affiliateRepo, nil, nil, nil),
+			}
 			plan := &RefundPlan{
 				OrderID:         order.ID,
 				Order:           order,
@@ -340,6 +345,9 @@ func TestFinishRefundSuccessStatusesFinalize(t *testing.T) {
 			require.NotNil(t, result)
 			require.True(t, result.Success)
 			require.Equal(t, 100.0, result.BalanceDeducted)
+			require.Len(t, affiliateRepo.reverseCalls, 1)
+			require.Equal(t, order.ID, affiliateRepo.reverseCalls[0].sourceOrderID)
+			require.InDelta(t, 1.0, affiliateRepo.reverseCalls[0].refundRatio, 1e-9)
 
 			reloaded, err := client.PaymentOrder.Get(ctx, order.ID)
 			require.NoError(t, err)
@@ -356,8 +364,132 @@ func TestFinishRefundSuccessStatusesFinalize(t *testing.T) {
 				Count(ctx)
 			require.NoError(t, err)
 			require.Zero(t, pendingAudits)
+			reversalAudits, err := client.PaymentAuditLog.Query().
+				Where(paymentauditlog.OrderIDEQ(strconv.FormatInt(order.ID, 10)), paymentauditlog.ActionEQ("AFFILIATE_REVERSAL_APPLIED")).
+				Count(ctx)
+			require.NoError(t, err)
+			require.Equal(t, 1, reversalAudits)
 		})
 	}
+}
+
+func TestMarkRefundOkUsesPartialRefundRatioForAffiliateReversal(t *testing.T) {
+	ctx := context.Background()
+	client := newPaymentConfigServiceTestClient(t)
+	order := createPendingRefundOrderForTest(t, ctx, client, "affiliate-partial-reversal")
+	affiliateRepo := &paymentFulfillmentAffiliateRepoStub{reverseAmount: 8}
+	svc := &PaymentService{
+		entClient:        client,
+		affiliateService: NewAffiliateService(affiliateRepo, nil, nil, nil),
+	}
+	plan := &RefundPlan{
+		OrderID:      order.ID,
+		Order:        order,
+		RefundAmount: 40,
+		Reason:       "partial affiliate reversal",
+	}
+
+	result, err := svc.markRefundOk(ctx, plan)
+	require.NoError(t, err)
+	require.True(t, result.Success)
+	require.Len(t, affiliateRepo.reverseCalls, 1)
+	require.Equal(t, order.ID, affiliateRepo.reverseCalls[0].sourceOrderID)
+	require.InDelta(t, 0.4, affiliateRepo.reverseCalls[0].refundRatio, 1e-9)
+
+	reloaded, err := client.PaymentOrder.Get(ctx, order.ID)
+	require.NoError(t, err)
+	require.Equal(t, OrderStatusPartiallyRefunded, reloaded.Status)
+}
+
+func TestMarkRefundOkPersistsPendingAffiliateReversalOnFailure(t *testing.T) {
+	ctx := context.Background()
+	client := newPaymentConfigServiceTestClient(t)
+	ensurePaymentAuditOrderActionUniqueIndex(t, ctx, client)
+	order := createPendingRefundOrderForTest(t, ctx, client, "affiliate-reversal-pending")
+	affiliateRepo := &paymentFulfillmentAffiliateRepoStub{reverseErr: errors.New("temporary reversal failure")}
+	svc := &PaymentService{
+		entClient:        client,
+		affiliateService: NewAffiliateService(affiliateRepo, nil, nil, nil),
+	}
+	plan := &RefundPlan{OrderID: order.ID, Order: order, RefundAmount: order.Amount, Reason: "full refund"}
+
+	result, err := svc.markRefundOk(ctx, plan)
+	require.NoError(t, err)
+	require.True(t, result.Success)
+	require.Contains(t, result.Warning, "pending retry")
+	pending, err := client.PaymentAuditLog.Query().
+		Where(paymentauditlog.OrderIDEQ(strconv.FormatInt(order.ID, 10)), paymentauditlog.ActionEQ("AFFILIATE_REVERSAL_PENDING")).
+		Count(ctx)
+	require.NoError(t, err)
+	require.Equal(t, 1, pending)
+	applied, err := client.PaymentAuditLog.Query().
+		Where(paymentauditlog.OrderIDEQ(strconv.FormatInt(order.ID, 10)), paymentauditlog.ActionEQ("AFFILIATE_REVERSAL_APPLIED")).
+		Count(ctx)
+	require.NoError(t, err)
+	require.Zero(t, applied)
+
+	reloaded, err := client.PaymentOrder.Get(ctx, order.ID)
+	require.NoError(t, err)
+	require.Equal(t, OrderStatusRefunded, reloaded.Status)
+}
+
+func TestReconcilePendingAffiliateReversalsRetriesAndMarksApplied(t *testing.T) {
+	ctx := context.Background()
+	client := newPaymentConfigServiceTestClient(t)
+	ensurePaymentAuditOrderActionUniqueIndex(t, ctx, client)
+	order := createPendingRefundOrderForTest(t, ctx, client, "affiliate-reversal-retry")
+	_, err := client.PaymentOrder.UpdateOneID(order.ID).
+		SetStatus(OrderStatusPartiallyRefunded).
+		SetRefundAmount(40).
+		SetRefundAt(time.Now()).
+		Save(ctx)
+	require.NoError(t, err)
+	_, err = client.PaymentAuditLog.Create().
+		SetOrderID(strconv.FormatInt(order.ID, 10)).
+		SetAction("AFFILIATE_REVERSAL_APPLIED").
+		SetDetail(`{"refundAmount":20,"reversedAmount":4}`).
+		SetOperator("system").
+		Save(ctx)
+	require.NoError(t, err)
+	_, err = client.PaymentAuditLog.Create().
+		SetOrderID(strconv.FormatInt(order.ID, 10)).
+		SetAction("AFFILIATE_REVERSAL_PENDING").
+		SetDetail(`{"error":"temporary database failure"}`).
+		SetOperator("system").
+		Save(ctx)
+	require.NoError(t, err)
+
+	affiliateRepo := &paymentFulfillmentAffiliateRepoStub{reverseAmount: 8}
+	svc := &PaymentService{
+		entClient:        client,
+		affiliateService: NewAffiliateService(affiliateRepo, nil, nil, nil),
+	}
+
+	completed, err := svc.ReconcilePendingAffiliateReversals(ctx)
+	require.NoError(t, err)
+	require.Equal(t, 1, completed)
+	require.Len(t, affiliateRepo.reverseCalls, 1)
+	require.InDelta(t, 0.4, affiliateRepo.reverseCalls[0].refundRatio, 1e-9)
+	pending, err := client.PaymentAuditLog.Query().
+		Where(paymentauditlog.OrderIDEQ(strconv.FormatInt(order.ID, 10)), paymentauditlog.ActionEQ("AFFILIATE_REVERSAL_PENDING")).
+		Count(ctx)
+	require.NoError(t, err)
+	require.Zero(t, pending)
+	applied, err := client.PaymentAuditLog.Query().
+		Where(paymentauditlog.OrderIDEQ(strconv.FormatInt(order.ID, 10)), paymentauditlog.ActionEQ("AFFILIATE_REVERSAL_APPLIED")).
+		Count(ctx)
+	require.NoError(t, err)
+	require.Equal(t, 1, applied)
+	archived, err := client.PaymentAuditLog.Query().
+		Where(paymentauditlog.OrderIDEQ(strconv.FormatInt(order.ID, 10)), paymentauditlog.ActionContains("AFF_REV_APPLIED_")).
+		Count(ctx)
+	require.NoError(t, err)
+	require.Equal(t, 1, archived, "the prior partial-refund audit must be retained without blocking the new APPLIED marker")
+
+	completed, err = svc.ReconcilePendingAffiliateReversals(ctx)
+	require.NoError(t, err)
+	require.Zero(t, completed)
+	require.Len(t, affiliateRepo.reverseCalls, 1, "an applied reversal must not be retried")
 }
 
 func TestQueryAndFinalizeRefundFinalizesProviderStatuses(t *testing.T) {

@@ -112,9 +112,16 @@ func ProvideAuthHandler(cfg *config.Config, authService *service.AuthService, us
 
 // ProvideUserHandler decorates the backwards-compatible constructor with the
 // research-group context dependency used by profile responses.
-func ProvideUserHandler(userService *service.UserService, authService *service.AuthService, emailService *service.EmailService, emailCache service.EmailCache, affiliateService *service.AffiliateService, userPlatformQuotaRepo service.UserPlatformQuotaRepository, researchGroupService *service.ResearchGroupService) *UserHandler {
+func ProvideUserHandler(userService *service.UserService, authService *service.AuthService, emailService *service.EmailService, emailCache service.EmailCache, affiliateService *service.AffiliateService, affiliatePayoutService *service.AffiliatePayoutService, userPlatformQuotaRepo service.UserPlatformQuotaRepository, researchGroupService *service.ResearchGroupService) *UserHandler {
 	h := NewUserHandler(userService, authService, emailService, emailCache, affiliateService, userPlatformQuotaRepo)
 	h.researchGroupService = researchGroupService
+	h.affiliatePayoutService = affiliatePayoutService
+	return h
+}
+
+func ProvideAdminAffiliateHandler(affiliateService *service.AffiliateService, affiliatePayoutService *service.AffiliatePayoutService, adminService service.AdminService) *admin.AffiliateHandler {
+	h := admin.NewAffiliateHandler(affiliateService, adminService)
+	h.SetPayoutService(affiliatePayoutService)
 	return h
 }
 
@@ -221,7 +228,7 @@ var ProviderSet = wire.NewSet(
 	admin.NewChannelMonitorRequestTemplateHandler,
 	admin.NewContentModerationHandler,
 	admin.NewPaymentHandler,
-	admin.NewAffiliateHandler,
+	ProvideAdminAffiliateHandler,
 	admin.NewConversationHandler,
 	admin.NewComplianceHandler,
 	admin.NewResearchGroupHandler,

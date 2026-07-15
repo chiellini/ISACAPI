@@ -45,6 +45,7 @@ type paymentFulfillmentAffiliateAccrueCall struct {
 	inviterID     int64
 	inviteeUserID int64
 	amount        float64
+	perInviteeCap float64
 	freezeHours   int
 	sourceOrderID *int64
 }
@@ -53,6 +54,12 @@ type paymentFulfillmentAffiliateRepoStub struct {
 	inviteeSummary *AffiliateSummary
 	inviterSummary *AffiliateSummary
 	accrueCalls    []paymentFulfillmentAffiliateAccrueCall
+	reverseCalls   []struct {
+		sourceOrderID int64
+		refundRatio   float64
+	}
+	reverseAmount float64
+	reverseErr    error
 }
 
 func (r *paymentFulfillmentAffiliateRepoStub) EnsureUserAffiliate(_ context.Context, userID int64) (*AffiliateSummary, error) {
@@ -76,7 +83,7 @@ func (r *paymentFulfillmentAffiliateRepoStub) BindInviter(context.Context, int64
 	panic("unexpected BindInviter call")
 }
 
-func (r *paymentFulfillmentAffiliateRepoStub) AccrueQuota(_ context.Context, inviterID, inviteeUserID int64, amount float64, freezeHours int, sourceOrderID *int64) (bool, error) {
+func (r *paymentFulfillmentAffiliateRepoStub) AccrueQuota(_ context.Context, inviterID, inviteeUserID int64, amount, perInviteeCap float64, freezeHours int, sourceOrderID *int64) (float64, error) {
 	var sourceCopy *int64
 	if sourceOrderID != nil {
 		v := *sourceOrderID
@@ -86,10 +93,19 @@ func (r *paymentFulfillmentAffiliateRepoStub) AccrueQuota(_ context.Context, inv
 		inviterID:     inviterID,
 		inviteeUserID: inviteeUserID,
 		amount:        amount,
+		perInviteeCap: perInviteeCap,
 		freezeHours:   freezeHours,
 		sourceOrderID: sourceCopy,
 	})
-	return true, nil
+	return amount, nil
+}
+
+func (r *paymentFulfillmentAffiliateRepoStub) ReverseQuotaForOrder(_ context.Context, sourceOrderID int64, refundRatio float64) (float64, error) {
+	r.reverseCalls = append(r.reverseCalls, struct {
+		sourceOrderID int64
+		refundRatio   float64
+	}{sourceOrderID: sourceOrderID, refundRatio: refundRatio})
+	return r.reverseAmount, r.reverseErr
 }
 
 func (r *paymentFulfillmentAffiliateRepoStub) GetAccruedRebateFromInvitee(context.Context, int64, int64) (float64, error) {
@@ -864,6 +880,7 @@ func TestExecuteSubscriptionFulfillmentAppliesAffiliateRebate(t *testing.T) {
 		inviterSummary: &AffiliateSummary{
 			UserID:    inviterID,
 			AffCode:   "INVITER",
+			AgentStatus: AffiliateAgentStatusActive,
 			CreatedAt: time.Now().Add(-48 * time.Hour),
 		},
 	}
@@ -964,6 +981,7 @@ func TestExecuteSubscriptionFulfillmentDoesNotDuplicateWorkAfterLegacySuccessAud
 		inviterSummary: &AffiliateSummary{
 			UserID:    inviterID,
 			AffCode:   "INVITER",
+			AgentStatus: AffiliateAgentStatusActive,
 			CreatedAt: time.Now().Add(-48 * time.Hour),
 		},
 	}

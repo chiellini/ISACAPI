@@ -16,8 +16,8 @@ const (
 	// paymentOrderExpiryLeaderLockKey gates the periodic reconcile + expiry sweep so
 	// that only one instance issues the upstream payment-provider calls per cycle.
 	paymentOrderExpiryLeaderLockKey = "payment:order:expiry:leader"
-	// paymentOrderExpiryLeaderLockTTL must exceed the combined reconcile + expiry
-	// timeouts (2 * expiryCheckTimeout) so the lock never expires mid-run.
+	// paymentOrderExpiryLeaderLockTTL must exceed the combined payment reconcile,
+	// affiliate reversal reconcile, and expiry timeouts (3 * expiryCheckTimeout).
 	paymentOrderExpiryLeaderLockTTL = 3 * time.Minute
 )
 
@@ -104,6 +104,15 @@ func (s *PaymentOrderExpiryService) runOnce() {
 		slog.Warn("[PaymentOrderExpiry] failed to reconcile pending wxpay orders", "error", err)
 	} else if recovered > 0 {
 		slog.Info("[PaymentOrderExpiry] reconciled paid wxpay orders", "count", recovered)
+	}
+
+	affiliateCtx, affiliateCancel := context.WithTimeout(context.Background(), expiryCheckTimeout)
+	reversed, err := s.paymentSvc.ReconcilePendingAffiliateReversals(affiliateCtx)
+	affiliateCancel()
+	if err != nil {
+		slog.Warn("[PaymentOrderExpiry] failed to reconcile pending affiliate reversals", "error", err)
+	} else if reversed > 0 {
+		slog.Info("[PaymentOrderExpiry] reconciled affiliate reversals", "count", reversed)
 	}
 
 	expireCtx, cancel := context.WithTimeout(context.Background(), expiryCheckTimeout)

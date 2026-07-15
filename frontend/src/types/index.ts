@@ -196,17 +196,75 @@ export interface AffiliateInvitee {
   total_rebate: number
 }
 
+export type AffiliateStatus = 'inactive' | 'active' | 'suspended'
+export type AffiliatePaymentAccountType = 'alipay' | 'bank_card' | 'usdt'
+export type AffiliateWithdrawalStatus =
+  | 'submitted'
+  | 'approved'
+  | 'paid'
+  | 'rejected'
+  | 'canceled'
+
 export interface UserAffiliateDetail {
   user_id: number
+  /** Only active agents may invite users and accrue new commissions. */
+  status: AffiliateStatus
   aff_code: string
   inviter_id?: number | null
   aff_count: number
+  /** Legacy aliases kept while older servers/clients are upgraded. */
   aff_quota: number
   aff_frozen_quota: number
   aff_history_quota: number
+  available_commission: number
+  frozen_commission: number
+  withdrawal_reserved: number
+  debt: number
+  minimum_withdrawal: number
   /** 当前用户作为邀请人时实际生效的返利比例（专属覆盖全局）。0-100。 */
   effective_rebate_rate_percent: number
   invitees: AffiliateInvitee[]
+}
+
+export interface AffiliatePaymentAccount {
+  id: number
+  type: AffiliatePaymentAccountType
+  masked_summary: string
+  is_default: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface AffiliatePaymentAccountRequest {
+  type: AffiliatePaymentAccountType
+  account_name: string
+  account_number?: string
+  bank_name?: string
+  usdt_network?: string
+  wallet_address?: string
+  is_default?: boolean
+}
+
+export interface AffiliateWithdrawal {
+  id: number
+  amount: number
+  status: AffiliateWithdrawalStatus
+  payment_account_id?: number | null
+  payment_account_type: AffiliatePaymentAccountType
+  payment_account_summary: string
+  submitted_at: string
+  reviewed_at?: string | null
+  paid_at?: string | null
+  reject_reason?: string | null
+  actual_currency?: string | null
+  actual_amount?: number | null
+  exchange_rate?: number | null
+  external_reference?: string | null
+}
+
+export interface CreateAffiliateWithdrawalRequest {
+  payment_account_id: number
+  amount: number
 }
 
 export interface AffiliateTransferResponse {

@@ -17,6 +17,7 @@ import (
 // and exclusive rebate rates, and batch operations.
 type AffiliateHandler struct {
 	affiliateService *service.AffiliateService
+	affiliatePayoutService *service.AffiliatePayoutService
 	adminService     service.AdminService
 }
 

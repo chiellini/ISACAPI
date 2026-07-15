@@ -564,12 +564,223 @@ func (s *PaymentService) markRefundOk(ctx context.Context, p *RefundPlan) (*Refu
 		fs = OrderStatusPartiallyRefunded
 	}
 	now := time.Now()
-	_, err := s.entClient.PaymentOrder.UpdateOneID(p.OrderID).SetStatus(fs).SetRefundAmount(p.RefundAmount).SetRefundReason(p.Reason).SetRefundAt(now).SetForceRefund(p.Force).Save(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("mark refund: %w", err)
+	var pendingLogID int64
+	if s.affiliateService == nil {
+		if _, err := s.entClient.PaymentOrder.UpdateOneID(p.OrderID).SetStatus(fs).SetRefundAmount(p.RefundAmount).SetRefundReason(p.Reason).SetRefundAt(now).SetForceRefund(p.Force).Save(ctx); err != nil {
+			return nil, fmt.Errorf("mark refund: %w", err)
+		}
+	} else {
+		tx, err := s.entClient.Tx(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("begin refund completion transaction: %w", err)
+		}
+		defer func() { _ = tx.Rollback() }()
+		if _, err := tx.PaymentOrder.UpdateOneID(p.OrderID).SetStatus(fs).SetRefundAmount(p.RefundAmount).SetRefundReason(p.Reason).SetRefundAt(now).SetForceRefund(p.Force).Save(ctx); err != nil {
+			return nil, fmt.Errorf("mark refund: %w", err)
+		}
+		pendingLogID, err = s.ensureAffiliateReversalPendingAudit(ctx, tx.Client(), p)
+		if err != nil {
+			return nil, fmt.Errorf("queue affiliate reversal: %w", err)
+		}
+		if err := tx.Commit(); err != nil {
+			return nil, fmt.Errorf("commit refund completion transaction: %w", err)
+		}
 	}
 	s.writeAuditLog(ctx, p.OrderID, "REFUND_SUCCESS", "admin", map[string]any{"refundAmount": p.RefundAmount, "reason": p.Reason, "balanceDeducted": p.BalanceToDeduct, "force": p.Force})
-	return &RefundResult{Success: true, BalanceDeducted: p.BalanceToDeduct, SubDaysDeducted: p.SubDaysToDeduct}, nil
+	result := &RefundResult{Success: true, BalanceDeducted: p.BalanceToDeduct, SubDaysDeducted: p.SubDaysToDeduct}
+	if s.affiliateService == nil {
+		return result, nil
+	}
+
+	reversed, reversalErr := s.affiliateService.ReverseInviteRebateForOrder(ctx, p.OrderID, p.RefundAmount, p.Order.Amount)
+	if reversalErr != nil {
+		detail, _ := json.Marshal(map[string]any{
+			"refundAmount": p.RefundAmount,
+			"orderAmount":  p.Order.Amount,
+			"error":        reversalErr.Error(),
+		})
+		_, _ = s.entClient.PaymentAuditLog.UpdateOneID(pendingLogID).SetDetail(string(detail)).Save(ctx)
+		result.Warning = "refund succeeded, but affiliate commission reversal is pending retry"
+		return result, nil
+	}
+	detail, _ := json.Marshal(map[string]any{
+		"refundAmount":   p.RefundAmount,
+		"orderAmount":    p.Order.Amount,
+		"reversedAmount": reversed,
+	})
+	applied, applyErr := s.markAffiliateReversalRetryApplied(ctx, pendingLogID, p.OrderID, string(detail))
+	if applyErr != nil || !applied {
+		result.Warning = "refund succeeded, but affiliate commission reversal audit is pending retry"
+	}
+	return result, nil
+}
+
+func (s *PaymentService) ensureAffiliateReversalPendingAudit(ctx context.Context, client *dbent.Client, p *RefundPlan) (int64, error) {
+	if client == nil {
+		return 0, errors.New("nil payment client")
+	}
+	orderID := strconv.FormatInt(p.OrderID, 10)
+	detail, _ := json.Marshal(map[string]any{
+		"refundAmount": p.RefundAmount,
+		"orderAmount":  p.Order.Amount,
+		"status":       "reserved",
+	})
+	if paymentAuditDialect(client) == "postgres" {
+		rows, err := client.QueryContext(ctx, `
+INSERT INTO payment_audit_logs (order_id, action, detail, operator, created_at)
+VALUES ($1, 'AFFILIATE_REVERSAL_PENDING', $2, 'system', NOW())
+ON CONFLICT (order_id, action) DO UPDATE
+SET detail = EXCLUDED.detail,
+    operator = EXCLUDED.operator
+RETURNING id`, orderID, string(detail))
+		if err != nil {
+			return 0, err
+		}
+		defer func() { _ = rows.Close() }()
+		if !rows.Next() {
+			if err := rows.Err(); err != nil {
+				return 0, err
+			}
+			return 0, errors.New("affiliate reversal pending upsert returned no row")
+		}
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return 0, err
+		}
+		return id, rows.Err()
+	}
+
+	existing, err := client.PaymentAuditLog.Query().
+		Where(
+			paymentauditlog.OrderIDEQ(orderID),
+			paymentauditlog.ActionEQ("AFFILIATE_REVERSAL_PENDING"),
+		).
+		First(ctx)
+	if err == nil {
+		return existing.ID, nil
+	}
+	if !dbent.IsNotFound(err) {
+		return 0, err
+	}
+	created, err := client.PaymentAuditLog.Create().
+		SetOrderID(orderID).
+		SetAction("AFFILIATE_REVERSAL_PENDING").
+		SetDetail(string(detail)).
+		SetOperator("system").
+		Save(ctx)
+	if err == nil {
+		return created.ID, nil
+	}
+	return 0, err
+}
+
+func (s *PaymentService) ReconcilePendingAffiliateReversals(ctx context.Context) (int, error) {
+	if s == nil || s.entClient == nil || s.affiliateService == nil {
+		return 0, nil
+	}
+	logs, err := s.entClient.PaymentAuditLog.Query().
+		Where(paymentauditlog.ActionEQ("AFFILIATE_REVERSAL_PENDING")).
+		Order(paymentauditlog.ByCreatedAt(sql.OrderAsc())).
+		Limit(100).
+		All(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("list pending affiliate reversals: %w", err)
+	}
+
+	completed := 0
+	var firstErr error
+	for _, logEntry := range logs {
+		orderID, parseErr := strconv.ParseInt(strings.TrimSpace(logEntry.OrderID), 10, 64)
+		if parseErr != nil || orderID <= 0 {
+			if firstErr == nil {
+				firstErr = fmt.Errorf("invalid pending affiliate reversal order id %q", logEntry.OrderID)
+			}
+			continue
+		}
+		order, getErr := s.entClient.PaymentOrder.Get(ctx, orderID)
+		if getErr != nil {
+			if firstErr == nil {
+				firstErr = fmt.Errorf("load pending affiliate reversal order %d: %w", orderID, getErr)
+			}
+			continue
+		}
+		if order.Status != OrderStatusRefunded && order.Status != OrderStatusPartiallyRefunded {
+			continue
+		}
+
+		reversed, reverseErr := s.affiliateService.ReverseInviteRebateForOrder(ctx, order.ID, order.RefundAmount, order.Amount)
+		if reverseErr != nil {
+			if firstErr == nil {
+				firstErr = fmt.Errorf("retry affiliate reversal for order %d: %w", order.ID, reverseErr)
+			}
+			continue
+		}
+		detail, _ := json.Marshal(map[string]any{
+			"refundAmount":   order.RefundAmount,
+			"orderAmount":    order.Amount,
+			"reversedAmount": reversed,
+			"retried":        true,
+		})
+		updated, updateErr := s.markAffiliateReversalRetryApplied(ctx, logEntry.ID, order.ID, string(detail))
+		if updateErr != nil {
+			if firstErr == nil {
+				firstErr = fmt.Errorf("mark affiliate reversal applied for order %d: %w", order.ID, updateErr)
+			}
+			continue
+		}
+		if updated {
+			completed++
+		}
+	}
+	return completed, firstErr
+}
+
+func (s *PaymentService) markAffiliateReversalRetryApplied(ctx context.Context, pendingLogID, orderID int64, detail string) (bool, error) {
+	tx, err := s.entClient.Tx(ctx)
+	if err != nil {
+		return false, err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	orderIDText := strconv.FormatInt(orderID, 10)
+	priorApplied, err := tx.PaymentAuditLog.Query().
+		Where(
+			paymentauditlog.OrderIDEQ(orderIDText),
+			paymentauditlog.ActionEQ("AFFILIATE_REVERSAL_APPLIED"),
+			paymentauditlog.IDNEQ(pendingLogID),
+		).
+		All(ctx)
+	if err != nil {
+		return false, err
+	}
+	for _, prior := range priorApplied {
+		if _, err := tx.PaymentAuditLog.UpdateOneID(prior.ID).
+			SetAction(fmt.Sprintf("AFF_REV_APPLIED_%d", prior.ID)).
+			Save(ctx); err != nil {
+			return false, err
+		}
+	}
+
+	updated, err := tx.PaymentAuditLog.Update().
+		Where(
+			paymentauditlog.IDEQ(pendingLogID),
+			paymentauditlog.OrderIDEQ(orderIDText),
+			paymentauditlog.ActionEQ("AFFILIATE_REVERSAL_PENDING"),
+		).
+		SetAction("AFFILIATE_REVERSAL_APPLIED").
+		SetDetail(detail).
+		SetOperator("system").
+		Save(ctx)
+	if err != nil {
+		return false, err
+	}
+	if updated == 0 {
+		return false, nil
+	}
+	if err := tx.Commit(); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 func (s *PaymentService) markRefundPending(ctx context.Context, p *RefundPlan, resp *payment.RefundResponse) (*RefundResult, error) {

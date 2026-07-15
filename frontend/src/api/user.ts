@@ -16,6 +16,11 @@ import type {
   UserAuthProvider,
   UserAffiliateDetail,
   AffiliateTransferResponse,
+  AffiliatePaymentAccount,
+  AffiliatePaymentAccountRequest,
+  AffiliateWithdrawal,
+  CreateAffiliateWithdrawalRequest,
+  PaginatedResponse,
   PlatformQuotasResponse,
 } from '@/types'
 
@@ -186,6 +191,61 @@ export async function transferAffiliateQuota(): Promise<AffiliateTransferRespons
   return data
 }
 
+export async function listAffiliatePaymentAccounts(): Promise<AffiliatePaymentAccount[]> {
+  const { data } = await apiClient.get<AffiliatePaymentAccount[]>('/user/aff/payment-accounts')
+  return data
+}
+
+export async function createAffiliatePaymentAccount(
+  payload: AffiliatePaymentAccountRequest,
+): Promise<AffiliatePaymentAccount> {
+  const { data } = await apiClient.post<AffiliatePaymentAccount>('/user/aff/payment-accounts', payload)
+  return data
+}
+
+export async function updateAffiliatePaymentAccount(
+  accountId: number,
+  payload: AffiliatePaymentAccountRequest,
+): Promise<AffiliatePaymentAccount> {
+  const { data } = await apiClient.put<AffiliatePaymentAccount>(
+    `/user/aff/payment-accounts/${accountId}`,
+    payload,
+  )
+  return data
+}
+
+export async function deleteAffiliatePaymentAccount(accountId: number): Promise<void> {
+  await apiClient.delete(`/user/aff/payment-accounts/${accountId}`)
+}
+
+export async function listAffiliateWithdrawals(
+  page = 1,
+  pageSize = 20,
+): Promise<PaginatedResponse<AffiliateWithdrawal>> {
+  const { data } = await apiClient.get<PaginatedResponse<AffiliateWithdrawal>>(
+    '/user/aff/withdrawals',
+    { params: { page, page_size: pageSize } },
+  )
+  return data
+}
+
+export async function createAffiliateWithdrawal(
+  payload: CreateAffiliateWithdrawalRequest,
+  idempotencyKey: string,
+): Promise<AffiliateWithdrawal> {
+  const { data } = await apiClient.post<AffiliateWithdrawal>('/user/aff/withdrawals', payload, {
+    headers: { 'Idempotency-Key': idempotencyKey },
+  })
+  return data
+}
+
+export async function cancelAffiliateWithdrawal(withdrawalId: number): Promise<AffiliateWithdrawal> {
+  const { data } = await apiClient.delete<AffiliateWithdrawal>(
+    `/user/aff/withdrawals/${withdrawalId}`,
+  )
+  return data
+}
+
 /**
  * 获取当前用户的平台限额 + 用量。
  */
@@ -209,6 +269,13 @@ export const userAPI = {
   startOAuthBinding,
   getAffiliateDetail,
   transferAffiliateQuota,
+  listAffiliatePaymentAccounts,
+  createAffiliatePaymentAccount,
+  updateAffiliatePaymentAccount,
+  deleteAffiliatePaymentAccount,
+  listAffiliateWithdrawals,
+  createAffiliateWithdrawal,
+  cancelAffiliateWithdrawal,
   getMyPlatformQuotas,
 }
 

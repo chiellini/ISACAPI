@@ -1,0 +1,90 @@
+export default {
+  affiliate: {
+    title: '代理中心',
+    description: '分享邀请链接并管理代理佣金提现',
+    yourCode: '我的邀请码',
+    inviteLink: '邀请链接',
+    copyCode: '复制邀请码',
+    copyLink: '复制链接',
+    codeCopied: '邀请码已复制',
+    linkCopied: '邀请链接已复制',
+    loadFailed: '加载代理数据失败',
+    status: {
+      inactive: { title: '代理尚未开通', description: '当前账号尚未成为代理，请联系管理员审核开通。' },
+      suspended: { title: '代理账号已暂停', description: '暂停期间无法邀请新用户或产生新佣金，请联系管理员。' },
+      active: { title: '代理已开通', description: '代理账号当前正常。' }
+    },
+    stats: {
+      rebateRate: '佣金比例',
+      rebateRateHint: '受邀用户真实支付后可获得的佣金比例',
+      invitedUsers: '直属用户',
+      availableCommission: '可提现佣金',
+      frozenCommission: '冻结佣金',
+      withdrawalReserved: '提现预留',
+      debt: '代理欠款',
+      availableQuota: '可提现佣金',
+      frozenQuota: '冻结佣金',
+      frozenQuotaHint: '冻结期结束后转为可提现佣金',
+      totalQuota: '历史佣金'
+    },
+    paymentAccounts: {
+      title: '收款账户',
+      description: '账户资料将加密保存，列表仅展示脱敏信息。',
+      add: '添加收款账户',
+      edit: '编辑收款账户',
+      empty: '尚未添加收款账户',
+      default: '默认',
+      setDefault: '设为默认收款账户',
+      type: '收款方式',
+      accountName: '收款人姓名',
+      bankName: '银行名称',
+      alipayAccount: '支付宝账号',
+      cardNumber: '银行卡号',
+      network: 'USDT 网络',
+      walletAddress: '钱包地址',
+      reenterHint: '为保护敏感资料，编辑时需要重新填写完整收款信息。',
+      deleteConfirm: '确定删除这个收款账户吗？',
+      saved: '收款账户已保存',
+      deleted: '收款账户已删除',
+      loadFailed: '加载收款账户失败',
+      saveFailed: '保存收款账户失败',
+      deleteFailed: '删除收款账户失败',
+      types: { alipay: '支付宝', bank_card: '银行卡', usdt: 'USDT' }
+    },
+    withdrawal: {
+      title: '申请提现',
+      description: '最低提现 {amount}，免手续费；管理员审核后线下转账。',
+      account: '收款账户',
+      selectAccount: '请选择收款账户',
+      amount: '提现金额',
+      available: '当前可提现：{amount}',
+      debtBlocked: '当前有代理欠款 {amount}，结清前无法申请提现。',
+      submit: '提交提现申请',
+      submitting: '提交中...',
+      submitted: '提现申请已提交',
+      submitFailed: '提交提现申请失败',
+      records: '提现记录',
+      empty: '暂无提现记录',
+      loadFailed: '加载提现记录失败',
+      id: '提现单',
+      statusLabel: '状态',
+      submittedAt: '申请时间',
+      cancel: '取消申请',
+      canceled: '提现申请已取消',
+      cancelFailed: '取消提现申请失败',
+      statuses: { submitted: '待审核', approved: '待转账', paid: '已经转账', rejected: '已拒绝', canceled: '已取消' }
+    },
+    invitees: {
+      title: '直属邀请用户',
+      empty: '暂无邀请记录',
+      columns: { email: '邮箱', username: '用户名', rebate: '累计佣金', joinedAt: '注册时间' }
+    },
+    tips: {
+      title: '使用说明',
+      line1: '将邀请码或邀请链接分享给新用户。',
+      line2: '受邀用户真实支付后，你可获得 {rate} 的佣金。',
+      line3: '佣金冻结期结束后可申请线下提现。',
+      line4: '退款会冲正对应佣金，余额不足时形成代理欠款。'
+    }
+  }
+}

@@ -5,6 +5,7 @@ import resources from './resources'
 import ops from './ops'
 import settings from './settings'
 import conversations from './conversations'
+import affiliateAdditions from './affiliates'
 
 export default {
   ...overview,
@@ -14,4 +15,5 @@ export default {
   ...ops,
   ...settings,
   ...conversations,
+  affiliates: { ...overview.affiliates, ...affiliateAdditions },
 }

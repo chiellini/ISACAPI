@@ -731,19 +731,28 @@ func registerChannelMonitorRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 // registerAffiliateRoutes 注册邀请返利的管理端路由（专属用户配置）
 func registerAffiliateRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 	affiliates := admin.Group("/affiliates")
+	writes := superAdminOnly(affiliates)
 	{
 		affiliates.GET("/invites", h.Admin.Affiliate.ListInviteRecords)
 		affiliates.GET("/rebates", h.Admin.Affiliate.ListRebateRecords)
 		affiliates.GET("/transfers", h.Admin.Affiliate.ListTransferRecords)
 
 		users := affiliates.Group("/users")
+		userWrites := superAdminOnly(users)
 		{
 			users.GET("", h.Admin.Affiliate.ListUsers)
 			users.GET("/lookup", h.Admin.Affiliate.LookupUsers)
-			users.POST("/batch-rate", h.Admin.Affiliate.BatchSetRate)
+			userWrites.POST("/batch-rate", h.Admin.Affiliate.BatchSetRate)
 			users.GET("/:user_id/overview", h.Admin.Affiliate.GetUserOverview)
-			users.PUT("/:user_id", h.Admin.Affiliate.UpdateUserSettings)
-			users.DELETE("/:user_id", h.Admin.Affiliate.ClearUserSettings)
+			userWrites.PUT("/:user_id", h.Admin.Affiliate.UpdateUserSettings)
+			userWrites.DELETE("/:user_id", h.Admin.Affiliate.ClearUserSettings)
 		}
+		affiliates.GET("/agents", h.Admin.Affiliate.ListAgents)
+		writes.PUT("/agents/:userId/status", h.Admin.Affiliate.UpdateAgentStatus)
+		affiliates.GET("/withdrawals", h.Admin.Affiliate.ListWithdrawals)
+		writes.GET("/withdrawals/:id", h.Admin.Affiliate.GetWithdrawal)
+		writes.POST("/withdrawals/:id/approve", h.Admin.Affiliate.ApproveWithdrawal)
+		writes.POST("/withdrawals/:id/reject", h.Admin.Affiliate.RejectWithdrawal)
+		writes.POST("/withdrawals/:id/mark-paid", h.Admin.Affiliate.MarkWithdrawalPaid)
 	}
 }

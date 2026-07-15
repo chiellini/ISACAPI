@@ -86,6 +86,8 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	if err != nil {
 		return nil, err
 	}
+	affiliatePayoutRepository := repository.NewAffiliatePayoutRepository(client)
+	affiliatePayoutService := service.NewAffiliatePayoutService(affiliatePayoutRepository, settingService, secretEncryptor)
 	totpCache := repository.NewTotpCache(redisClient)
 	totpService := service.NewTotpService(userRepository, secretEncryptor, totpCache, settingService, emailService, emailQueueService)
 	userAttributeDefinitionRepository := repository.NewUserAttributeDefinitionRepository(client)
@@ -93,7 +95,7 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	userAttributeService := service.NewUserAttributeService(userAttributeDefinitionRepository, userAttributeValueRepository)
 	researchGroupService := service.ProvideResearchGroupService(researchGroupRepository, userRepository, billingCacheService)
 	authHandler := handler.ProvideAuthHandler(configConfig, authService, userService, settingService, promoService, redeemService, totpService, userAttributeService, researchGroupService)
-	userHandler := handler.ProvideUserHandler(userService, authService, emailService, emailCache, affiliateService, serviceUserPlatformQuotaRepository, researchGroupService)
+	userHandler := handler.ProvideUserHandler(userService, authService, emailService, emailCache, affiliateService, affiliatePayoutService, serviceUserPlatformQuotaRepository, researchGroupService)
 	apiKeyHandler := handler.NewAPIKeyHandler(apiKeyService)
 	usageLogRepository := repository.NewUsageLogRepository(client, db)
 	usageService := service.NewUsageService(usageLogRepository, userRepository, client, apiKeyAuthCacheInvalidator)
@@ -251,7 +253,7 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	contentModerationService := service.NewContentModerationService(settingRepository, contentModerationRepository, contentModerationHashCache, groupRepository, userRepository, apiKeyAuthCacheInvalidator, emailService)
 	contentModerationHandler := admin.NewContentModerationHandler(contentModerationService)
 	paymentHandler := admin.NewPaymentHandler(paymentService, paymentConfigService)
-	affiliateHandler := admin.NewAffiliateHandler(affiliateService, adminService)
+	affiliateHandler := handler.ProvideAdminAffiliateHandler(affiliateService, affiliatePayoutService, adminService)
 	conversationRepository := repository.NewConversationRepository(client, db)
 	conversationService := service.ProvideConversationService(configConfig, conversationRepository)
 	conversationHandler := admin.NewConversationHandler(conversationService)

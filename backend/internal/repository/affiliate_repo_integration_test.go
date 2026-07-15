@@ -9,6 +9,7 @@ import (
 	"time"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
+	"github.com/Wei-Shaw/sub2api/internal/payment"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/stretchr/testify/require"
 )
@@ -145,9 +146,31 @@ func TestAffiliateRepository_AccrueQuota_ReusesOuterTransaction(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, bound, "invitee must bind to inviter")
 
-	applied, err := repo.AccrueQuota(txCtx, inviter.ID, invitee.ID, 3.5, 0, nil)
+	_, err = client.ExecContext(txCtx, "UPDATE user_affiliates SET agent_status = 'active' WHERE user_id = $1", inviter.ID)
 	require.NoError(t, err)
-	require.True(t, applied, "AccrueQuota must report applied=true")
+	order, err := client.PaymentOrder.Create().
+		SetUserID(invitee.ID).
+		SetUserEmail(invitee.Email).
+		SetUserName(invitee.Username).
+		SetAmount(3.5).
+		SetPayAmount(3.5).
+		SetFeeRate(0).
+		SetRechargeCode(fmt.Sprintf("AFF-ORDER-%d", time.Now().UnixNano())).
+		SetOutTradeNo(fmt.Sprintf("sub2_affiliate_%d", time.Now().UnixNano())).
+		SetPaymentType(payment.TypeAlipay).
+		SetPaymentTradeNo(fmt.Sprintf("trade-affiliate-%d", time.Now().UnixNano())).
+		SetOrderType(payment.OrderTypeBalance).
+		SetStatus(payment.OrderStatusRecharging).
+		SetPaidAt(time.Now()).
+		SetExpiresAt(time.Now().Add(time.Hour)).
+		SetClientIP("127.0.0.1").
+		SetSrcHost("api.example.com").
+		Save(txCtx)
+	require.NoError(t, err)
+
+	applied, err := repo.AccrueQuota(txCtx, inviter.ID, invitee.ID, 3.5, 0, 0, &order.ID)
+	require.NoError(t, err)
+	require.InDelta(t, 3.5, applied, 1e-9, "AccrueQuota must report the applied amount")
 
 	// Visible inside the outer tx.
 	innerQuota := querySingleFloat(t, txCtx, client,
@@ -168,6 +191,107 @@ func TestAffiliateRepository_AccrueQuota_ReusesOuterTransaction(t *testing.T) {
 	require.NoError(t, rows.Scan(&postRollbackCount))
 	require.Equal(t, 0, postRollbackCount,
 		"AccrueQuota must propagate the outer tx — found persisted rows after rollback")
+}
+
+func TestAffiliateRepository_AccrueQuotaCapsOffsetsDebtAndReversesRefund(t *testing.T) {
+	ctx := context.Background()
+	tx := testEntTx(t)
+	txCtx := dbent.NewTxContext(ctx, tx)
+	client := tx.Client()
+	repo := NewAffiliateRepository(client, integrationDB)
+
+	inviter := mustCreateUser(t, client, &service.User{
+		Email:        fmt.Sprintf("affiliate-finance-inviter-%d@example.com", time.Now().UnixNano()),
+		PasswordHash: "hash",
+		Role:         service.RoleUser,
+		Status:       service.StatusActive,
+		Concurrency:  5,
+	})
+	invitee := mustCreateUser(t, client, &service.User{
+		Email:        fmt.Sprintf("affiliate-finance-invitee-%d@example.com", time.Now().UnixNano()+1),
+		PasswordHash: "hash",
+		Role:         service.RoleUser,
+		Status:       service.StatusActive,
+		Concurrency:  5,
+	})
+	_, err := repo.EnsureUserAffiliate(txCtx, inviter.ID)
+	require.NoError(t, err)
+	_, err = repo.EnsureUserAffiliate(txCtx, invitee.ID)
+	require.NoError(t, err)
+	bound, err := repo.BindInviter(txCtx, invitee.ID, inviter.ID)
+	require.NoError(t, err)
+	require.True(t, bound)
+	_, err = client.ExecContext(txCtx, `
+UPDATE user_affiliates
+SET agent_status = 'active', aff_debt = 3
+WHERE user_id = $1`, inviter.ID)
+	require.NoError(t, err)
+
+	firstOrder := createAffiliateAccrualOrder(t, txCtx, client, invitee, 100)
+	firstApplied, err := repo.AccrueQuota(txCtx, inviter.ID, invitee.ID, 5, 6, 168, &firstOrder.ID)
+	require.NoError(t, err)
+	require.InDelta(t, 5, firstApplied, 1e-9)
+
+	secondOrder := createAffiliateAccrualOrder(t, txCtx, client, invitee, 100)
+	secondApplied, err := repo.AccrueQuota(txCtx, inviter.ID, invitee.ID, 5, 6, 168, &secondOrder.ID)
+	require.NoError(t, err)
+	require.InDelta(t, 1, secondApplied, 1e-9, "the per-invitee cap must truncate inside the locked transaction")
+	duplicateApplied, err := repo.AccrueQuota(txCtx, inviter.ID, invitee.ID, 5, 6, 168, &secondOrder.ID)
+	require.NoError(t, err)
+	require.Zero(t, duplicateApplied, "one payment order must accrue at most once")
+
+	debt := querySingleFloat(t, txCtx, client, "SELECT aff_debt::double precision FROM user_affiliates WHERE user_id = $1", inviter.ID)
+	frozen := querySingleFloat(t, txCtx, client, "SELECT aff_frozen_quota::double precision FROM user_affiliates WHERE user_id = $1", inviter.ID)
+	history := querySingleFloat(t, txCtx, client, "SELECT aff_history_quota::double precision FROM user_affiliates WHERE user_id = $1", inviter.ID)
+	require.InDelta(t, 0, debt, 1e-9)
+	require.InDelta(t, 3, frozen, 1e-9)
+	require.InDelta(t, 6, history, 1e-9)
+
+	reversed, err := repo.ReverseQuotaForOrder(txCtx, firstOrder.ID, 1)
+	require.NoError(t, err)
+	require.InDelta(t, 5, reversed, 1e-9)
+	reversedAgain, err := repo.ReverseQuotaForOrder(txCtx, firstOrder.ID, 1)
+	require.NoError(t, err)
+	require.Zero(t, reversedAgain, "refund reversal must be idempotent")
+
+	debt = querySingleFloat(t, txCtx, client, "SELECT aff_debt::double precision FROM user_affiliates WHERE user_id = $1", inviter.ID)
+	frozen = querySingleFloat(t, txCtx, client, "SELECT aff_frozen_quota::double precision FROM user_affiliates WHERE user_id = $1", inviter.ID)
+	require.InDelta(t, 2, debt, 1e-9, "uncovered reversal must become affiliate debt")
+	require.InDelta(t, 0, frozen, 1e-9)
+
+	thirdOrder := createAffiliateAccrualOrder(t, txCtx, client, invitee, 100)
+	thirdApplied, err := repo.AccrueQuota(txCtx, inviter.ID, invitee.ID, 5, 6, 168, &thirdOrder.ID)
+	require.NoError(t, err)
+	require.InDelta(t, 5, thirdApplied, 1e-9, "a reversal restores net room under the invitee cap")
+	debt = querySingleFloat(t, txCtx, client, "SELECT aff_debt::double precision FROM user_affiliates WHERE user_id = $1", inviter.ID)
+	frozen = querySingleFloat(t, txCtx, client, "SELECT aff_frozen_quota::double precision FROM user_affiliates WHERE user_id = $1", inviter.ID)
+	require.InDelta(t, 0, debt, 1e-9, "new commission must pay debt before becoming withdrawable")
+	require.InDelta(t, 3, frozen, 1e-9)
+}
+
+func createAffiliateAccrualOrder(t *testing.T, ctx context.Context, client *dbent.Client, user *service.User, amount float64) *dbent.PaymentOrder {
+	t.Helper()
+	nonce := time.Now().UnixNano()
+	order, err := client.PaymentOrder.Create().
+		SetUserID(user.ID).
+		SetUserEmail(user.Email).
+		SetUserName(user.Username).
+		SetAmount(amount).
+		SetPayAmount(amount).
+		SetFeeRate(0).
+		SetRechargeCode(fmt.Sprintf("AFF-FIN-%d", nonce)).
+		SetOutTradeNo(fmt.Sprintf("sub2_aff_fin_%d", nonce)).
+		SetPaymentType(payment.TypeAlipay).
+		SetPaymentTradeNo(fmt.Sprintf("trade-aff-fin-%d", nonce)).
+		SetOrderType(payment.OrderTypeBalance).
+		SetStatus(payment.OrderStatusRecharging).
+		SetPaidAt(time.Now()).
+		SetExpiresAt(time.Now().Add(time.Hour)).
+		SetClientIP("127.0.0.1").
+		SetSrcHost("api.example.com").
+		Save(ctx)
+	require.NoError(t, err)
+	return order
 }
 
 func TestAffiliateRepository_TransferQuotaToBalance_EmptyQuota(t *testing.T) {

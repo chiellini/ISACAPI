@@ -5,7 +5,13 @@
  */
 
 import { apiClient } from '../client'
-import type { PaginatedResponse } from '@/types'
+import type {
+  AffiliatePaymentAccountType,
+  AffiliateStatus,
+  AffiliateWithdrawal,
+  AffiliateWithdrawalStatus,
+  PaginatedResponse,
+} from '@/types'
 
 export interface AffiliateAdminEntry {
   user_id: number
@@ -87,6 +93,60 @@ export interface AffiliateUserOverview {
   rebated_invitee_count: number
   available_quota: number
   history_quota: number
+}
+
+export interface AffiliateAgentEntry {
+  user_id: number
+  email: string
+  username: string
+  status: AffiliateStatus
+  aff_code: string
+  rebate_rate_percent: number
+  invited_count: number
+  available_commission: number
+  frozen_commission: number
+  withdrawal_reserved: number
+  debt: number
+}
+
+export interface ListAffiliateAgentsParams {
+  page?: number
+  page_size?: number
+  search?: string
+  status?: AffiliateStatus | ''
+}
+
+export interface AdminAffiliateWithdrawal extends AffiliateWithdrawal {
+  user_id: number
+  user_email: string
+  username: string
+  payment_account_type: AffiliatePaymentAccountType
+  /** Returned only from the detail endpoint to super administrators. */
+  payment_details?: {
+    account_name?: string
+    account_number?: string
+    bank_name?: string
+    usdt_network?: string
+    wallet_address?: string
+  } | null
+}
+
+export interface ListAffiliateWithdrawalsParams {
+  page?: number
+  page_size?: number
+  search?: string
+  status?: AffiliateWithdrawalStatus | ''
+}
+
+export interface RejectAffiliateWithdrawalRequest {
+  reason: string
+}
+
+export interface MarkAffiliateWithdrawalPaidRequest {
+  actual_currency: string
+  actual_amount: number
+  exchange_rate: number
+  external_reference: string
 }
 
 export interface UpdateAffiliateUserRequest {
@@ -215,6 +275,102 @@ export async function getUserOverview(
   return data
 }
 
+export async function listAgents(
+  params: ListAffiliateAgentsParams = {},
+): Promise<PaginatedResponse<AffiliateAgentEntry>> {
+  const { data } = await apiClient.get<PaginatedResponse<AffiliateAgentEntry>>(
+    '/admin/affiliates/agents',
+    {
+      params: {
+        page: params.page ?? 1,
+        page_size: params.page_size ?? 20,
+        search: params.search ?? '',
+        status: params.status || undefined,
+      },
+    },
+  )
+  return data
+}
+
+export async function updateAgentStatus(
+  userId: number,
+  status: AffiliateStatus,
+  idempotencyKey: string,
+): Promise<AffiliateAgentEntry> {
+  const { data } = await apiClient.put<AffiliateAgentEntry>(
+    `/admin/affiliates/agents/${userId}/status`,
+    { status },
+    { headers: { 'Idempotency-Key': idempotencyKey } },
+  )
+  return data
+}
+
+export async function listWithdrawals(
+  params: ListAffiliateWithdrawalsParams = {},
+): Promise<PaginatedResponse<AdminAffiliateWithdrawal>> {
+  const { data } = await apiClient.get<PaginatedResponse<AdminAffiliateWithdrawal>>(
+    '/admin/affiliates/withdrawals',
+    {
+      params: {
+        page: params.page ?? 1,
+        page_size: params.page_size ?? 20,
+        search: params.search ?? '',
+        status: params.status || undefined,
+      },
+    },
+  )
+  return data
+}
+
+export async function getWithdrawal(withdrawalId: number): Promise<AdminAffiliateWithdrawal> {
+  const { data } = await apiClient.get<AdminAffiliateWithdrawal>(
+    `/admin/affiliates/withdrawals/${withdrawalId}`,
+  )
+  return data
+}
+
+function idempotencyHeaders(idempotencyKey: string) {
+  return { headers: { 'Idempotency-Key': idempotencyKey } }
+}
+
+export async function approveWithdrawal(
+  withdrawalId: number,
+  idempotencyKey: string,
+): Promise<AdminAffiliateWithdrawal> {
+  const { data } = await apiClient.post<AdminAffiliateWithdrawal>(
+    `/admin/affiliates/withdrawals/${withdrawalId}/approve`,
+    {},
+    idempotencyHeaders(idempotencyKey),
+  )
+  return data
+}
+
+export async function rejectWithdrawal(
+  withdrawalId: number,
+  payload: RejectAffiliateWithdrawalRequest,
+  idempotencyKey: string,
+): Promise<AdminAffiliateWithdrawal> {
+  const { data } = await apiClient.post<AdminAffiliateWithdrawal>(
+    `/admin/affiliates/withdrawals/${withdrawalId}/reject`,
+    payload,
+    idempotencyHeaders(idempotencyKey),
+  )
+  return data
+}
+
+export async function markWithdrawalPaid(
+  withdrawalId: number,
+  payload: MarkAffiliateWithdrawalPaidRequest,
+  idempotencyKey: string,
+): Promise<AdminAffiliateWithdrawal> {
+  const { data } = await apiClient.post<AdminAffiliateWithdrawal>(
+    `/admin/affiliates/withdrawals/${withdrawalId}/mark-paid`,
+    payload,
+    idempotencyHeaders(idempotencyKey),
+  )
+  return data
+}
+
 export const affiliatesAPI = {
   listUsers,
   lookupUsers,
@@ -225,6 +381,13 @@ export const affiliatesAPI = {
   listRebateRecords,
   listTransferRecords,
   getUserOverview,
+  listAgents,
+  updateAgentStatus,
+  listWithdrawals,
+  getWithdrawal,
+  approveWithdrawal,
+  rejectWithdrawal,
+  markWithdrawalPaid,
 }
 
 export default affiliatesAPI

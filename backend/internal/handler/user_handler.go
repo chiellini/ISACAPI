@@ -21,6 +21,7 @@ type UserHandler struct {
 	emailService          *service.EmailService
 	emailCache            service.EmailCache
 	affiliateService      *service.AffiliateService
+	affiliatePayoutService *service.AffiliatePayoutService
 	userPlatformQuotaRepo service.UserPlatformQuotaRepository
 	researchGroupService  *service.ResearchGroupService
 }
@@ -209,28 +210,30 @@ func (h *UserHandler) GetAffiliate(c *gin.Context) {
 		response.ErrorFrom(c, err)
 		return
 	}
-	response.Success(c, detail)
+	minimum := service.AffiliateMinimumWithdrawalDefault
+	if h.affiliatePayoutService != nil { minimum = h.affiliatePayoutService.MinimumWithdrawal(c.Request.Context()) }
+	response.Success(c, gin.H{
+		"user_id": detail.UserID, "aff_code": detail.AffCode, "inviter_id": detail.InviterID,
+		"aff_count": detail.AffCount, "aff_quota": detail.AffQuota, "aff_frozen_quota": detail.AffFrozenQuota,
+		"aff_history_quota": detail.AffHistoryQuota, "agent_status": detail.AgentStatus,
+		"aff_withdrawal_pending": detail.AffWithdrawalPending, "aff_debt": detail.AffDebt,
+		"status": detail.AgentStatus, "available_commission": detail.AffQuota,
+		"frozen_commission": detail.AffFrozenQuota, "withdrawal_reserved": detail.AffWithdrawalPending,
+		"debt": detail.AffDebt, "minimum_withdrawal": minimum,
+		"effective_rebate_rate_percent": detail.EffectiveRebateRatePercent, "invitees": detail.Invitees,
+	})
 }
 
 // TransferAffiliateQuota transfers all available affiliate quota into current balance.
 // POST /api/v1/user/aff/transfer
 func (h *UserHandler) TransferAffiliateQuota(c *gin.Context) {
-	subject, ok := middleware2.GetAuthSubjectFromContext(c)
+	_, ok := middleware2.GetAuthSubjectFromContext(c)
 	if !ok {
 		response.Unauthorized(c, "User not authenticated")
 		return
 	}
 
-	transferred, balance, err := h.affiliateService.TransferAffiliateQuota(c.Request.Context(), subject.UserID)
-	if err != nil {
-		response.ErrorFrom(c, err)
-		return
-	}
-
-	response.Success(c, gin.H{
-		"transferred_quota": transferred,
-		"balance":           balance,
-	})
+	response.ErrorFrom(c, service.ErrAffiliateBalanceTransferDisabled)
 }
 
 type StartIdentityBindingRequest struct {

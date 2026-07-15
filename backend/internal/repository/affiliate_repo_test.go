@@ -13,6 +13,7 @@ func TestAffiliateUserOverviewSQLIncludesMaturedFrozenQuota(t *testing.T) {
 
 	require.Contains(t, query, "ua.aff_quota + COALESCE(matured.matured_frozen_quota, 0)")
 	require.Contains(t, query, "frozen_until <= NOW()")
+	require.Contains(t, query, "action IN ('accrue', 'debt_offset', 'refund_reversal')")
 }
 
 func TestAffiliateRecordQueriesUseLedgerAuditFields(t *testing.T) {
