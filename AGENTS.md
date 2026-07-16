@@ -26,3 +26,7 @@ Place frontend tests beside the feature in `__tests__/` and name them `*.spec.ts
 ## Commit & Pull Request Guidelines
 
 Follow the existing Conventional Commit style: `feat(auth): support combined admin provider role` or `fix(openai): preserve image function tools`. Use an imperative, scoped subject. PRs should explain the user impact, list validation commands, link relevant issues, and include screenshots for UI changes. Include migration and lockfile updates when applicable. Never commit secrets, local databases, generated `node_modules`, or `.pnpm-store`; review `DEV_GUIDE.md` before changing local setup or dependency tooling.
+
+## Upstream Sync Policy
+
+`README.md`, `README_CN.md`, and `README_JA.md` are fork-owned. Preserve the official links to `https://isacai.space` and `https://isacai.cn` during `upstream` syncs. Reject other sponsors, advertisements, affiliate/referral links, promo codes, and commercial calls to action unless explicitly requested. Reject upstream README changes and review `git diff -- README.md README_CN.md README_JA.md` before committing.
