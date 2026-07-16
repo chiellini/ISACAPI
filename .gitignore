@@ -126,7 +126,9 @@ scripts
 .code-review-state
 #openspec/
 code-reviews/
+# Keep the repository contributor guide tracked; ignore nested local agent notes.
 AGENTS.md
+!/AGENTS.md
 backend/cmd/server/server
 deploy/docker-compose.override.yml
 .gocache/
