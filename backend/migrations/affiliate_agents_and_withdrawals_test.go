@@ -21,4 +21,6 @@ func TestAffiliateAgentsAndWithdrawalsMigration(t *testing.T) {
 	require.Contains(t, sql, "cancel_reason TEXT NULL")
 	require.Contains(t, sql, "affiliate_minimum_withdrawal', '10'")
 	require.Contains(t, sql, "affiliate_rebate_freeze_hours', '168'")
+	require.Contains(t, sql, "INSERT INTO settings (key, value, updated_at)")
+	require.NotContains(t, sql, "INSERT INTO settings (key, value, created_at")
 }

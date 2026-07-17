@@ -80,9 +80,9 @@ CREATE INDEX IF NOT EXISTS idx_user_affiliate_admin_audits_withdrawal_created ON
 CREATE UNIQUE INDEX IF NOT EXISTS idx_user_affiliate_admin_audits_idempotency
     ON user_affiliate_admin_audits(action, idempotency_key) WHERE idempotency_key IS NOT NULL;
 
-INSERT INTO settings (key, value, created_at, updated_at)
-VALUES ('affiliate_minimum_withdrawal', '10', NOW(), NOW()) ON CONFLICT (key) DO NOTHING;
-INSERT INTO settings (key, value, created_at, updated_at)
-VALUES ('affiliate_rebate_freeze_hours', '168', NOW(), NOW()) ON CONFLICT (key) DO NOTHING;
+INSERT INTO settings (key, value, updated_at)
+VALUES ('affiliate_minimum_withdrawal', '10', NOW()) ON CONFLICT (key) DO NOTHING;
+INSERT INTO settings (key, value, updated_at)
+VALUES ('affiliate_rebate_freeze_hours', '168', NOW()) ON CONFLICT (key) DO NOTHING;
 UPDATE settings SET value = '168', updated_at = NOW()
 WHERE key = 'affiliate_rebate_freeze_hours' AND value = '0';

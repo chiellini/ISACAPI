@@ -68,9 +68,9 @@ type migrationChecksumCompatibilityRule struct {
 // 规则必须同时匹配「迁移名 + 数据库 checksum + 当前文件 checksum」且两者都落在该迁移的已知版本集合内才会放行，
 // 避免放宽全局校验，也允许将误改的历史 migration 回滚为已发布版本而不要求人工修 checksum。
 var migrationChecksumCompatibilityRules = map[string]migrationChecksumCompatibilityRule{
-	"001_init.sql":                                             newMigrationChecksumCompatibilityRule("7fc940ad8f6c98b62276ebc051cc40b07e1e4623071f209188209c0e2fec51b5", "9ba0369779484625edcea7a7d1d4582397e31546db9149b05004990a3f16c630"),
-	"002_account_type_migration.sql":                           newMigrationChecksumCompatibilityRule("3f3add6510026b294fdbaf7b5d64930ad8d1deb256e43eb13ee4a9a6b6d582eb", "aad3816e44f58ff007ea4df8092aae580f3f85180314c1deb1b1054b20892bbf"),
-	"003_subscription.sql":                                     newMigrationChecksumCompatibilityRule("9269c13a570d49c7ec07f54adb44ff2efb3082d756b7ad221b53196c3882a5fc", "4642fcb1ccd7954b1d3eef8f795cfba2ce21431257346cc5a7568cde61a60b13"),
+	"001_init.sql":                                            newMigrationChecksumCompatibilityRule("7fc940ad8f6c98b62276ebc051cc40b07e1e4623071f209188209c0e2fec51b5", "9ba0369779484625edcea7a7d1d4582397e31546db9149b05004990a3f16c630"),
+	"002_account_type_migration.sql":                          newMigrationChecksumCompatibilityRule("3f3add6510026b294fdbaf7b5d64930ad8d1deb256e43eb13ee4a9a6b6d582eb", "aad3816e44f58ff007ea4df8092aae580f3f85180314c1deb1b1054b20892bbf"),
+	"003_subscription.sql":                                    newMigrationChecksumCompatibilityRule("9269c13a570d49c7ec07f54adb44ff2efb3082d756b7ad221b53196c3882a5fc", "4642fcb1ccd7954b1d3eef8f795cfba2ce21431257346cc5a7568cde61a60b13"),
 	"054_drop_legacy_cache_columns.sql":                       newMigrationChecksumCompatibilityRule("82de761156e03876653e7a6a4eee883cd927847036f779b0b9f34c42a8af7a7d", "182c193f3359946cf094090cd9e57d5c3fd9abaffbc1e8fc378646b8a6fa12b4"),
 	"061_add_usage_log_request_type.sql":                      newMigrationChecksumCompatibilityRule("66207e7aa5dd0429c2e2c0fabdaf79783ff157fa0af2e81adff2ee03790ec65c", "08a248652cbab7cfde147fc6ef8cda464f2477674e20b718312faa252e0481c0", "222b4a09c797c22e5922b6b172327c824f5463aaa8760e4f621bc5c22e2be0f3"),
 	"109_auth_identity_compat_backfill.sql":                   newMigrationChecksumCompatibilityRule("0580b4602d85435edf9aca1633db580bb3932f26517f75134106f80275ec2ace", "551e498aa5616d2d91096e9d72cf9fb36e418ee22eacc557f8811cadbc9e20ee"),
@@ -84,6 +84,7 @@ var migrationChecksumCompatibilityRules = map[string]migrationChecksumCompatibil
 	"123_fix_legacy_auth_source_grant_on_signup_defaults.sql": newMigrationChecksumCompatibilityRule("2ce43c2cd89e9f9e1febd34a407ed9e84d177386c5544b6f02c1f58a21129f57", "6cd33422f215dcd1f486ab6f35c0ea5805d9ca69bb25906d94bc649156657145"),
 	"159_batch_image_foundation.sql":                          newMigrationChecksumCompatibilityRule("d902b70982025ec519749faf058aab7631e82c3f48167b9a4ae4db718eb72cce", "82da85b5d98e67a0507647b873a40373e84538e4adafdeed6767c0ac8b6570b2"),
 	"161_batch_image_pricing_snapshot.sql":                    newMigrationChecksumCompatibilityRule("4012af3e43636cb6af22e0176d59d1fcc70615c0f310194329461ae462c4fbd6", "96d915c9b7a6941ae99039e0ff3f1a61481eb9bddd933d11c6fadb2274554e87"),
+	"181_affiliate_agents_and_withdrawals.sql":                newMigrationChecksumCompatibilityRule("00a8d3260426180682440e2630b29680185f59f260b1e5f0373f7529cd6b0747", "2fd5fa919a30334e604ee09c87167ca240d12f4d2c4b85659fd3df0cd7b327d5"),
 }
 
 // ApplyMigrations 将嵌入的 SQL 迁移文件应用到指定的数据库。

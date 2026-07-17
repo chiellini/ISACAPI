@@ -12,6 +12,7 @@ import (
 	"time"
 
 	sqlmock "github.com/DATA-DOG/go-sqlmock"
+	migrationfs "github.com/Wei-Shaw/sub2api/migrations"
 	"github.com/stretchr/testify/require"
 )
 
@@ -104,12 +105,33 @@ func TestMigrationChecksumCompatibilityRules_CoverEditedUpgradeCompatibilityMigr
 		"118_wechat_dual_mode_and_auth_source_defaults.sql",
 		"120_enforce_payment_orders_out_trade_no_unique_notx.sql",
 		"123_fix_legacy_auth_source_grant_on_signup_defaults.sql",
+		"181_affiliate_agents_and_withdrawals.sql",
 	} {
 		rule, ok := migrationChecksumCompatibilityRules[name]
 		require.Truef(t, ok, "missing compatibility rule for %s", name)
 		require.NotEmpty(t, rule.fileChecksum)
 		require.NotEmpty(t, rule.acceptedDBChecksum)
 	}
+}
+
+func TestAffiliateAgentsAndWithdrawalsChecksumCompatibility(t *testing.T) {
+	const (
+		name            = "181_affiliate_agents_and_withdrawals.sql"
+		brokenChecksum  = "2fd5fa919a30334e604ee09c87167ca240d12f4d2c4b85659fd3df0cd7b327d5"
+		currentChecksum = "00a8d3260426180682440e2630b29680185f59f260b1e5f0373f7529cd6b0747"
+	)
+
+	content, err := migrationfs.FS.ReadFile(name)
+	require.NoError(t, err)
+	sum := sha256.Sum256([]byte(strings.TrimSpace(string(content))))
+	actualChecksum := hex.EncodeToString(sum[:])
+
+	rule, ok := migrationChecksumCompatibilityRules[name]
+	require.True(t, ok)
+	require.Equal(t, currentChecksum, actualChecksum)
+	require.Equal(t, currentChecksum, rule.fileChecksum)
+	require.Contains(t, rule.acceptedDBChecksum, brokenChecksum)
+	require.True(t, isMigrationChecksumCompatible(name, brokenChecksum, currentChecksum))
 }
 
 func TestEnsureAtlasBaselineAligned(t *testing.T) {
