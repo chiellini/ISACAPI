@@ -42,7 +42,7 @@ func (s *providerAssignmentAdminStub) UpdateAccount(_ context.Context, id int64,
 func newProviderAssignmentRouter(svc service.AdminService) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
-	h := NewAccountHandler(svc, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	h := NewAccountHandler(svc, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 	router.PUT("/admin/accounts/:id/provider", h.UpdateProvider)
 	return router
 }
