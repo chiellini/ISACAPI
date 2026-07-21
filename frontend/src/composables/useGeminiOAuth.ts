@@ -3,6 +3,7 @@ import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 import { adminAPI } from '@/api/admin'
 import type { GeminiOAuthCapabilities } from '@/api/admin/gemini'
+import { buildGeminiOAuthCredentials } from '@/utils/oauthCredentialBuilders'
 
 export interface GeminiTokenInfo {
   access_token?: string
@@ -121,25 +122,8 @@ export function useGeminiOAuth() {
     }
   }
 
-  const buildCredentials = (tokenInfo: GeminiTokenInfo): Record<string, unknown> => {
-    let expiresAt: string | undefined
-    if (typeof tokenInfo.expires_at === 'number' && Number.isFinite(tokenInfo.expires_at)) {
-      expiresAt = Math.floor(tokenInfo.expires_at).toString()
-    } else if (typeof tokenInfo.expires_at === 'string' && tokenInfo.expires_at.trim()) {
-      expiresAt = tokenInfo.expires_at.trim()
-    }
-
-    return {
-      access_token: tokenInfo.access_token,
-      refresh_token: tokenInfo.refresh_token,
-      token_type: tokenInfo.token_type,
-      expires_at: expiresAt,
-      scope: tokenInfo.scope,
-      project_id: tokenInfo.project_id,
-      oauth_type: tokenInfo.oauth_type,
-      tier_id: tokenInfo.tier_id
-    }
-  }
+  const buildCredentials = (tokenInfo: GeminiTokenInfo): Record<string, unknown> =>
+    buildGeminiOAuthCredentials(tokenInfo)
 
   const buildExtraInfo = (tokenInfo: GeminiTokenInfo): Record<string, unknown> | undefined => {
     if (!tokenInfo.extra || typeof tokenInfo.extra !== 'object') return undefined

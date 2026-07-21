@@ -50,6 +50,12 @@ export default {
       credentialsRequired: 'Enter credentials',
       credentialsInvalid: 'Credential JSON is invalid',
       saving: 'Saving...',
+      oauthHint: 'For OAuth / setup-token accounts you can leave credentials empty and click "Next" to authorize via a generated link.',
+      oauthConfirm: 'Verify & create account',
+      oauthGenerateFailed: 'Failed to generate authorization URL',
+      oauthExchangeFailed: 'Failed to verify authorization code',
+      oauthMissingState: 'Missing state parameter — regenerate the authorization link',
+      geminiOauthType: 'Gemini OAuth type',
     },
     usage: {
       title: 'Provider Usage',
