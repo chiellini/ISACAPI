@@ -68,6 +68,7 @@ type Handlers struct {
 	BatchImage       *BatchImageHandler
 	ResearchGroup    *ResearchGroupHandler
 	Provider         *ProviderHandler
+	ProviderOAuth    *ProviderOAuthHandler
 }
 
 // BuildInfo contains build-time information

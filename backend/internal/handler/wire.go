@@ -215,6 +215,7 @@ func ProvideHandlers(
 	batchImageHandler *BatchImageHandler,
 	researchGroupHandler *ResearchGroupHandler,
 	providerHandler *ProviderHandler,
+	providerOAuthHandler *ProviderOAuthHandler,
 	_ *service.IdempotencyCoordinator,
 	_ *service.IdempotencyCleanupService,
 ) *Handlers {
@@ -240,6 +241,7 @@ func ProvideHandlers(
 		BatchImage:       batchImageHandler,
 		ResearchGroup:    researchGroupHandler,
 		Provider:         providerHandler,
+		ProviderOAuth:    providerOAuthHandler,
 	}
 }
 
@@ -250,6 +252,7 @@ var ProviderSet = wire.NewSet(
 	ProvideUserHandler,
 	NewResearchGroupHandler,
 	NewProviderHandler,
+	NewProviderOAuthHandler,
 	NewAPIKeyHandler,
 	NewUsageHandler,
 	NewRedeemHandler,

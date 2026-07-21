@@ -61,7 +61,7 @@ func (h *GeminiOAuthHandler) GenerateAuthURL(c *gin.Context) {
 
 	// Always pass the "hosted" callback URI; the OAuth service may override it depending on
 	// oauth_type and whether the built-in Gemini CLI OAuth client is used.
-	redirectURI := deriveGeminiRedirectURI(c)
+	redirectURI := DeriveGeminiRedirectURI(c)
 	result, err := h.geminiOAuthService.GenerateAuthURL(c.Request.Context(), req.ProxyID, redirectURI, req.ProjectID, oauthType, req.TierID)
 	if err != nil {
 		msg := err.Error()
@@ -128,7 +128,9 @@ func (h *GeminiOAuthHandler) ExchangeCode(c *gin.Context) {
 	response.Success(c, tokenInfo)
 }
 
-func deriveGeminiRedirectURI(c *gin.Context) string {
+// DeriveGeminiRedirectURI builds the hosted OAuth callback URI from the
+// request origin; shared with the provider self-service OAuth endpoints.
+func DeriveGeminiRedirectURI(c *gin.Context) string {
 	origin := strings.TrimSpace(c.GetHeader("Origin"))
 	if origin != "" {
 		return strings.TrimRight(origin, "/") + "/auth/callback"

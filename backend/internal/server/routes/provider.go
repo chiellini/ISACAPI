@@ -29,5 +29,22 @@ func RegisterProviderRoutes(
 
 		provider.GET("/groups", h.Provider.ListGroups)
 		provider.GET("/usage", h.Provider.GetUsage)
+
+		// OAuth link/exchange flows for provider self-service account creation.
+		// Route suffixes mirror the admin endpoints so the frontend only swaps the prefix.
+		oauth := provider.Group("/oauth")
+		oauth.POST("/anthropic/generate-auth-url", h.ProviderOAuth.AnthropicGenerateAuthURL)
+		oauth.POST("/anthropic/generate-setup-token-url", h.ProviderOAuth.AnthropicGenerateSetupTokenURL)
+		oauth.POST("/anthropic/exchange-code", h.ProviderOAuth.AnthropicExchangeCode)
+		oauth.POST("/anthropic/exchange-setup-token-code", h.ProviderOAuth.AnthropicExchangeCode)
+		oauth.POST("/openai/generate-auth-url", h.ProviderOAuth.OpenAIGenerateAuthURL)
+		oauth.POST("/openai/exchange-code", h.ProviderOAuth.OpenAIExchangeCode)
+		oauth.GET("/gemini/capabilities", h.ProviderOAuth.GeminiGetCapabilities)
+		oauth.POST("/gemini/auth-url", h.ProviderOAuth.GeminiGenerateAuthURL)
+		oauth.POST("/gemini/exchange-code", h.ProviderOAuth.GeminiExchangeCode)
+		oauth.POST("/antigravity/auth-url", h.ProviderOAuth.AntigravityGenerateAuthURL)
+		oauth.POST("/antigravity/exchange-code", h.ProviderOAuth.AntigravityExchangeCode)
+		oauth.POST("/grok/auth-url", h.ProviderOAuth.GrokGenerateAuthURL)
+		oauth.POST("/grok/exchange-code", h.ProviderOAuth.GrokExchangeCode)
 	}
 }
