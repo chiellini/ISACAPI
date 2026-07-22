@@ -220,6 +220,7 @@ require_command rsync
 require_command seq
 require_command ssh
 require_command sudo
+require_command timeout
 
 [[ -f "$DEPLOY_DIR/.env" ]] || die "缺少 $DEPLOY_DIR/.env"
 [[ -f "$LOCAL_COMPOSE_FILE" ]] || die "缺少 $LOCAL_COMPOSE_FILE"
@@ -920,7 +921,10 @@ log "同步保存 Redis，并让 PostgreSQL 执行 CHECKPOINT..."
   >/dev/null
 
 log "干净停止 PostgreSQL 和 Redis（保留旧容器以便快速回退）..."
-"${COMPOSE[@]}" stop -t 120 postgres redis
+if ! timeout --kill-after=10s 150s \
+  "${COMPOSE[@]}" stop -t 120 postgres redis; then
+  die "停止 PostgreSQL/Redis 失败或超时；拒绝复制数据"
+fi
 running_names="$("${LOCAL_ROOT[@]}" docker ps --format '{{.Names}}')" \
   || die "无法确认旧机 Docker 容器状态"
 for container in sub2api sub2api-postgres sub2api-redis; do
