@@ -273,7 +273,7 @@ services:
     # at all, and the --save/--appendonly/--appendfsync lines are never read.
     command: >
       sh -c '
-        redis-server \
+        exec redis-server \
         --save 60 1 \
         --appendonly yes \
         --appendfsync everysec \
