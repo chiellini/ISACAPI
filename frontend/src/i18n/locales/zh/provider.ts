@@ -50,6 +50,12 @@ export default {
       credentialsRequired: '请输入账号凭证',
       credentialsInvalid: '凭证 JSON 格式不正确',
       saving: '保存中...',
+      oauthHint: 'OAuth / Setup Token 类型可留空凭证，点击「下一步」通过生成授权链接自动获取。',
+      oauthConfirm: '验证并创建账号',
+      oauthGenerateFailed: '生成授权链接失败',
+      oauthExchangeFailed: '授权码验证失败',
+      oauthMissingState: '缺少 state 参数，请重新生成授权链接',
+      geminiOauthType: 'Gemini OAuth 类型',
     },
     usage: {
       title: '供号用量',

@@ -3,6 +3,7 @@ import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 import { adminAPI } from '@/api/admin'
 import { extractApiErrorMessage, extractI18nErrorMessage } from '@/utils/apiError'
+import { buildOpenAIOAuthCredentials } from '@/utils/oauthCredentialBuilders'
 
 export interface OpenAITokenInfo {
   access_token?: string
@@ -170,43 +171,8 @@ export function useOpenAIOAuth() {
   }
 
   // Build credentials for OpenAI OAuth account (aligned with backend BuildAccountCredentials)
-  const buildCredentials = (tokenInfo: OpenAITokenInfo): Record<string, unknown> => {
-    const creds: Record<string, unknown> = {
-      access_token: tokenInfo.access_token,
-      expires_at: tokenInfo.expires_at
-    }
-
-    // 仅在返回了新的 refresh_token 时才写入，防止用空值覆盖已有令牌
-    if (tokenInfo.refresh_token) {
-      creds.refresh_token = tokenInfo.refresh_token
-    }
-    if (tokenInfo.id_token) {
-      creds.id_token = tokenInfo.id_token
-    }
-    if (tokenInfo.email) {
-      creds.email = tokenInfo.email
-    }
-    if (tokenInfo.chatgpt_account_id) {
-      creds.chatgpt_account_id = tokenInfo.chatgpt_account_id
-    }
-    if (tokenInfo.chatgpt_user_id) {
-      creds.chatgpt_user_id = tokenInfo.chatgpt_user_id
-    }
-    if (tokenInfo.organization_id) {
-      creds.organization_id = tokenInfo.organization_id
-    }
-    if (tokenInfo.plan_type) {
-      creds.plan_type = tokenInfo.plan_type
-    }
-    if (tokenInfo.subscription_expires_at) {
-      creds.subscription_expires_at = tokenInfo.subscription_expires_at
-    }
-    if (tokenInfo.client_id) {
-      creds.client_id = tokenInfo.client_id
-    }
-
-    return creds
-  }
+  const buildCredentials = (tokenInfo: OpenAITokenInfo): Record<string, unknown> =>
+    buildOpenAIOAuthCredentials(tokenInfo)
 
   // Build extra info from token response
   const buildExtraInfo = (tokenInfo: OpenAITokenInfo): Record<string, string> | undefined => {

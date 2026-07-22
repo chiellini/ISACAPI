@@ -6,6 +6,8 @@ import ops from './ops'
 import settings from './settings'
 import conversations from './conversations'
 import affiliateAdditions from './affiliates'
+import audit from './audit'
+import promptAudit from './promptAudit'
 
 export default {
   ...overview,
@@ -16,4 +18,6 @@ export default {
   ...settings,
   ...conversations,
   affiliates: { ...overview.affiliates, ...affiliateAdditions },
+  ...audit,
+  ...promptAudit,
 }

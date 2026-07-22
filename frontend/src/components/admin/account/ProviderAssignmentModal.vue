@@ -48,18 +48,23 @@ const saving = ref(false)
 
 const providerLabel = (provider: AdminUser) => provider.username || provider.email
 
+// 后端校验的是 IsProvider():provider 和 admin_provider 都是合法供号方,且必须为 active
+const PROVIDER_ROLES = ['provider', 'admin_provider'] as const
+
 const loadProviders = async () => {
   loading.value = true
   try {
     const collected: AdminUser[] = []
-    let page = 1
-    let pages = 1
-    do {
-      const result = await adminAPI.users.list(page, 100, { role: 'provider' })
-      collected.push(...result.items)
-      pages = result.pages || Math.ceil(result.total / result.page_size) || 1
-      page += 1
-    } while (page <= pages)
+    for (const role of PROVIDER_ROLES) {
+      let page = 1
+      let pages = 1
+      do {
+        const result = await adminAPI.users.list(page, 100, { role, status: 'active' })
+        collected.push(...result.items)
+        pages = result.pages || Math.ceil(result.total / result.page_size) || 1
+        page += 1
+      } while (page <= pages)
+    }
     providers.value = collected
   } catch {
     appStore.showError(t('provider.admin.loadFailed'))

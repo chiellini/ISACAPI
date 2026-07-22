@@ -3,6 +3,7 @@ import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 import { adminAPI } from '@/api/admin'
 import type { AntigravityTokenInfo } from '@/api/admin/antigravity'
+import { buildAntigravityOAuthCredentials } from '@/utils/oauthCredentialBuilders'
 
 export function useAntigravityOAuth() {
   const appStore = useAppStore()
@@ -115,26 +116,7 @@ export function useAntigravityOAuth() {
   const buildCredentials = (
     tokenInfo: AntigravityTokenInfo,
     fallbackRefreshToken?: string
-  ): Record<string, unknown> => {
-    let expiresAt: string | undefined
-    if (typeof tokenInfo.expires_at === 'number' && Number.isFinite(tokenInfo.expires_at)) {
-      expiresAt = Math.floor(tokenInfo.expires_at).toString()
-    } else if (typeof tokenInfo.expires_at === 'string' && tokenInfo.expires_at.trim()) {
-      expiresAt = tokenInfo.expires_at.trim()
-    }
-    const refreshToken = tokenInfo.refresh_token?.trim()
-      ? tokenInfo.refresh_token
-      : fallbackRefreshToken
-
-    return {
-      access_token: tokenInfo.access_token,
-      refresh_token: refreshToken,
-      token_type: tokenInfo.token_type,
-      expires_at: expiresAt,
-      project_id: tokenInfo.project_id,
-      email: tokenInfo.email
-    }
-  }
+  ): Record<string, unknown> => buildAntigravityOAuthCredentials(tokenInfo, fallbackRefreshToken)
 
   return {
     authUrl,

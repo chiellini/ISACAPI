@@ -44,6 +44,9 @@ export default {
     inactive: 'Inactive',
     more: 'More',
     close: 'Close',
+    toggleMenu: 'Toggle menu',
+    userMenu: 'User menu',
+    pageNotFound: 'Page not found',
     enabled: 'Enabled',
     disabled: 'Disabled',
 	    total: 'Total',
@@ -199,6 +202,10 @@ export default {
     riskControl: 'Risk Control',
     conversations: 'Conversation Archive',
     chat: 'Chat',
+    securityAudit: 'Security Audit',
+    contentModeration: 'Content Moderation',
+    promptAudit: 'Prompt Audit',
+    auditLogs: 'Audit Logs',
   },
 
   chat: {
@@ -227,6 +234,11 @@ export default {
     errGeneric: 'Something went wrong. Please try again.',
     fileTooLarge: '“{name}” is too large.',
     unsupportedType: '“{name}” is not a supported file type.',
+    webSearch: 'Web search',
+    webSearchHint: 'When on, the assistant searches the web for up-to-date info and lists the sources below its answer.',
+    searching: 'Searching: {query}',
+    searchingGeneric: 'Searching the web…',
+    sources: 'Sources',
   },
 
   // Auth
@@ -460,6 +472,15 @@ export default {
     invalidResetLinkHint: 'This password reset link is invalid or has expired. Please request a new one.',
     requestNewResetLink: 'Request New Reset Link',
     invalidOrExpiredToken: 'The password reset link is invalid or has expired. Please request a new one.'
+  },
+
+  // Step-up (sudo) 2FA prompt
+  stepUp: {
+    title: 'Two-Factor Verification Required',
+    hint: 'Enter the 6-digit code from your authenticator app to continue this sensitive operation.',
+    verifyFailed: 'Verification failed, please try again',
+    notEnabled: 'This operation requires two-factor authentication. Please enable TOTP in your profile first.',
+    adminApiKeyForbidden: 'Admin API keys cannot perform this operation. Use a two-factor verified admin session.'
   },
 
   // Dashboard

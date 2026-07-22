@@ -5,7 +5,7 @@
     width="wide"
     @close="emit('close')"
   >
-    <form id="provider-account-form" class="space-y-5" @submit.prevent="submit">
+    <form v-if="step === 1" id="provider-account-form" class="space-y-5" @submit.prevent="submit">
       <div class="grid gap-4 md:grid-cols-2">
         <div>
           <label class="input-label">{{ t('provider.form.name') }}</label>
@@ -55,6 +55,9 @@
         </div>
 
         <div v-if="!isEditing || replaceCredentials" class="space-y-3">
+          <p v-if="oauthFlowSupported" class="rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+            {{ t('provider.form.oauthHint') }}
+          </p>
           <div v-if="form.type === 'apikey' || form.type === 'upstream'">
             <label class="input-label">{{ t('provider.form.baseUrl') }}</label>
             <input v-model="baseUrl" type="url" class="input" placeholder="https://api.example.com" />
@@ -62,7 +65,7 @@
           <textarea
             v-model="credentialInput"
             rows="8"
-            required
+            :required="!oauthFlowSupported"
             spellcheck="false"
             autocomplete="off"
             class="input font-mono text-xs"
@@ -95,11 +98,54 @@
       </div>
     </form>
 
+    <!-- Step 2: OAuth authorization, mirroring the admin create-account flow -->
+    <div v-else class="space-y-4">
+      <div v-if="form.platform === 'gemini'">
+        <label class="input-label">{{ t('provider.form.geminiOauthType') }}</label>
+        <select v-model="geminiOauthType" class="input">
+          <option value="code_assist">Code Assist</option>
+          <option value="google_one">Google One</option>
+          <option value="ai_studio">AI Studio</option>
+        </select>
+      </div>
+      <OAuthAuthorizationFlow
+        ref="oauthFlowRef"
+        :add-method="oauthAddMethod"
+        :auth-url="oauthAuthUrl"
+        :session-id="oauthSessionId"
+        :loading="oauthLoading"
+        :error="oauthError"
+        :show-help="form.platform === 'anthropic'"
+        :show-proxy-warning="false"
+        :allow-multiple="false"
+        :show-cookie-option="false"
+        :show-refresh-token-option="false"
+        :show-mobile-refresh-token-option="false"
+        :show-session-token-option="false"
+        :show-access-token-option="false"
+        :show-codex-session-import-option="false"
+        :show-agent-identity-option="false"
+        :show-codex-pat-option="false"
+        :show-sso-option="false"
+        :show-manual-option="true"
+        :initial-input-method="'manual'"
+        :platform="form.platform"
+        :show-project-id="geminiOauthType !== 'ai_studio'"
+        @generate-url="handleGenerateUrl"
+      />
+    </div>
+
     <template #footer>
-      <div class="flex justify-end gap-3">
+      <div v-if="step === 1" class="flex justify-end gap-3">
         <button type="button" class="btn btn-secondary" @click="emit('close')">{{ t('common.cancel') }}</button>
         <button type="submit" form="provider-account-form" class="btn btn-primary" :disabled="saving">
-          {{ saving ? t('provider.form.saving') : t('common.save') }}
+          {{ saving ? t('provider.form.saving') : goesToOAuthStep ? t('common.next') : t('common.save') }}
+        </button>
+      </div>
+      <div v-else class="flex justify-between gap-3">
+        <button type="button" class="btn btn-secondary" @click="backToStep1">{{ t('common.back') }}</button>
+        <button type="button" class="btn btn-primary" :disabled="!canExchange" @click="handleExchange">
+          {{ oauthLoading ? t('provider.form.saving') : t('provider.form.oauthConfirm') }}
         </button>
       </div>
     </template>
@@ -110,10 +156,25 @@
 import { computed, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseDialog from '@/components/common/BaseDialog.vue'
+import OAuthAuthorizationFlow from '@/components/account/OAuthAuthorizationFlow.vue'
 import { providerAPI, type ProviderGroupSummary } from '@/api/provider'
+import { providerOAuthAPI } from '@/api/providerOauth'
 import { useAppStore } from '@/stores/app'
 import { normalizeProviderCredentials, ProviderCredentialError } from '@/utils/providerCredentials'
+import {
+  buildAntigravityOAuthCredentials,
+  buildGeminiOAuthCredentials,
+  buildGrokOAuthCredentials,
+  buildOpenAIOAuthCredentials,
+} from '@/utils/oauthCredentialBuilders'
 import type { Account, AccountPlatform, AccountType } from '@/types'
+
+interface OAuthFlowExposed {
+  authCode: string
+  oauthState: string
+  projectId: string
+  reset: () => void
+}
 
 const props = defineProps<{
   show: boolean
@@ -149,10 +210,31 @@ const credentialInput = ref('')
 const baseUrl = ref('')
 const replaceCredentials = ref(false)
 const saving = ref(false)
+const step = ref(1)
 const isEditing = computed(() => Boolean(props.account))
 const compatibleTypes = computed(() => typesByPlatform[form.platform])
 const compatibleGroups = computed(() =>
   props.groups.filter((group) => group.status === 'active' && group.platform === form.platform)
+)
+
+// OAuth link flow state (create mode only)
+const oauthFlowRef = ref<OAuthFlowExposed | null>(null)
+const oauthAuthUrl = ref('')
+const oauthSessionId = ref('')
+const oauthServerState = ref('')
+const oauthLoading = ref(false)
+const oauthError = ref('')
+const geminiOauthType = ref<'code_assist' | 'google_one' | 'ai_studio'>('code_assist')
+
+const oauthFlowSupported = computed(
+  () => !isEditing.value && (form.type === 'oauth' || (form.platform === 'anthropic' && form.type === 'setup-token'))
+)
+const goesToOAuthStep = computed(() => oauthFlowSupported.value && !credentialInput.value.trim())
+const oauthAddMethod = computed(() =>
+  form.platform === 'anthropic' && form.type === 'setup-token' ? 'setup-token' : 'oauth'
+)
+const canExchange = computed(() =>
+  Boolean(!oauthLoading.value && oauthSessionId.value && (oauthFlowRef.value?.authCode || '').trim())
 )
 
 const platformLabel = (platform: AccountPlatform) => {
@@ -161,6 +243,15 @@ const platformLabel = (platform: AccountPlatform) => {
   if (platform === 'antigravity') return 'Antigravity'
   if (platform === 'grok') return 'Grok'
   return 'Gemini'
+}
+
+const resetOAuthState = () => {
+  oauthAuthUrl.value = ''
+  oauthSessionId.value = ''
+  oauthServerState.value = ''
+  oauthLoading.value = false
+  oauthError.value = ''
+  oauthFlowRef.value?.reset()
 }
 
 const reset = () => {
@@ -175,6 +266,9 @@ const reset = () => {
   credentialInput.value = ''
   baseUrl.value = ''
   replaceCredentials.value = !account
+  step.value = 1
+  geminiOauthType.value = 'code_assist'
+  resetOAuthState()
 }
 
 watch(() => props.show, (show) => { if (show) reset() }, { immediate: true })
@@ -184,6 +278,9 @@ watch(() => form.platform, () => {
   const allowed = new Set(compatibleGroups.value.map((group) => group.id))
   form.group_ids = form.group_ids.filter((id) => allowed.has(id))
 })
+watch([() => form.platform, () => form.type], resetOAuthState)
+// 换 OAuth 类型后旧链接的 session 参数不再匹配，必须重新生成
+watch(geminiOauthType, resetOAuthState)
 
 const loadCredentialFile = async (event: Event) => {
   const input = event.target as HTMLInputElement
@@ -193,13 +290,141 @@ const loadCredentialFile = async (event: Event) => {
 }
 
 const errorMessage = (error: unknown, fallback: string) => {
+  const detail = (error as { response?: { data?: { detail?: string; message?: string } } })?.response?.data
+  if (detail?.detail) return detail.detail
+  if (detail?.message) return detail.message
   if (error && typeof error === 'object' && 'message' in error && typeof error.message === 'string') return error.message
   return fallback
+}
+
+const parseStateFromUrl = (url: string): string => {
+  try {
+    return new URL(url).searchParams.get('state') || ''
+  } catch {
+    return ''
+  }
+}
+
+const backToStep1 = () => {
+  step.value = 1
+  resetOAuthState()
+}
+
+const handleGenerateUrl = async () => {
+  oauthLoading.value = true
+  oauthError.value = ''
+  oauthAuthUrl.value = ''
+  oauthSessionId.value = ''
+  oauthServerState.value = ''
+  try {
+    let result
+    if (form.platform === 'anthropic') {
+      result = await providerOAuthAPI.generateAnthropicAuthUrl(form.type === 'setup-token')
+    } else if (form.platform === 'openai') {
+      result = await providerOAuthAPI.generateOpenAIAuthUrl()
+    } else if (form.platform === 'gemini') {
+      const projectId = (oauthFlowRef.value?.projectId || '').trim()
+      if (geminiOauthType.value !== 'ai_studio' && !projectId) {
+        oauthError.value = t('admin.accounts.oauth.gemini.missingProjectId')
+        appStore.showError(oauthError.value)
+        return
+      }
+      result = await providerOAuthAPI.generateGeminiAuthUrl({
+        project_id: projectId || undefined,
+        oauth_type: geminiOauthType.value,
+      })
+    } else if (form.platform === 'antigravity') {
+      result = await providerOAuthAPI.generateAntigravityAuthUrl()
+    } else {
+      result = await providerOAuthAPI.generateGrokAuthUrl()
+    }
+    oauthAuthUrl.value = result.auth_url
+    oauthSessionId.value = result.session_id
+    oauthServerState.value = result.state || parseStateFromUrl(result.auth_url)
+  } catch (error) {
+    oauthError.value = errorMessage(error, t('provider.form.oauthGenerateFailed'))
+    appStore.showError(oauthError.value)
+  } finally {
+    oauthLoading.value = false
+  }
+}
+
+const handleExchange = async () => {
+  const code = (oauthFlowRef.value?.authCode || '').trim()
+  if (!code || !oauthSessionId.value) return
+  oauthLoading.value = true
+  oauthError.value = ''
+  try {
+    const sessionId = oauthSessionId.value
+    const state = (oauthFlowRef.value?.oauthState || oauthServerState.value || '').trim()
+    let credentials: Record<string, unknown>
+    if (form.platform === 'anthropic') {
+      const tokenInfo = await providerOAuthAPI.exchangeAnthropicCode(
+        { session_id: sessionId, code },
+        form.type === 'setup-token'
+      )
+      credentials = { ...tokenInfo }
+    } else if (!state) {
+      oauthError.value = t('provider.form.oauthMissingState')
+      appStore.showError(oauthError.value)
+      return
+    } else if (form.platform === 'openai') {
+      const tokenInfo = await providerOAuthAPI.exchangeOpenAICode({ session_id: sessionId, code, state })
+      credentials = buildOpenAIOAuthCredentials(tokenInfo)
+    } else if (form.platform === 'gemini') {
+      const tokenInfo = await providerOAuthAPI.exchangeGeminiCode({
+        session_id: sessionId,
+        state,
+        code,
+        oauth_type: geminiOauthType.value,
+      })
+      credentials = buildGeminiOAuthCredentials(tokenInfo)
+    } else if (form.platform === 'antigravity') {
+      const tokenInfo = await providerOAuthAPI.exchangeAntigravityCode({ session_id: sessionId, state, code })
+      credentials = buildAntigravityOAuthCredentials(tokenInfo)
+    } else {
+      const tokenInfo = await providerOAuthAPI.exchangeGrokCode({ session_id: sessionId, code, state })
+      credentials = buildGrokOAuthCredentials(tokenInfo)
+    }
+    await createAccount(credentials)
+  } catch (error) {
+    oauthError.value = errorMessage(error, t('provider.form.oauthExchangeFailed'))
+    appStore.showError(oauthError.value)
+  } finally {
+    oauthLoading.value = false
+  }
+}
+
+// 自行处理保存错误,避免上层把创建失败误报成授权失败
+const createAccount = async (credentials: Record<string, unknown>) => {
+  saving.value = true
+  try {
+    const saved = await providerAPI.createAccount({
+      name: form.name,
+      notes: form.notes || null,
+      platform: form.platform,
+      type: form.type,
+      credentials,
+      concurrency: form.concurrency,
+      group_ids: form.group_ids,
+    })
+    appStore.showSuccess(t('provider.accounts.created'))
+    emit('saved', saved)
+    emit('close')
+  } catch (error) {
+    appStore.showError(errorMessage(error, t('provider.accounts.saveFailed')))
+  } finally {
+    saving.value = false
+  }
 }
 
 const submit = async () => {
   if (!form.name.trim()) {
     appStore.showError(t('provider.form.nameRequired'))
+    return
+  }
+  if (goesToOAuthStep.value) {
+    step.value = 2
     return
   }
   saving.value = true
@@ -245,4 +470,3 @@ const submit = async () => {
   }
 }
 </script>
-
