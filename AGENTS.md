@@ -19,6 +19,10 @@
 
 Format Go with `gofmt`; comply with `backend/.golangci.yml` and handle errors explicitly. Use lowercase package names and `*_test.go` test files. For Vue/TypeScript, use two-space indentation, strict types, `PascalCase.vue` components, `useX.ts` composables, and the `@/` source alias. Keep changes focused; do not reformat unrelated files. Run `pnpm --dir frontend run lint:check` before submitting frontend work.
 
+## Brand and Visual Identity
+
+For product, storefront, documentation, and UI iconography, use the ISAC AI logo at `assets/公司icon.jpeg` as the visual source of truth. Do not substitute generic, third-party, or legacy brand icons unless explicitly requested. Reuse this approved ISAC AI asset in README branding where an icon is displayed.
+
 ## Testing Guidelines
 
 Place frontend tests beside the feature in `__tests__/` and name them `*.spec.ts`; Vitest runs in jsdom. The configured coverage thresholds are 80% globally for statements, branches, functions, and lines. Add or update tests for behavior changes, especially API compatibility, billing, authentication, migrations, and visible UI states.
