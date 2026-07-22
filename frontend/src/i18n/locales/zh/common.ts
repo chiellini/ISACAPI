@@ -231,6 +231,11 @@ export default {
     errGeneric: '发生错误，请重试。',
     fileTooLarge: '“{name}”文件过大。',
     unsupportedType: '“{name}”不是支持的文件类型。',
+    webSearch: '联网搜索',
+    webSearchHint: '开启后，助手会在需要时联网检索最新信息，并在回答下方列出来源。',
+    searching: '正在搜索：{query}',
+    searchingGeneric: '正在联网搜索…',
+    sources: '来源',
   },
 
   // Auth

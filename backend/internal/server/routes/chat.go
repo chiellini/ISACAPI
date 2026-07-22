@@ -2,13 +2,16 @@ package routes
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/handler"
+	ratemw "github.com/Wei-Shaw/sub2api/internal/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 )
 
 // RegisterChatRoutes 注册内置聊天 Playground 路由。
@@ -33,6 +36,7 @@ func RegisterChatRoutes(
 	opsService *service.OpsService,
 	settingService *service.SettingService,
 	cfg *config.Config,
+	redisClient *redis.Client,
 ) {
 	bodyLimit := middleware.RequestBodyLimit(cfg.Gateway.MaxBodySize)
 	clientRequestID := middleware.ClientRequestID()
@@ -84,7 +88,9 @@ func RegisterChatRoutes(
 	}
 
 	// 会话历史（仅 JWT 鉴权，按 user 隔离，跨设备同步；无需桥接/网关计费）。
+	// bodyLimit 兜住图片上传等较大请求体（上限沿用网关 max_body_size）。
 	sessions := r.Group("/api/v1/chat/sessions")
+	sessions.Use(bodyLimit)
 	sessions.Use(gin.HandlerFunc(jwtAuth))
 	{
 		sessions.GET("", h.ChatHistory.List)
@@ -92,5 +98,24 @@ func RegisterChatRoutes(
 		sessions.GET("/:id", h.ChatHistory.Get)
 		sessions.PUT("/:id", h.ChatHistory.Update)
 		sessions.DELETE("/:id", h.ChatHistory.Delete)
+		// 生成/上传图片的服务端持久化：落库后可跨设备回读，替代仅存浏览器的方案。
+		sessions.POST("/:id/images", h.ChatHistory.UploadImage)
+	}
+
+	// 图片回读（JWT 鉴权，按 user 隔离；直出原始字节，不走 JSON 信封）。
+	images := r.Group("/api/v1/chat/images")
+	images.Use(gin.HandlerFunc(jwtAuth))
+	{
+		images.GET("/:imageId", h.ChatHistory.GetImage)
+	}
+
+	// 联网搜索能力 + 搜索接口（JWT 鉴权）。搜索会命中外部提供方，按 IP 限流兜住滥用，
+	// 真正的预算保护仍由提供方配额（Brave/Tavily quota_limit）承担。
+	searchLimiter := ratemw.NewRateLimiter(redisClient)
+	chatMeta := r.Group("/api/v1/chat")
+	chatMeta.Use(gin.HandlerFunc(jwtAuth))
+	{
+		chatMeta.GET("/capabilities", h.ChatHistory.Capabilities)
+		chatMeta.POST("/search", searchLimiter.Limit("chat-web-search", 30, time.Minute), h.ChatHistory.Search)
 	}
 }

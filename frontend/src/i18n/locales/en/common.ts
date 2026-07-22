@@ -231,6 +231,11 @@ export default {
     errGeneric: 'Something went wrong. Please try again.',
     fileTooLarge: '“{name}” is too large.',
     unsupportedType: '“{name}” is not a supported file type.',
+    webSearch: 'Web search',
+    webSearchHint: 'When on, the assistant searches the web for up-to-date info and lists the sources below its answer.',
+    searching: 'Searching: {query}',
+    searchingGeneric: 'Searching the web…',
+    sources: 'Sources',
   },
 
   // Auth

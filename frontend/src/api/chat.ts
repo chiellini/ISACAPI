@@ -21,6 +21,35 @@ export interface ChatMessage {
   content: string | ContentPart[]
 }
 
+// 工具调用循环里会用到的更宽消息类型（assistant 带 tool_calls / role:tool 回灌）。
+export interface AssistantToolCall {
+  id: string
+  type: 'function'
+  function: { name: string; arguments: string }
+}
+export type ChatCompletionMessage =
+  | ChatMessage
+  | { role: 'assistant'; content: string; tool_calls: AssistantToolCall[] }
+  | { role: 'tool'; tool_call_id: string; content: string }
+
+// 一条联网搜索结果（供工具回灌与来源引用展示）。
+export interface ChatSource {
+  title: string
+  url: string
+  snippet: string
+}
+
+export interface StreamToolCall {
+  id: string
+  name: string
+  arguments: string
+}
+export interface CompletionResult {
+  content: string
+  toolCalls: StreamToolCall[]
+  finishReason: string
+}
+
 export interface StreamHandlers {
   signal?: AbortSignal
   onDelta: (text: string) => void
@@ -226,6 +255,19 @@ export interface ServerSession {
   title: string
   model: string
   updated_at: string
+  // 会话记忆：中期滚动摘要 / 长期稳定事实 / 已折叠进摘要的前缀消息条数。
+  summary?: string
+  memory?: string
+  summarized_count?: number
+  messages?: ServerMessage[]
+}
+
+export interface SessionUpdatePayload {
+  title: string
+  model: string
+  summary?: string
+  memory?: string
+  summarized_count?: number
   messages?: ServerMessage[]
 }
 
@@ -244,15 +286,37 @@ export async function createSession(title = '', model = ''): Promise<number> {
   return (r.data as { id: number }).id
 }
 
-export async function updateSession(
-  id: number,
-  payload: { title: string; model: string; messages?: ServerMessage[] },
-): Promise<void> {
+export async function updateSession(id: number, payload: SessionUpdatePayload): Promise<void> {
   await apiClient.put(`/chat/sessions/${id}`, payload)
 }
 
 export async function deleteSession(id: number): Promise<void> {
   await apiClient.delete(`/chat/sessions/${id}`)
+}
+
+// ───────── 服务端图片存储（生成图 / 上传图落库，跨设备回读） ─────────
+
+function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = () => reject(reader.error || new Error('read image failed'))
+    reader.readAsDataURL(blob)
+  })
+}
+
+/** 上传一张图片（data URL 或裸 base64）到当前会话，返回服务端图片 ID。 */
+export async function uploadChatImage(sessionId: number, image: string): Promise<string> {
+  const r = await apiClient.post(`/chat/sessions/${sessionId}/images`, { image })
+  const id = (r.data as { id?: string }).id
+  if (!id) throw new Error('upload returned no image id')
+  return id
+}
+
+/** 按图片 ID 回读为可直接用于 <img src> 的 data URL（走 apiClient 以复用鉴权/刷新）。 */
+export async function fetchChatImageDataUrl(id: string): Promise<string> {
+  const r = await apiClient.get(`/chat/images/${id}`, { responseType: 'blob' })
+  return blobToDataUrl(r.data as Blob)
 }
 
 /**
@@ -376,4 +440,114 @@ export function completeChat(
       onError: (err) => reject(err),
     })
   })
+}
+
+// ───────── 工具调用（联网搜索）循环支持 ─────────
+
+function finalizeCompletion(
+  content: string,
+  toolAcc: Record<number, StreamToolCall>,
+  finishReason: string,
+): CompletionResult {
+  const toolCalls = Object.keys(toolAcc)
+    .map(Number)
+    .sort((a, b) => a - b)
+    .map((i) => toolAcc[i])
+    .filter((tc) => tc.name)
+  return { content, toolCalls, finishReason: finishReason || (toolCalls.length ? 'tool_calls' : 'stop') }
+}
+
+/**
+ * 流式对话（工具感知版）：在回调增量文本的同时，累积模型的 tool_calls 并返回 finish_reason，
+ * 供聊天页实现「模型调用 web_search → 前端执行 → 回灌结果 → 继续作答」的 agent 循环。
+ * 无 tools 时行为等价于 streamChat（仅回调 content 增量）。
+ */
+export async function streamChatCompletion(
+  body: { model: string; messages: ChatCompletionMessage[]; tools?: unknown[]; tool_choice?: unknown },
+  handlers: { signal?: AbortSignal; onDelta?: (text: string) => void } = {},
+): Promise<CompletionResult> {
+  const res = await fetch(`${CHAT_BASE}/v1/chat/completions`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${authToken()}`,
+    },
+    body: JSON.stringify({ ...body, stream: true }),
+    signal: handlers.signal,
+  })
+  if (!res.ok || !res.body) {
+    const detail = await res.text().catch(() => '')
+    throw new Error(responseErrorMessage(detail, res.status, 'chat request failed'))
+  }
+
+  const reader = res.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  let content = ''
+  let finishReason = ''
+  const toolAcc: Record<number, StreamToolCall> = {}
+
+  const consume = (payload: string): CompletionResult | null => {
+    if (payload === '[DONE]') return finalizeCompletion(content, toolAcc, finishReason)
+    try {
+      const json = JSON.parse(payload)
+      const choice = json?.choices?.[0]
+      const delta = choice?.delta
+      if (delta?.content) {
+        content += delta.content
+        handlers.onDelta?.(delta.content)
+      }
+      if (Array.isArray(delta?.tool_calls)) {
+        for (const tc of delta.tool_calls) {
+          const idx = typeof tc?.index === 'number' ? tc.index : 0
+          const acc = toolAcc[idx] ?? (toolAcc[idx] = { id: '', name: '', arguments: '' })
+          if (tc?.id) acc.id = tc.id
+          if (tc?.function?.name) acc.name = tc.function.name
+          if (typeof tc?.function?.arguments === 'string') acc.arguments += tc.function.arguments
+        }
+      }
+      if (choice?.finish_reason) finishReason = choice.finish_reason
+    } catch {
+      // 忽略非 JSON 行（注释/心跳）
+    }
+    return null
+  }
+
+  try {
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
+      let nl: number
+      while ((nl = buffer.indexOf('\n')) >= 0) {
+        const line = buffer.slice(0, nl).trim()
+        buffer = buffer.slice(nl + 1)
+        if (!line.startsWith('data:')) continue
+        const payload = line.slice(5).trim()
+        if (!payload) continue
+        const result = consume(payload)
+        if (result) return result
+      }
+    }
+  } catch (err) {
+    if ((err as Error).name === 'AbortError') return finalizeCompletion(content, toolAcc, finishReason)
+    throw err
+  }
+  return finalizeCompletion(content, toolAcc, finishReason)
+}
+
+/** 执行一次联网搜索（复用网关侧搜索提供方与配额）。未配置时后端返回 503。 */
+export async function chatSearch(query: string, maxResults = 5): Promise<ChatSource[]> {
+  const r = await apiClient.post('/chat/search', { query, max_results: maxResults })
+  return (r.data as { results?: ChatSource[] }).results ?? []
+}
+
+/** 查询聊天页可用能力（当前：是否已配置联网搜索）。失败按不可用处理。 */
+export async function getChatCapabilities(): Promise<{ web_search: boolean }> {
+  try {
+    const r = await apiClient.get('/chat/capabilities')
+    return { web_search: !!(r.data as { web_search?: boolean }).web_search }
+  } catch {
+    return { web_search: false }
+  }
 }
