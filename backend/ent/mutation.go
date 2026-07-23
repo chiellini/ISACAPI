@@ -26,6 +26,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitordailyrollup"
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorhistory"
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorrequesttemplate"
+	"github.com/Wei-Shaw/sub2api/ent/compositemodelroute"
 	"github.com/Wei-Shaw/sub2api/ent/conversationbranch"
 	"github.com/Wei-Shaw/sub2api/ent/conversationevent"
 	"github.com/Wei-Shaw/sub2api/ent/conversationresponseref"
@@ -53,6 +54,9 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/usagecleanuptask"
 	"github.com/Wei-Shaw/sub2api/ent/usagelog"
 	"github.com/Wei-Shaw/sub2api/ent/user"
+	"github.com/Wei-Shaw/sub2api/ent/useraffiliateadminaudit"
+	"github.com/Wei-Shaw/sub2api/ent/useraffiliatepaymentaccount"
+	"github.com/Wei-Shaw/sub2api/ent/useraffiliatewithdrawal"
 	"github.com/Wei-Shaw/sub2api/ent/userallowedgroup"
 	"github.com/Wei-Shaw/sub2api/ent/userattributedefinition"
 	"github.com/Wei-Shaw/sub2api/ent/userattributevalue"
@@ -85,6 +89,7 @@ const (
 	TypeChannelMonitorDailyRollup     = "ChannelMonitorDailyRollup"
 	TypeChannelMonitorHistory         = "ChannelMonitorHistory"
 	TypeChannelMonitorRequestTemplate = "ChannelMonitorRequestTemplate"
+	TypeCompositeModelRoute           = "CompositeModelRoute"
 	TypeConversationBranch            = "ConversationBranch"
 	TypeConversationEvent             = "ConversationEvent"
 	TypeConversationResponseRef       = "ConversationResponseRef"
@@ -111,6 +116,9 @@ const (
 	TypeUsageCleanupTask              = "UsageCleanupTask"
 	TypeUsageLog                      = "UsageLog"
 	TypeUser                          = "User"
+	TypeUserAffiliateAdminAudit       = "UserAffiliateAdminAudit"
+	TypeUserAffiliatePaymentAccount   = "UserAffiliatePaymentAccount"
+	TypeUserAffiliateWithdrawal       = "UserAffiliateWithdrawal"
 	TypeUserAllowedGroup              = "UserAllowedGroup"
 	TypeUserAttributeDefinition       = "UserAttributeDefinition"
 	TypeUserAttributeValue            = "UserAttributeValue"
@@ -20101,6 +20109,1057 @@ func (m *ChannelMonitorRequestTemplateMutation) ResetEdge(name string) error {
 		return nil
 	}
 	return fmt.Errorf("unknown ChannelMonitorRequestTemplate edge %s", name)
+}
+
+// CompositeModelRouteMutation represents an operation that mutates the CompositeModelRoute nodes in the graph.
+type CompositeModelRouteMutation struct {
+	config
+	op              Op
+	typ             string
+	id              *int64
+	created_at      *time.Time
+	updated_at      *time.Time
+	deleted_at      *time.Time
+	public_model    *string
+	match_type      *string
+	target_platform *string
+	upstream_model  *string
+	endpoint        *string
+	priority        *int
+	addpriority     *int
+	enabled         *bool
+	notes           *string
+	clearedFields   map[string]struct{}
+	group           *int64
+	clearedgroup    bool
+	done            bool
+	oldValue        func(context.Context) (*CompositeModelRoute, error)
+	predicates      []predicate.CompositeModelRoute
+}
+
+var _ ent.Mutation = (*CompositeModelRouteMutation)(nil)
+
+// compositemodelrouteOption allows management of the mutation configuration using functional options.
+type compositemodelrouteOption func(*CompositeModelRouteMutation)
+
+// newCompositeModelRouteMutation creates new mutation for the CompositeModelRoute entity.
+func newCompositeModelRouteMutation(c config, op Op, opts ...compositemodelrouteOption) *CompositeModelRouteMutation {
+	m := &CompositeModelRouteMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeCompositeModelRoute,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withCompositeModelRouteID sets the ID field of the mutation.
+func withCompositeModelRouteID(id int64) compositemodelrouteOption {
+	return func(m *CompositeModelRouteMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *CompositeModelRoute
+		)
+		m.oldValue = func(ctx context.Context) (*CompositeModelRoute, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().CompositeModelRoute.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withCompositeModelRoute sets the old CompositeModelRoute of the mutation.
+func withCompositeModelRoute(node *CompositeModelRoute) compositemodelrouteOption {
+	return func(m *CompositeModelRouteMutation) {
+		m.oldValue = func(context.Context) (*CompositeModelRoute, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m CompositeModelRouteMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m CompositeModelRouteMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *CompositeModelRouteMutation) ID() (id int64, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *CompositeModelRouteMutation) IDs(ctx context.Context) ([]int64, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int64{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().CompositeModelRoute.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *CompositeModelRouteMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *CompositeModelRouteMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the CompositeModelRoute entity.
+// If the CompositeModelRoute object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CompositeModelRouteMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *CompositeModelRouteMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *CompositeModelRouteMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *CompositeModelRouteMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the CompositeModelRoute entity.
+// If the CompositeModelRoute object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CompositeModelRouteMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *CompositeModelRouteMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// SetDeletedAt sets the "deleted_at" field.
+func (m *CompositeModelRouteMutation) SetDeletedAt(t time.Time) {
+	m.deleted_at = &t
+}
+
+// DeletedAt returns the value of the "deleted_at" field in the mutation.
+func (m *CompositeModelRouteMutation) DeletedAt() (r time.Time, exists bool) {
+	v := m.deleted_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDeletedAt returns the old "deleted_at" field's value of the CompositeModelRoute entity.
+// If the CompositeModelRoute object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CompositeModelRouteMutation) OldDeletedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDeletedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDeletedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDeletedAt: %w", err)
+	}
+	return oldValue.DeletedAt, nil
+}
+
+// ClearDeletedAt clears the value of the "deleted_at" field.
+func (m *CompositeModelRouteMutation) ClearDeletedAt() {
+	m.deleted_at = nil
+	m.clearedFields[compositemodelroute.FieldDeletedAt] = struct{}{}
+}
+
+// DeletedAtCleared returns if the "deleted_at" field was cleared in this mutation.
+func (m *CompositeModelRouteMutation) DeletedAtCleared() bool {
+	_, ok := m.clearedFields[compositemodelroute.FieldDeletedAt]
+	return ok
+}
+
+// ResetDeletedAt resets all changes to the "deleted_at" field.
+func (m *CompositeModelRouteMutation) ResetDeletedAt() {
+	m.deleted_at = nil
+	delete(m.clearedFields, compositemodelroute.FieldDeletedAt)
+}
+
+// SetGroupID sets the "group_id" field.
+func (m *CompositeModelRouteMutation) SetGroupID(i int64) {
+	m.group = &i
+}
+
+// GroupID returns the value of the "group_id" field in the mutation.
+func (m *CompositeModelRouteMutation) GroupID() (r int64, exists bool) {
+	v := m.group
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldGroupID returns the old "group_id" field's value of the CompositeModelRoute entity.
+// If the CompositeModelRoute object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CompositeModelRouteMutation) OldGroupID(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldGroupID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldGroupID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldGroupID: %w", err)
+	}
+	return oldValue.GroupID, nil
+}
+
+// ResetGroupID resets all changes to the "group_id" field.
+func (m *CompositeModelRouteMutation) ResetGroupID() {
+	m.group = nil
+}
+
+// SetPublicModel sets the "public_model" field.
+func (m *CompositeModelRouteMutation) SetPublicModel(s string) {
+	m.public_model = &s
+}
+
+// PublicModel returns the value of the "public_model" field in the mutation.
+func (m *CompositeModelRouteMutation) PublicModel() (r string, exists bool) {
+	v := m.public_model
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPublicModel returns the old "public_model" field's value of the CompositeModelRoute entity.
+// If the CompositeModelRoute object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CompositeModelRouteMutation) OldPublicModel(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPublicModel is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPublicModel requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPublicModel: %w", err)
+	}
+	return oldValue.PublicModel, nil
+}
+
+// ResetPublicModel resets all changes to the "public_model" field.
+func (m *CompositeModelRouteMutation) ResetPublicModel() {
+	m.public_model = nil
+}
+
+// SetMatchType sets the "match_type" field.
+func (m *CompositeModelRouteMutation) SetMatchType(s string) {
+	m.match_type = &s
+}
+
+// MatchType returns the value of the "match_type" field in the mutation.
+func (m *CompositeModelRouteMutation) MatchType() (r string, exists bool) {
+	v := m.match_type
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldMatchType returns the old "match_type" field's value of the CompositeModelRoute entity.
+// If the CompositeModelRoute object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CompositeModelRouteMutation) OldMatchType(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldMatchType is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldMatchType requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldMatchType: %w", err)
+	}
+	return oldValue.MatchType, nil
+}
+
+// ResetMatchType resets all changes to the "match_type" field.
+func (m *CompositeModelRouteMutation) ResetMatchType() {
+	m.match_type = nil
+}
+
+// SetTargetPlatform sets the "target_platform" field.
+func (m *CompositeModelRouteMutation) SetTargetPlatform(s string) {
+	m.target_platform = &s
+}
+
+// TargetPlatform returns the value of the "target_platform" field in the mutation.
+func (m *CompositeModelRouteMutation) TargetPlatform() (r string, exists bool) {
+	v := m.target_platform
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTargetPlatform returns the old "target_platform" field's value of the CompositeModelRoute entity.
+// If the CompositeModelRoute object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CompositeModelRouteMutation) OldTargetPlatform(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTargetPlatform is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTargetPlatform requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTargetPlatform: %w", err)
+	}
+	return oldValue.TargetPlatform, nil
+}
+
+// ResetTargetPlatform resets all changes to the "target_platform" field.
+func (m *CompositeModelRouteMutation) ResetTargetPlatform() {
+	m.target_platform = nil
+}
+
+// SetUpstreamModel sets the "upstream_model" field.
+func (m *CompositeModelRouteMutation) SetUpstreamModel(s string) {
+	m.upstream_model = &s
+}
+
+// UpstreamModel returns the value of the "upstream_model" field in the mutation.
+func (m *CompositeModelRouteMutation) UpstreamModel() (r string, exists bool) {
+	v := m.upstream_model
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpstreamModel returns the old "upstream_model" field's value of the CompositeModelRoute entity.
+// If the CompositeModelRoute object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CompositeModelRouteMutation) OldUpstreamModel(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpstreamModel is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpstreamModel requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpstreamModel: %w", err)
+	}
+	return oldValue.UpstreamModel, nil
+}
+
+// ResetUpstreamModel resets all changes to the "upstream_model" field.
+func (m *CompositeModelRouteMutation) ResetUpstreamModel() {
+	m.upstream_model = nil
+}
+
+// SetEndpoint sets the "endpoint" field.
+func (m *CompositeModelRouteMutation) SetEndpoint(s string) {
+	m.endpoint = &s
+}
+
+// Endpoint returns the value of the "endpoint" field in the mutation.
+func (m *CompositeModelRouteMutation) Endpoint() (r string, exists bool) {
+	v := m.endpoint
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEndpoint returns the old "endpoint" field's value of the CompositeModelRoute entity.
+// If the CompositeModelRoute object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CompositeModelRouteMutation) OldEndpoint(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEndpoint is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEndpoint requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEndpoint: %w", err)
+	}
+	return oldValue.Endpoint, nil
+}
+
+// ResetEndpoint resets all changes to the "endpoint" field.
+func (m *CompositeModelRouteMutation) ResetEndpoint() {
+	m.endpoint = nil
+}
+
+// SetPriority sets the "priority" field.
+func (m *CompositeModelRouteMutation) SetPriority(i int) {
+	m.priority = &i
+	m.addpriority = nil
+}
+
+// Priority returns the value of the "priority" field in the mutation.
+func (m *CompositeModelRouteMutation) Priority() (r int, exists bool) {
+	v := m.priority
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPriority returns the old "priority" field's value of the CompositeModelRoute entity.
+// If the CompositeModelRoute object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CompositeModelRouteMutation) OldPriority(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPriority is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPriority requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPriority: %w", err)
+	}
+	return oldValue.Priority, nil
+}
+
+// AddPriority adds i to the "priority" field.
+func (m *CompositeModelRouteMutation) AddPriority(i int) {
+	if m.addpriority != nil {
+		*m.addpriority += i
+	} else {
+		m.addpriority = &i
+	}
+}
+
+// AddedPriority returns the value that was added to the "priority" field in this mutation.
+func (m *CompositeModelRouteMutation) AddedPriority() (r int, exists bool) {
+	v := m.addpriority
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetPriority resets all changes to the "priority" field.
+func (m *CompositeModelRouteMutation) ResetPriority() {
+	m.priority = nil
+	m.addpriority = nil
+}
+
+// SetEnabled sets the "enabled" field.
+func (m *CompositeModelRouteMutation) SetEnabled(b bool) {
+	m.enabled = &b
+}
+
+// Enabled returns the value of the "enabled" field in the mutation.
+func (m *CompositeModelRouteMutation) Enabled() (r bool, exists bool) {
+	v := m.enabled
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEnabled returns the old "enabled" field's value of the CompositeModelRoute entity.
+// If the CompositeModelRoute object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CompositeModelRouteMutation) OldEnabled(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEnabled is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEnabled requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEnabled: %w", err)
+	}
+	return oldValue.Enabled, nil
+}
+
+// ResetEnabled resets all changes to the "enabled" field.
+func (m *CompositeModelRouteMutation) ResetEnabled() {
+	m.enabled = nil
+}
+
+// SetNotes sets the "notes" field.
+func (m *CompositeModelRouteMutation) SetNotes(s string) {
+	m.notes = &s
+}
+
+// Notes returns the value of the "notes" field in the mutation.
+func (m *CompositeModelRouteMutation) Notes() (r string, exists bool) {
+	v := m.notes
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldNotes returns the old "notes" field's value of the CompositeModelRoute entity.
+// If the CompositeModelRoute object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CompositeModelRouteMutation) OldNotes(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldNotes is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldNotes requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldNotes: %w", err)
+	}
+	return oldValue.Notes, nil
+}
+
+// ClearNotes clears the value of the "notes" field.
+func (m *CompositeModelRouteMutation) ClearNotes() {
+	m.notes = nil
+	m.clearedFields[compositemodelroute.FieldNotes] = struct{}{}
+}
+
+// NotesCleared returns if the "notes" field was cleared in this mutation.
+func (m *CompositeModelRouteMutation) NotesCleared() bool {
+	_, ok := m.clearedFields[compositemodelroute.FieldNotes]
+	return ok
+}
+
+// ResetNotes resets all changes to the "notes" field.
+func (m *CompositeModelRouteMutation) ResetNotes() {
+	m.notes = nil
+	delete(m.clearedFields, compositemodelroute.FieldNotes)
+}
+
+// ClearGroup clears the "group" edge to the Group entity.
+func (m *CompositeModelRouteMutation) ClearGroup() {
+	m.clearedgroup = true
+	m.clearedFields[compositemodelroute.FieldGroupID] = struct{}{}
+}
+
+// GroupCleared reports if the "group" edge to the Group entity was cleared.
+func (m *CompositeModelRouteMutation) GroupCleared() bool {
+	return m.clearedgroup
+}
+
+// GroupIDs returns the "group" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// GroupID instead. It exists only for internal usage by the builders.
+func (m *CompositeModelRouteMutation) GroupIDs() (ids []int64) {
+	if id := m.group; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetGroup resets all changes to the "group" edge.
+func (m *CompositeModelRouteMutation) ResetGroup() {
+	m.group = nil
+	m.clearedgroup = false
+}
+
+// Where appends a list predicates to the CompositeModelRouteMutation builder.
+func (m *CompositeModelRouteMutation) Where(ps ...predicate.CompositeModelRoute) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the CompositeModelRouteMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *CompositeModelRouteMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.CompositeModelRoute, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *CompositeModelRouteMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *CompositeModelRouteMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (CompositeModelRoute).
+func (m *CompositeModelRouteMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *CompositeModelRouteMutation) Fields() []string {
+	fields := make([]string, 0, 12)
+	if m.created_at != nil {
+		fields = append(fields, compositemodelroute.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, compositemodelroute.FieldUpdatedAt)
+	}
+	if m.deleted_at != nil {
+		fields = append(fields, compositemodelroute.FieldDeletedAt)
+	}
+	if m.group != nil {
+		fields = append(fields, compositemodelroute.FieldGroupID)
+	}
+	if m.public_model != nil {
+		fields = append(fields, compositemodelroute.FieldPublicModel)
+	}
+	if m.match_type != nil {
+		fields = append(fields, compositemodelroute.FieldMatchType)
+	}
+	if m.target_platform != nil {
+		fields = append(fields, compositemodelroute.FieldTargetPlatform)
+	}
+	if m.upstream_model != nil {
+		fields = append(fields, compositemodelroute.FieldUpstreamModel)
+	}
+	if m.endpoint != nil {
+		fields = append(fields, compositemodelroute.FieldEndpoint)
+	}
+	if m.priority != nil {
+		fields = append(fields, compositemodelroute.FieldPriority)
+	}
+	if m.enabled != nil {
+		fields = append(fields, compositemodelroute.FieldEnabled)
+	}
+	if m.notes != nil {
+		fields = append(fields, compositemodelroute.FieldNotes)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *CompositeModelRouteMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case compositemodelroute.FieldCreatedAt:
+		return m.CreatedAt()
+	case compositemodelroute.FieldUpdatedAt:
+		return m.UpdatedAt()
+	case compositemodelroute.FieldDeletedAt:
+		return m.DeletedAt()
+	case compositemodelroute.FieldGroupID:
+		return m.GroupID()
+	case compositemodelroute.FieldPublicModel:
+		return m.PublicModel()
+	case compositemodelroute.FieldMatchType:
+		return m.MatchType()
+	case compositemodelroute.FieldTargetPlatform:
+		return m.TargetPlatform()
+	case compositemodelroute.FieldUpstreamModel:
+		return m.UpstreamModel()
+	case compositemodelroute.FieldEndpoint:
+		return m.Endpoint()
+	case compositemodelroute.FieldPriority:
+		return m.Priority()
+	case compositemodelroute.FieldEnabled:
+		return m.Enabled()
+	case compositemodelroute.FieldNotes:
+		return m.Notes()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *CompositeModelRouteMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case compositemodelroute.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case compositemodelroute.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	case compositemodelroute.FieldDeletedAt:
+		return m.OldDeletedAt(ctx)
+	case compositemodelroute.FieldGroupID:
+		return m.OldGroupID(ctx)
+	case compositemodelroute.FieldPublicModel:
+		return m.OldPublicModel(ctx)
+	case compositemodelroute.FieldMatchType:
+		return m.OldMatchType(ctx)
+	case compositemodelroute.FieldTargetPlatform:
+		return m.OldTargetPlatform(ctx)
+	case compositemodelroute.FieldUpstreamModel:
+		return m.OldUpstreamModel(ctx)
+	case compositemodelroute.FieldEndpoint:
+		return m.OldEndpoint(ctx)
+	case compositemodelroute.FieldPriority:
+		return m.OldPriority(ctx)
+	case compositemodelroute.FieldEnabled:
+		return m.OldEnabled(ctx)
+	case compositemodelroute.FieldNotes:
+		return m.OldNotes(ctx)
+	}
+	return nil, fmt.Errorf("unknown CompositeModelRoute field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *CompositeModelRouteMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case compositemodelroute.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case compositemodelroute.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	case compositemodelroute.FieldDeletedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDeletedAt(v)
+		return nil
+	case compositemodelroute.FieldGroupID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetGroupID(v)
+		return nil
+	case compositemodelroute.FieldPublicModel:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPublicModel(v)
+		return nil
+	case compositemodelroute.FieldMatchType:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetMatchType(v)
+		return nil
+	case compositemodelroute.FieldTargetPlatform:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTargetPlatform(v)
+		return nil
+	case compositemodelroute.FieldUpstreamModel:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpstreamModel(v)
+		return nil
+	case compositemodelroute.FieldEndpoint:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEndpoint(v)
+		return nil
+	case compositemodelroute.FieldPriority:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPriority(v)
+		return nil
+	case compositemodelroute.FieldEnabled:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEnabled(v)
+		return nil
+	case compositemodelroute.FieldNotes:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetNotes(v)
+		return nil
+	}
+	return fmt.Errorf("unknown CompositeModelRoute field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *CompositeModelRouteMutation) AddedFields() []string {
+	var fields []string
+	if m.addpriority != nil {
+		fields = append(fields, compositemodelroute.FieldPriority)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *CompositeModelRouteMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case compositemodelroute.FieldPriority:
+		return m.AddedPriority()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *CompositeModelRouteMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case compositemodelroute.FieldPriority:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddPriority(v)
+		return nil
+	}
+	return fmt.Errorf("unknown CompositeModelRoute numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *CompositeModelRouteMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(compositemodelroute.FieldDeletedAt) {
+		fields = append(fields, compositemodelroute.FieldDeletedAt)
+	}
+	if m.FieldCleared(compositemodelroute.FieldNotes) {
+		fields = append(fields, compositemodelroute.FieldNotes)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *CompositeModelRouteMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *CompositeModelRouteMutation) ClearField(name string) error {
+	switch name {
+	case compositemodelroute.FieldDeletedAt:
+		m.ClearDeletedAt()
+		return nil
+	case compositemodelroute.FieldNotes:
+		m.ClearNotes()
+		return nil
+	}
+	return fmt.Errorf("unknown CompositeModelRoute nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *CompositeModelRouteMutation) ResetField(name string) error {
+	switch name {
+	case compositemodelroute.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case compositemodelroute.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	case compositemodelroute.FieldDeletedAt:
+		m.ResetDeletedAt()
+		return nil
+	case compositemodelroute.FieldGroupID:
+		m.ResetGroupID()
+		return nil
+	case compositemodelroute.FieldPublicModel:
+		m.ResetPublicModel()
+		return nil
+	case compositemodelroute.FieldMatchType:
+		m.ResetMatchType()
+		return nil
+	case compositemodelroute.FieldTargetPlatform:
+		m.ResetTargetPlatform()
+		return nil
+	case compositemodelroute.FieldUpstreamModel:
+		m.ResetUpstreamModel()
+		return nil
+	case compositemodelroute.FieldEndpoint:
+		m.ResetEndpoint()
+		return nil
+	case compositemodelroute.FieldPriority:
+		m.ResetPriority()
+		return nil
+	case compositemodelroute.FieldEnabled:
+		m.ResetEnabled()
+		return nil
+	case compositemodelroute.FieldNotes:
+		m.ResetNotes()
+		return nil
+	}
+	return fmt.Errorf("unknown CompositeModelRoute field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *CompositeModelRouteMutation) AddedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.group != nil {
+		edges = append(edges, compositemodelroute.EdgeGroup)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *CompositeModelRouteMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case compositemodelroute.EdgeGroup:
+		if id := m.group; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *CompositeModelRouteMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 1)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *CompositeModelRouteMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *CompositeModelRouteMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.clearedgroup {
+		edges = append(edges, compositemodelroute.EdgeGroup)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *CompositeModelRouteMutation) EdgeCleared(name string) bool {
+	switch name {
+	case compositemodelroute.EdgeGroup:
+		return m.clearedgroup
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *CompositeModelRouteMutation) ClearEdge(name string) error {
+	switch name {
+	case compositemodelroute.EdgeGroup:
+		m.ClearGroup()
+		return nil
+	}
+	return fmt.Errorf("unknown CompositeModelRoute unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *CompositeModelRouteMutation) ResetEdge(name string) error {
+	switch name {
+	case compositemodelroute.EdgeGroup:
+		m.ResetGroup()
+		return nil
+	}
+	return fmt.Errorf("unknown CompositeModelRoute edge %s", name)
 }
 
 // ConversationBranchMutation represents an operation that mutates the ConversationBranch nodes in the graph.
@@ -58711,6 +59770,3455 @@ func (m *UserMutation) ResetEdge(name string) error {
 		return nil
 	}
 	return fmt.Errorf("unknown User edge %s", name)
+}
+
+// UserAffiliateAdminAuditMutation represents an operation that mutates the UserAffiliateAdminAudit nodes in the graph.
+type UserAffiliateAdminAuditMutation struct {
+	config
+	op                  Op
+	typ                 string
+	id                  *int64
+	operator_user_id    *int64
+	addoperator_user_id *int64
+	target_user_id      *int64
+	addtarget_user_id   *int64
+	withdrawal_id       *int64
+	addwithdrawal_id    *int64
+	action              *string
+	idempotency_key     *string
+	detail              *string
+	created_at          *time.Time
+	clearedFields       map[string]struct{}
+	done                bool
+	oldValue            func(context.Context) (*UserAffiliateAdminAudit, error)
+	predicates          []predicate.UserAffiliateAdminAudit
+}
+
+var _ ent.Mutation = (*UserAffiliateAdminAuditMutation)(nil)
+
+// useraffiliateadminauditOption allows management of the mutation configuration using functional options.
+type useraffiliateadminauditOption func(*UserAffiliateAdminAuditMutation)
+
+// newUserAffiliateAdminAuditMutation creates new mutation for the UserAffiliateAdminAudit entity.
+func newUserAffiliateAdminAuditMutation(c config, op Op, opts ...useraffiliateadminauditOption) *UserAffiliateAdminAuditMutation {
+	m := &UserAffiliateAdminAuditMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeUserAffiliateAdminAudit,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withUserAffiliateAdminAuditID sets the ID field of the mutation.
+func withUserAffiliateAdminAuditID(id int64) useraffiliateadminauditOption {
+	return func(m *UserAffiliateAdminAuditMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *UserAffiliateAdminAudit
+		)
+		m.oldValue = func(ctx context.Context) (*UserAffiliateAdminAudit, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().UserAffiliateAdminAudit.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withUserAffiliateAdminAudit sets the old UserAffiliateAdminAudit of the mutation.
+func withUserAffiliateAdminAudit(node *UserAffiliateAdminAudit) useraffiliateadminauditOption {
+	return func(m *UserAffiliateAdminAuditMutation) {
+		m.oldValue = func(context.Context) (*UserAffiliateAdminAudit, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m UserAffiliateAdminAuditMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m UserAffiliateAdminAuditMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *UserAffiliateAdminAuditMutation) ID() (id int64, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *UserAffiliateAdminAuditMutation) IDs(ctx context.Context) ([]int64, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int64{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().UserAffiliateAdminAudit.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetOperatorUserID sets the "operator_user_id" field.
+func (m *UserAffiliateAdminAuditMutation) SetOperatorUserID(i int64) {
+	m.operator_user_id = &i
+	m.addoperator_user_id = nil
+}
+
+// OperatorUserID returns the value of the "operator_user_id" field in the mutation.
+func (m *UserAffiliateAdminAuditMutation) OperatorUserID() (r int64, exists bool) {
+	v := m.operator_user_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldOperatorUserID returns the old "operator_user_id" field's value of the UserAffiliateAdminAudit entity.
+// If the UserAffiliateAdminAudit object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserAffiliateAdminAuditMutation) OldOperatorUserID(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldOperatorUserID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldOperatorUserID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldOperatorUserID: %w", err)
+	}
+	return oldValue.OperatorUserID, nil
+}
+
+// AddOperatorUserID adds i to the "operator_user_id" field.
+func (m *UserAffiliateAdminAuditMutation) AddOperatorUserID(i int64) {
+	if m.addoperator_user_id != nil {
+		*m.addoperator_user_id += i
+	} else {
+		m.addoperator_user_id = &i
+	}
+}
+
+// AddedOperatorUserID returns the value that was added to the "operator_user_id" field in this mutation.
+func (m *UserAffiliateAdminAuditMutation) AddedOperatorUserID() (r int64, exists bool) {
+	v := m.addoperator_user_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetOperatorUserID resets all changes to the "operator_user_id" field.
+func (m *UserAffiliateAdminAuditMutation) ResetOperatorUserID() {
+	m.operator_user_id = nil
+	m.addoperator_user_id = nil
+}
+
+// SetTargetUserID sets the "target_user_id" field.
+func (m *UserAffiliateAdminAuditMutation) SetTargetUserID(i int64) {
+	m.target_user_id = &i
+	m.addtarget_user_id = nil
+}
+
+// TargetUserID returns the value of the "target_user_id" field in the mutation.
+func (m *UserAffiliateAdminAuditMutation) TargetUserID() (r int64, exists bool) {
+	v := m.target_user_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTargetUserID returns the old "target_user_id" field's value of the UserAffiliateAdminAudit entity.
+// If the UserAffiliateAdminAudit object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserAffiliateAdminAuditMutation) OldTargetUserID(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTargetUserID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTargetUserID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTargetUserID: %w", err)
+	}
+	return oldValue.TargetUserID, nil
+}
+
+// AddTargetUserID adds i to the "target_user_id" field.
+func (m *UserAffiliateAdminAuditMutation) AddTargetUserID(i int64) {
+	if m.addtarget_user_id != nil {
+		*m.addtarget_user_id += i
+	} else {
+		m.addtarget_user_id = &i
+	}
+}
+
+// AddedTargetUserID returns the value that was added to the "target_user_id" field in this mutation.
+func (m *UserAffiliateAdminAuditMutation) AddedTargetUserID() (r int64, exists bool) {
+	v := m.addtarget_user_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearTargetUserID clears the value of the "target_user_id" field.
+func (m *UserAffiliateAdminAuditMutation) ClearTargetUserID() {
+	m.target_user_id = nil
+	m.addtarget_user_id = nil
+	m.clearedFields[useraffiliateadminaudit.FieldTargetUserID] = struct{}{}
+}
+
+// TargetUserIDCleared returns if the "target_user_id" field was cleared in this mutation.
+func (m *UserAffiliateAdminAuditMutation) TargetUserIDCleared() bool {
+	_, ok := m.clearedFields[useraffiliateadminaudit.FieldTargetUserID]
+	return ok
+}
+
+// ResetTargetUserID resets all changes to the "target_user_id" field.
+func (m *UserAffiliateAdminAuditMutation) ResetTargetUserID() {
+	m.target_user_id = nil
+	m.addtarget_user_id = nil
+	delete(m.clearedFields, useraffiliateadminaudit.FieldTargetUserID)
+}
+
+// SetWithdrawalID sets the "withdrawal_id" field.
+func (m *UserAffiliateAdminAuditMutation) SetWithdrawalID(i int64) {
+	m.withdrawal_id = &i
+	m.addwithdrawal_id = nil
+}
+
+// WithdrawalID returns the value of the "withdrawal_id" field in the mutation.
+func (m *UserAffiliateAdminAuditMutation) WithdrawalID() (r int64, exists bool) {
+	v := m.withdrawal_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldWithdrawalID returns the old "withdrawal_id" field's value of the UserAffiliateAdminAudit entity.
+// If the UserAffiliateAdminAudit object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserAffiliateAdminAuditMutation) OldWithdrawalID(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldWithdrawalID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldWithdrawalID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldWithdrawalID: %w", err)
+	}
+	return oldValue.WithdrawalID, nil
+}
+
+// AddWithdrawalID adds i to the "withdrawal_id" field.
+func (m *UserAffiliateAdminAuditMutation) AddWithdrawalID(i int64) {
+	if m.addwithdrawal_id != nil {
+		*m.addwithdrawal_id += i
+	} else {
+		m.addwithdrawal_id = &i
+	}
+}
+
+// AddedWithdrawalID returns the value that was added to the "withdrawal_id" field in this mutation.
+func (m *UserAffiliateAdminAuditMutation) AddedWithdrawalID() (r int64, exists bool) {
+	v := m.addwithdrawal_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearWithdrawalID clears the value of the "withdrawal_id" field.
+func (m *UserAffiliateAdminAuditMutation) ClearWithdrawalID() {
+	m.withdrawal_id = nil
+	m.addwithdrawal_id = nil
+	m.clearedFields[useraffiliateadminaudit.FieldWithdrawalID] = struct{}{}
+}
+
+// WithdrawalIDCleared returns if the "withdrawal_id" field was cleared in this mutation.
+func (m *UserAffiliateAdminAuditMutation) WithdrawalIDCleared() bool {
+	_, ok := m.clearedFields[useraffiliateadminaudit.FieldWithdrawalID]
+	return ok
+}
+
+// ResetWithdrawalID resets all changes to the "withdrawal_id" field.
+func (m *UserAffiliateAdminAuditMutation) ResetWithdrawalID() {
+	m.withdrawal_id = nil
+	m.addwithdrawal_id = nil
+	delete(m.clearedFields, useraffiliateadminaudit.FieldWithdrawalID)
+}
+
+// SetAction sets the "action" field.
+func (m *UserAffiliateAdminAuditMutation) SetAction(s string) {
+	m.action = &s
+}
+
+// Action returns the value of the "action" field in the mutation.
+func (m *UserAffiliateAdminAuditMutation) Action() (r string, exists bool) {
+	v := m.action
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAction returns the old "action" field's value of the UserAffiliateAdminAudit entity.
+// If the UserAffiliateAdminAudit object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserAffiliateAdminAuditMutation) OldAction(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAction is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAction requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAction: %w", err)
+	}
+	return oldValue.Action, nil
+}
+
+// ResetAction resets all changes to the "action" field.
+func (m *UserAffiliateAdminAuditMutation) ResetAction() {
+	m.action = nil
+}
+
+// SetIdempotencyKey sets the "idempotency_key" field.
+func (m *UserAffiliateAdminAuditMutation) SetIdempotencyKey(s string) {
+	m.idempotency_key = &s
+}
+
+// IdempotencyKey returns the value of the "idempotency_key" field in the mutation.
+func (m *UserAffiliateAdminAuditMutation) IdempotencyKey() (r string, exists bool) {
+	v := m.idempotency_key
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldIdempotencyKey returns the old "idempotency_key" field's value of the UserAffiliateAdminAudit entity.
+// If the UserAffiliateAdminAudit object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserAffiliateAdminAuditMutation) OldIdempotencyKey(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldIdempotencyKey is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldIdempotencyKey requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldIdempotencyKey: %w", err)
+	}
+	return oldValue.IdempotencyKey, nil
+}
+
+// ClearIdempotencyKey clears the value of the "idempotency_key" field.
+func (m *UserAffiliateAdminAuditMutation) ClearIdempotencyKey() {
+	m.idempotency_key = nil
+	m.clearedFields[useraffiliateadminaudit.FieldIdempotencyKey] = struct{}{}
+}
+
+// IdempotencyKeyCleared returns if the "idempotency_key" field was cleared in this mutation.
+func (m *UserAffiliateAdminAuditMutation) IdempotencyKeyCleared() bool {
+	_, ok := m.clearedFields[useraffiliateadminaudit.FieldIdempotencyKey]
+	return ok
+}
+
+// ResetIdempotencyKey resets all changes to the "idempotency_key" field.
+func (m *UserAffiliateAdminAuditMutation) ResetIdempotencyKey() {
+	m.idempotency_key = nil
+	delete(m.clearedFields, useraffiliateadminaudit.FieldIdempotencyKey)
+}
+
+// SetDetail sets the "detail" field.
+func (m *UserAffiliateAdminAuditMutation) SetDetail(s string) {
+	m.detail = &s
+}
+
+// Detail returns the value of the "detail" field in the mutation.
+func (m *UserAffiliateAdminAuditMutation) Detail() (r string, exists bool) {
+	v := m.detail
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDetail returns the old "detail" field's value of the UserAffiliateAdminAudit entity.
+// If the UserAffiliateAdminAudit object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserAffiliateAdminAuditMutation) OldDetail(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDetail is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDetail requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDetail: %w", err)
+	}
+	return oldValue.Detail, nil
+}
+
+// ResetDetail resets all changes to the "detail" field.
+func (m *UserAffiliateAdminAuditMutation) ResetDetail() {
+	m.detail = nil
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *UserAffiliateAdminAuditMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *UserAffiliateAdminAuditMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the UserAffiliateAdminAudit entity.
+// If the UserAffiliateAdminAudit object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserAffiliateAdminAuditMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *UserAffiliateAdminAuditMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// Where appends a list predicates to the UserAffiliateAdminAuditMutation builder.
+func (m *UserAffiliateAdminAuditMutation) Where(ps ...predicate.UserAffiliateAdminAudit) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the UserAffiliateAdminAuditMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *UserAffiliateAdminAuditMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.UserAffiliateAdminAudit, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *UserAffiliateAdminAuditMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *UserAffiliateAdminAuditMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (UserAffiliateAdminAudit).
+func (m *UserAffiliateAdminAuditMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *UserAffiliateAdminAuditMutation) Fields() []string {
+	fields := make([]string, 0, 7)
+	if m.operator_user_id != nil {
+		fields = append(fields, useraffiliateadminaudit.FieldOperatorUserID)
+	}
+	if m.target_user_id != nil {
+		fields = append(fields, useraffiliateadminaudit.FieldTargetUserID)
+	}
+	if m.withdrawal_id != nil {
+		fields = append(fields, useraffiliateadminaudit.FieldWithdrawalID)
+	}
+	if m.action != nil {
+		fields = append(fields, useraffiliateadminaudit.FieldAction)
+	}
+	if m.idempotency_key != nil {
+		fields = append(fields, useraffiliateadminaudit.FieldIdempotencyKey)
+	}
+	if m.detail != nil {
+		fields = append(fields, useraffiliateadminaudit.FieldDetail)
+	}
+	if m.created_at != nil {
+		fields = append(fields, useraffiliateadminaudit.FieldCreatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *UserAffiliateAdminAuditMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case useraffiliateadminaudit.FieldOperatorUserID:
+		return m.OperatorUserID()
+	case useraffiliateadminaudit.FieldTargetUserID:
+		return m.TargetUserID()
+	case useraffiliateadminaudit.FieldWithdrawalID:
+		return m.WithdrawalID()
+	case useraffiliateadminaudit.FieldAction:
+		return m.Action()
+	case useraffiliateadminaudit.FieldIdempotencyKey:
+		return m.IdempotencyKey()
+	case useraffiliateadminaudit.FieldDetail:
+		return m.Detail()
+	case useraffiliateadminaudit.FieldCreatedAt:
+		return m.CreatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *UserAffiliateAdminAuditMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case useraffiliateadminaudit.FieldOperatorUserID:
+		return m.OldOperatorUserID(ctx)
+	case useraffiliateadminaudit.FieldTargetUserID:
+		return m.OldTargetUserID(ctx)
+	case useraffiliateadminaudit.FieldWithdrawalID:
+		return m.OldWithdrawalID(ctx)
+	case useraffiliateadminaudit.FieldAction:
+		return m.OldAction(ctx)
+	case useraffiliateadminaudit.FieldIdempotencyKey:
+		return m.OldIdempotencyKey(ctx)
+	case useraffiliateadminaudit.FieldDetail:
+		return m.OldDetail(ctx)
+	case useraffiliateadminaudit.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown UserAffiliateAdminAudit field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *UserAffiliateAdminAuditMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case useraffiliateadminaudit.FieldOperatorUserID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetOperatorUserID(v)
+		return nil
+	case useraffiliateadminaudit.FieldTargetUserID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTargetUserID(v)
+		return nil
+	case useraffiliateadminaudit.FieldWithdrawalID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetWithdrawalID(v)
+		return nil
+	case useraffiliateadminaudit.FieldAction:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAction(v)
+		return nil
+	case useraffiliateadminaudit.FieldIdempotencyKey:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetIdempotencyKey(v)
+		return nil
+	case useraffiliateadminaudit.FieldDetail:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDetail(v)
+		return nil
+	case useraffiliateadminaudit.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown UserAffiliateAdminAudit field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *UserAffiliateAdminAuditMutation) AddedFields() []string {
+	var fields []string
+	if m.addoperator_user_id != nil {
+		fields = append(fields, useraffiliateadminaudit.FieldOperatorUserID)
+	}
+	if m.addtarget_user_id != nil {
+		fields = append(fields, useraffiliateadminaudit.FieldTargetUserID)
+	}
+	if m.addwithdrawal_id != nil {
+		fields = append(fields, useraffiliateadminaudit.FieldWithdrawalID)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *UserAffiliateAdminAuditMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case useraffiliateadminaudit.FieldOperatorUserID:
+		return m.AddedOperatorUserID()
+	case useraffiliateadminaudit.FieldTargetUserID:
+		return m.AddedTargetUserID()
+	case useraffiliateadminaudit.FieldWithdrawalID:
+		return m.AddedWithdrawalID()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *UserAffiliateAdminAuditMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case useraffiliateadminaudit.FieldOperatorUserID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddOperatorUserID(v)
+		return nil
+	case useraffiliateadminaudit.FieldTargetUserID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddTargetUserID(v)
+		return nil
+	case useraffiliateadminaudit.FieldWithdrawalID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddWithdrawalID(v)
+		return nil
+	}
+	return fmt.Errorf("unknown UserAffiliateAdminAudit numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *UserAffiliateAdminAuditMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(useraffiliateadminaudit.FieldTargetUserID) {
+		fields = append(fields, useraffiliateadminaudit.FieldTargetUserID)
+	}
+	if m.FieldCleared(useraffiliateadminaudit.FieldWithdrawalID) {
+		fields = append(fields, useraffiliateadminaudit.FieldWithdrawalID)
+	}
+	if m.FieldCleared(useraffiliateadminaudit.FieldIdempotencyKey) {
+		fields = append(fields, useraffiliateadminaudit.FieldIdempotencyKey)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *UserAffiliateAdminAuditMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *UserAffiliateAdminAuditMutation) ClearField(name string) error {
+	switch name {
+	case useraffiliateadminaudit.FieldTargetUserID:
+		m.ClearTargetUserID()
+		return nil
+	case useraffiliateadminaudit.FieldWithdrawalID:
+		m.ClearWithdrawalID()
+		return nil
+	case useraffiliateadminaudit.FieldIdempotencyKey:
+		m.ClearIdempotencyKey()
+		return nil
+	}
+	return fmt.Errorf("unknown UserAffiliateAdminAudit nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *UserAffiliateAdminAuditMutation) ResetField(name string) error {
+	switch name {
+	case useraffiliateadminaudit.FieldOperatorUserID:
+		m.ResetOperatorUserID()
+		return nil
+	case useraffiliateadminaudit.FieldTargetUserID:
+		m.ResetTargetUserID()
+		return nil
+	case useraffiliateadminaudit.FieldWithdrawalID:
+		m.ResetWithdrawalID()
+		return nil
+	case useraffiliateadminaudit.FieldAction:
+		m.ResetAction()
+		return nil
+	case useraffiliateadminaudit.FieldIdempotencyKey:
+		m.ResetIdempotencyKey()
+		return nil
+	case useraffiliateadminaudit.FieldDetail:
+		m.ResetDetail()
+		return nil
+	case useraffiliateadminaudit.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown UserAffiliateAdminAudit field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *UserAffiliateAdminAuditMutation) AddedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *UserAffiliateAdminAuditMutation) AddedIDs(name string) []ent.Value {
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *UserAffiliateAdminAuditMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *UserAffiliateAdminAuditMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *UserAffiliateAdminAuditMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *UserAffiliateAdminAuditMutation) EdgeCleared(name string) bool {
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *UserAffiliateAdminAuditMutation) ClearEdge(name string) error {
+	return fmt.Errorf("unknown UserAffiliateAdminAudit unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *UserAffiliateAdminAuditMutation) ResetEdge(name string) error {
+	return fmt.Errorf("unknown UserAffiliateAdminAudit edge %s", name)
+}
+
+// UserAffiliatePaymentAccountMutation represents an operation that mutates the UserAffiliatePaymentAccount nodes in the graph.
+type UserAffiliatePaymentAccountMutation struct {
+	config
+	op                Op
+	typ               string
+	id                *int64
+	created_at        *time.Time
+	updated_at        *time.Time
+	user_id           *int64
+	adduser_id        *int64
+	_type             *string
+	details_encrypted *string
+	masked_summary    *string
+	is_default        *bool
+	clearedFields     map[string]struct{}
+	done              bool
+	oldValue          func(context.Context) (*UserAffiliatePaymentAccount, error)
+	predicates        []predicate.UserAffiliatePaymentAccount
+}
+
+var _ ent.Mutation = (*UserAffiliatePaymentAccountMutation)(nil)
+
+// useraffiliatepaymentaccountOption allows management of the mutation configuration using functional options.
+type useraffiliatepaymentaccountOption func(*UserAffiliatePaymentAccountMutation)
+
+// newUserAffiliatePaymentAccountMutation creates new mutation for the UserAffiliatePaymentAccount entity.
+func newUserAffiliatePaymentAccountMutation(c config, op Op, opts ...useraffiliatepaymentaccountOption) *UserAffiliatePaymentAccountMutation {
+	m := &UserAffiliatePaymentAccountMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeUserAffiliatePaymentAccount,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withUserAffiliatePaymentAccountID sets the ID field of the mutation.
+func withUserAffiliatePaymentAccountID(id int64) useraffiliatepaymentaccountOption {
+	return func(m *UserAffiliatePaymentAccountMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *UserAffiliatePaymentAccount
+		)
+		m.oldValue = func(ctx context.Context) (*UserAffiliatePaymentAccount, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().UserAffiliatePaymentAccount.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withUserAffiliatePaymentAccount sets the old UserAffiliatePaymentAccount of the mutation.
+func withUserAffiliatePaymentAccount(node *UserAffiliatePaymentAccount) useraffiliatepaymentaccountOption {
+	return func(m *UserAffiliatePaymentAccountMutation) {
+		m.oldValue = func(context.Context) (*UserAffiliatePaymentAccount, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m UserAffiliatePaymentAccountMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m UserAffiliatePaymentAccountMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *UserAffiliatePaymentAccountMutation) ID() (id int64, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *UserAffiliatePaymentAccountMutation) IDs(ctx context.Context) ([]int64, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int64{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().UserAffiliatePaymentAccount.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *UserAffiliatePaymentAccountMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *UserAffiliatePaymentAccountMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the UserAffiliatePaymentAccount entity.
+// If the UserAffiliatePaymentAccount object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserAffiliatePaymentAccountMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *UserAffiliatePaymentAccountMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *UserAffiliatePaymentAccountMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *UserAffiliatePaymentAccountMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the UserAffiliatePaymentAccount entity.
+// If the UserAffiliatePaymentAccount object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserAffiliatePaymentAccountMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *UserAffiliatePaymentAccountMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// SetUserID sets the "user_id" field.
+func (m *UserAffiliatePaymentAccountMutation) SetUserID(i int64) {
+	m.user_id = &i
+	m.adduser_id = nil
+}
+
+// UserID returns the value of the "user_id" field in the mutation.
+func (m *UserAffiliatePaymentAccountMutation) UserID() (r int64, exists bool) {
+	v := m.user_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUserID returns the old "user_id" field's value of the UserAffiliatePaymentAccount entity.
+// If the UserAffiliatePaymentAccount object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserAffiliatePaymentAccountMutation) OldUserID(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUserID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUserID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUserID: %w", err)
+	}
+	return oldValue.UserID, nil
+}
+
+// AddUserID adds i to the "user_id" field.
+func (m *UserAffiliatePaymentAccountMutation) AddUserID(i int64) {
+	if m.adduser_id != nil {
+		*m.adduser_id += i
+	} else {
+		m.adduser_id = &i
+	}
+}
+
+// AddedUserID returns the value that was added to the "user_id" field in this mutation.
+func (m *UserAffiliatePaymentAccountMutation) AddedUserID() (r int64, exists bool) {
+	v := m.adduser_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetUserID resets all changes to the "user_id" field.
+func (m *UserAffiliatePaymentAccountMutation) ResetUserID() {
+	m.user_id = nil
+	m.adduser_id = nil
+}
+
+// SetType sets the "type" field.
+func (m *UserAffiliatePaymentAccountMutation) SetType(s string) {
+	m._type = &s
+}
+
+// GetType returns the value of the "type" field in the mutation.
+func (m *UserAffiliatePaymentAccountMutation) GetType() (r string, exists bool) {
+	v := m._type
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldType returns the old "type" field's value of the UserAffiliatePaymentAccount entity.
+// If the UserAffiliatePaymentAccount object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserAffiliatePaymentAccountMutation) OldType(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldType is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldType requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldType: %w", err)
+	}
+	return oldValue.Type, nil
+}
+
+// ResetType resets all changes to the "type" field.
+func (m *UserAffiliatePaymentAccountMutation) ResetType() {
+	m._type = nil
+}
+
+// SetDetailsEncrypted sets the "details_encrypted" field.
+func (m *UserAffiliatePaymentAccountMutation) SetDetailsEncrypted(s string) {
+	m.details_encrypted = &s
+}
+
+// DetailsEncrypted returns the value of the "details_encrypted" field in the mutation.
+func (m *UserAffiliatePaymentAccountMutation) DetailsEncrypted() (r string, exists bool) {
+	v := m.details_encrypted
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDetailsEncrypted returns the old "details_encrypted" field's value of the UserAffiliatePaymentAccount entity.
+// If the UserAffiliatePaymentAccount object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserAffiliatePaymentAccountMutation) OldDetailsEncrypted(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDetailsEncrypted is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDetailsEncrypted requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDetailsEncrypted: %w", err)
+	}
+	return oldValue.DetailsEncrypted, nil
+}
+
+// ResetDetailsEncrypted resets all changes to the "details_encrypted" field.
+func (m *UserAffiliatePaymentAccountMutation) ResetDetailsEncrypted() {
+	m.details_encrypted = nil
+}
+
+// SetMaskedSummary sets the "masked_summary" field.
+func (m *UserAffiliatePaymentAccountMutation) SetMaskedSummary(s string) {
+	m.masked_summary = &s
+}
+
+// MaskedSummary returns the value of the "masked_summary" field in the mutation.
+func (m *UserAffiliatePaymentAccountMutation) MaskedSummary() (r string, exists bool) {
+	v := m.masked_summary
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldMaskedSummary returns the old "masked_summary" field's value of the UserAffiliatePaymentAccount entity.
+// If the UserAffiliatePaymentAccount object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserAffiliatePaymentAccountMutation) OldMaskedSummary(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldMaskedSummary is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldMaskedSummary requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldMaskedSummary: %w", err)
+	}
+	return oldValue.MaskedSummary, nil
+}
+
+// ResetMaskedSummary resets all changes to the "masked_summary" field.
+func (m *UserAffiliatePaymentAccountMutation) ResetMaskedSummary() {
+	m.masked_summary = nil
+}
+
+// SetIsDefault sets the "is_default" field.
+func (m *UserAffiliatePaymentAccountMutation) SetIsDefault(b bool) {
+	m.is_default = &b
+}
+
+// IsDefault returns the value of the "is_default" field in the mutation.
+func (m *UserAffiliatePaymentAccountMutation) IsDefault() (r bool, exists bool) {
+	v := m.is_default
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldIsDefault returns the old "is_default" field's value of the UserAffiliatePaymentAccount entity.
+// If the UserAffiliatePaymentAccount object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserAffiliatePaymentAccountMutation) OldIsDefault(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldIsDefault is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldIsDefault requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldIsDefault: %w", err)
+	}
+	return oldValue.IsDefault, nil
+}
+
+// ResetIsDefault resets all changes to the "is_default" field.
+func (m *UserAffiliatePaymentAccountMutation) ResetIsDefault() {
+	m.is_default = nil
+}
+
+// Where appends a list predicates to the UserAffiliatePaymentAccountMutation builder.
+func (m *UserAffiliatePaymentAccountMutation) Where(ps ...predicate.UserAffiliatePaymentAccount) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the UserAffiliatePaymentAccountMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *UserAffiliatePaymentAccountMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.UserAffiliatePaymentAccount, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *UserAffiliatePaymentAccountMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *UserAffiliatePaymentAccountMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (UserAffiliatePaymentAccount).
+func (m *UserAffiliatePaymentAccountMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *UserAffiliatePaymentAccountMutation) Fields() []string {
+	fields := make([]string, 0, 7)
+	if m.created_at != nil {
+		fields = append(fields, useraffiliatepaymentaccount.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, useraffiliatepaymentaccount.FieldUpdatedAt)
+	}
+	if m.user_id != nil {
+		fields = append(fields, useraffiliatepaymentaccount.FieldUserID)
+	}
+	if m._type != nil {
+		fields = append(fields, useraffiliatepaymentaccount.FieldType)
+	}
+	if m.details_encrypted != nil {
+		fields = append(fields, useraffiliatepaymentaccount.FieldDetailsEncrypted)
+	}
+	if m.masked_summary != nil {
+		fields = append(fields, useraffiliatepaymentaccount.FieldMaskedSummary)
+	}
+	if m.is_default != nil {
+		fields = append(fields, useraffiliatepaymentaccount.FieldIsDefault)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *UserAffiliatePaymentAccountMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case useraffiliatepaymentaccount.FieldCreatedAt:
+		return m.CreatedAt()
+	case useraffiliatepaymentaccount.FieldUpdatedAt:
+		return m.UpdatedAt()
+	case useraffiliatepaymentaccount.FieldUserID:
+		return m.UserID()
+	case useraffiliatepaymentaccount.FieldType:
+		return m.GetType()
+	case useraffiliatepaymentaccount.FieldDetailsEncrypted:
+		return m.DetailsEncrypted()
+	case useraffiliatepaymentaccount.FieldMaskedSummary:
+		return m.MaskedSummary()
+	case useraffiliatepaymentaccount.FieldIsDefault:
+		return m.IsDefault()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *UserAffiliatePaymentAccountMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case useraffiliatepaymentaccount.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case useraffiliatepaymentaccount.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	case useraffiliatepaymentaccount.FieldUserID:
+		return m.OldUserID(ctx)
+	case useraffiliatepaymentaccount.FieldType:
+		return m.OldType(ctx)
+	case useraffiliatepaymentaccount.FieldDetailsEncrypted:
+		return m.OldDetailsEncrypted(ctx)
+	case useraffiliatepaymentaccount.FieldMaskedSummary:
+		return m.OldMaskedSummary(ctx)
+	case useraffiliatepaymentaccount.FieldIsDefault:
+		return m.OldIsDefault(ctx)
+	}
+	return nil, fmt.Errorf("unknown UserAffiliatePaymentAccount field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *UserAffiliatePaymentAccountMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case useraffiliatepaymentaccount.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case useraffiliatepaymentaccount.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	case useraffiliatepaymentaccount.FieldUserID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUserID(v)
+		return nil
+	case useraffiliatepaymentaccount.FieldType:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetType(v)
+		return nil
+	case useraffiliatepaymentaccount.FieldDetailsEncrypted:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDetailsEncrypted(v)
+		return nil
+	case useraffiliatepaymentaccount.FieldMaskedSummary:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetMaskedSummary(v)
+		return nil
+	case useraffiliatepaymentaccount.FieldIsDefault:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetIsDefault(v)
+		return nil
+	}
+	return fmt.Errorf("unknown UserAffiliatePaymentAccount field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *UserAffiliatePaymentAccountMutation) AddedFields() []string {
+	var fields []string
+	if m.adduser_id != nil {
+		fields = append(fields, useraffiliatepaymentaccount.FieldUserID)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *UserAffiliatePaymentAccountMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case useraffiliatepaymentaccount.FieldUserID:
+		return m.AddedUserID()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *UserAffiliatePaymentAccountMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case useraffiliatepaymentaccount.FieldUserID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddUserID(v)
+		return nil
+	}
+	return fmt.Errorf("unknown UserAffiliatePaymentAccount numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *UserAffiliatePaymentAccountMutation) ClearedFields() []string {
+	return nil
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *UserAffiliatePaymentAccountMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *UserAffiliatePaymentAccountMutation) ClearField(name string) error {
+	return fmt.Errorf("unknown UserAffiliatePaymentAccount nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *UserAffiliatePaymentAccountMutation) ResetField(name string) error {
+	switch name {
+	case useraffiliatepaymentaccount.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case useraffiliatepaymentaccount.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	case useraffiliatepaymentaccount.FieldUserID:
+		m.ResetUserID()
+		return nil
+	case useraffiliatepaymentaccount.FieldType:
+		m.ResetType()
+		return nil
+	case useraffiliatepaymentaccount.FieldDetailsEncrypted:
+		m.ResetDetailsEncrypted()
+		return nil
+	case useraffiliatepaymentaccount.FieldMaskedSummary:
+		m.ResetMaskedSummary()
+		return nil
+	case useraffiliatepaymentaccount.FieldIsDefault:
+		m.ResetIsDefault()
+		return nil
+	}
+	return fmt.Errorf("unknown UserAffiliatePaymentAccount field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *UserAffiliatePaymentAccountMutation) AddedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *UserAffiliatePaymentAccountMutation) AddedIDs(name string) []ent.Value {
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *UserAffiliatePaymentAccountMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *UserAffiliatePaymentAccountMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *UserAffiliatePaymentAccountMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *UserAffiliatePaymentAccountMutation) EdgeCleared(name string) bool {
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *UserAffiliatePaymentAccountMutation) ClearEdge(name string) error {
+	return fmt.Errorf("unknown UserAffiliatePaymentAccount unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *UserAffiliatePaymentAccountMutation) ResetEdge(name string) error {
+	return fmt.Errorf("unknown UserAffiliatePaymentAccount edge %s", name)
+}
+
+// UserAffiliateWithdrawalMutation represents an operation that mutates the UserAffiliateWithdrawal nodes in the graph.
+type UserAffiliateWithdrawalMutation struct {
+	config
+	op                        Op
+	typ                       string
+	id                        *int64
+	created_at                *time.Time
+	updated_at                *time.Time
+	user_id                   *int64
+	adduser_id                *int64
+	amount                    *float64
+	addamount                 *float64
+	status                    *string
+	payment_account_id        *int64
+	addpayment_account_id     *int64
+	payment_account_type      *string
+	payment_details_encrypted *string
+	payment_account_summary   *string
+	idempotency_key           *string
+	submitted_at              *time.Time
+	reviewed_at               *time.Time
+	reviewed_by               *int64
+	addreviewed_by            *int64
+	paid_at                   *time.Time
+	paid_by                   *int64
+	addpaid_by                *int64
+	canceled_at               *time.Time
+	cancel_reason             *string
+	reject_reason             *string
+	actual_currency           *string
+	actual_amount             *float64
+	addactual_amount          *float64
+	exchange_rate             *float64
+	addexchange_rate          *float64
+	external_reference        *string
+	clearedFields             map[string]struct{}
+	done                      bool
+	oldValue                  func(context.Context) (*UserAffiliateWithdrawal, error)
+	predicates                []predicate.UserAffiliateWithdrawal
+}
+
+var _ ent.Mutation = (*UserAffiliateWithdrawalMutation)(nil)
+
+// useraffiliatewithdrawalOption allows management of the mutation configuration using functional options.
+type useraffiliatewithdrawalOption func(*UserAffiliateWithdrawalMutation)
+
+// newUserAffiliateWithdrawalMutation creates new mutation for the UserAffiliateWithdrawal entity.
+func newUserAffiliateWithdrawalMutation(c config, op Op, opts ...useraffiliatewithdrawalOption) *UserAffiliateWithdrawalMutation {
+	m := &UserAffiliateWithdrawalMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeUserAffiliateWithdrawal,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withUserAffiliateWithdrawalID sets the ID field of the mutation.
+func withUserAffiliateWithdrawalID(id int64) useraffiliatewithdrawalOption {
+	return func(m *UserAffiliateWithdrawalMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *UserAffiliateWithdrawal
+		)
+		m.oldValue = func(ctx context.Context) (*UserAffiliateWithdrawal, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().UserAffiliateWithdrawal.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withUserAffiliateWithdrawal sets the old UserAffiliateWithdrawal of the mutation.
+func withUserAffiliateWithdrawal(node *UserAffiliateWithdrawal) useraffiliatewithdrawalOption {
+	return func(m *UserAffiliateWithdrawalMutation) {
+		m.oldValue = func(context.Context) (*UserAffiliateWithdrawal, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m UserAffiliateWithdrawalMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m UserAffiliateWithdrawalMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *UserAffiliateWithdrawalMutation) ID() (id int64, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *UserAffiliateWithdrawalMutation) IDs(ctx context.Context) ([]int64, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int64{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().UserAffiliateWithdrawal.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *UserAffiliateWithdrawalMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *UserAffiliateWithdrawalMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the UserAffiliateWithdrawal entity.
+// If the UserAffiliateWithdrawal object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserAffiliateWithdrawalMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *UserAffiliateWithdrawalMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *UserAffiliateWithdrawalMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *UserAffiliateWithdrawalMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the UserAffiliateWithdrawal entity.
+// If the UserAffiliateWithdrawal object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserAffiliateWithdrawalMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *UserAffiliateWithdrawalMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// SetUserID sets the "user_id" field.
+func (m *UserAffiliateWithdrawalMutation) SetUserID(i int64) {
+	m.user_id = &i
+	m.adduser_id = nil
+}
+
+// UserID returns the value of the "user_id" field in the mutation.
+func (m *UserAffiliateWithdrawalMutation) UserID() (r int64, exists bool) {
+	v := m.user_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUserID returns the old "user_id" field's value of the UserAffiliateWithdrawal entity.
+// If the UserAffiliateWithdrawal object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserAffiliateWithdrawalMutation) OldUserID(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUserID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUserID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUserID: %w", err)
+	}
+	return oldValue.UserID, nil
+}
+
+// AddUserID adds i to the "user_id" field.
+func (m *UserAffiliateWithdrawalMutation) AddUserID(i int64) {
+	if m.adduser_id != nil {
+		*m.adduser_id += i
+	} else {
+		m.adduser_id = &i
+	}
+}
+
+// AddedUserID returns the value that was added to the "user_id" field in this mutation.
+func (m *UserAffiliateWithdrawalMutation) AddedUserID() (r int64, exists bool) {
+	v := m.adduser_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetUserID resets all changes to the "user_id" field.
+func (m *UserAffiliateWithdrawalMutation) ResetUserID() {
+	m.user_id = nil
+	m.adduser_id = nil
+}
+
+// SetAmount sets the "amount" field.
+func (m *UserAffiliateWithdrawalMutation) SetAmount(f float64) {
+	m.amount = &f
+	m.addamount = nil
+}
+
+// Amount returns the value of the "amount" field in the mutation.
+func (m *UserAffiliateWithdrawalMutation) Amount() (r float64, exists bool) {
+	v := m.amount
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAmount returns the old "amount" field's value of the UserAffiliateWithdrawal entity.
+// If the UserAffiliateWithdrawal object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserAffiliateWithdrawalMutation) OldAmount(ctx context.Context) (v float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAmount is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAmount requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAmount: %w", err)
+	}
+	return oldValue.Amount, nil
+}
+
+// AddAmount adds f to the "amount" field.
+func (m *UserAffiliateWithdrawalMutation) AddAmount(f float64) {
+	if m.addamount != nil {
+		*m.addamount += f
+	} else {
+		m.addamount = &f
+	}
+}
+
+// AddedAmount returns the value that was added to the "amount" field in this mutation.
+func (m *UserAffiliateWithdrawalMutation) AddedAmount() (r float64, exists bool) {
+	v := m.addamount
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetAmount resets all changes to the "amount" field.
+func (m *UserAffiliateWithdrawalMutation) ResetAmount() {
+	m.amount = nil
+	m.addamount = nil
+}
+
+// SetStatus sets the "status" field.
+func (m *UserAffiliateWithdrawalMutation) SetStatus(s string) {
+	m.status = &s
+}
+
+// Status returns the value of the "status" field in the mutation.
+func (m *UserAffiliateWithdrawalMutation) Status() (r string, exists bool) {
+	v := m.status
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStatus returns the old "status" field's value of the UserAffiliateWithdrawal entity.
+// If the UserAffiliateWithdrawal object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserAffiliateWithdrawalMutation) OldStatus(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStatus is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStatus requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStatus: %w", err)
+	}
+	return oldValue.Status, nil
+}
+
+// ResetStatus resets all changes to the "status" field.
+func (m *UserAffiliateWithdrawalMutation) ResetStatus() {
+	m.status = nil
+}
+
+// SetPaymentAccountID sets the "payment_account_id" field.
+func (m *UserAffiliateWithdrawalMutation) SetPaymentAccountID(i int64) {
+	m.payment_account_id = &i
+	m.addpayment_account_id = nil
+}
+
+// PaymentAccountID returns the value of the "payment_account_id" field in the mutation.
+func (m *UserAffiliateWithdrawalMutation) PaymentAccountID() (r int64, exists bool) {
+	v := m.payment_account_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPaymentAccountID returns the old "payment_account_id" field's value of the UserAffiliateWithdrawal entity.
+// If the UserAffiliateWithdrawal object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserAffiliateWithdrawalMutation) OldPaymentAccountID(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPaymentAccountID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPaymentAccountID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPaymentAccountID: %w", err)
+	}
+	return oldValue.PaymentAccountID, nil
+}
+
+// AddPaymentAccountID adds i to the "payment_account_id" field.
+func (m *UserAffiliateWithdrawalMutation) AddPaymentAccountID(i int64) {
+	if m.addpayment_account_id != nil {
+		*m.addpayment_account_id += i
+	} else {
+		m.addpayment_account_id = &i
+	}
+}
+
+// AddedPaymentAccountID returns the value that was added to the "payment_account_id" field in this mutation.
+func (m *UserAffiliateWithdrawalMutation) AddedPaymentAccountID() (r int64, exists bool) {
+	v := m.addpayment_account_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearPaymentAccountID clears the value of the "payment_account_id" field.
+func (m *UserAffiliateWithdrawalMutation) ClearPaymentAccountID() {
+	m.payment_account_id = nil
+	m.addpayment_account_id = nil
+	m.clearedFields[useraffiliatewithdrawal.FieldPaymentAccountID] = struct{}{}
+}
+
+// PaymentAccountIDCleared returns if the "payment_account_id" field was cleared in this mutation.
+func (m *UserAffiliateWithdrawalMutation) PaymentAccountIDCleared() bool {
+	_, ok := m.clearedFields[useraffiliatewithdrawal.FieldPaymentAccountID]
+	return ok
+}
+
+// ResetPaymentAccountID resets all changes to the "payment_account_id" field.
+func (m *UserAffiliateWithdrawalMutation) ResetPaymentAccountID() {
+	m.payment_account_id = nil
+	m.addpayment_account_id = nil
+	delete(m.clearedFields, useraffiliatewithdrawal.FieldPaymentAccountID)
+}
+
+// SetPaymentAccountType sets the "payment_account_type" field.
+func (m *UserAffiliateWithdrawalMutation) SetPaymentAccountType(s string) {
+	m.payment_account_type = &s
+}
+
+// PaymentAccountType returns the value of the "payment_account_type" field in the mutation.
+func (m *UserAffiliateWithdrawalMutation) PaymentAccountType() (r string, exists bool) {
+	v := m.payment_account_type
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPaymentAccountType returns the old "payment_account_type" field's value of the UserAffiliateWithdrawal entity.
+// If the UserAffiliateWithdrawal object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserAffiliateWithdrawalMutation) OldPaymentAccountType(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPaymentAccountType is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPaymentAccountType requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPaymentAccountType: %w", err)
+	}
+	return oldValue.PaymentAccountType, nil
+}
+
+// ResetPaymentAccountType resets all changes to the "payment_account_type" field.
+func (m *UserAffiliateWithdrawalMutation) ResetPaymentAccountType() {
+	m.payment_account_type = nil
+}
+
+// SetPaymentDetailsEncrypted sets the "payment_details_encrypted" field.
+func (m *UserAffiliateWithdrawalMutation) SetPaymentDetailsEncrypted(s string) {
+	m.payment_details_encrypted = &s
+}
+
+// PaymentDetailsEncrypted returns the value of the "payment_details_encrypted" field in the mutation.
+func (m *UserAffiliateWithdrawalMutation) PaymentDetailsEncrypted() (r string, exists bool) {
+	v := m.payment_details_encrypted
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPaymentDetailsEncrypted returns the old "payment_details_encrypted" field's value of the UserAffiliateWithdrawal entity.
+// If the UserAffiliateWithdrawal object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserAffiliateWithdrawalMutation) OldPaymentDetailsEncrypted(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPaymentDetailsEncrypted is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPaymentDetailsEncrypted requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPaymentDetailsEncrypted: %w", err)
+	}
+	return oldValue.PaymentDetailsEncrypted, nil
+}
+
+// ResetPaymentDetailsEncrypted resets all changes to the "payment_details_encrypted" field.
+func (m *UserAffiliateWithdrawalMutation) ResetPaymentDetailsEncrypted() {
+	m.payment_details_encrypted = nil
+}
+
+// SetPaymentAccountSummary sets the "payment_account_summary" field.
+func (m *UserAffiliateWithdrawalMutation) SetPaymentAccountSummary(s string) {
+	m.payment_account_summary = &s
+}
+
+// PaymentAccountSummary returns the value of the "payment_account_summary" field in the mutation.
+func (m *UserAffiliateWithdrawalMutation) PaymentAccountSummary() (r string, exists bool) {
+	v := m.payment_account_summary
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPaymentAccountSummary returns the old "payment_account_summary" field's value of the UserAffiliateWithdrawal entity.
+// If the UserAffiliateWithdrawal object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserAffiliateWithdrawalMutation) OldPaymentAccountSummary(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPaymentAccountSummary is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPaymentAccountSummary requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPaymentAccountSummary: %w", err)
+	}
+	return oldValue.PaymentAccountSummary, nil
+}
+
+// ResetPaymentAccountSummary resets all changes to the "payment_account_summary" field.
+func (m *UserAffiliateWithdrawalMutation) ResetPaymentAccountSummary() {
+	m.payment_account_summary = nil
+}
+
+// SetIdempotencyKey sets the "idempotency_key" field.
+func (m *UserAffiliateWithdrawalMutation) SetIdempotencyKey(s string) {
+	m.idempotency_key = &s
+}
+
+// IdempotencyKey returns the value of the "idempotency_key" field in the mutation.
+func (m *UserAffiliateWithdrawalMutation) IdempotencyKey() (r string, exists bool) {
+	v := m.idempotency_key
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldIdempotencyKey returns the old "idempotency_key" field's value of the UserAffiliateWithdrawal entity.
+// If the UserAffiliateWithdrawal object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserAffiliateWithdrawalMutation) OldIdempotencyKey(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldIdempotencyKey is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldIdempotencyKey requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldIdempotencyKey: %w", err)
+	}
+	return oldValue.IdempotencyKey, nil
+}
+
+// ClearIdempotencyKey clears the value of the "idempotency_key" field.
+func (m *UserAffiliateWithdrawalMutation) ClearIdempotencyKey() {
+	m.idempotency_key = nil
+	m.clearedFields[useraffiliatewithdrawal.FieldIdempotencyKey] = struct{}{}
+}
+
+// IdempotencyKeyCleared returns if the "idempotency_key" field was cleared in this mutation.
+func (m *UserAffiliateWithdrawalMutation) IdempotencyKeyCleared() bool {
+	_, ok := m.clearedFields[useraffiliatewithdrawal.FieldIdempotencyKey]
+	return ok
+}
+
+// ResetIdempotencyKey resets all changes to the "idempotency_key" field.
+func (m *UserAffiliateWithdrawalMutation) ResetIdempotencyKey() {
+	m.idempotency_key = nil
+	delete(m.clearedFields, useraffiliatewithdrawal.FieldIdempotencyKey)
+}
+
+// SetSubmittedAt sets the "submitted_at" field.
+func (m *UserAffiliateWithdrawalMutation) SetSubmittedAt(t time.Time) {
+	m.submitted_at = &t
+}
+
+// SubmittedAt returns the value of the "submitted_at" field in the mutation.
+func (m *UserAffiliateWithdrawalMutation) SubmittedAt() (r time.Time, exists bool) {
+	v := m.submitted_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSubmittedAt returns the old "submitted_at" field's value of the UserAffiliateWithdrawal entity.
+// If the UserAffiliateWithdrawal object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserAffiliateWithdrawalMutation) OldSubmittedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSubmittedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSubmittedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSubmittedAt: %w", err)
+	}
+	return oldValue.SubmittedAt, nil
+}
+
+// ResetSubmittedAt resets all changes to the "submitted_at" field.
+func (m *UserAffiliateWithdrawalMutation) ResetSubmittedAt() {
+	m.submitted_at = nil
+}
+
+// SetReviewedAt sets the "reviewed_at" field.
+func (m *UserAffiliateWithdrawalMutation) SetReviewedAt(t time.Time) {
+	m.reviewed_at = &t
+}
+
+// ReviewedAt returns the value of the "reviewed_at" field in the mutation.
+func (m *UserAffiliateWithdrawalMutation) ReviewedAt() (r time.Time, exists bool) {
+	v := m.reviewed_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldReviewedAt returns the old "reviewed_at" field's value of the UserAffiliateWithdrawal entity.
+// If the UserAffiliateWithdrawal object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserAffiliateWithdrawalMutation) OldReviewedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldReviewedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldReviewedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldReviewedAt: %w", err)
+	}
+	return oldValue.ReviewedAt, nil
+}
+
+// ClearReviewedAt clears the value of the "reviewed_at" field.
+func (m *UserAffiliateWithdrawalMutation) ClearReviewedAt() {
+	m.reviewed_at = nil
+	m.clearedFields[useraffiliatewithdrawal.FieldReviewedAt] = struct{}{}
+}
+
+// ReviewedAtCleared returns if the "reviewed_at" field was cleared in this mutation.
+func (m *UserAffiliateWithdrawalMutation) ReviewedAtCleared() bool {
+	_, ok := m.clearedFields[useraffiliatewithdrawal.FieldReviewedAt]
+	return ok
+}
+
+// ResetReviewedAt resets all changes to the "reviewed_at" field.
+func (m *UserAffiliateWithdrawalMutation) ResetReviewedAt() {
+	m.reviewed_at = nil
+	delete(m.clearedFields, useraffiliatewithdrawal.FieldReviewedAt)
+}
+
+// SetReviewedBy sets the "reviewed_by" field.
+func (m *UserAffiliateWithdrawalMutation) SetReviewedBy(i int64) {
+	m.reviewed_by = &i
+	m.addreviewed_by = nil
+}
+
+// ReviewedBy returns the value of the "reviewed_by" field in the mutation.
+func (m *UserAffiliateWithdrawalMutation) ReviewedBy() (r int64, exists bool) {
+	v := m.reviewed_by
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldReviewedBy returns the old "reviewed_by" field's value of the UserAffiliateWithdrawal entity.
+// If the UserAffiliateWithdrawal object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserAffiliateWithdrawalMutation) OldReviewedBy(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldReviewedBy is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldReviewedBy requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldReviewedBy: %w", err)
+	}
+	return oldValue.ReviewedBy, nil
+}
+
+// AddReviewedBy adds i to the "reviewed_by" field.
+func (m *UserAffiliateWithdrawalMutation) AddReviewedBy(i int64) {
+	if m.addreviewed_by != nil {
+		*m.addreviewed_by += i
+	} else {
+		m.addreviewed_by = &i
+	}
+}
+
+// AddedReviewedBy returns the value that was added to the "reviewed_by" field in this mutation.
+func (m *UserAffiliateWithdrawalMutation) AddedReviewedBy() (r int64, exists bool) {
+	v := m.addreviewed_by
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearReviewedBy clears the value of the "reviewed_by" field.
+func (m *UserAffiliateWithdrawalMutation) ClearReviewedBy() {
+	m.reviewed_by = nil
+	m.addreviewed_by = nil
+	m.clearedFields[useraffiliatewithdrawal.FieldReviewedBy] = struct{}{}
+}
+
+// ReviewedByCleared returns if the "reviewed_by" field was cleared in this mutation.
+func (m *UserAffiliateWithdrawalMutation) ReviewedByCleared() bool {
+	_, ok := m.clearedFields[useraffiliatewithdrawal.FieldReviewedBy]
+	return ok
+}
+
+// ResetReviewedBy resets all changes to the "reviewed_by" field.
+func (m *UserAffiliateWithdrawalMutation) ResetReviewedBy() {
+	m.reviewed_by = nil
+	m.addreviewed_by = nil
+	delete(m.clearedFields, useraffiliatewithdrawal.FieldReviewedBy)
+}
+
+// SetPaidAt sets the "paid_at" field.
+func (m *UserAffiliateWithdrawalMutation) SetPaidAt(t time.Time) {
+	m.paid_at = &t
+}
+
+// PaidAt returns the value of the "paid_at" field in the mutation.
+func (m *UserAffiliateWithdrawalMutation) PaidAt() (r time.Time, exists bool) {
+	v := m.paid_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPaidAt returns the old "paid_at" field's value of the UserAffiliateWithdrawal entity.
+// If the UserAffiliateWithdrawal object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserAffiliateWithdrawalMutation) OldPaidAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPaidAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPaidAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPaidAt: %w", err)
+	}
+	return oldValue.PaidAt, nil
+}
+
+// ClearPaidAt clears the value of the "paid_at" field.
+func (m *UserAffiliateWithdrawalMutation) ClearPaidAt() {
+	m.paid_at = nil
+	m.clearedFields[useraffiliatewithdrawal.FieldPaidAt] = struct{}{}
+}
+
+// PaidAtCleared returns if the "paid_at" field was cleared in this mutation.
+func (m *UserAffiliateWithdrawalMutation) PaidAtCleared() bool {
+	_, ok := m.clearedFields[useraffiliatewithdrawal.FieldPaidAt]
+	return ok
+}
+
+// ResetPaidAt resets all changes to the "paid_at" field.
+func (m *UserAffiliateWithdrawalMutation) ResetPaidAt() {
+	m.paid_at = nil
+	delete(m.clearedFields, useraffiliatewithdrawal.FieldPaidAt)
+}
+
+// SetPaidBy sets the "paid_by" field.
+func (m *UserAffiliateWithdrawalMutation) SetPaidBy(i int64) {
+	m.paid_by = &i
+	m.addpaid_by = nil
+}
+
+// PaidBy returns the value of the "paid_by" field in the mutation.
+func (m *UserAffiliateWithdrawalMutation) PaidBy() (r int64, exists bool) {
+	v := m.paid_by
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPaidBy returns the old "paid_by" field's value of the UserAffiliateWithdrawal entity.
+// If the UserAffiliateWithdrawal object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserAffiliateWithdrawalMutation) OldPaidBy(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPaidBy is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPaidBy requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPaidBy: %w", err)
+	}
+	return oldValue.PaidBy, nil
+}
+
+// AddPaidBy adds i to the "paid_by" field.
+func (m *UserAffiliateWithdrawalMutation) AddPaidBy(i int64) {
+	if m.addpaid_by != nil {
+		*m.addpaid_by += i
+	} else {
+		m.addpaid_by = &i
+	}
+}
+
+// AddedPaidBy returns the value that was added to the "paid_by" field in this mutation.
+func (m *UserAffiliateWithdrawalMutation) AddedPaidBy() (r int64, exists bool) {
+	v := m.addpaid_by
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearPaidBy clears the value of the "paid_by" field.
+func (m *UserAffiliateWithdrawalMutation) ClearPaidBy() {
+	m.paid_by = nil
+	m.addpaid_by = nil
+	m.clearedFields[useraffiliatewithdrawal.FieldPaidBy] = struct{}{}
+}
+
+// PaidByCleared returns if the "paid_by" field was cleared in this mutation.
+func (m *UserAffiliateWithdrawalMutation) PaidByCleared() bool {
+	_, ok := m.clearedFields[useraffiliatewithdrawal.FieldPaidBy]
+	return ok
+}
+
+// ResetPaidBy resets all changes to the "paid_by" field.
+func (m *UserAffiliateWithdrawalMutation) ResetPaidBy() {
+	m.paid_by = nil
+	m.addpaid_by = nil
+	delete(m.clearedFields, useraffiliatewithdrawal.FieldPaidBy)
+}
+
+// SetCanceledAt sets the "canceled_at" field.
+func (m *UserAffiliateWithdrawalMutation) SetCanceledAt(t time.Time) {
+	m.canceled_at = &t
+}
+
+// CanceledAt returns the value of the "canceled_at" field in the mutation.
+func (m *UserAffiliateWithdrawalMutation) CanceledAt() (r time.Time, exists bool) {
+	v := m.canceled_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCanceledAt returns the old "canceled_at" field's value of the UserAffiliateWithdrawal entity.
+// If the UserAffiliateWithdrawal object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserAffiliateWithdrawalMutation) OldCanceledAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCanceledAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCanceledAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCanceledAt: %w", err)
+	}
+	return oldValue.CanceledAt, nil
+}
+
+// ClearCanceledAt clears the value of the "canceled_at" field.
+func (m *UserAffiliateWithdrawalMutation) ClearCanceledAt() {
+	m.canceled_at = nil
+	m.clearedFields[useraffiliatewithdrawal.FieldCanceledAt] = struct{}{}
+}
+
+// CanceledAtCleared returns if the "canceled_at" field was cleared in this mutation.
+func (m *UserAffiliateWithdrawalMutation) CanceledAtCleared() bool {
+	_, ok := m.clearedFields[useraffiliatewithdrawal.FieldCanceledAt]
+	return ok
+}
+
+// ResetCanceledAt resets all changes to the "canceled_at" field.
+func (m *UserAffiliateWithdrawalMutation) ResetCanceledAt() {
+	m.canceled_at = nil
+	delete(m.clearedFields, useraffiliatewithdrawal.FieldCanceledAt)
+}
+
+// SetCancelReason sets the "cancel_reason" field.
+func (m *UserAffiliateWithdrawalMutation) SetCancelReason(s string) {
+	m.cancel_reason = &s
+}
+
+// CancelReason returns the value of the "cancel_reason" field in the mutation.
+func (m *UserAffiliateWithdrawalMutation) CancelReason() (r string, exists bool) {
+	v := m.cancel_reason
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCancelReason returns the old "cancel_reason" field's value of the UserAffiliateWithdrawal entity.
+// If the UserAffiliateWithdrawal object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserAffiliateWithdrawalMutation) OldCancelReason(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCancelReason is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCancelReason requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCancelReason: %w", err)
+	}
+	return oldValue.CancelReason, nil
+}
+
+// ClearCancelReason clears the value of the "cancel_reason" field.
+func (m *UserAffiliateWithdrawalMutation) ClearCancelReason() {
+	m.cancel_reason = nil
+	m.clearedFields[useraffiliatewithdrawal.FieldCancelReason] = struct{}{}
+}
+
+// CancelReasonCleared returns if the "cancel_reason" field was cleared in this mutation.
+func (m *UserAffiliateWithdrawalMutation) CancelReasonCleared() bool {
+	_, ok := m.clearedFields[useraffiliatewithdrawal.FieldCancelReason]
+	return ok
+}
+
+// ResetCancelReason resets all changes to the "cancel_reason" field.
+func (m *UserAffiliateWithdrawalMutation) ResetCancelReason() {
+	m.cancel_reason = nil
+	delete(m.clearedFields, useraffiliatewithdrawal.FieldCancelReason)
+}
+
+// SetRejectReason sets the "reject_reason" field.
+func (m *UserAffiliateWithdrawalMutation) SetRejectReason(s string) {
+	m.reject_reason = &s
+}
+
+// RejectReason returns the value of the "reject_reason" field in the mutation.
+func (m *UserAffiliateWithdrawalMutation) RejectReason() (r string, exists bool) {
+	v := m.reject_reason
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRejectReason returns the old "reject_reason" field's value of the UserAffiliateWithdrawal entity.
+// If the UserAffiliateWithdrawal object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserAffiliateWithdrawalMutation) OldRejectReason(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRejectReason is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRejectReason requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRejectReason: %w", err)
+	}
+	return oldValue.RejectReason, nil
+}
+
+// ClearRejectReason clears the value of the "reject_reason" field.
+func (m *UserAffiliateWithdrawalMutation) ClearRejectReason() {
+	m.reject_reason = nil
+	m.clearedFields[useraffiliatewithdrawal.FieldRejectReason] = struct{}{}
+}
+
+// RejectReasonCleared returns if the "reject_reason" field was cleared in this mutation.
+func (m *UserAffiliateWithdrawalMutation) RejectReasonCleared() bool {
+	_, ok := m.clearedFields[useraffiliatewithdrawal.FieldRejectReason]
+	return ok
+}
+
+// ResetRejectReason resets all changes to the "reject_reason" field.
+func (m *UserAffiliateWithdrawalMutation) ResetRejectReason() {
+	m.reject_reason = nil
+	delete(m.clearedFields, useraffiliatewithdrawal.FieldRejectReason)
+}
+
+// SetActualCurrency sets the "actual_currency" field.
+func (m *UserAffiliateWithdrawalMutation) SetActualCurrency(s string) {
+	m.actual_currency = &s
+}
+
+// ActualCurrency returns the value of the "actual_currency" field in the mutation.
+func (m *UserAffiliateWithdrawalMutation) ActualCurrency() (r string, exists bool) {
+	v := m.actual_currency
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldActualCurrency returns the old "actual_currency" field's value of the UserAffiliateWithdrawal entity.
+// If the UserAffiliateWithdrawal object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserAffiliateWithdrawalMutation) OldActualCurrency(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldActualCurrency is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldActualCurrency requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldActualCurrency: %w", err)
+	}
+	return oldValue.ActualCurrency, nil
+}
+
+// ClearActualCurrency clears the value of the "actual_currency" field.
+func (m *UserAffiliateWithdrawalMutation) ClearActualCurrency() {
+	m.actual_currency = nil
+	m.clearedFields[useraffiliatewithdrawal.FieldActualCurrency] = struct{}{}
+}
+
+// ActualCurrencyCleared returns if the "actual_currency" field was cleared in this mutation.
+func (m *UserAffiliateWithdrawalMutation) ActualCurrencyCleared() bool {
+	_, ok := m.clearedFields[useraffiliatewithdrawal.FieldActualCurrency]
+	return ok
+}
+
+// ResetActualCurrency resets all changes to the "actual_currency" field.
+func (m *UserAffiliateWithdrawalMutation) ResetActualCurrency() {
+	m.actual_currency = nil
+	delete(m.clearedFields, useraffiliatewithdrawal.FieldActualCurrency)
+}
+
+// SetActualAmount sets the "actual_amount" field.
+func (m *UserAffiliateWithdrawalMutation) SetActualAmount(f float64) {
+	m.actual_amount = &f
+	m.addactual_amount = nil
+}
+
+// ActualAmount returns the value of the "actual_amount" field in the mutation.
+func (m *UserAffiliateWithdrawalMutation) ActualAmount() (r float64, exists bool) {
+	v := m.actual_amount
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldActualAmount returns the old "actual_amount" field's value of the UserAffiliateWithdrawal entity.
+// If the UserAffiliateWithdrawal object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserAffiliateWithdrawalMutation) OldActualAmount(ctx context.Context) (v *float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldActualAmount is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldActualAmount requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldActualAmount: %w", err)
+	}
+	return oldValue.ActualAmount, nil
+}
+
+// AddActualAmount adds f to the "actual_amount" field.
+func (m *UserAffiliateWithdrawalMutation) AddActualAmount(f float64) {
+	if m.addactual_amount != nil {
+		*m.addactual_amount += f
+	} else {
+		m.addactual_amount = &f
+	}
+}
+
+// AddedActualAmount returns the value that was added to the "actual_amount" field in this mutation.
+func (m *UserAffiliateWithdrawalMutation) AddedActualAmount() (r float64, exists bool) {
+	v := m.addactual_amount
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearActualAmount clears the value of the "actual_amount" field.
+func (m *UserAffiliateWithdrawalMutation) ClearActualAmount() {
+	m.actual_amount = nil
+	m.addactual_amount = nil
+	m.clearedFields[useraffiliatewithdrawal.FieldActualAmount] = struct{}{}
+}
+
+// ActualAmountCleared returns if the "actual_amount" field was cleared in this mutation.
+func (m *UserAffiliateWithdrawalMutation) ActualAmountCleared() bool {
+	_, ok := m.clearedFields[useraffiliatewithdrawal.FieldActualAmount]
+	return ok
+}
+
+// ResetActualAmount resets all changes to the "actual_amount" field.
+func (m *UserAffiliateWithdrawalMutation) ResetActualAmount() {
+	m.actual_amount = nil
+	m.addactual_amount = nil
+	delete(m.clearedFields, useraffiliatewithdrawal.FieldActualAmount)
+}
+
+// SetExchangeRate sets the "exchange_rate" field.
+func (m *UserAffiliateWithdrawalMutation) SetExchangeRate(f float64) {
+	m.exchange_rate = &f
+	m.addexchange_rate = nil
+}
+
+// ExchangeRate returns the value of the "exchange_rate" field in the mutation.
+func (m *UserAffiliateWithdrawalMutation) ExchangeRate() (r float64, exists bool) {
+	v := m.exchange_rate
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldExchangeRate returns the old "exchange_rate" field's value of the UserAffiliateWithdrawal entity.
+// If the UserAffiliateWithdrawal object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserAffiliateWithdrawalMutation) OldExchangeRate(ctx context.Context) (v *float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldExchangeRate is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldExchangeRate requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldExchangeRate: %w", err)
+	}
+	return oldValue.ExchangeRate, nil
+}
+
+// AddExchangeRate adds f to the "exchange_rate" field.
+func (m *UserAffiliateWithdrawalMutation) AddExchangeRate(f float64) {
+	if m.addexchange_rate != nil {
+		*m.addexchange_rate += f
+	} else {
+		m.addexchange_rate = &f
+	}
+}
+
+// AddedExchangeRate returns the value that was added to the "exchange_rate" field in this mutation.
+func (m *UserAffiliateWithdrawalMutation) AddedExchangeRate() (r float64, exists bool) {
+	v := m.addexchange_rate
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearExchangeRate clears the value of the "exchange_rate" field.
+func (m *UserAffiliateWithdrawalMutation) ClearExchangeRate() {
+	m.exchange_rate = nil
+	m.addexchange_rate = nil
+	m.clearedFields[useraffiliatewithdrawal.FieldExchangeRate] = struct{}{}
+}
+
+// ExchangeRateCleared returns if the "exchange_rate" field was cleared in this mutation.
+func (m *UserAffiliateWithdrawalMutation) ExchangeRateCleared() bool {
+	_, ok := m.clearedFields[useraffiliatewithdrawal.FieldExchangeRate]
+	return ok
+}
+
+// ResetExchangeRate resets all changes to the "exchange_rate" field.
+func (m *UserAffiliateWithdrawalMutation) ResetExchangeRate() {
+	m.exchange_rate = nil
+	m.addexchange_rate = nil
+	delete(m.clearedFields, useraffiliatewithdrawal.FieldExchangeRate)
+}
+
+// SetExternalReference sets the "external_reference" field.
+func (m *UserAffiliateWithdrawalMutation) SetExternalReference(s string) {
+	m.external_reference = &s
+}
+
+// ExternalReference returns the value of the "external_reference" field in the mutation.
+func (m *UserAffiliateWithdrawalMutation) ExternalReference() (r string, exists bool) {
+	v := m.external_reference
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldExternalReference returns the old "external_reference" field's value of the UserAffiliateWithdrawal entity.
+// If the UserAffiliateWithdrawal object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserAffiliateWithdrawalMutation) OldExternalReference(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldExternalReference is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldExternalReference requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldExternalReference: %w", err)
+	}
+	return oldValue.ExternalReference, nil
+}
+
+// ClearExternalReference clears the value of the "external_reference" field.
+func (m *UserAffiliateWithdrawalMutation) ClearExternalReference() {
+	m.external_reference = nil
+	m.clearedFields[useraffiliatewithdrawal.FieldExternalReference] = struct{}{}
+}
+
+// ExternalReferenceCleared returns if the "external_reference" field was cleared in this mutation.
+func (m *UserAffiliateWithdrawalMutation) ExternalReferenceCleared() bool {
+	_, ok := m.clearedFields[useraffiliatewithdrawal.FieldExternalReference]
+	return ok
+}
+
+// ResetExternalReference resets all changes to the "external_reference" field.
+func (m *UserAffiliateWithdrawalMutation) ResetExternalReference() {
+	m.external_reference = nil
+	delete(m.clearedFields, useraffiliatewithdrawal.FieldExternalReference)
+}
+
+// Where appends a list predicates to the UserAffiliateWithdrawalMutation builder.
+func (m *UserAffiliateWithdrawalMutation) Where(ps ...predicate.UserAffiliateWithdrawal) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the UserAffiliateWithdrawalMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *UserAffiliateWithdrawalMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.UserAffiliateWithdrawal, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *UserAffiliateWithdrawalMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *UserAffiliateWithdrawalMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (UserAffiliateWithdrawal).
+func (m *UserAffiliateWithdrawalMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *UserAffiliateWithdrawalMutation) Fields() []string {
+	fields := make([]string, 0, 22)
+	if m.created_at != nil {
+		fields = append(fields, useraffiliatewithdrawal.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, useraffiliatewithdrawal.FieldUpdatedAt)
+	}
+	if m.user_id != nil {
+		fields = append(fields, useraffiliatewithdrawal.FieldUserID)
+	}
+	if m.amount != nil {
+		fields = append(fields, useraffiliatewithdrawal.FieldAmount)
+	}
+	if m.status != nil {
+		fields = append(fields, useraffiliatewithdrawal.FieldStatus)
+	}
+	if m.payment_account_id != nil {
+		fields = append(fields, useraffiliatewithdrawal.FieldPaymentAccountID)
+	}
+	if m.payment_account_type != nil {
+		fields = append(fields, useraffiliatewithdrawal.FieldPaymentAccountType)
+	}
+	if m.payment_details_encrypted != nil {
+		fields = append(fields, useraffiliatewithdrawal.FieldPaymentDetailsEncrypted)
+	}
+	if m.payment_account_summary != nil {
+		fields = append(fields, useraffiliatewithdrawal.FieldPaymentAccountSummary)
+	}
+	if m.idempotency_key != nil {
+		fields = append(fields, useraffiliatewithdrawal.FieldIdempotencyKey)
+	}
+	if m.submitted_at != nil {
+		fields = append(fields, useraffiliatewithdrawal.FieldSubmittedAt)
+	}
+	if m.reviewed_at != nil {
+		fields = append(fields, useraffiliatewithdrawal.FieldReviewedAt)
+	}
+	if m.reviewed_by != nil {
+		fields = append(fields, useraffiliatewithdrawal.FieldReviewedBy)
+	}
+	if m.paid_at != nil {
+		fields = append(fields, useraffiliatewithdrawal.FieldPaidAt)
+	}
+	if m.paid_by != nil {
+		fields = append(fields, useraffiliatewithdrawal.FieldPaidBy)
+	}
+	if m.canceled_at != nil {
+		fields = append(fields, useraffiliatewithdrawal.FieldCanceledAt)
+	}
+	if m.cancel_reason != nil {
+		fields = append(fields, useraffiliatewithdrawal.FieldCancelReason)
+	}
+	if m.reject_reason != nil {
+		fields = append(fields, useraffiliatewithdrawal.FieldRejectReason)
+	}
+	if m.actual_currency != nil {
+		fields = append(fields, useraffiliatewithdrawal.FieldActualCurrency)
+	}
+	if m.actual_amount != nil {
+		fields = append(fields, useraffiliatewithdrawal.FieldActualAmount)
+	}
+	if m.exchange_rate != nil {
+		fields = append(fields, useraffiliatewithdrawal.FieldExchangeRate)
+	}
+	if m.external_reference != nil {
+		fields = append(fields, useraffiliatewithdrawal.FieldExternalReference)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *UserAffiliateWithdrawalMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case useraffiliatewithdrawal.FieldCreatedAt:
+		return m.CreatedAt()
+	case useraffiliatewithdrawal.FieldUpdatedAt:
+		return m.UpdatedAt()
+	case useraffiliatewithdrawal.FieldUserID:
+		return m.UserID()
+	case useraffiliatewithdrawal.FieldAmount:
+		return m.Amount()
+	case useraffiliatewithdrawal.FieldStatus:
+		return m.Status()
+	case useraffiliatewithdrawal.FieldPaymentAccountID:
+		return m.PaymentAccountID()
+	case useraffiliatewithdrawal.FieldPaymentAccountType:
+		return m.PaymentAccountType()
+	case useraffiliatewithdrawal.FieldPaymentDetailsEncrypted:
+		return m.PaymentDetailsEncrypted()
+	case useraffiliatewithdrawal.FieldPaymentAccountSummary:
+		return m.PaymentAccountSummary()
+	case useraffiliatewithdrawal.FieldIdempotencyKey:
+		return m.IdempotencyKey()
+	case useraffiliatewithdrawal.FieldSubmittedAt:
+		return m.SubmittedAt()
+	case useraffiliatewithdrawal.FieldReviewedAt:
+		return m.ReviewedAt()
+	case useraffiliatewithdrawal.FieldReviewedBy:
+		return m.ReviewedBy()
+	case useraffiliatewithdrawal.FieldPaidAt:
+		return m.PaidAt()
+	case useraffiliatewithdrawal.FieldPaidBy:
+		return m.PaidBy()
+	case useraffiliatewithdrawal.FieldCanceledAt:
+		return m.CanceledAt()
+	case useraffiliatewithdrawal.FieldCancelReason:
+		return m.CancelReason()
+	case useraffiliatewithdrawal.FieldRejectReason:
+		return m.RejectReason()
+	case useraffiliatewithdrawal.FieldActualCurrency:
+		return m.ActualCurrency()
+	case useraffiliatewithdrawal.FieldActualAmount:
+		return m.ActualAmount()
+	case useraffiliatewithdrawal.FieldExchangeRate:
+		return m.ExchangeRate()
+	case useraffiliatewithdrawal.FieldExternalReference:
+		return m.ExternalReference()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *UserAffiliateWithdrawalMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case useraffiliatewithdrawal.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case useraffiliatewithdrawal.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	case useraffiliatewithdrawal.FieldUserID:
+		return m.OldUserID(ctx)
+	case useraffiliatewithdrawal.FieldAmount:
+		return m.OldAmount(ctx)
+	case useraffiliatewithdrawal.FieldStatus:
+		return m.OldStatus(ctx)
+	case useraffiliatewithdrawal.FieldPaymentAccountID:
+		return m.OldPaymentAccountID(ctx)
+	case useraffiliatewithdrawal.FieldPaymentAccountType:
+		return m.OldPaymentAccountType(ctx)
+	case useraffiliatewithdrawal.FieldPaymentDetailsEncrypted:
+		return m.OldPaymentDetailsEncrypted(ctx)
+	case useraffiliatewithdrawal.FieldPaymentAccountSummary:
+		return m.OldPaymentAccountSummary(ctx)
+	case useraffiliatewithdrawal.FieldIdempotencyKey:
+		return m.OldIdempotencyKey(ctx)
+	case useraffiliatewithdrawal.FieldSubmittedAt:
+		return m.OldSubmittedAt(ctx)
+	case useraffiliatewithdrawal.FieldReviewedAt:
+		return m.OldReviewedAt(ctx)
+	case useraffiliatewithdrawal.FieldReviewedBy:
+		return m.OldReviewedBy(ctx)
+	case useraffiliatewithdrawal.FieldPaidAt:
+		return m.OldPaidAt(ctx)
+	case useraffiliatewithdrawal.FieldPaidBy:
+		return m.OldPaidBy(ctx)
+	case useraffiliatewithdrawal.FieldCanceledAt:
+		return m.OldCanceledAt(ctx)
+	case useraffiliatewithdrawal.FieldCancelReason:
+		return m.OldCancelReason(ctx)
+	case useraffiliatewithdrawal.FieldRejectReason:
+		return m.OldRejectReason(ctx)
+	case useraffiliatewithdrawal.FieldActualCurrency:
+		return m.OldActualCurrency(ctx)
+	case useraffiliatewithdrawal.FieldActualAmount:
+		return m.OldActualAmount(ctx)
+	case useraffiliatewithdrawal.FieldExchangeRate:
+		return m.OldExchangeRate(ctx)
+	case useraffiliatewithdrawal.FieldExternalReference:
+		return m.OldExternalReference(ctx)
+	}
+	return nil, fmt.Errorf("unknown UserAffiliateWithdrawal field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *UserAffiliateWithdrawalMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case useraffiliatewithdrawal.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case useraffiliatewithdrawal.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	case useraffiliatewithdrawal.FieldUserID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUserID(v)
+		return nil
+	case useraffiliatewithdrawal.FieldAmount:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAmount(v)
+		return nil
+	case useraffiliatewithdrawal.FieldStatus:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStatus(v)
+		return nil
+	case useraffiliatewithdrawal.FieldPaymentAccountID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPaymentAccountID(v)
+		return nil
+	case useraffiliatewithdrawal.FieldPaymentAccountType:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPaymentAccountType(v)
+		return nil
+	case useraffiliatewithdrawal.FieldPaymentDetailsEncrypted:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPaymentDetailsEncrypted(v)
+		return nil
+	case useraffiliatewithdrawal.FieldPaymentAccountSummary:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPaymentAccountSummary(v)
+		return nil
+	case useraffiliatewithdrawal.FieldIdempotencyKey:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetIdempotencyKey(v)
+		return nil
+	case useraffiliatewithdrawal.FieldSubmittedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSubmittedAt(v)
+		return nil
+	case useraffiliatewithdrawal.FieldReviewedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetReviewedAt(v)
+		return nil
+	case useraffiliatewithdrawal.FieldReviewedBy:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetReviewedBy(v)
+		return nil
+	case useraffiliatewithdrawal.FieldPaidAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPaidAt(v)
+		return nil
+	case useraffiliatewithdrawal.FieldPaidBy:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPaidBy(v)
+		return nil
+	case useraffiliatewithdrawal.FieldCanceledAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCanceledAt(v)
+		return nil
+	case useraffiliatewithdrawal.FieldCancelReason:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCancelReason(v)
+		return nil
+	case useraffiliatewithdrawal.FieldRejectReason:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRejectReason(v)
+		return nil
+	case useraffiliatewithdrawal.FieldActualCurrency:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetActualCurrency(v)
+		return nil
+	case useraffiliatewithdrawal.FieldActualAmount:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetActualAmount(v)
+		return nil
+	case useraffiliatewithdrawal.FieldExchangeRate:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetExchangeRate(v)
+		return nil
+	case useraffiliatewithdrawal.FieldExternalReference:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetExternalReference(v)
+		return nil
+	}
+	return fmt.Errorf("unknown UserAffiliateWithdrawal field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *UserAffiliateWithdrawalMutation) AddedFields() []string {
+	var fields []string
+	if m.adduser_id != nil {
+		fields = append(fields, useraffiliatewithdrawal.FieldUserID)
+	}
+	if m.addamount != nil {
+		fields = append(fields, useraffiliatewithdrawal.FieldAmount)
+	}
+	if m.addpayment_account_id != nil {
+		fields = append(fields, useraffiliatewithdrawal.FieldPaymentAccountID)
+	}
+	if m.addreviewed_by != nil {
+		fields = append(fields, useraffiliatewithdrawal.FieldReviewedBy)
+	}
+	if m.addpaid_by != nil {
+		fields = append(fields, useraffiliatewithdrawal.FieldPaidBy)
+	}
+	if m.addactual_amount != nil {
+		fields = append(fields, useraffiliatewithdrawal.FieldActualAmount)
+	}
+	if m.addexchange_rate != nil {
+		fields = append(fields, useraffiliatewithdrawal.FieldExchangeRate)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *UserAffiliateWithdrawalMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case useraffiliatewithdrawal.FieldUserID:
+		return m.AddedUserID()
+	case useraffiliatewithdrawal.FieldAmount:
+		return m.AddedAmount()
+	case useraffiliatewithdrawal.FieldPaymentAccountID:
+		return m.AddedPaymentAccountID()
+	case useraffiliatewithdrawal.FieldReviewedBy:
+		return m.AddedReviewedBy()
+	case useraffiliatewithdrawal.FieldPaidBy:
+		return m.AddedPaidBy()
+	case useraffiliatewithdrawal.FieldActualAmount:
+		return m.AddedActualAmount()
+	case useraffiliatewithdrawal.FieldExchangeRate:
+		return m.AddedExchangeRate()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *UserAffiliateWithdrawalMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case useraffiliatewithdrawal.FieldUserID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddUserID(v)
+		return nil
+	case useraffiliatewithdrawal.FieldAmount:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddAmount(v)
+		return nil
+	case useraffiliatewithdrawal.FieldPaymentAccountID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddPaymentAccountID(v)
+		return nil
+	case useraffiliatewithdrawal.FieldReviewedBy:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddReviewedBy(v)
+		return nil
+	case useraffiliatewithdrawal.FieldPaidBy:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddPaidBy(v)
+		return nil
+	case useraffiliatewithdrawal.FieldActualAmount:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddActualAmount(v)
+		return nil
+	case useraffiliatewithdrawal.FieldExchangeRate:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddExchangeRate(v)
+		return nil
+	}
+	return fmt.Errorf("unknown UserAffiliateWithdrawal numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *UserAffiliateWithdrawalMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(useraffiliatewithdrawal.FieldPaymentAccountID) {
+		fields = append(fields, useraffiliatewithdrawal.FieldPaymentAccountID)
+	}
+	if m.FieldCleared(useraffiliatewithdrawal.FieldIdempotencyKey) {
+		fields = append(fields, useraffiliatewithdrawal.FieldIdempotencyKey)
+	}
+	if m.FieldCleared(useraffiliatewithdrawal.FieldReviewedAt) {
+		fields = append(fields, useraffiliatewithdrawal.FieldReviewedAt)
+	}
+	if m.FieldCleared(useraffiliatewithdrawal.FieldReviewedBy) {
+		fields = append(fields, useraffiliatewithdrawal.FieldReviewedBy)
+	}
+	if m.FieldCleared(useraffiliatewithdrawal.FieldPaidAt) {
+		fields = append(fields, useraffiliatewithdrawal.FieldPaidAt)
+	}
+	if m.FieldCleared(useraffiliatewithdrawal.FieldPaidBy) {
+		fields = append(fields, useraffiliatewithdrawal.FieldPaidBy)
+	}
+	if m.FieldCleared(useraffiliatewithdrawal.FieldCanceledAt) {
+		fields = append(fields, useraffiliatewithdrawal.FieldCanceledAt)
+	}
+	if m.FieldCleared(useraffiliatewithdrawal.FieldCancelReason) {
+		fields = append(fields, useraffiliatewithdrawal.FieldCancelReason)
+	}
+	if m.FieldCleared(useraffiliatewithdrawal.FieldRejectReason) {
+		fields = append(fields, useraffiliatewithdrawal.FieldRejectReason)
+	}
+	if m.FieldCleared(useraffiliatewithdrawal.FieldActualCurrency) {
+		fields = append(fields, useraffiliatewithdrawal.FieldActualCurrency)
+	}
+	if m.FieldCleared(useraffiliatewithdrawal.FieldActualAmount) {
+		fields = append(fields, useraffiliatewithdrawal.FieldActualAmount)
+	}
+	if m.FieldCleared(useraffiliatewithdrawal.FieldExchangeRate) {
+		fields = append(fields, useraffiliatewithdrawal.FieldExchangeRate)
+	}
+	if m.FieldCleared(useraffiliatewithdrawal.FieldExternalReference) {
+		fields = append(fields, useraffiliatewithdrawal.FieldExternalReference)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *UserAffiliateWithdrawalMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *UserAffiliateWithdrawalMutation) ClearField(name string) error {
+	switch name {
+	case useraffiliatewithdrawal.FieldPaymentAccountID:
+		m.ClearPaymentAccountID()
+		return nil
+	case useraffiliatewithdrawal.FieldIdempotencyKey:
+		m.ClearIdempotencyKey()
+		return nil
+	case useraffiliatewithdrawal.FieldReviewedAt:
+		m.ClearReviewedAt()
+		return nil
+	case useraffiliatewithdrawal.FieldReviewedBy:
+		m.ClearReviewedBy()
+		return nil
+	case useraffiliatewithdrawal.FieldPaidAt:
+		m.ClearPaidAt()
+		return nil
+	case useraffiliatewithdrawal.FieldPaidBy:
+		m.ClearPaidBy()
+		return nil
+	case useraffiliatewithdrawal.FieldCanceledAt:
+		m.ClearCanceledAt()
+		return nil
+	case useraffiliatewithdrawal.FieldCancelReason:
+		m.ClearCancelReason()
+		return nil
+	case useraffiliatewithdrawal.FieldRejectReason:
+		m.ClearRejectReason()
+		return nil
+	case useraffiliatewithdrawal.FieldActualCurrency:
+		m.ClearActualCurrency()
+		return nil
+	case useraffiliatewithdrawal.FieldActualAmount:
+		m.ClearActualAmount()
+		return nil
+	case useraffiliatewithdrawal.FieldExchangeRate:
+		m.ClearExchangeRate()
+		return nil
+	case useraffiliatewithdrawal.FieldExternalReference:
+		m.ClearExternalReference()
+		return nil
+	}
+	return fmt.Errorf("unknown UserAffiliateWithdrawal nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *UserAffiliateWithdrawalMutation) ResetField(name string) error {
+	switch name {
+	case useraffiliatewithdrawal.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case useraffiliatewithdrawal.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	case useraffiliatewithdrawal.FieldUserID:
+		m.ResetUserID()
+		return nil
+	case useraffiliatewithdrawal.FieldAmount:
+		m.ResetAmount()
+		return nil
+	case useraffiliatewithdrawal.FieldStatus:
+		m.ResetStatus()
+		return nil
+	case useraffiliatewithdrawal.FieldPaymentAccountID:
+		m.ResetPaymentAccountID()
+		return nil
+	case useraffiliatewithdrawal.FieldPaymentAccountType:
+		m.ResetPaymentAccountType()
+		return nil
+	case useraffiliatewithdrawal.FieldPaymentDetailsEncrypted:
+		m.ResetPaymentDetailsEncrypted()
+		return nil
+	case useraffiliatewithdrawal.FieldPaymentAccountSummary:
+		m.ResetPaymentAccountSummary()
+		return nil
+	case useraffiliatewithdrawal.FieldIdempotencyKey:
+		m.ResetIdempotencyKey()
+		return nil
+	case useraffiliatewithdrawal.FieldSubmittedAt:
+		m.ResetSubmittedAt()
+		return nil
+	case useraffiliatewithdrawal.FieldReviewedAt:
+		m.ResetReviewedAt()
+		return nil
+	case useraffiliatewithdrawal.FieldReviewedBy:
+		m.ResetReviewedBy()
+		return nil
+	case useraffiliatewithdrawal.FieldPaidAt:
+		m.ResetPaidAt()
+		return nil
+	case useraffiliatewithdrawal.FieldPaidBy:
+		m.ResetPaidBy()
+		return nil
+	case useraffiliatewithdrawal.FieldCanceledAt:
+		m.ResetCanceledAt()
+		return nil
+	case useraffiliatewithdrawal.FieldCancelReason:
+		m.ResetCancelReason()
+		return nil
+	case useraffiliatewithdrawal.FieldRejectReason:
+		m.ResetRejectReason()
+		return nil
+	case useraffiliatewithdrawal.FieldActualCurrency:
+		m.ResetActualCurrency()
+		return nil
+	case useraffiliatewithdrawal.FieldActualAmount:
+		m.ResetActualAmount()
+		return nil
+	case useraffiliatewithdrawal.FieldExchangeRate:
+		m.ResetExchangeRate()
+		return nil
+	case useraffiliatewithdrawal.FieldExternalReference:
+		m.ResetExternalReference()
+		return nil
+	}
+	return fmt.Errorf("unknown UserAffiliateWithdrawal field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *UserAffiliateWithdrawalMutation) AddedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *UserAffiliateWithdrawalMutation) AddedIDs(name string) []ent.Value {
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *UserAffiliateWithdrawalMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *UserAffiliateWithdrawalMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *UserAffiliateWithdrawalMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *UserAffiliateWithdrawalMutation) EdgeCleared(name string) bool {
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *UserAffiliateWithdrawalMutation) ClearEdge(name string) error {
+	return fmt.Errorf("unknown UserAffiliateWithdrawal unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *UserAffiliateWithdrawalMutation) ResetEdge(name string) error {
+	return fmt.Errorf("unknown UserAffiliateWithdrawal edge %s", name)
 }
 
 // UserAllowedGroupMutation represents an operation that mutates the UserAllowedGroup nodes in the graph.

@@ -177,6 +177,18 @@ func (f ChannelMonitorRequestTemplateFunc) Mutate(ctx context.Context, m ent.Mut
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ChannelMonitorRequestTemplateMutation", m)
 }
 
+// The CompositeModelRouteFunc type is an adapter to allow the use of ordinary
+// function as CompositeModelRoute mutator.
+type CompositeModelRouteFunc func(context.Context, *ent.CompositeModelRouteMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f CompositeModelRouteFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.CompositeModelRouteMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.CompositeModelRouteMutation", m)
+}
+
 // The ConversationBranchFunc type is an adapter to allow the use of ordinary
 // function as ConversationBranch mutator.
 type ConversationBranchFunc func(context.Context, *ent.ConversationBranchMutation) (ent.Value, error)
@@ -487,6 +499,42 @@ func (f UserFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error)
 		return f(ctx, mv)
 	}
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.UserMutation", m)
+}
+
+// The UserAffiliateAdminAuditFunc type is an adapter to allow the use of ordinary
+// function as UserAffiliateAdminAudit mutator.
+type UserAffiliateAdminAuditFunc func(context.Context, *ent.UserAffiliateAdminAuditMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f UserAffiliateAdminAuditFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.UserAffiliateAdminAuditMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.UserAffiliateAdminAuditMutation", m)
+}
+
+// The UserAffiliatePaymentAccountFunc type is an adapter to allow the use of ordinary
+// function as UserAffiliatePaymentAccount mutator.
+type UserAffiliatePaymentAccountFunc func(context.Context, *ent.UserAffiliatePaymentAccountMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f UserAffiliatePaymentAccountFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.UserAffiliatePaymentAccountMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.UserAffiliatePaymentAccountMutation", m)
+}
+
+// The UserAffiliateWithdrawalFunc type is an adapter to allow the use of ordinary
+// function as UserAffiliateWithdrawal mutator.
+type UserAffiliateWithdrawalFunc func(context.Context, *ent.UserAffiliateWithdrawalMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f UserAffiliateWithdrawalFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.UserAffiliateWithdrawalMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.UserAffiliateWithdrawalMutation", m)
 }
 
 // The UserAllowedGroupFunc type is an adapter to allow the use of ordinary

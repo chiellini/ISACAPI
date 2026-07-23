@@ -48,6 +48,9 @@ type ChannelMonitorHistory func(*sql.Selector)
 // ChannelMonitorRequestTemplate is the predicate function for channelmonitorrequesttemplate builders.
 type ChannelMonitorRequestTemplate func(*sql.Selector)
 
+// CompositeModelRoute is the predicate function for compositemodelroute builders.
+type CompositeModelRoute func(*sql.Selector)
+
 // ConversationBranch is the predicate function for conversationbranch builders.
 type ConversationBranch func(*sql.Selector)
 
@@ -125,6 +128,15 @@ type UsageLog func(*sql.Selector)
 
 // User is the predicate function for user builders.
 type User func(*sql.Selector)
+
+// UserAffiliateAdminAudit is the predicate function for useraffiliateadminaudit builders.
+type UserAffiliateAdminAudit func(*sql.Selector)
+
+// UserAffiliatePaymentAccount is the predicate function for useraffiliatepaymentaccount builders.
+type UserAffiliatePaymentAccount func(*sql.Selector)
+
+// UserAffiliateWithdrawal is the predicate function for useraffiliatewithdrawal builders.
+type UserAffiliateWithdrawal func(*sql.Selector)
 
 // UserAllowedGroup is the predicate function for userallowedgroup builders.
 type UserAllowedGroup func(*sql.Selector)

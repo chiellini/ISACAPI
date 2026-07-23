@@ -26,6 +26,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitordailyrollup"
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorhistory"
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorrequesttemplate"
+	"github.com/Wei-Shaw/sub2api/ent/compositemodelroute"
 	"github.com/Wei-Shaw/sub2api/ent/conversationbranch"
 	"github.com/Wei-Shaw/sub2api/ent/conversationevent"
 	"github.com/Wei-Shaw/sub2api/ent/conversationresponseref"
@@ -52,6 +53,9 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/usagecleanuptask"
 	"github.com/Wei-Shaw/sub2api/ent/usagelog"
 	"github.com/Wei-Shaw/sub2api/ent/user"
+	"github.com/Wei-Shaw/sub2api/ent/useraffiliateadminaudit"
+	"github.com/Wei-Shaw/sub2api/ent/useraffiliatepaymentaccount"
+	"github.com/Wei-Shaw/sub2api/ent/useraffiliatewithdrawal"
 	"github.com/Wei-Shaw/sub2api/ent/userallowedgroup"
 	"github.com/Wei-Shaw/sub2api/ent/userattributedefinition"
 	"github.com/Wei-Shaw/sub2api/ent/userattributevalue"
@@ -131,6 +135,7 @@ func checkColumn(t, c string) error {
 			channelmonitordailyrollup.Table:     channelmonitordailyrollup.ValidColumn,
 			channelmonitorhistory.Table:         channelmonitorhistory.ValidColumn,
 			channelmonitorrequesttemplate.Table: channelmonitorrequesttemplate.ValidColumn,
+			compositemodelroute.Table:           compositemodelroute.ValidColumn,
 			conversationbranch.Table:            conversationbranch.ValidColumn,
 			conversationevent.Table:             conversationevent.ValidColumn,
 			conversationresponseref.Table:       conversationresponseref.ValidColumn,
@@ -157,6 +162,9 @@ func checkColumn(t, c string) error {
 			usagecleanuptask.Table:              usagecleanuptask.ValidColumn,
 			usagelog.Table:                      usagelog.ValidColumn,
 			user.Table:                          user.ValidColumn,
+			useraffiliateadminaudit.Table:       useraffiliateadminaudit.ValidColumn,
+			useraffiliatepaymentaccount.Table:   useraffiliatepaymentaccount.ValidColumn,
+			useraffiliatewithdrawal.Table:       useraffiliatewithdrawal.ValidColumn,
 			userallowedgroup.Table:              userallowedgroup.ValidColumn,
 			userattributedefinition.Table:       userattributedefinition.ValidColumn,
 			userattributevalue.Table:            userattributevalue.ValidColumn,

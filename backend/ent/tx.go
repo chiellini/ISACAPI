@@ -42,6 +42,8 @@ type Tx struct {
 	ChannelMonitorHistory *ChannelMonitorHistoryClient
 	// ChannelMonitorRequestTemplate is the client for interacting with the ChannelMonitorRequestTemplate builders.
 	ChannelMonitorRequestTemplate *ChannelMonitorRequestTemplateClient
+	// CompositeModelRoute is the client for interacting with the CompositeModelRoute builders.
+	CompositeModelRoute *CompositeModelRouteClient
 	// ConversationBranch is the client for interacting with the ConversationBranch builders.
 	ConversationBranch *ConversationBranchClient
 	// ConversationEvent is the client for interacting with the ConversationEvent builders.
@@ -94,6 +96,12 @@ type Tx struct {
 	UsageLog *UsageLogClient
 	// User is the client for interacting with the User builders.
 	User *UserClient
+	// UserAffiliateAdminAudit is the client for interacting with the UserAffiliateAdminAudit builders.
+	UserAffiliateAdminAudit *UserAffiliateAdminAuditClient
+	// UserAffiliatePaymentAccount is the client for interacting with the UserAffiliatePaymentAccount builders.
+	UserAffiliatePaymentAccount *UserAffiliatePaymentAccountClient
+	// UserAffiliateWithdrawal is the client for interacting with the UserAffiliateWithdrawal builders.
+	UserAffiliateWithdrawal *UserAffiliateWithdrawalClient
 	// UserAllowedGroup is the client for interacting with the UserAllowedGroup builders.
 	UserAllowedGroup *UserAllowedGroupClient
 	// UserAttributeDefinition is the client for interacting with the UserAttributeDefinition builders.
@@ -249,6 +257,7 @@ func (tx *Tx) init() {
 	tx.ChannelMonitorDailyRollup = NewChannelMonitorDailyRollupClient(tx.config)
 	tx.ChannelMonitorHistory = NewChannelMonitorHistoryClient(tx.config)
 	tx.ChannelMonitorRequestTemplate = NewChannelMonitorRequestTemplateClient(tx.config)
+	tx.CompositeModelRoute = NewCompositeModelRouteClient(tx.config)
 	tx.ConversationBranch = NewConversationBranchClient(tx.config)
 	tx.ConversationEvent = NewConversationEventClient(tx.config)
 	tx.ConversationResponseRef = NewConversationResponseRefClient(tx.config)
@@ -275,6 +284,9 @@ func (tx *Tx) init() {
 	tx.UsageCleanupTask = NewUsageCleanupTaskClient(tx.config)
 	tx.UsageLog = NewUsageLogClient(tx.config)
 	tx.User = NewUserClient(tx.config)
+	tx.UserAffiliateAdminAudit = NewUserAffiliateAdminAuditClient(tx.config)
+	tx.UserAffiliatePaymentAccount = NewUserAffiliatePaymentAccountClient(tx.config)
+	tx.UserAffiliateWithdrawal = NewUserAffiliateWithdrawalClient(tx.config)
 	tx.UserAllowedGroup = NewUserAllowedGroupClient(tx.config)
 	tx.UserAttributeDefinition = NewUserAttributeDefinitionClient(tx.config)
 	tx.UserAttributeValue = NewUserAttributeValueClient(tx.config)

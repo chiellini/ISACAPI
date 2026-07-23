@@ -825,6 +825,68 @@ var (
 			},
 		},
 	}
+	// CompositeModelRoutesColumns holds the columns for the "composite_model_routes" table.
+	CompositeModelRoutesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "deleted_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "public_model", Type: field.TypeString, Size: 200},
+		{Name: "match_type", Type: field.TypeString, Size: 20, Default: "exact"},
+		{Name: "target_platform", Type: field.TypeString, Size: 50, Default: "openai"},
+		{Name: "upstream_model", Type: field.TypeString, Size: 200, Default: ""},
+		{Name: "endpoint", Type: field.TypeString, Size: 50, Default: "any"},
+		{Name: "priority", Type: field.TypeInt, Default: 100},
+		{Name: "enabled", Type: field.TypeBool, Default: true},
+		{Name: "notes", Type: field.TypeString, Nullable: true, SchemaType: map[string]string{"postgres": "text"}},
+		{Name: "group_id", Type: field.TypeInt64},
+	}
+	// CompositeModelRoutesTable holds the schema information for the "composite_model_routes" table.
+	CompositeModelRoutesTable = &schema.Table{
+		Name:       "composite_model_routes",
+		Columns:    CompositeModelRoutesColumns,
+		PrimaryKey: []*schema.Column{CompositeModelRoutesColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "composite_model_routes_groups_group",
+				Columns:    []*schema.Column{CompositeModelRoutesColumns[12]},
+				RefColumns: []*schema.Column{GroupsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "compositemodelroute_group_id",
+				Unique:  false,
+				Columns: []*schema.Column{CompositeModelRoutesColumns[12]},
+			},
+			{
+				Name:    "compositemodelroute_group_id_enabled",
+				Unique:  false,
+				Columns: []*schema.Column{CompositeModelRoutesColumns[12], CompositeModelRoutesColumns[10]},
+			},
+			{
+				Name:    "compositemodelroute_group_id_endpoint",
+				Unique:  false,
+				Columns: []*schema.Column{CompositeModelRoutesColumns[12], CompositeModelRoutesColumns[8]},
+			},
+			{
+				Name:    "compositemodelroute_group_id_target_platform",
+				Unique:  false,
+				Columns: []*schema.Column{CompositeModelRoutesColumns[12], CompositeModelRoutesColumns[6]},
+			},
+			{
+				Name:    "compositemodelroute_deleted_at",
+				Unique:  false,
+				Columns: []*schema.Column{CompositeModelRoutesColumns[3]},
+			},
+			{
+				Name:    "compositemodelroute_priority",
+				Unique:  false,
+				Columns: []*schema.Column{CompositeModelRoutesColumns[9]},
+			},
+		},
+	}
 	// ConversationBranchesColumns holds the columns for the "conversation_branches" table.
 	ConversationBranchesColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
@@ -2143,6 +2205,118 @@ var (
 			},
 		},
 	}
+	// UserAffiliateAdminAuditsColumns holds the columns for the "user_affiliate_admin_audits" table.
+	UserAffiliateAdminAuditsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "operator_user_id", Type: field.TypeInt64},
+		{Name: "target_user_id", Type: field.TypeInt64, Nullable: true},
+		{Name: "withdrawal_id", Type: field.TypeInt64, Nullable: true},
+		{Name: "action", Type: field.TypeString, Size: 64},
+		{Name: "idempotency_key", Type: field.TypeString, Nullable: true, Size: 128},
+		{Name: "detail", Type: field.TypeString, Default: "{}", SchemaType: map[string]string{"postgres": "jsonb"}},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+	}
+	// UserAffiliateAdminAuditsTable holds the schema information for the "user_affiliate_admin_audits" table.
+	UserAffiliateAdminAuditsTable = &schema.Table{
+		Name:       "user_affiliate_admin_audits",
+		Columns:    UserAffiliateAdminAuditsColumns,
+		PrimaryKey: []*schema.Column{UserAffiliateAdminAuditsColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "useraffiliateadminaudit_target_user_id_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{UserAffiliateAdminAuditsColumns[2], UserAffiliateAdminAuditsColumns[7]},
+			},
+			{
+				Name:    "useraffiliateadminaudit_withdrawal_id_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{UserAffiliateAdminAuditsColumns[3], UserAffiliateAdminAuditsColumns[7]},
+			},
+			{
+				Name:    "useraffiliateadminaudit_operator_user_id_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{UserAffiliateAdminAuditsColumns[1], UserAffiliateAdminAuditsColumns[7]},
+			},
+		},
+	}
+	// UserAffiliatePaymentAccountsColumns holds the columns for the "user_affiliate_payment_accounts" table.
+	UserAffiliatePaymentAccountsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "user_id", Type: field.TypeInt64},
+		{Name: "type", Type: field.TypeString, Size: 20},
+		{Name: "details_encrypted", Type: field.TypeString, SchemaType: map[string]string{"postgres": "text"}},
+		{Name: "masked_summary", Type: field.TypeString, Size: 255},
+		{Name: "is_default", Type: field.TypeBool, Default: false},
+	}
+	// UserAffiliatePaymentAccountsTable holds the schema information for the "user_affiliate_payment_accounts" table.
+	UserAffiliatePaymentAccountsTable = &schema.Table{
+		Name:       "user_affiliate_payment_accounts",
+		Columns:    UserAffiliatePaymentAccountsColumns,
+		PrimaryKey: []*schema.Column{UserAffiliatePaymentAccountsColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "useraffiliatepaymentaccount_user_id",
+				Unique:  false,
+				Columns: []*schema.Column{UserAffiliatePaymentAccountsColumns[3]},
+			},
+			{
+				Name:    "useraffiliatepaymentaccount_user_id_is_default",
+				Unique:  false,
+				Columns: []*schema.Column{UserAffiliatePaymentAccountsColumns[3], UserAffiliatePaymentAccountsColumns[7]},
+			},
+		},
+	}
+	// UserAffiliateWithdrawalsColumns holds the columns for the "user_affiliate_withdrawals" table.
+	UserAffiliateWithdrawalsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "user_id", Type: field.TypeInt64},
+		{Name: "amount", Type: field.TypeFloat64, SchemaType: map[string]string{"postgres": "decimal(20,8)"}},
+		{Name: "status", Type: field.TypeString, Size: 20, Default: "submitted"},
+		{Name: "payment_account_id", Type: field.TypeInt64, Nullable: true},
+		{Name: "payment_account_type", Type: field.TypeString, Size: 20},
+		{Name: "payment_details_encrypted", Type: field.TypeString, SchemaType: map[string]string{"postgres": "text"}},
+		{Name: "payment_account_summary", Type: field.TypeString, Size: 255},
+		{Name: "idempotency_key", Type: field.TypeString, Nullable: true, Size: 128},
+		{Name: "submitted_at", Type: field.TypeTime},
+		{Name: "reviewed_at", Type: field.TypeTime, Nullable: true},
+		{Name: "reviewed_by", Type: field.TypeInt64, Nullable: true},
+		{Name: "paid_at", Type: field.TypeTime, Nullable: true},
+		{Name: "paid_by", Type: field.TypeInt64, Nullable: true},
+		{Name: "canceled_at", Type: field.TypeTime, Nullable: true},
+		{Name: "cancel_reason", Type: field.TypeString, Nullable: true, SchemaType: map[string]string{"postgres": "text"}},
+		{Name: "reject_reason", Type: field.TypeString, Nullable: true, SchemaType: map[string]string{"postgres": "text"}},
+		{Name: "actual_currency", Type: field.TypeString, Nullable: true, Size: 20},
+		{Name: "actual_amount", Type: field.TypeFloat64, Nullable: true, SchemaType: map[string]string{"postgres": "decimal(20,8)"}},
+		{Name: "exchange_rate", Type: field.TypeFloat64, Nullable: true, SchemaType: map[string]string{"postgres": "decimal(20,8)"}},
+		{Name: "external_reference", Type: field.TypeString, Nullable: true, Size: 255},
+	}
+	// UserAffiliateWithdrawalsTable holds the schema information for the "user_affiliate_withdrawals" table.
+	UserAffiliateWithdrawalsTable = &schema.Table{
+		Name:       "user_affiliate_withdrawals",
+		Columns:    UserAffiliateWithdrawalsColumns,
+		PrimaryKey: []*schema.Column{UserAffiliateWithdrawalsColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "useraffiliatewithdrawal_user_id_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{UserAffiliateWithdrawalsColumns[3], UserAffiliateWithdrawalsColumns[1]},
+			},
+			{
+				Name:    "useraffiliatewithdrawal_status_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{UserAffiliateWithdrawalsColumns[5], UserAffiliateWithdrawalsColumns[1]},
+			},
+			{
+				Name:    "useraffiliatewithdrawal_external_reference",
+				Unique:  false,
+				Columns: []*schema.Column{UserAffiliateWithdrawalsColumns[22]},
+			},
+		},
+	}
 	// UserAllowedGroupsColumns holds the columns for the "user_allowed_groups" table.
 	UserAllowedGroupsColumns = []*schema.Column{
 		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
@@ -2414,6 +2588,7 @@ var (
 		ChannelMonitorDailyRollupsTable,
 		ChannelMonitorHistoriesTable,
 		ChannelMonitorRequestTemplatesTable,
+		CompositeModelRoutesTable,
 		ConversationBranchesTable,
 		ConversationEventsTable,
 		ConversationResponseRefsTable,
@@ -2440,6 +2615,9 @@ var (
 		UsageCleanupTasksTable,
 		UsageLogsTable,
 		UsersTable,
+		UserAffiliateAdminAuditsTable,
+		UserAffiliatePaymentAccountsTable,
+		UserAffiliateWithdrawalsTable,
 		UserAllowedGroupsTable,
 		UserAttributeDefinitionsTable,
 		UserAttributeValuesTable,
@@ -2504,6 +2682,10 @@ func init() {
 	}
 	ChannelMonitorRequestTemplatesTable.Annotation = &entsql.Annotation{
 		Table: "channel_monitor_request_templates",
+	}
+	CompositeModelRoutesTable.ForeignKeys[0].RefTable = GroupsTable
+	CompositeModelRoutesTable.Annotation = &entsql.Annotation{
+		Table: "composite_model_routes",
 	}
 	ConversationBranchesTable.Annotation = &entsql.Annotation{
 		Table: "conversation_branches",
@@ -2601,6 +2783,15 @@ func init() {
 	}
 	UsersTable.Annotation = &entsql.Annotation{
 		Table: "users",
+	}
+	UserAffiliateAdminAuditsTable.Annotation = &entsql.Annotation{
+		Table: "user_affiliate_admin_audits",
+	}
+	UserAffiliatePaymentAccountsTable.Annotation = &entsql.Annotation{
+		Table: "user_affiliate_payment_accounts",
+	}
+	UserAffiliateWithdrawalsTable.Annotation = &entsql.Annotation{
+		Table: "user_affiliate_withdrawals",
 	}
 	UserAllowedGroupsTable.ForeignKeys[0].RefTable = UsersTable
 	UserAllowedGroupsTable.ForeignKeys[1].RefTable = GroupsTable

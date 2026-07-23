@@ -22,6 +22,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitordailyrollup"
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorhistory"
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorrequesttemplate"
+	"github.com/Wei-Shaw/sub2api/ent/compositemodelroute"
 	"github.com/Wei-Shaw/sub2api/ent/conversationbranch"
 	"github.com/Wei-Shaw/sub2api/ent/conversationevent"
 	"github.com/Wei-Shaw/sub2api/ent/conversationresponseref"
@@ -49,6 +50,9 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/usagecleanuptask"
 	"github.com/Wei-Shaw/sub2api/ent/usagelog"
 	"github.com/Wei-Shaw/sub2api/ent/user"
+	"github.com/Wei-Shaw/sub2api/ent/useraffiliateadminaudit"
+	"github.com/Wei-Shaw/sub2api/ent/useraffiliatepaymentaccount"
+	"github.com/Wei-Shaw/sub2api/ent/useraffiliatewithdrawal"
 	"github.com/Wei-Shaw/sub2api/ent/userallowedgroup"
 	"github.com/Wei-Shaw/sub2api/ent/userattributedefinition"
 	"github.com/Wei-Shaw/sub2api/ent/userattributevalue"
@@ -488,6 +492,33 @@ func (f TraverseChannelMonitorRequestTemplate) Traverse(ctx context.Context, q e
 		return f(ctx, q)
 	}
 	return fmt.Errorf("unexpected query type %T. expect *ent.ChannelMonitorRequestTemplateQuery", q)
+}
+
+// The CompositeModelRouteFunc type is an adapter to allow the use of ordinary function as a Querier.
+type CompositeModelRouteFunc func(context.Context, *ent.CompositeModelRouteQuery) (ent.Value, error)
+
+// Query calls f(ctx, q).
+func (f CompositeModelRouteFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
+	if q, ok := q.(*ent.CompositeModelRouteQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *ent.CompositeModelRouteQuery", q)
+}
+
+// The TraverseCompositeModelRoute type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseCompositeModelRoute func(context.Context, *ent.CompositeModelRouteQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseCompositeModelRoute) Intercept(next ent.Querier) ent.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseCompositeModelRoute) Traverse(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.CompositeModelRouteQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *ent.CompositeModelRouteQuery", q)
 }
 
 // The ConversationBranchFunc type is an adapter to allow the use of ordinary function as a Querier.
@@ -1192,6 +1223,87 @@ func (f TraverseUser) Traverse(ctx context.Context, q ent.Query) error {
 	return fmt.Errorf("unexpected query type %T. expect *ent.UserQuery", q)
 }
 
+// The UserAffiliateAdminAuditFunc type is an adapter to allow the use of ordinary function as a Querier.
+type UserAffiliateAdminAuditFunc func(context.Context, *ent.UserAffiliateAdminAuditQuery) (ent.Value, error)
+
+// Query calls f(ctx, q).
+func (f UserAffiliateAdminAuditFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
+	if q, ok := q.(*ent.UserAffiliateAdminAuditQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *ent.UserAffiliateAdminAuditQuery", q)
+}
+
+// The TraverseUserAffiliateAdminAudit type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseUserAffiliateAdminAudit func(context.Context, *ent.UserAffiliateAdminAuditQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseUserAffiliateAdminAudit) Intercept(next ent.Querier) ent.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseUserAffiliateAdminAudit) Traverse(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.UserAffiliateAdminAuditQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *ent.UserAffiliateAdminAuditQuery", q)
+}
+
+// The UserAffiliatePaymentAccountFunc type is an adapter to allow the use of ordinary function as a Querier.
+type UserAffiliatePaymentAccountFunc func(context.Context, *ent.UserAffiliatePaymentAccountQuery) (ent.Value, error)
+
+// Query calls f(ctx, q).
+func (f UserAffiliatePaymentAccountFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
+	if q, ok := q.(*ent.UserAffiliatePaymentAccountQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *ent.UserAffiliatePaymentAccountQuery", q)
+}
+
+// The TraverseUserAffiliatePaymentAccount type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseUserAffiliatePaymentAccount func(context.Context, *ent.UserAffiliatePaymentAccountQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseUserAffiliatePaymentAccount) Intercept(next ent.Querier) ent.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseUserAffiliatePaymentAccount) Traverse(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.UserAffiliatePaymentAccountQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *ent.UserAffiliatePaymentAccountQuery", q)
+}
+
+// The UserAffiliateWithdrawalFunc type is an adapter to allow the use of ordinary function as a Querier.
+type UserAffiliateWithdrawalFunc func(context.Context, *ent.UserAffiliateWithdrawalQuery) (ent.Value, error)
+
+// Query calls f(ctx, q).
+func (f UserAffiliateWithdrawalFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
+	if q, ok := q.(*ent.UserAffiliateWithdrawalQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *ent.UserAffiliateWithdrawalQuery", q)
+}
+
+// The TraverseUserAffiliateWithdrawal type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseUserAffiliateWithdrawal func(context.Context, *ent.UserAffiliateWithdrawalQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseUserAffiliateWithdrawal) Intercept(next ent.Querier) ent.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseUserAffiliateWithdrawal) Traverse(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.UserAffiliateWithdrawalQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *ent.UserAffiliateWithdrawalQuery", q)
+}
+
 // The UserAllowedGroupFunc type is an adapter to allow the use of ordinary function as a Querier.
 type UserAllowedGroupFunc func(context.Context, *ent.UserAllowedGroupQuery) (ent.Value, error)
 
@@ -1358,6 +1470,8 @@ func NewQuery(q ent.Query) (Query, error) {
 		return &query[*ent.ChannelMonitorHistoryQuery, predicate.ChannelMonitorHistory, channelmonitorhistory.OrderOption]{typ: ent.TypeChannelMonitorHistory, tq: q}, nil
 	case *ent.ChannelMonitorRequestTemplateQuery:
 		return &query[*ent.ChannelMonitorRequestTemplateQuery, predicate.ChannelMonitorRequestTemplate, channelmonitorrequesttemplate.OrderOption]{typ: ent.TypeChannelMonitorRequestTemplate, tq: q}, nil
+	case *ent.CompositeModelRouteQuery:
+		return &query[*ent.CompositeModelRouteQuery, predicate.CompositeModelRoute, compositemodelroute.OrderOption]{typ: ent.TypeCompositeModelRoute, tq: q}, nil
 	case *ent.ConversationBranchQuery:
 		return &query[*ent.ConversationBranchQuery, predicate.ConversationBranch, conversationbranch.OrderOption]{typ: ent.TypeConversationBranch, tq: q}, nil
 	case *ent.ConversationEventQuery:
@@ -1410,6 +1524,12 @@ func NewQuery(q ent.Query) (Query, error) {
 		return &query[*ent.UsageLogQuery, predicate.UsageLog, usagelog.OrderOption]{typ: ent.TypeUsageLog, tq: q}, nil
 	case *ent.UserQuery:
 		return &query[*ent.UserQuery, predicate.User, user.OrderOption]{typ: ent.TypeUser, tq: q}, nil
+	case *ent.UserAffiliateAdminAuditQuery:
+		return &query[*ent.UserAffiliateAdminAuditQuery, predicate.UserAffiliateAdminAudit, useraffiliateadminaudit.OrderOption]{typ: ent.TypeUserAffiliateAdminAudit, tq: q}, nil
+	case *ent.UserAffiliatePaymentAccountQuery:
+		return &query[*ent.UserAffiliatePaymentAccountQuery, predicate.UserAffiliatePaymentAccount, useraffiliatepaymentaccount.OrderOption]{typ: ent.TypeUserAffiliatePaymentAccount, tq: q}, nil
+	case *ent.UserAffiliateWithdrawalQuery:
+		return &query[*ent.UserAffiliateWithdrawalQuery, predicate.UserAffiliateWithdrawal, useraffiliatewithdrawal.OrderOption]{typ: ent.TypeUserAffiliateWithdrawal, tq: q}, nil
 	case *ent.UserAllowedGroupQuery:
 		return &query[*ent.UserAllowedGroupQuery, predicate.UserAllowedGroup, userallowedgroup.OrderOption]{typ: ent.TypeUserAllowedGroup, tq: q}, nil
 	case *ent.UserAttributeDefinitionQuery:

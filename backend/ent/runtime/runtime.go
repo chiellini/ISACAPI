@@ -19,6 +19,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitordailyrollup"
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorhistory"
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorrequesttemplate"
+	"github.com/Wei-Shaw/sub2api/ent/compositemodelroute"
 	"github.com/Wei-Shaw/sub2api/ent/conversationbranch"
 	"github.com/Wei-Shaw/sub2api/ent/conversationevent"
 	"github.com/Wei-Shaw/sub2api/ent/conversationresponseref"
@@ -46,6 +47,9 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/usagecleanuptask"
 	"github.com/Wei-Shaw/sub2api/ent/usagelog"
 	"github.com/Wei-Shaw/sub2api/ent/user"
+	"github.com/Wei-Shaw/sub2api/ent/useraffiliateadminaudit"
+	"github.com/Wei-Shaw/sub2api/ent/useraffiliatepaymentaccount"
+	"github.com/Wei-Shaw/sub2api/ent/useraffiliatewithdrawal"
 	"github.com/Wei-Shaw/sub2api/ent/userallowedgroup"
 	"github.com/Wei-Shaw/sub2api/ent/userattributedefinition"
 	"github.com/Wei-Shaw/sub2api/ent/userattributevalue"
@@ -877,6 +881,75 @@ func init() {
 	channelmonitorrequesttemplate.DefaultBodyOverrideMode = channelmonitorrequesttemplateDescBodyOverrideMode.Default.(string)
 	// channelmonitorrequesttemplate.BodyOverrideModeValidator is a validator for the "body_override_mode" field. It is called by the builders before save.
 	channelmonitorrequesttemplate.BodyOverrideModeValidator = channelmonitorrequesttemplateDescBodyOverrideMode.Validators[0].(func(string) error)
+	compositemodelrouteMixin := schema.CompositeModelRoute{}.Mixin()
+	compositemodelrouteMixinHooks1 := compositemodelrouteMixin[1].Hooks()
+	compositemodelroute.Hooks[0] = compositemodelrouteMixinHooks1[0]
+	compositemodelrouteMixinInters1 := compositemodelrouteMixin[1].Interceptors()
+	compositemodelroute.Interceptors[0] = compositemodelrouteMixinInters1[0]
+	compositemodelrouteMixinFields0 := compositemodelrouteMixin[0].Fields()
+	_ = compositemodelrouteMixinFields0
+	compositemodelrouteFields := schema.CompositeModelRoute{}.Fields()
+	_ = compositemodelrouteFields
+	// compositemodelrouteDescCreatedAt is the schema descriptor for created_at field.
+	compositemodelrouteDescCreatedAt := compositemodelrouteMixinFields0[0].Descriptor()
+	// compositemodelroute.DefaultCreatedAt holds the default value on creation for the created_at field.
+	compositemodelroute.DefaultCreatedAt = compositemodelrouteDescCreatedAt.Default.(func() time.Time)
+	// compositemodelrouteDescUpdatedAt is the schema descriptor for updated_at field.
+	compositemodelrouteDescUpdatedAt := compositemodelrouteMixinFields0[1].Descriptor()
+	// compositemodelroute.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	compositemodelroute.DefaultUpdatedAt = compositemodelrouteDescUpdatedAt.Default.(func() time.Time)
+	// compositemodelroute.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	compositemodelroute.UpdateDefaultUpdatedAt = compositemodelrouteDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// compositemodelrouteDescPublicModel is the schema descriptor for public_model field.
+	compositemodelrouteDescPublicModel := compositemodelrouteFields[1].Descriptor()
+	// compositemodelroute.PublicModelValidator is a validator for the "public_model" field. It is called by the builders before save.
+	compositemodelroute.PublicModelValidator = func() func(string) error {
+		validators := compositemodelrouteDescPublicModel.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(public_model string) error {
+			for _, fn := range fns {
+				if err := fn(public_model); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// compositemodelrouteDescMatchType is the schema descriptor for match_type field.
+	compositemodelrouteDescMatchType := compositemodelrouteFields[2].Descriptor()
+	// compositemodelroute.DefaultMatchType holds the default value on creation for the match_type field.
+	compositemodelroute.DefaultMatchType = compositemodelrouteDescMatchType.Default.(string)
+	// compositemodelroute.MatchTypeValidator is a validator for the "match_type" field. It is called by the builders before save.
+	compositemodelroute.MatchTypeValidator = compositemodelrouteDescMatchType.Validators[0].(func(string) error)
+	// compositemodelrouteDescTargetPlatform is the schema descriptor for target_platform field.
+	compositemodelrouteDescTargetPlatform := compositemodelrouteFields[3].Descriptor()
+	// compositemodelroute.DefaultTargetPlatform holds the default value on creation for the target_platform field.
+	compositemodelroute.DefaultTargetPlatform = compositemodelrouteDescTargetPlatform.Default.(string)
+	// compositemodelroute.TargetPlatformValidator is a validator for the "target_platform" field. It is called by the builders before save.
+	compositemodelroute.TargetPlatformValidator = compositemodelrouteDescTargetPlatform.Validators[0].(func(string) error)
+	// compositemodelrouteDescUpstreamModel is the schema descriptor for upstream_model field.
+	compositemodelrouteDescUpstreamModel := compositemodelrouteFields[4].Descriptor()
+	// compositemodelroute.DefaultUpstreamModel holds the default value on creation for the upstream_model field.
+	compositemodelroute.DefaultUpstreamModel = compositemodelrouteDescUpstreamModel.Default.(string)
+	// compositemodelroute.UpstreamModelValidator is a validator for the "upstream_model" field. It is called by the builders before save.
+	compositemodelroute.UpstreamModelValidator = compositemodelrouteDescUpstreamModel.Validators[0].(func(string) error)
+	// compositemodelrouteDescEndpoint is the schema descriptor for endpoint field.
+	compositemodelrouteDescEndpoint := compositemodelrouteFields[5].Descriptor()
+	// compositemodelroute.DefaultEndpoint holds the default value on creation for the endpoint field.
+	compositemodelroute.DefaultEndpoint = compositemodelrouteDescEndpoint.Default.(string)
+	// compositemodelroute.EndpointValidator is a validator for the "endpoint" field. It is called by the builders before save.
+	compositemodelroute.EndpointValidator = compositemodelrouteDescEndpoint.Validators[0].(func(string) error)
+	// compositemodelrouteDescPriority is the schema descriptor for priority field.
+	compositemodelrouteDescPriority := compositemodelrouteFields[6].Descriptor()
+	// compositemodelroute.DefaultPriority holds the default value on creation for the priority field.
+	compositemodelroute.DefaultPriority = compositemodelrouteDescPriority.Default.(int)
+	// compositemodelrouteDescEnabled is the schema descriptor for enabled field.
+	compositemodelrouteDescEnabled := compositemodelrouteFields[7].Descriptor()
+	// compositemodelroute.DefaultEnabled holds the default value on creation for the enabled field.
+	compositemodelroute.DefaultEnabled = compositemodelrouteDescEnabled.Default.(bool)
 	conversationbranchFields := schema.ConversationBranch{}.Fields()
 	_ = conversationbranchFields
 	// conversationbranchDescEventCount is the schema descriptor for event_count field.
@@ -2471,6 +2544,92 @@ func init() {
 	userDescRpmLimit := userFields[20].Descriptor()
 	// user.DefaultRpmLimit holds the default value on creation for the rpm_limit field.
 	user.DefaultRpmLimit = userDescRpmLimit.Default.(int)
+	useraffiliateadminauditFields := schema.UserAffiliateAdminAudit{}.Fields()
+	_ = useraffiliateadminauditFields
+	// useraffiliateadminauditDescAction is the schema descriptor for action field.
+	useraffiliateadminauditDescAction := useraffiliateadminauditFields[3].Descriptor()
+	// useraffiliateadminaudit.ActionValidator is a validator for the "action" field. It is called by the builders before save.
+	useraffiliateadminaudit.ActionValidator = useraffiliateadminauditDescAction.Validators[0].(func(string) error)
+	// useraffiliateadminauditDescIdempotencyKey is the schema descriptor for idempotency_key field.
+	useraffiliateadminauditDescIdempotencyKey := useraffiliateadminauditFields[4].Descriptor()
+	// useraffiliateadminaudit.IdempotencyKeyValidator is a validator for the "idempotency_key" field. It is called by the builders before save.
+	useraffiliateadminaudit.IdempotencyKeyValidator = useraffiliateadminauditDescIdempotencyKey.Validators[0].(func(string) error)
+	// useraffiliateadminauditDescDetail is the schema descriptor for detail field.
+	useraffiliateadminauditDescDetail := useraffiliateadminauditFields[5].Descriptor()
+	// useraffiliateadminaudit.DefaultDetail holds the default value on creation for the detail field.
+	useraffiliateadminaudit.DefaultDetail = useraffiliateadminauditDescDetail.Default.(string)
+	// useraffiliateadminauditDescCreatedAt is the schema descriptor for created_at field.
+	useraffiliateadminauditDescCreatedAt := useraffiliateadminauditFields[6].Descriptor()
+	// useraffiliateadminaudit.DefaultCreatedAt holds the default value on creation for the created_at field.
+	useraffiliateadminaudit.DefaultCreatedAt = useraffiliateadminauditDescCreatedAt.Default.(func() time.Time)
+	useraffiliatepaymentaccountMixin := schema.UserAffiliatePaymentAccount{}.Mixin()
+	useraffiliatepaymentaccountMixinFields0 := useraffiliatepaymentaccountMixin[0].Fields()
+	_ = useraffiliatepaymentaccountMixinFields0
+	useraffiliatepaymentaccountFields := schema.UserAffiliatePaymentAccount{}.Fields()
+	_ = useraffiliatepaymentaccountFields
+	// useraffiliatepaymentaccountDescCreatedAt is the schema descriptor for created_at field.
+	useraffiliatepaymentaccountDescCreatedAt := useraffiliatepaymentaccountMixinFields0[0].Descriptor()
+	// useraffiliatepaymentaccount.DefaultCreatedAt holds the default value on creation for the created_at field.
+	useraffiliatepaymentaccount.DefaultCreatedAt = useraffiliatepaymentaccountDescCreatedAt.Default.(func() time.Time)
+	// useraffiliatepaymentaccountDescUpdatedAt is the schema descriptor for updated_at field.
+	useraffiliatepaymentaccountDescUpdatedAt := useraffiliatepaymentaccountMixinFields0[1].Descriptor()
+	// useraffiliatepaymentaccount.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	useraffiliatepaymentaccount.DefaultUpdatedAt = useraffiliatepaymentaccountDescUpdatedAt.Default.(func() time.Time)
+	// useraffiliatepaymentaccount.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	useraffiliatepaymentaccount.UpdateDefaultUpdatedAt = useraffiliatepaymentaccountDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// useraffiliatepaymentaccountDescType is the schema descriptor for type field.
+	useraffiliatepaymentaccountDescType := useraffiliatepaymentaccountFields[1].Descriptor()
+	// useraffiliatepaymentaccount.TypeValidator is a validator for the "type" field. It is called by the builders before save.
+	useraffiliatepaymentaccount.TypeValidator = useraffiliatepaymentaccountDescType.Validators[0].(func(string) error)
+	// useraffiliatepaymentaccountDescMaskedSummary is the schema descriptor for masked_summary field.
+	useraffiliatepaymentaccountDescMaskedSummary := useraffiliatepaymentaccountFields[3].Descriptor()
+	// useraffiliatepaymentaccount.MaskedSummaryValidator is a validator for the "masked_summary" field. It is called by the builders before save.
+	useraffiliatepaymentaccount.MaskedSummaryValidator = useraffiliatepaymentaccountDescMaskedSummary.Validators[0].(func(string) error)
+	// useraffiliatepaymentaccountDescIsDefault is the schema descriptor for is_default field.
+	useraffiliatepaymentaccountDescIsDefault := useraffiliatepaymentaccountFields[4].Descriptor()
+	// useraffiliatepaymentaccount.DefaultIsDefault holds the default value on creation for the is_default field.
+	useraffiliatepaymentaccount.DefaultIsDefault = useraffiliatepaymentaccountDescIsDefault.Default.(bool)
+	useraffiliatewithdrawalMixin := schema.UserAffiliateWithdrawal{}.Mixin()
+	useraffiliatewithdrawalMixinFields0 := useraffiliatewithdrawalMixin[0].Fields()
+	_ = useraffiliatewithdrawalMixinFields0
+	useraffiliatewithdrawalFields := schema.UserAffiliateWithdrawal{}.Fields()
+	_ = useraffiliatewithdrawalFields
+	// useraffiliatewithdrawalDescCreatedAt is the schema descriptor for created_at field.
+	useraffiliatewithdrawalDescCreatedAt := useraffiliatewithdrawalMixinFields0[0].Descriptor()
+	// useraffiliatewithdrawal.DefaultCreatedAt holds the default value on creation for the created_at field.
+	useraffiliatewithdrawal.DefaultCreatedAt = useraffiliatewithdrawalDescCreatedAt.Default.(func() time.Time)
+	// useraffiliatewithdrawalDescUpdatedAt is the schema descriptor for updated_at field.
+	useraffiliatewithdrawalDescUpdatedAt := useraffiliatewithdrawalMixinFields0[1].Descriptor()
+	// useraffiliatewithdrawal.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	useraffiliatewithdrawal.DefaultUpdatedAt = useraffiliatewithdrawalDescUpdatedAt.Default.(func() time.Time)
+	// useraffiliatewithdrawal.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	useraffiliatewithdrawal.UpdateDefaultUpdatedAt = useraffiliatewithdrawalDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// useraffiliatewithdrawalDescStatus is the schema descriptor for status field.
+	useraffiliatewithdrawalDescStatus := useraffiliatewithdrawalFields[2].Descriptor()
+	// useraffiliatewithdrawal.DefaultStatus holds the default value on creation for the status field.
+	useraffiliatewithdrawal.DefaultStatus = useraffiliatewithdrawalDescStatus.Default.(string)
+	// useraffiliatewithdrawal.StatusValidator is a validator for the "status" field. It is called by the builders before save.
+	useraffiliatewithdrawal.StatusValidator = useraffiliatewithdrawalDescStatus.Validators[0].(func(string) error)
+	// useraffiliatewithdrawalDescPaymentAccountType is the schema descriptor for payment_account_type field.
+	useraffiliatewithdrawalDescPaymentAccountType := useraffiliatewithdrawalFields[4].Descriptor()
+	// useraffiliatewithdrawal.PaymentAccountTypeValidator is a validator for the "payment_account_type" field. It is called by the builders before save.
+	useraffiliatewithdrawal.PaymentAccountTypeValidator = useraffiliatewithdrawalDescPaymentAccountType.Validators[0].(func(string) error)
+	// useraffiliatewithdrawalDescPaymentAccountSummary is the schema descriptor for payment_account_summary field.
+	useraffiliatewithdrawalDescPaymentAccountSummary := useraffiliatewithdrawalFields[6].Descriptor()
+	// useraffiliatewithdrawal.PaymentAccountSummaryValidator is a validator for the "payment_account_summary" field. It is called by the builders before save.
+	useraffiliatewithdrawal.PaymentAccountSummaryValidator = useraffiliatewithdrawalDescPaymentAccountSummary.Validators[0].(func(string) error)
+	// useraffiliatewithdrawalDescIdempotencyKey is the schema descriptor for idempotency_key field.
+	useraffiliatewithdrawalDescIdempotencyKey := useraffiliatewithdrawalFields[7].Descriptor()
+	// useraffiliatewithdrawal.IdempotencyKeyValidator is a validator for the "idempotency_key" field. It is called by the builders before save.
+	useraffiliatewithdrawal.IdempotencyKeyValidator = useraffiliatewithdrawalDescIdempotencyKey.Validators[0].(func(string) error)
+	// useraffiliatewithdrawalDescActualCurrency is the schema descriptor for actual_currency field.
+	useraffiliatewithdrawalDescActualCurrency := useraffiliatewithdrawalFields[16].Descriptor()
+	// useraffiliatewithdrawal.ActualCurrencyValidator is a validator for the "actual_currency" field. It is called by the builders before save.
+	useraffiliatewithdrawal.ActualCurrencyValidator = useraffiliatewithdrawalDescActualCurrency.Validators[0].(func(string) error)
+	// useraffiliatewithdrawalDescExternalReference is the schema descriptor for external_reference field.
+	useraffiliatewithdrawalDescExternalReference := useraffiliatewithdrawalFields[19].Descriptor()
+	// useraffiliatewithdrawal.ExternalReferenceValidator is a validator for the "external_reference" field. It is called by the builders before save.
+	useraffiliatewithdrawal.ExternalReferenceValidator = useraffiliatewithdrawalDescExternalReference.Validators[0].(func(string) error)
 	userallowedgroupFields := schema.UserAllowedGroup{}.Fields()
 	_ = userallowedgroupFields
 	// userallowedgroupDescCreatedAt is the schema descriptor for created_at field.

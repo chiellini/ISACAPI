@@ -30,6 +30,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitordailyrollup"
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorhistory"
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorrequesttemplate"
+	"github.com/Wei-Shaw/sub2api/ent/compositemodelroute"
 	"github.com/Wei-Shaw/sub2api/ent/conversationbranch"
 	"github.com/Wei-Shaw/sub2api/ent/conversationevent"
 	"github.com/Wei-Shaw/sub2api/ent/conversationresponseref"
@@ -56,6 +57,9 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/usagecleanuptask"
 	"github.com/Wei-Shaw/sub2api/ent/usagelog"
 	"github.com/Wei-Shaw/sub2api/ent/user"
+	"github.com/Wei-Shaw/sub2api/ent/useraffiliateadminaudit"
+	"github.com/Wei-Shaw/sub2api/ent/useraffiliatepaymentaccount"
+	"github.com/Wei-Shaw/sub2api/ent/useraffiliatewithdrawal"
 	"github.com/Wei-Shaw/sub2api/ent/userallowedgroup"
 	"github.com/Wei-Shaw/sub2api/ent/userattributedefinition"
 	"github.com/Wei-Shaw/sub2api/ent/userattributevalue"
@@ -98,6 +102,8 @@ type Client struct {
 	ChannelMonitorHistory *ChannelMonitorHistoryClient
 	// ChannelMonitorRequestTemplate is the client for interacting with the ChannelMonitorRequestTemplate builders.
 	ChannelMonitorRequestTemplate *ChannelMonitorRequestTemplateClient
+	// CompositeModelRoute is the client for interacting with the CompositeModelRoute builders.
+	CompositeModelRoute *CompositeModelRouteClient
 	// ConversationBranch is the client for interacting with the ConversationBranch builders.
 	ConversationBranch *ConversationBranchClient
 	// ConversationEvent is the client for interacting with the ConversationEvent builders.
@@ -150,6 +156,12 @@ type Client struct {
 	UsageLog *UsageLogClient
 	// User is the client for interacting with the User builders.
 	User *UserClient
+	// UserAffiliateAdminAudit is the client for interacting with the UserAffiliateAdminAudit builders.
+	UserAffiliateAdminAudit *UserAffiliateAdminAuditClient
+	// UserAffiliatePaymentAccount is the client for interacting with the UserAffiliatePaymentAccount builders.
+	UserAffiliatePaymentAccount *UserAffiliatePaymentAccountClient
+	// UserAffiliateWithdrawal is the client for interacting with the UserAffiliateWithdrawal builders.
+	UserAffiliateWithdrawal *UserAffiliateWithdrawalClient
 	// UserAllowedGroup is the client for interacting with the UserAllowedGroup builders.
 	UserAllowedGroup *UserAllowedGroupClient
 	// UserAttributeDefinition is the client for interacting with the UserAttributeDefinition builders.
@@ -185,6 +197,7 @@ func (c *Client) init() {
 	c.ChannelMonitorDailyRollup = NewChannelMonitorDailyRollupClient(c.config)
 	c.ChannelMonitorHistory = NewChannelMonitorHistoryClient(c.config)
 	c.ChannelMonitorRequestTemplate = NewChannelMonitorRequestTemplateClient(c.config)
+	c.CompositeModelRoute = NewCompositeModelRouteClient(c.config)
 	c.ConversationBranch = NewConversationBranchClient(c.config)
 	c.ConversationEvent = NewConversationEventClient(c.config)
 	c.ConversationResponseRef = NewConversationResponseRefClient(c.config)
@@ -211,6 +224,9 @@ func (c *Client) init() {
 	c.UsageCleanupTask = NewUsageCleanupTaskClient(c.config)
 	c.UsageLog = NewUsageLogClient(c.config)
 	c.User = NewUserClient(c.config)
+	c.UserAffiliateAdminAudit = NewUserAffiliateAdminAuditClient(c.config)
+	c.UserAffiliatePaymentAccount = NewUserAffiliatePaymentAccountClient(c.config)
+	c.UserAffiliateWithdrawal = NewUserAffiliateWithdrawalClient(c.config)
 	c.UserAllowedGroup = NewUserAllowedGroupClient(c.config)
 	c.UserAttributeDefinition = NewUserAttributeDefinitionClient(c.config)
 	c.UserAttributeValue = NewUserAttributeValueClient(c.config)
@@ -322,6 +338,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		ChannelMonitorDailyRollup:     NewChannelMonitorDailyRollupClient(cfg),
 		ChannelMonitorHistory:         NewChannelMonitorHistoryClient(cfg),
 		ChannelMonitorRequestTemplate: NewChannelMonitorRequestTemplateClient(cfg),
+		CompositeModelRoute:           NewCompositeModelRouteClient(cfg),
 		ConversationBranch:            NewConversationBranchClient(cfg),
 		ConversationEvent:             NewConversationEventClient(cfg),
 		ConversationResponseRef:       NewConversationResponseRefClient(cfg),
@@ -348,6 +365,9 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		UsageCleanupTask:              NewUsageCleanupTaskClient(cfg),
 		UsageLog:                      NewUsageLogClient(cfg),
 		User:                          NewUserClient(cfg),
+		UserAffiliateAdminAudit:       NewUserAffiliateAdminAuditClient(cfg),
+		UserAffiliatePaymentAccount:   NewUserAffiliatePaymentAccountClient(cfg),
+		UserAffiliateWithdrawal:       NewUserAffiliateWithdrawalClient(cfg),
 		UserAllowedGroup:              NewUserAllowedGroupClient(cfg),
 		UserAttributeDefinition:       NewUserAttributeDefinitionClient(cfg),
 		UserAttributeValue:            NewUserAttributeValueClient(cfg),
@@ -386,6 +406,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		ChannelMonitorDailyRollup:     NewChannelMonitorDailyRollupClient(cfg),
 		ChannelMonitorHistory:         NewChannelMonitorHistoryClient(cfg),
 		ChannelMonitorRequestTemplate: NewChannelMonitorRequestTemplateClient(cfg),
+		CompositeModelRoute:           NewCompositeModelRouteClient(cfg),
 		ConversationBranch:            NewConversationBranchClient(cfg),
 		ConversationEvent:             NewConversationEventClient(cfg),
 		ConversationResponseRef:       NewConversationResponseRefClient(cfg),
@@ -412,6 +433,9 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		UsageCleanupTask:              NewUsageCleanupTaskClient(cfg),
 		UsageLog:                      NewUsageLogClient(cfg),
 		User:                          NewUserClient(cfg),
+		UserAffiliateAdminAudit:       NewUserAffiliateAdminAuditClient(cfg),
+		UserAffiliatePaymentAccount:   NewUserAffiliatePaymentAccountClient(cfg),
+		UserAffiliateWithdrawal:       NewUserAffiliateWithdrawalClient(cfg),
 		UserAllowedGroup:              NewUserAllowedGroupClient(cfg),
 		UserAttributeDefinition:       NewUserAttributeDefinitionClient(cfg),
 		UserAttributeValue:            NewUserAttributeValueClient(cfg),
@@ -449,16 +473,17 @@ func (c *Client) Use(hooks ...Hook) {
 		c.APIKey, c.Account, c.AccountGroup, c.Announcement, c.AnnouncementRead,
 		c.AuthIdentity, c.AuthIdentityChannel, c.BatchImageEvent, c.BatchImageItem,
 		c.BatchImageJob, c.ChannelMonitor, c.ChannelMonitorDailyRollup,
-		c.ChannelMonitorHistory, c.ChannelMonitorRequestTemplate, c.ConversationBranch,
-		c.ConversationEvent, c.ConversationResponseRef, c.ConversationSession,
-		c.ErrorPassthroughRule, c.Group, c.IdempotencyRecord,
-		c.IdentityAdoptionDecision, c.PaymentAuditLog, c.PaymentOrder,
-		c.PaymentProviderInstance, c.PendingAuthSession, c.PromoCode, c.PromoCodeUsage,
-		c.Proxy, c.RedeemCode, c.ResearchGroup, c.ResearchGroupMember,
-		c.ResearchGroupQuotaAudit, c.SecuritySecret, c.Setting, c.SubscriptionPlan,
-		c.TLSFingerprintProfile, c.UsageCleanupTask, c.UsageLog, c.User,
-		c.UserAllowedGroup, c.UserAttributeDefinition, c.UserAttributeValue,
-		c.UserPlatformQuota, c.UserSubscription,
+		c.ChannelMonitorHistory, c.ChannelMonitorRequestTemplate,
+		c.CompositeModelRoute, c.ConversationBranch, c.ConversationEvent,
+		c.ConversationResponseRef, c.ConversationSession, c.ErrorPassthroughRule,
+		c.Group, c.IdempotencyRecord, c.IdentityAdoptionDecision, c.PaymentAuditLog,
+		c.PaymentOrder, c.PaymentProviderInstance, c.PendingAuthSession, c.PromoCode,
+		c.PromoCodeUsage, c.Proxy, c.RedeemCode, c.ResearchGroup,
+		c.ResearchGroupMember, c.ResearchGroupQuotaAudit, c.SecuritySecret, c.Setting,
+		c.SubscriptionPlan, c.TLSFingerprintProfile, c.UsageCleanupTask, c.UsageLog,
+		c.User, c.UserAffiliateAdminAudit, c.UserAffiliatePaymentAccount,
+		c.UserAffiliateWithdrawal, c.UserAllowedGroup, c.UserAttributeDefinition,
+		c.UserAttributeValue, c.UserPlatformQuota, c.UserSubscription,
 	} {
 		n.Use(hooks...)
 	}
@@ -471,16 +496,17 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 		c.APIKey, c.Account, c.AccountGroup, c.Announcement, c.AnnouncementRead,
 		c.AuthIdentity, c.AuthIdentityChannel, c.BatchImageEvent, c.BatchImageItem,
 		c.BatchImageJob, c.ChannelMonitor, c.ChannelMonitorDailyRollup,
-		c.ChannelMonitorHistory, c.ChannelMonitorRequestTemplate, c.ConversationBranch,
-		c.ConversationEvent, c.ConversationResponseRef, c.ConversationSession,
-		c.ErrorPassthroughRule, c.Group, c.IdempotencyRecord,
-		c.IdentityAdoptionDecision, c.PaymentAuditLog, c.PaymentOrder,
-		c.PaymentProviderInstance, c.PendingAuthSession, c.PromoCode, c.PromoCodeUsage,
-		c.Proxy, c.RedeemCode, c.ResearchGroup, c.ResearchGroupMember,
-		c.ResearchGroupQuotaAudit, c.SecuritySecret, c.Setting, c.SubscriptionPlan,
-		c.TLSFingerprintProfile, c.UsageCleanupTask, c.UsageLog, c.User,
-		c.UserAllowedGroup, c.UserAttributeDefinition, c.UserAttributeValue,
-		c.UserPlatformQuota, c.UserSubscription,
+		c.ChannelMonitorHistory, c.ChannelMonitorRequestTemplate,
+		c.CompositeModelRoute, c.ConversationBranch, c.ConversationEvent,
+		c.ConversationResponseRef, c.ConversationSession, c.ErrorPassthroughRule,
+		c.Group, c.IdempotencyRecord, c.IdentityAdoptionDecision, c.PaymentAuditLog,
+		c.PaymentOrder, c.PaymentProviderInstance, c.PendingAuthSession, c.PromoCode,
+		c.PromoCodeUsage, c.Proxy, c.RedeemCode, c.ResearchGroup,
+		c.ResearchGroupMember, c.ResearchGroupQuotaAudit, c.SecuritySecret, c.Setting,
+		c.SubscriptionPlan, c.TLSFingerprintProfile, c.UsageCleanupTask, c.UsageLog,
+		c.User, c.UserAffiliateAdminAudit, c.UserAffiliatePaymentAccount,
+		c.UserAffiliateWithdrawal, c.UserAllowedGroup, c.UserAttributeDefinition,
+		c.UserAttributeValue, c.UserPlatformQuota, c.UserSubscription,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -517,6 +543,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.ChannelMonitorHistory.mutate(ctx, m)
 	case *ChannelMonitorRequestTemplateMutation:
 		return c.ChannelMonitorRequestTemplate.mutate(ctx, m)
+	case *CompositeModelRouteMutation:
+		return c.CompositeModelRoute.mutate(ctx, m)
 	case *ConversationBranchMutation:
 		return c.ConversationBranch.mutate(ctx, m)
 	case *ConversationEventMutation:
@@ -569,6 +597,12 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.UsageLog.mutate(ctx, m)
 	case *UserMutation:
 		return c.User.mutate(ctx, m)
+	case *UserAffiliateAdminAuditMutation:
+		return c.UserAffiliateAdminAudit.mutate(ctx, m)
+	case *UserAffiliatePaymentAccountMutation:
+		return c.UserAffiliatePaymentAccount.mutate(ctx, m)
+	case *UserAffiliateWithdrawalMutation:
+		return c.UserAffiliateWithdrawal.mutate(ctx, m)
 	case *UserAllowedGroupMutation:
 		return c.UserAllowedGroup.mutate(ctx, m)
 	case *UserAttributeDefinitionMutation:
@@ -2798,6 +2832,157 @@ func (c *ChannelMonitorRequestTemplateClient) mutate(ctx context.Context, m *Cha
 		return (&ChannelMonitorRequestTemplateDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown ChannelMonitorRequestTemplate mutation op: %q", m.Op())
+	}
+}
+
+// CompositeModelRouteClient is a client for the CompositeModelRoute schema.
+type CompositeModelRouteClient struct {
+	config
+}
+
+// NewCompositeModelRouteClient returns a client for the CompositeModelRoute from the given config.
+func NewCompositeModelRouteClient(c config) *CompositeModelRouteClient {
+	return &CompositeModelRouteClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `compositemodelroute.Hooks(f(g(h())))`.
+func (c *CompositeModelRouteClient) Use(hooks ...Hook) {
+	c.hooks.CompositeModelRoute = append(c.hooks.CompositeModelRoute, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `compositemodelroute.Intercept(f(g(h())))`.
+func (c *CompositeModelRouteClient) Intercept(interceptors ...Interceptor) {
+	c.inters.CompositeModelRoute = append(c.inters.CompositeModelRoute, interceptors...)
+}
+
+// Create returns a builder for creating a CompositeModelRoute entity.
+func (c *CompositeModelRouteClient) Create() *CompositeModelRouteCreate {
+	mutation := newCompositeModelRouteMutation(c.config, OpCreate)
+	return &CompositeModelRouteCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of CompositeModelRoute entities.
+func (c *CompositeModelRouteClient) CreateBulk(builders ...*CompositeModelRouteCreate) *CompositeModelRouteCreateBulk {
+	return &CompositeModelRouteCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *CompositeModelRouteClient) MapCreateBulk(slice any, setFunc func(*CompositeModelRouteCreate, int)) *CompositeModelRouteCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &CompositeModelRouteCreateBulk{err: fmt.Errorf("calling to CompositeModelRouteClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*CompositeModelRouteCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &CompositeModelRouteCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for CompositeModelRoute.
+func (c *CompositeModelRouteClient) Update() *CompositeModelRouteUpdate {
+	mutation := newCompositeModelRouteMutation(c.config, OpUpdate)
+	return &CompositeModelRouteUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *CompositeModelRouteClient) UpdateOne(_m *CompositeModelRoute) *CompositeModelRouteUpdateOne {
+	mutation := newCompositeModelRouteMutation(c.config, OpUpdateOne, withCompositeModelRoute(_m))
+	return &CompositeModelRouteUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *CompositeModelRouteClient) UpdateOneID(id int64) *CompositeModelRouteUpdateOne {
+	mutation := newCompositeModelRouteMutation(c.config, OpUpdateOne, withCompositeModelRouteID(id))
+	return &CompositeModelRouteUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for CompositeModelRoute.
+func (c *CompositeModelRouteClient) Delete() *CompositeModelRouteDelete {
+	mutation := newCompositeModelRouteMutation(c.config, OpDelete)
+	return &CompositeModelRouteDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *CompositeModelRouteClient) DeleteOne(_m *CompositeModelRoute) *CompositeModelRouteDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *CompositeModelRouteClient) DeleteOneID(id int64) *CompositeModelRouteDeleteOne {
+	builder := c.Delete().Where(compositemodelroute.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &CompositeModelRouteDeleteOne{builder}
+}
+
+// Query returns a query builder for CompositeModelRoute.
+func (c *CompositeModelRouteClient) Query() *CompositeModelRouteQuery {
+	return &CompositeModelRouteQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeCompositeModelRoute},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a CompositeModelRoute entity by its id.
+func (c *CompositeModelRouteClient) Get(ctx context.Context, id int64) (*CompositeModelRoute, error) {
+	return c.Query().Where(compositemodelroute.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *CompositeModelRouteClient) GetX(ctx context.Context, id int64) *CompositeModelRoute {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryGroup queries the group edge of a CompositeModelRoute.
+func (c *CompositeModelRouteClient) QueryGroup(_m *CompositeModelRoute) *GroupQuery {
+	query := (&GroupClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(compositemodelroute.Table, compositemodelroute.FieldID, id),
+			sqlgraph.To(group.Table, group.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, false, compositemodelroute.GroupTable, compositemodelroute.GroupColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *CompositeModelRouteClient) Hooks() []Hook {
+	hooks := c.hooks.CompositeModelRoute
+	return append(hooks[:len(hooks):len(hooks)], compositemodelroute.Hooks[:]...)
+}
+
+// Interceptors returns the client interceptors.
+func (c *CompositeModelRouteClient) Interceptors() []Interceptor {
+	inters := c.inters.CompositeModelRoute
+	return append(inters[:len(inters):len(inters)], compositemodelroute.Interceptors[:]...)
+}
+
+func (c *CompositeModelRouteClient) mutate(ctx context.Context, m *CompositeModelRouteMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&CompositeModelRouteCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&CompositeModelRouteUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&CompositeModelRouteUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&CompositeModelRouteDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown CompositeModelRoute mutation op: %q", m.Op())
 	}
 }
 
@@ -7067,6 +7252,405 @@ func (c *UserClient) mutate(ctx context.Context, m *UserMutation) (Value, error)
 	}
 }
 
+// UserAffiliateAdminAuditClient is a client for the UserAffiliateAdminAudit schema.
+type UserAffiliateAdminAuditClient struct {
+	config
+}
+
+// NewUserAffiliateAdminAuditClient returns a client for the UserAffiliateAdminAudit from the given config.
+func NewUserAffiliateAdminAuditClient(c config) *UserAffiliateAdminAuditClient {
+	return &UserAffiliateAdminAuditClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `useraffiliateadminaudit.Hooks(f(g(h())))`.
+func (c *UserAffiliateAdminAuditClient) Use(hooks ...Hook) {
+	c.hooks.UserAffiliateAdminAudit = append(c.hooks.UserAffiliateAdminAudit, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `useraffiliateadminaudit.Intercept(f(g(h())))`.
+func (c *UserAffiliateAdminAuditClient) Intercept(interceptors ...Interceptor) {
+	c.inters.UserAffiliateAdminAudit = append(c.inters.UserAffiliateAdminAudit, interceptors...)
+}
+
+// Create returns a builder for creating a UserAffiliateAdminAudit entity.
+func (c *UserAffiliateAdminAuditClient) Create() *UserAffiliateAdminAuditCreate {
+	mutation := newUserAffiliateAdminAuditMutation(c.config, OpCreate)
+	return &UserAffiliateAdminAuditCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of UserAffiliateAdminAudit entities.
+func (c *UserAffiliateAdminAuditClient) CreateBulk(builders ...*UserAffiliateAdminAuditCreate) *UserAffiliateAdminAuditCreateBulk {
+	return &UserAffiliateAdminAuditCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *UserAffiliateAdminAuditClient) MapCreateBulk(slice any, setFunc func(*UserAffiliateAdminAuditCreate, int)) *UserAffiliateAdminAuditCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &UserAffiliateAdminAuditCreateBulk{err: fmt.Errorf("calling to UserAffiliateAdminAuditClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*UserAffiliateAdminAuditCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &UserAffiliateAdminAuditCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for UserAffiliateAdminAudit.
+func (c *UserAffiliateAdminAuditClient) Update() *UserAffiliateAdminAuditUpdate {
+	mutation := newUserAffiliateAdminAuditMutation(c.config, OpUpdate)
+	return &UserAffiliateAdminAuditUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *UserAffiliateAdminAuditClient) UpdateOne(_m *UserAffiliateAdminAudit) *UserAffiliateAdminAuditUpdateOne {
+	mutation := newUserAffiliateAdminAuditMutation(c.config, OpUpdateOne, withUserAffiliateAdminAudit(_m))
+	return &UserAffiliateAdminAuditUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *UserAffiliateAdminAuditClient) UpdateOneID(id int64) *UserAffiliateAdminAuditUpdateOne {
+	mutation := newUserAffiliateAdminAuditMutation(c.config, OpUpdateOne, withUserAffiliateAdminAuditID(id))
+	return &UserAffiliateAdminAuditUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for UserAffiliateAdminAudit.
+func (c *UserAffiliateAdminAuditClient) Delete() *UserAffiliateAdminAuditDelete {
+	mutation := newUserAffiliateAdminAuditMutation(c.config, OpDelete)
+	return &UserAffiliateAdminAuditDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *UserAffiliateAdminAuditClient) DeleteOne(_m *UserAffiliateAdminAudit) *UserAffiliateAdminAuditDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *UserAffiliateAdminAuditClient) DeleteOneID(id int64) *UserAffiliateAdminAuditDeleteOne {
+	builder := c.Delete().Where(useraffiliateadminaudit.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &UserAffiliateAdminAuditDeleteOne{builder}
+}
+
+// Query returns a query builder for UserAffiliateAdminAudit.
+func (c *UserAffiliateAdminAuditClient) Query() *UserAffiliateAdminAuditQuery {
+	return &UserAffiliateAdminAuditQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeUserAffiliateAdminAudit},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a UserAffiliateAdminAudit entity by its id.
+func (c *UserAffiliateAdminAuditClient) Get(ctx context.Context, id int64) (*UserAffiliateAdminAudit, error) {
+	return c.Query().Where(useraffiliateadminaudit.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *UserAffiliateAdminAuditClient) GetX(ctx context.Context, id int64) *UserAffiliateAdminAudit {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *UserAffiliateAdminAuditClient) Hooks() []Hook {
+	return c.hooks.UserAffiliateAdminAudit
+}
+
+// Interceptors returns the client interceptors.
+func (c *UserAffiliateAdminAuditClient) Interceptors() []Interceptor {
+	return c.inters.UserAffiliateAdminAudit
+}
+
+func (c *UserAffiliateAdminAuditClient) mutate(ctx context.Context, m *UserAffiliateAdminAuditMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&UserAffiliateAdminAuditCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&UserAffiliateAdminAuditUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&UserAffiliateAdminAuditUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&UserAffiliateAdminAuditDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown UserAffiliateAdminAudit mutation op: %q", m.Op())
+	}
+}
+
+// UserAffiliatePaymentAccountClient is a client for the UserAffiliatePaymentAccount schema.
+type UserAffiliatePaymentAccountClient struct {
+	config
+}
+
+// NewUserAffiliatePaymentAccountClient returns a client for the UserAffiliatePaymentAccount from the given config.
+func NewUserAffiliatePaymentAccountClient(c config) *UserAffiliatePaymentAccountClient {
+	return &UserAffiliatePaymentAccountClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `useraffiliatepaymentaccount.Hooks(f(g(h())))`.
+func (c *UserAffiliatePaymentAccountClient) Use(hooks ...Hook) {
+	c.hooks.UserAffiliatePaymentAccount = append(c.hooks.UserAffiliatePaymentAccount, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `useraffiliatepaymentaccount.Intercept(f(g(h())))`.
+func (c *UserAffiliatePaymentAccountClient) Intercept(interceptors ...Interceptor) {
+	c.inters.UserAffiliatePaymentAccount = append(c.inters.UserAffiliatePaymentAccount, interceptors...)
+}
+
+// Create returns a builder for creating a UserAffiliatePaymentAccount entity.
+func (c *UserAffiliatePaymentAccountClient) Create() *UserAffiliatePaymentAccountCreate {
+	mutation := newUserAffiliatePaymentAccountMutation(c.config, OpCreate)
+	return &UserAffiliatePaymentAccountCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of UserAffiliatePaymentAccount entities.
+func (c *UserAffiliatePaymentAccountClient) CreateBulk(builders ...*UserAffiliatePaymentAccountCreate) *UserAffiliatePaymentAccountCreateBulk {
+	return &UserAffiliatePaymentAccountCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *UserAffiliatePaymentAccountClient) MapCreateBulk(slice any, setFunc func(*UserAffiliatePaymentAccountCreate, int)) *UserAffiliatePaymentAccountCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &UserAffiliatePaymentAccountCreateBulk{err: fmt.Errorf("calling to UserAffiliatePaymentAccountClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*UserAffiliatePaymentAccountCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &UserAffiliatePaymentAccountCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for UserAffiliatePaymentAccount.
+func (c *UserAffiliatePaymentAccountClient) Update() *UserAffiliatePaymentAccountUpdate {
+	mutation := newUserAffiliatePaymentAccountMutation(c.config, OpUpdate)
+	return &UserAffiliatePaymentAccountUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *UserAffiliatePaymentAccountClient) UpdateOne(_m *UserAffiliatePaymentAccount) *UserAffiliatePaymentAccountUpdateOne {
+	mutation := newUserAffiliatePaymentAccountMutation(c.config, OpUpdateOne, withUserAffiliatePaymentAccount(_m))
+	return &UserAffiliatePaymentAccountUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *UserAffiliatePaymentAccountClient) UpdateOneID(id int64) *UserAffiliatePaymentAccountUpdateOne {
+	mutation := newUserAffiliatePaymentAccountMutation(c.config, OpUpdateOne, withUserAffiliatePaymentAccountID(id))
+	return &UserAffiliatePaymentAccountUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for UserAffiliatePaymentAccount.
+func (c *UserAffiliatePaymentAccountClient) Delete() *UserAffiliatePaymentAccountDelete {
+	mutation := newUserAffiliatePaymentAccountMutation(c.config, OpDelete)
+	return &UserAffiliatePaymentAccountDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *UserAffiliatePaymentAccountClient) DeleteOne(_m *UserAffiliatePaymentAccount) *UserAffiliatePaymentAccountDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *UserAffiliatePaymentAccountClient) DeleteOneID(id int64) *UserAffiliatePaymentAccountDeleteOne {
+	builder := c.Delete().Where(useraffiliatepaymentaccount.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &UserAffiliatePaymentAccountDeleteOne{builder}
+}
+
+// Query returns a query builder for UserAffiliatePaymentAccount.
+func (c *UserAffiliatePaymentAccountClient) Query() *UserAffiliatePaymentAccountQuery {
+	return &UserAffiliatePaymentAccountQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeUserAffiliatePaymentAccount},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a UserAffiliatePaymentAccount entity by its id.
+func (c *UserAffiliatePaymentAccountClient) Get(ctx context.Context, id int64) (*UserAffiliatePaymentAccount, error) {
+	return c.Query().Where(useraffiliatepaymentaccount.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *UserAffiliatePaymentAccountClient) GetX(ctx context.Context, id int64) *UserAffiliatePaymentAccount {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *UserAffiliatePaymentAccountClient) Hooks() []Hook {
+	return c.hooks.UserAffiliatePaymentAccount
+}
+
+// Interceptors returns the client interceptors.
+func (c *UserAffiliatePaymentAccountClient) Interceptors() []Interceptor {
+	return c.inters.UserAffiliatePaymentAccount
+}
+
+func (c *UserAffiliatePaymentAccountClient) mutate(ctx context.Context, m *UserAffiliatePaymentAccountMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&UserAffiliatePaymentAccountCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&UserAffiliatePaymentAccountUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&UserAffiliatePaymentAccountUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&UserAffiliatePaymentAccountDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown UserAffiliatePaymentAccount mutation op: %q", m.Op())
+	}
+}
+
+// UserAffiliateWithdrawalClient is a client for the UserAffiliateWithdrawal schema.
+type UserAffiliateWithdrawalClient struct {
+	config
+}
+
+// NewUserAffiliateWithdrawalClient returns a client for the UserAffiliateWithdrawal from the given config.
+func NewUserAffiliateWithdrawalClient(c config) *UserAffiliateWithdrawalClient {
+	return &UserAffiliateWithdrawalClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `useraffiliatewithdrawal.Hooks(f(g(h())))`.
+func (c *UserAffiliateWithdrawalClient) Use(hooks ...Hook) {
+	c.hooks.UserAffiliateWithdrawal = append(c.hooks.UserAffiliateWithdrawal, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `useraffiliatewithdrawal.Intercept(f(g(h())))`.
+func (c *UserAffiliateWithdrawalClient) Intercept(interceptors ...Interceptor) {
+	c.inters.UserAffiliateWithdrawal = append(c.inters.UserAffiliateWithdrawal, interceptors...)
+}
+
+// Create returns a builder for creating a UserAffiliateWithdrawal entity.
+func (c *UserAffiliateWithdrawalClient) Create() *UserAffiliateWithdrawalCreate {
+	mutation := newUserAffiliateWithdrawalMutation(c.config, OpCreate)
+	return &UserAffiliateWithdrawalCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of UserAffiliateWithdrawal entities.
+func (c *UserAffiliateWithdrawalClient) CreateBulk(builders ...*UserAffiliateWithdrawalCreate) *UserAffiliateWithdrawalCreateBulk {
+	return &UserAffiliateWithdrawalCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *UserAffiliateWithdrawalClient) MapCreateBulk(slice any, setFunc func(*UserAffiliateWithdrawalCreate, int)) *UserAffiliateWithdrawalCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &UserAffiliateWithdrawalCreateBulk{err: fmt.Errorf("calling to UserAffiliateWithdrawalClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*UserAffiliateWithdrawalCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &UserAffiliateWithdrawalCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for UserAffiliateWithdrawal.
+func (c *UserAffiliateWithdrawalClient) Update() *UserAffiliateWithdrawalUpdate {
+	mutation := newUserAffiliateWithdrawalMutation(c.config, OpUpdate)
+	return &UserAffiliateWithdrawalUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *UserAffiliateWithdrawalClient) UpdateOne(_m *UserAffiliateWithdrawal) *UserAffiliateWithdrawalUpdateOne {
+	mutation := newUserAffiliateWithdrawalMutation(c.config, OpUpdateOne, withUserAffiliateWithdrawal(_m))
+	return &UserAffiliateWithdrawalUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *UserAffiliateWithdrawalClient) UpdateOneID(id int64) *UserAffiliateWithdrawalUpdateOne {
+	mutation := newUserAffiliateWithdrawalMutation(c.config, OpUpdateOne, withUserAffiliateWithdrawalID(id))
+	return &UserAffiliateWithdrawalUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for UserAffiliateWithdrawal.
+func (c *UserAffiliateWithdrawalClient) Delete() *UserAffiliateWithdrawalDelete {
+	mutation := newUserAffiliateWithdrawalMutation(c.config, OpDelete)
+	return &UserAffiliateWithdrawalDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *UserAffiliateWithdrawalClient) DeleteOne(_m *UserAffiliateWithdrawal) *UserAffiliateWithdrawalDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *UserAffiliateWithdrawalClient) DeleteOneID(id int64) *UserAffiliateWithdrawalDeleteOne {
+	builder := c.Delete().Where(useraffiliatewithdrawal.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &UserAffiliateWithdrawalDeleteOne{builder}
+}
+
+// Query returns a query builder for UserAffiliateWithdrawal.
+func (c *UserAffiliateWithdrawalClient) Query() *UserAffiliateWithdrawalQuery {
+	return &UserAffiliateWithdrawalQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeUserAffiliateWithdrawal},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a UserAffiliateWithdrawal entity by its id.
+func (c *UserAffiliateWithdrawalClient) Get(ctx context.Context, id int64) (*UserAffiliateWithdrawal, error) {
+	return c.Query().Where(useraffiliatewithdrawal.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *UserAffiliateWithdrawalClient) GetX(ctx context.Context, id int64) *UserAffiliateWithdrawal {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *UserAffiliateWithdrawalClient) Hooks() []Hook {
+	return c.hooks.UserAffiliateWithdrawal
+}
+
+// Interceptors returns the client interceptors.
+func (c *UserAffiliateWithdrawalClient) Interceptors() []Interceptor {
+	return c.inters.UserAffiliateWithdrawal
+}
+
+func (c *UserAffiliateWithdrawalClient) mutate(ctx context.Context, m *UserAffiliateWithdrawalMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&UserAffiliateWithdrawalCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&UserAffiliateWithdrawalUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&UserAffiliateWithdrawalUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&UserAffiliateWithdrawalDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown UserAffiliateWithdrawal mutation op: %q", m.Op())
+	}
+}
+
 // UserAllowedGroupClient is a client for the UserAllowedGroup schema.
 type UserAllowedGroupClient struct {
 	config
@@ -7855,27 +8439,31 @@ type (
 		APIKey, Account, AccountGroup, Announcement, AnnouncementRead, AuthIdentity,
 		AuthIdentityChannel, BatchImageEvent, BatchImageItem, BatchImageJob,
 		ChannelMonitor, ChannelMonitorDailyRollup, ChannelMonitorHistory,
-		ChannelMonitorRequestTemplate, ConversationBranch, ConversationEvent,
-		ConversationResponseRef, ConversationSession, ErrorPassthroughRule, Group,
-		IdempotencyRecord, IdentityAdoptionDecision, PaymentAuditLog, PaymentOrder,
-		PaymentProviderInstance, PendingAuthSession, PromoCode, PromoCodeUsage, Proxy,
-		RedeemCode, ResearchGroup, ResearchGroupMember, ResearchGroupQuotaAudit,
-		SecuritySecret, Setting, SubscriptionPlan, TLSFingerprintProfile,
-		UsageCleanupTask, UsageLog, User, UserAllowedGroup, UserAttributeDefinition,
-		UserAttributeValue, UserPlatformQuota, UserSubscription []ent.Hook
+		ChannelMonitorRequestTemplate, CompositeModelRoute, ConversationBranch,
+		ConversationEvent, ConversationResponseRef, ConversationSession,
+		ErrorPassthroughRule, Group, IdempotencyRecord, IdentityAdoptionDecision,
+		PaymentAuditLog, PaymentOrder, PaymentProviderInstance, PendingAuthSession,
+		PromoCode, PromoCodeUsage, Proxy, RedeemCode, ResearchGroup,
+		ResearchGroupMember, ResearchGroupQuotaAudit, SecuritySecret, Setting,
+		SubscriptionPlan, TLSFingerprintProfile, UsageCleanupTask, UsageLog, User,
+		UserAffiliateAdminAudit, UserAffiliatePaymentAccount, UserAffiliateWithdrawal,
+		UserAllowedGroup, UserAttributeDefinition, UserAttributeValue,
+		UserPlatformQuota, UserSubscription []ent.Hook
 	}
 	inters struct {
 		APIKey, Account, AccountGroup, Announcement, AnnouncementRead, AuthIdentity,
 		AuthIdentityChannel, BatchImageEvent, BatchImageItem, BatchImageJob,
 		ChannelMonitor, ChannelMonitorDailyRollup, ChannelMonitorHistory,
-		ChannelMonitorRequestTemplate, ConversationBranch, ConversationEvent,
-		ConversationResponseRef, ConversationSession, ErrorPassthroughRule, Group,
-		IdempotencyRecord, IdentityAdoptionDecision, PaymentAuditLog, PaymentOrder,
-		PaymentProviderInstance, PendingAuthSession, PromoCode, PromoCodeUsage, Proxy,
-		RedeemCode, ResearchGroup, ResearchGroupMember, ResearchGroupQuotaAudit,
-		SecuritySecret, Setting, SubscriptionPlan, TLSFingerprintProfile,
-		UsageCleanupTask, UsageLog, User, UserAllowedGroup, UserAttributeDefinition,
-		UserAttributeValue, UserPlatformQuota, UserSubscription []ent.Interceptor
+		ChannelMonitorRequestTemplate, CompositeModelRoute, ConversationBranch,
+		ConversationEvent, ConversationResponseRef, ConversationSession,
+		ErrorPassthroughRule, Group, IdempotencyRecord, IdentityAdoptionDecision,
+		PaymentAuditLog, PaymentOrder, PaymentProviderInstance, PendingAuthSession,
+		PromoCode, PromoCodeUsage, Proxy, RedeemCode, ResearchGroup,
+		ResearchGroupMember, ResearchGroupQuotaAudit, SecuritySecret, Setting,
+		SubscriptionPlan, TLSFingerprintProfile, UsageCleanupTask, UsageLog, User,
+		UserAffiliateAdminAudit, UserAffiliatePaymentAccount, UserAffiliateWithdrawal,
+		UserAllowedGroup, UserAttributeDefinition, UserAttributeValue,
+		UserPlatformQuota, UserSubscription []ent.Interceptor
 	}
 )
 

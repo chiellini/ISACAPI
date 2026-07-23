@@ -2,6 +2,7 @@ import type { GroupPlatform } from '@/types'
 import { OPENAI_CODEX_DEFAULT_MODEL } from '@/constants/codex'
 
 export const OPENAI_CC_SWITCH_CODEX_MODEL = OPENAI_CODEX_DEFAULT_MODEL
+export const GROK_CC_SWITCH_MODEL = 'grok-4.5'
 
 const CC_SWITCH_LATEST_VERSION = 'v3.16.5'
 const CC_SWITCH_RELEASE_BASE = `https://github.com/farion1231/cc-switch/releases/download/${CC_SWITCH_LATEST_VERSION}`
@@ -35,6 +36,11 @@ function resolveCcSwitchAppType(clientType: CcSwitchClientType): string {
   return clientType
 }
 
+function withV1Endpoint(baseUrl: string): string {
+  const normalizedBaseUrl = baseUrl.replace(/\/+$/, '')
+  return normalizedBaseUrl.endsWith('/v1') ? normalizedBaseUrl : `${normalizedBaseUrl}/v1`
+}
+
 export function resolveCcSwitchImportConfig(
   platform: GroupPlatform | undefined | null,
   clientType: CcSwitchClientType,
@@ -56,6 +62,12 @@ export function resolveCcSwitchImportConfig(
       return {
         app: 'gemini',
         endpoint: baseUrl
+      }
+    case 'grok':
+      return {
+        app: 'grokbuild',
+        endpoint: withV1Endpoint(baseUrl),
+        model: GROK_CC_SWITCH_MODEL
       }
     default:
       return {
