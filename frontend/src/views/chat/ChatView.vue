@@ -56,7 +56,7 @@
         </div>
 
         <!-- 消息列表 -->
-        <div ref="listEl" class="flex-1 space-y-4 overflow-y-auto rounded-xl bg-gray-50 p-4 dark:bg-dark-800">
+        <div ref="listEl" class="min-h-0 flex-1 space-y-4 overflow-y-auto rounded-xl bg-gray-50 p-4 dark:bg-dark-800">
           <div v-if="messages.length === 0" class="flex h-full items-center justify-center text-gray-400">
             {{ t('chat.empty') }}
           </div>
@@ -189,10 +189,12 @@
             @change="onFiles"
           />
           <textarea
+            ref="inputEl"
             v-model="input"
             :placeholder="t('chat.placeholder')"
-            rows="2"
-            class="input flex-1 resize-none"
+            rows="3"
+            class="input min-h-[4.5rem] max-h-[70vh] flex-1 resize-y"
+            @input="autoGrowInput"
             @keydown.enter.exact.prevent="send"
           ></textarea>
           <button v-if="!streaming" class="btn btn-primary h-10" :disabled="!canSend" @click="send">
@@ -333,8 +335,30 @@ const errorMsg = ref('')
 const showHistory = ref(false)
 const listEl = ref<HTMLElement | null>(null)
 const fileInput = ref<HTMLInputElement | null>(null)
+const inputEl = ref<HTMLTextAreaElement | null>(null)
 const previewSrc = ref('')
 let controller: AbortController | null = null
+
+// 输入框自增高：内容多时最多撑到约 1/3 页面高度，之后内部滚动。
+// 「只增不减」——保留用户用拖拽把它拉大的高度（发送后由 resetInputHeight 收回）。
+function autoGrowInput() {
+  const el = inputEl.value
+  if (!el) return
+  const max = Math.round(window.innerHeight / 3)
+  const prev = el.offsetHeight
+  el.style.height = 'auto'
+  const contentHeight = Math.min(el.scrollHeight, max)
+  const next = Math.max(contentHeight, prev)
+  el.style.height = `${next}px`
+  el.style.overflowY = el.scrollHeight > next ? 'auto' : 'hidden'
+}
+
+function resetInputHeight() {
+  const el = inputEl.value
+  if (!el) return
+  el.style.height = ''
+  el.style.overflowY = ''
+}
 
 // ───────── 会话记忆（长/中/短期）状态，随会话切换加载、每轮保存 ─────────
 // summary=中期滚动摘要；memory=长期稳定事实；summarizedCount=已折叠进摘要的前缀消息条数。
@@ -1197,6 +1221,7 @@ async function send() {
   input.value = ''
   pending.value = []
   errorMsg.value = ''
+  nextTick(resetInputHeight)
 
   const userMsg: UiMessage = { role: 'user', content: text }
   if (atts.length) userMsg.attachments = atts
