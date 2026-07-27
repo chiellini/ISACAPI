@@ -34,3 +34,34 @@ Follow the existing Conventional Commit style: `feat(auth): support combined adm
 ## Upstream Sync Policy
 
 `README.md`, `README_CN.md`, and `README_JA.md` are fork-owned. Preserve the official links to `https://isacai.space` and `https://isacai.cn` during `upstream` syncs. Reject other sponsors, advertisements, affiliate/referral links, promo codes, and commercial calls to action unless explicitly requested. Reject upstream README changes and review `git diff -- README.md README_CN.md README_JA.md` before committing.
+
+## Git Remote & Access
+
+Use HTTPS or SSH consistently, avoid switching protocols in the middle of a task.
+
+- Recommended: SSH.
+  - Remote format: `git@github.com:chiellini/ISACAPI.git`
+  - Push: `git push`
+- Standard flow:
+  - `git status --short`
+  - `git add <files>`
+  - `git commit -m "type(scope): description"`
+  - `git push`
+- Quick checks:
+  - `git status --short --branch`
+  - `git log -1 --oneline --decorate`
+
+## Author Identity
+
+Set stable identity for this repository so future commits are attributed correctly:
+
+- `git config user.name "Your Name"`
+- `git config user.email "your_email@example.com"`
+
+If you amend a pushed commit, use `git commit --amend` intentionally and coordinate before sharing with others.
+
+## Collaboration Conventions
+
+- Keep changes focused and avoid unrelated refactors.
+- For docs/scripts/deployment updates, include prerequisite notes and expected output where possible.
+- In PRs, list runnable verification commands and the observed results for easier review.
