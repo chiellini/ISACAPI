@@ -52,6 +52,7 @@ services:
       # 注册接口防刷密钥（反薅羊毛）。必须与前端构建变量 VITE_REG_GUARD_TOKEN 一致。
       - SERVER_REGISTER_GUARD_TOKEN=${SERVER_REGISTER_GUARD_TOKEN:-}
       - UPDATE_GITHUB_TOKEN=${UPDATE_GITHUB_TOKEN:-}
+      - ALIPAY_MOBILE_PRECREATE_DEEP_LINK=${ALIPAY_MOBILE_PRECREATE_DEEP_LINK:-}
 
       # =======================================================================
       # Database Configuration (PostgreSQL)
