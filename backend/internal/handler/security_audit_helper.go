@@ -13,6 +13,47 @@ import (
 
 const securityAuditCompletedContextKey = "sub2api.security_audit.completed"
 
+var conversationChinesePoliticalKeywordRules = [][]string{
+	{"中共中央", "政治局"},
+	{"习近平", "总书记"},
+	{"中国共产党", "二十大"},
+	{"中国共产党", "中央委员会"},
+	{"全国人民代表大会", "会议"},
+	{"中华人民共和国", "领导人", "讲话"},
+}
+
+func isConversationProtocol(protocol string) bool {
+	switch strings.TrimSpace(strings.ToLower(protocol)) {
+	case service.ContentModerationProtocolAnthropicMessages, service.ContentModerationProtocolOpenAIChat, service.ContentModerationProtocolOpenAIResponses:
+		return true
+	default:
+		return false
+	}
+}
+
+func matchChinesePoliticalRule(text string) string {
+	normalized := strings.ToLower(strings.Join(strings.Fields(text), ""))
+	for _, rule := range conversationChinesePoliticalKeywordRules {
+		if len(rule) == 0 {
+			continue
+		}
+		matched := true
+		for _, keyword := range rule {
+			if keyword == "" {
+				continue
+			}
+			if !strings.Contains(normalized, strings.ToLower(keyword)) {
+				matched = false
+				break
+			}
+		}
+		if matched {
+			return strings.Join(rule, "+")
+		}
+	}
+	return ""
+}
+
 // cachesSecurityAuditCompletion reports whether a successful audit may be
 // reused for the rest of the gin request. WebSocket turns share one Context
 // across many response.create frames and must be audited independently.
@@ -54,6 +95,39 @@ func runSecurityAudit(c *gin.Context, reqLog *zap.Logger, coordinator *securitya
 	if cacheCompletion {
 		if completed, exists := c.Get(securityAuditCompletedContextKey); exists && completed == true {
 			return nil
+		}
+	}
+	if isConversationProtocol(protocol) {
+		request := buildSecurityAuditRequest(c, apiKey, subject, protocol, model, body, stage)
+		if reqLog != nil {
+			reqLog.Info("security_audit.local_block_check_start",
+				zap.String("request_id", request.RequestID), zap.Int64("user_id", request.UserID),
+				zap.Int64("api_key_id", request.APIKeyID), zap.Int64p("group_id", request.GroupID),
+				zap.String("endpoint", request.Endpoint), zap.String("provider", request.Provider),
+				zap.String("protocol", request.Protocol), zap.String("model", request.Model), zap.String("stage", request.Stage),
+				zap.Int("body_bytes", len(body)), zap.String("match_type", "conversation_chinese_political_and_rule"))
+		}
+		if matchedRule := matchChinesePoliticalRule(service.ExtractContentModerationText(protocol, body)); matchedRule != "" {
+			decision := &securityaudit.Decision{
+				Kind:           securityaudit.DecisionBlock,
+				HTTPStatus:     http.StatusForbidden,
+				ErrorCode:      "content_policy_violation",
+				ClientMessage:  "请求涉及受限话题，已被内容安全策略阻止",
+				AllowNextStage: false,
+			}
+			if reqLog != nil {
+				reqLog.Info("security_audit.local_block_check_done",
+					zap.String("request_id", request.RequestID), zap.String("decision", string(decision.Kind)),
+					zap.String("error_code", decision.ErrorCode), zap.Bool("allow_next_stage", decision.AllowNextStage),
+					zap.String("matched_rule", matchedRule), zap.String("stage", request.Stage))
+			}
+			return decision
+		}
+		if reqLog != nil {
+			reqLog.Info("security_audit.local_block_check_done",
+				zap.String("request_id", request.RequestID), zap.String("decision", string(securityaudit.DecisionAllow)),
+				zap.String("error_code", ""), zap.Bool("allow_next_stage", true), zap.String("matched_rule", ""),
+				zap.String("stage", request.Stage))
 		}
 	}
 	if coordinator == nil {
