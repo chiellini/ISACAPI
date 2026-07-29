@@ -264,19 +264,24 @@ psql -U sub2api -h 127.0.0.1 -d sub2api -f migration.sql
 ### Git 操作
 
 ```bash
-# 同步上游
+# 固定同步顺序：origin/main 和 upstream/main -> 本地 main -> origin/main
+git status --short --branch
+git fetch origin
 git fetch upstream
-git checkout main
-git merge upstream/main
+git switch main
+git merge --no-edit origin/main
+git merge --no-edit upstream/main
+git diff --check
+git add <已确认的文件>
+git commit -m "type(scope): description"
 git push origin main
+git status --short --branch
 
 # 创建功能分支
-git checkout -b feature/xxx
-
-# Rebase 到最新 main
-git fetch upstream
-git rebase upstream/main
+git switch -c feature/xxx
 ```
+
+完整的冲突处理、远端约定和验证清单见 [`GIT_WORKFLOW.md`](GIT_WORKFLOW.md)。本项目的 `main` 不使用 rebase 后强制推送，也不直接向 `upstream` 推送。
 
 ### 前端操作
 

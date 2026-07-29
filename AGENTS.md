@@ -42,11 +42,23 @@ Use HTTPS or SSH consistently, avoid switching protocols in the middle of a task
 - Recommended: SSH.
   - Remote format: `git@github.com:chiellini/ISACAPI.git`
   - Push: `git push`
-- Standard flow:
-  - `git status --short`
-  - `git add <files>`
-  - `git commit -m "type(scope): description"`
-  - `git push`
+- Canonical fork synchronization flow (use this order for every main-branch sync):
+  1. `git status --short --branch`
+  2. `git fetch origin`
+  3. `git fetch upstream`
+  4. `git switch main`
+  5. `git merge --no-edit origin/main`
+  6. `git merge --no-edit upstream/main`
+  7. Resolve and review conflicts, then run the relevant tests.
+  8. `git add <files>` and `git commit -m "type(scope): description"` when there are changes to commit.
+  9. `git push origin main`
+  10. `git status --short --branch` and verify `main` matches `origin/main`.
+
+  This repository's `main` is the fork-owned integration branch. Do not rebase it onto
+  `upstream/main` or force-push. Preserve fork-owned README links and custom features;
+  when conflicts overlap those areas, resolve them deliberately rather than accepting
+  either side blindly. See [`GIT_WORKFLOW.md`](GIT_WORKFLOW.md) for the full
+  checklist and conflict guidance.
 - Quick checks:
   - `git status --short --branch`
   - `git log -1 --oneline --decorate`
