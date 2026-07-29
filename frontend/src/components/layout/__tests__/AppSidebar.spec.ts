@@ -56,6 +56,8 @@ describe('AppSidebar header styles', () => {
 
 describe('AppSidebar CC-Switch guide entry', () => {
   it('adds the guide entry only to regular user navigation', () => {
+    expect(componentSource).toContain("path: '/codex-guide'")
+    expect(componentSource).toContain("label: t('nav.codexGuide')")
     expect(componentSource).toContain("path: '/cc-switch'")
     expect(componentSource).toContain("label: t('nav.ccSwitchGuide')")
     expect(componentSource).not.toContain("import { CC_SWITCH_DOWNLOAD_LINKS } from '@/utils/ccswitchImport'")

@@ -1,5 +1,6 @@
 import en from './en'
 import { jaResearchGroup } from './researchGroupExtra'
+import { jaCodexGuide } from './codexGuide'
 
 type LocaleMessages = Record<string, any>
 
@@ -11,7 +12,8 @@ export default {
     ...en.nav,
     researchGroup: '研究グループ',
     ccSwitchDownload: 'CC-Switch をダウンロード',
-    ccSwitchGuide: 'CC-Switch ガイド'
+    ccSwitchGuide: 'CC-Switch ガイド',
+    codexGuide: 'Codex ガイド'
   },
   auth: {
     ...en.auth,
@@ -28,6 +30,7 @@ export default {
     }
   },
   researchGroup: jaResearchGroup,
+  codexGuide: jaCodexGuide,
   keys: {
     ...en.keys,
     useKeyModal: {

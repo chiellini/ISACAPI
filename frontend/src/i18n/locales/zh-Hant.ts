@@ -1,11 +1,13 @@
 import zh from './zh'
 import { zhHantResearchGroup } from './researchGroupExtra'
+import { zhHantCodexGuide } from './codexGuide'
 
 export default {
   ...zh,
   nav: {
     ...zh.nav,
-    researchGroup: '課題組'
+    researchGroup: '課題組',
+    codexGuide: 'Codex 設定教學'
   },
   auth: {
     ...zh.auth,
@@ -21,6 +23,7 @@ export default {
     }
   },
   researchGroup: zhHantResearchGroup,
+  codexGuide: zhHantCodexGuide,
   home: {
     ...zh.home,
     viewOnGithub: '在 GitHub 上查看',

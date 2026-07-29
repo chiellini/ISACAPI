@@ -1,5 +1,6 @@
 import en from './en'
 import { arResearchGroup } from './researchGroupExtra'
+import { arCodexGuide } from './codexGuide'
 
 type LocaleMessages = Record<string, any>
 
@@ -11,7 +12,8 @@ export default {
     ...en.nav,
     researchGroup: 'مجموعة البحث',
     ccSwitchDownload: 'تنزيل CC-Switch',
-    ccSwitchGuide: 'دليل CC-Switch'
+    ccSwitchGuide: 'دليل CC-Switch',
+    codexGuide: 'دليل Codex'
   },
   auth: {
     ...en.auth,
@@ -28,6 +30,7 @@ export default {
     }
   },
   researchGroup: arResearchGroup,
+  codexGuide: arCodexGuide,
   keys: {
     ...en.keys,
     useKeyModal: {

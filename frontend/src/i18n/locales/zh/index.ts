@@ -7,6 +7,7 @@ import admin from './admin'
 import misc from './misc'
 import researchGroup from './researchGroup'
 import provider from './provider'
+import { zhCodexGuide } from '../codexGuide'
 
 export default {
   ...landing,
@@ -18,4 +19,5 @@ export default {
   ...misc,
   ...researchGroup,
   ...provider,
+  codexGuide: zhCodexGuide,
 }

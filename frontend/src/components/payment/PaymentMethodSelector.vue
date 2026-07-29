@@ -10,7 +10,7 @@
         type="button"
         :disabled="!method.available"
         :class="[
-          'relative flex h-[60px] flex-col items-center justify-center rounded-lg border px-3 transition-all sm:flex-1',
+          'relative flex h-[84px] flex-col items-center justify-center rounded-lg border px-3 transition-all sm:flex-1',
           !method.available
             ? 'cursor-not-allowed border-gray-200 bg-gray-50 opacity-50 dark:border-dark-700 dark:bg-dark-800/50'
             : selected === method.type
@@ -31,6 +31,7 @@
             </span>
           </span>
         </span>
+        <PaymentBrandSupport :method="method.type" align="center" class="mt-1" />
       </button>
     </div>
   </div>
@@ -40,6 +41,7 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { METHOD_ORDER, isBuiltInAlipayMethod, isBuiltInWxpayMethod } from './providerConfig'
+import PaymentBrandSupport from './PaymentBrandSupport.vue'
 import alipayIcon from '@/assets/icons/alipay.svg'
 import wxpayIcon from '@/assets/icons/wxpay.svg'
 import stripeIcon from '@/assets/icons/stripe.svg'

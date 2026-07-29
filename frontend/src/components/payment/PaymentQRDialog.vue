@@ -10,6 +10,7 @@
         <p v-if="scanHint" class="text-center text-sm text-gray-500 dark:text-gray-400">
           {{ scanHint }}
         </p>
+        <PaymentBrandSupport :method="props.paymentType" include-primary align="center" />
       </template>
       <!-- Popup window waiting mode (no QR code) -->
       <template v-else>
@@ -75,6 +76,7 @@ import { ref, computed, watch, onUnmounted, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
+import PaymentBrandSupport from '@/components/payment/PaymentBrandSupport.vue'
 import { usePaymentStore } from '@/stores/payment'
 import { useAppStore } from '@/stores'
 import { paymentAPI } from '@/api/payment'

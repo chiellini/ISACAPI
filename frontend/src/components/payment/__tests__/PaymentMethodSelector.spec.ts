@@ -22,8 +22,10 @@ describe('PaymentMethodSelector', () => {
       },
     })
 
-    const labels = wrapper.findAll('button').map(button => button.text())
-    expect(labels).toEqual(['easypay', 'alipay', 'wxpay', 'stripe'])
+    const buttons = wrapper.findAll('button')
+    expect(buttons.map(button => button.text().replace('AlipayHK', ''))).toEqual(['easypay', 'alipay', 'wxpay', 'stripe'])
+    expect(buttons[1].text()).toContain('AlipayHK')
+    expect(buttons[2].text()).not.toContain('WeChat Pay HK')
   })
 
   it('shows the configured display name for custom EasyPay methods', () => {

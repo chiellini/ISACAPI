@@ -9,6 +9,7 @@ FRONTEND_CRITICAL_VITEST := \
 	src/utils/__tests__/pricing.spec.ts \
 	src/views/public/__tests__/PricingView.spec.ts \
 	src/i18n/__tests__/homeLocaleKeys.spec.ts \
+	src/i18n/__tests__/commonLocaleKeys.spec.ts \
 	src/views/__tests__/HomeView.spec.ts \
 	src/views/admin/__tests__/SettingsView.spec.ts
 

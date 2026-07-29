@@ -262,6 +262,19 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/codex-guide',
+    name: 'CodexGuide',
+    alias: '/docs/codex',
+    component: () => import('@/views/user/CodexGuideView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: false,
+      title: 'Codex Guide',
+      titleKey: 'codexGuide.title',
+      descriptionKey: 'codexGuide.description'
+    }
+  },
+  {
     path: '/cc-switch',
     name: 'CcSwitchGuide',
     component: () => import('@/views/user/CcSwitchGuideView.vue'),

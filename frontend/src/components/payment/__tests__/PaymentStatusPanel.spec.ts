@@ -132,6 +132,29 @@ describe('PaymentStatusPanel', () => {
     openSpy.mockRestore()
   })
 
+  it('shows Alipay and AlipayHK as supported wallets for Alipay QR payments', async () => {
+    const wrapper = mount(PaymentStatusPanel, {
+      props: {
+        orderId: 42,
+        qrCode: 'https://pay.example.com/qr/42',
+        expiresAt: '2099-01-01T12:30:00Z',
+        paymentType: 'alipay',
+        orderType: 'balance',
+      },
+      global: {
+        stubs: {
+          Icon: true,
+        },
+      },
+    })
+
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Alipay')
+    expect(wrapper.text()).toContain('AlipayHK')
+    expect(wrapper.text()).not.toContain('WeChat Pay HK')
+  })
+
   it('uses generic QR copy for custom methods that contain built-in names', async () => {
     const wrapper = mount(PaymentStatusPanel, {
       props: {

@@ -6,8 +6,7 @@
     </div>
 
     <p class="text-gray-600 dark:text-dark-300">
-      如需帮助，请加入 QQ 群：
-      <span class="font-semibold text-gray-900 dark:text-white">1027890648</span>
+      {{ t('common.contactAdminHint', { qq: '1027890648' }) }}
     </p>
   </div>
 </template>

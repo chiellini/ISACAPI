@@ -396,6 +396,21 @@ const DownloadIcon = {
     )
 }
 
+const TerminalIcon = {
+  render: () =>
+    h(
+      'svg',
+      { fill: 'none', viewBox: '0 0 24 24', stroke: 'currentColor', 'stroke-width': '1.5' },
+      [
+        h('path', {
+          'stroke-linecap': 'round',
+          'stroke-linejoin': 'round',
+          d: 'M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z'
+        })
+      ]
+    )
+}
+
 const ChartIcon = {
   render: () =>
     h(
@@ -811,13 +826,20 @@ function buildSelfNavItems(withDashboard: boolean): NavItem[] {
 
 function buildUserNavItems(): NavItem[] {
   const items = buildSelfNavItems(true)
-  const downloadItem: NavItem = {
-    path: '/cc-switch',
-    label: t('nav.ccSwitchGuide'),
-    icon: DownloadIcon,
-  }
+  const guideItems: NavItem[] = [
+    {
+      path: '/codex-guide',
+      label: t('nav.codexGuide'),
+      icon: TerminalIcon,
+    },
+    {
+      path: '/cc-switch',
+      label: t('nav.ccSwitchGuide'),
+      icon: DownloadIcon,
+    },
+  ]
   const keyIndex = items.findIndex((item) => item.path === '/keys')
-  items.splice(keyIndex === -1 ? items.length : keyIndex + 1, 0, downloadItem)
+  items.splice(keyIndex === -1 ? items.length : keyIndex + 1, 0, ...guideItems)
   return items
 }
 

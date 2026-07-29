@@ -84,14 +84,18 @@
                     :key="channel"
                     type="button"
                     :class="[
-                      'flex h-10 items-center justify-center rounded-lg border px-3 text-sm font-semibold transition-all',
+                      'flex h-16 flex-col items-center justify-center gap-1 rounded-lg border px-3 text-sm font-semibold transition-all',
                       selectedEasyPayChannel === channel
                         ? easypayChannelSelectedClass(channel)
                         : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400 dark:border-dark-600 dark:bg-dark-800 dark:text-gray-200 dark:hover:border-dark-500',
                     ]"
                     @click="selectedEasyPayChannel = channel"
                   >
-                    {{ t(`payment.methods.${channel}`) }}
+                    <span class="flex items-center gap-1.5">
+                      <img :src="easyPayChannelIcon(channel)" alt="" class="h-4 w-4 object-contain" />
+                      {{ t(`payment.methods.${channel}`) }}
+                    </span>
+                    <PaymentBrandSupport :method="channel" align="center" />
                   </button>
                 </div>
               </div>
@@ -200,14 +204,18 @@
                       :key="channel"
                       type="button"
                       :class="[
-                        'flex h-10 items-center justify-center rounded-lg border px-3 text-sm font-semibold transition-all',
+                        'flex h-16 flex-col items-center justify-center gap-1 rounded-lg border px-3 text-sm font-semibold transition-all',
                         selectedEasyPayChannel === channel
                           ? easypayChannelSelectedClass(channel)
                           : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400 dark:border-dark-600 dark:bg-dark-800 dark:text-gray-200 dark:hover:border-dark-500',
-                      ]"
-                      @click="selectedEasyPayChannel = channel"
-                    >
-                      {{ t(`payment.methods.${channel}`) }}
+                    ]"
+                    @click="selectedEasyPayChannel = channel"
+                  >
+                      <span class="flex items-center gap-1.5">
+                        <img :src="easyPayChannelIcon(channel)" alt="" class="h-4 w-4 object-contain" />
+                        {{ t(`payment.methods.${channel}`) }}
+                      </span>
+                      <PaymentBrandSupport :method="channel" align="center" />
                     </button>
                   </div>
                 </div>
@@ -327,8 +335,11 @@ import type { SubscriptionPlan, CheckoutInfoResponse, CreateOrderResult, OrderTy
 import AppLayout from '@/components/layout/AppLayout.vue'
 import ModelPriceComparison from '@/components/common/ModelPriceComparison.vue'
 import AmountInput from '@/components/payment/AmountInput.vue'
+import PaymentBrandSupport from '@/components/payment/PaymentBrandSupport.vue'
 import PaymentMethodSelector from '@/components/payment/PaymentMethodSelector.vue'
 import { METHOD_ORDER, getPaymentPopupFeatures, isBuiltInAlipayMethod, isBuiltInWxpayMethod } from '@/components/payment/providerConfig'
+import alipayIcon from '@/assets/icons/alipay.svg'
+import wxpayIcon from '@/assets/icons/wxpay.svg'
 import {
   PAYMENT_RECOVERY_STORAGE_KEY,
   buildCreateOrderPayload,
@@ -393,6 +404,10 @@ const selectedPlan = ref<SubscriptionPlan | null>(null)
 const previewImage = ref('')
 
 const paymentPhase = ref<'select' | 'paying'>('select')
+
+function easyPayChannelIcon(channel: EasyPayChannel): string {
+  return channel === 'wxpay' ? wxpayIcon : alipayIcon
+}
 
 interface CreateOrderOptions {
   openid?: string

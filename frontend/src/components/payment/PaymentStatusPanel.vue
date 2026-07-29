@@ -88,6 +88,7 @@
               {{ deepLinkState === 'backgrounded' ? t('payment.qr.alipayContinueInApp') : t('payment.qr.alipayOpening') }}
             </p>
             <p class="text-sm text-gray-500 dark:text-gray-400">{{ t('payment.qr.alipayWaitingHint') }}</p>
+            <PaymentBrandSupport :method="props.paymentType" include-primary align="center" />
             <button
               v-if="deepLinkState === 'backgrounded'"
               data-test="reopen-alipay"
@@ -136,6 +137,7 @@
                 </span>
               </div>
             </div>
+            <PaymentBrandSupport :method="props.paymentType" include-primary align="center" />
             <p class="text-center text-sm leading-6 text-gray-600 dark:text-gray-300">
               {{ t('payment.qr.alipaySaveAndScanHint') }}
             </p>
@@ -180,6 +182,7 @@
             </div>
           </div>
           <p v-if="scanHint" class="text-center text-sm text-gray-500 dark:text-gray-400">{{ scanHint }}</p>
+          <PaymentBrandSupport :method="props.paymentType" include-primary align="center" />
           <button v-if="payUrl" class="btn btn-secondary text-sm" @click="reopenPopup">
             {{ t('payment.qr.openPayWindow') }}
           </button>
@@ -228,6 +231,7 @@ import { getPaymentPopupFeatures, isBuiltInAlipayMethod, isBuiltInWxpayMethod } 
 import { currencySymbol, formatPaymentAmount, normalizePaymentCurrency } from '@/components/payment/currency'
 import type { PaymentOrder } from '@/types/payment'
 import Icon from '@/components/icons/Icon.vue'
+import PaymentBrandSupport from '@/components/payment/PaymentBrandSupport.vue'
 import QRCode from 'qrcode'
 import alipayIcon from '@/assets/icons/alipay.svg'
 import wxpayIcon from '@/assets/icons/wxpay.svg'

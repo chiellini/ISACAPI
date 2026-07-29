@@ -11,6 +11,7 @@
       <p v-if="qrUrl && !expired && scanHint" class="text-center text-sm text-gray-500 dark:text-gray-400">
         {{ scanHint }}
       </p>
+      <PaymentBrandSupport :method="paymentType" include-primary align="center" />
       <div v-if="expired" class="text-center">
         <p class="text-lg font-medium text-red-500">{{ t('payment.qr.expired') }}</p>
         <button class="btn btn-primary mt-4" @click="router.push('/purchase')">{{ t('payment.result.backToRecharge') }}</button>
@@ -37,6 +38,7 @@ import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import AppLayout from '@/components/layout/AppLayout.vue'
+import PaymentBrandSupport from '@/components/payment/PaymentBrandSupport.vue'
 import { usePaymentStore } from '@/stores/payment'
 import { paymentAPI } from '@/api/payment'
 import { extractI18nErrorMessage } from '@/utils/apiError'
