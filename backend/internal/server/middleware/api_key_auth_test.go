@@ -1554,7 +1554,7 @@ func (r *stubApiKeyRepo) FindInternalChatKey(ctx context.Context, userID int64) 
 	return nil, service.ErrAPIKeyNotFound
 }
 
-func (r *stubApiKeyRepo) Update(ctx context.Context, key *service.APIKey) error {
+func (r *stubApiKeyRepo) Update(ctx context.Context, key *service.APIKey, _ service.APIKeyUpdateFields) error {
 	return errors.New("not implemented")
 }
 

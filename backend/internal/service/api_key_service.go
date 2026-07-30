@@ -91,7 +91,7 @@ type APIKeyRepository interface {
 	GetByKeyForAuth(ctx context.Context, key string) (*APIKey, error)
 	// FindInternalChatKey 返回用户的内置聊天 Key（按保留名识别），不存在返回 ErrAPIKeyNotFound
 	FindInternalChatKey(ctx context.Context, userID int64) (*APIKey, error)
-	Update(ctx context.Context, key *APIKey) error
+	Update(ctx context.Context, key *APIKey, fields APIKeyUpdateFields) error
 	Delete(ctx context.Context, id int64) error
 	// DeleteWithAudit keeps the legacy interface name for rolling-upgrade compatibility.
 	// Implementations must tombstone the key and soft-delete it atomically without

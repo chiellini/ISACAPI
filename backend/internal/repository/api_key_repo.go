@@ -236,7 +236,12 @@ func (r *apiKeyRepository) FindInternalChatKey(ctx context.Context, userID int64
 	return apiKeyEntityToService(m), nil
 }
 
-func (r *apiKeyRepository) Update(ctx context.Context, key *service.APIKey) error {
+func (r *apiKeyRepository) Update(ctx context.Context, key *service.APIKey, fields service.APIKeyUpdateFields) error {
+	// An empty mask means the caller does not want to update any columns.
+	if fields.IsEmpty() {
+		return nil
+	}
+
 	// 使用原子操作：将软删除检查与更新合并到同一语句，避免竞态条件。
 	// 之前的实现先检查 Exist 再 UpdateOneID，若在两步之间发生软删除，
 	// 则会更新已删除的记录。

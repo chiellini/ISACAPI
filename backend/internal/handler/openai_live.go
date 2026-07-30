@@ -68,8 +68,9 @@ func (h *OpenAIGatewayHandler) Live(c *gin.Context) {
 		h.errorResponse(c, http.StatusServiceUnavailable, "api_error", "Billing service unavailable")
 		return
 	}
-	if err := h.billingCacheService.CheckBillingEligibility(
-		c.Request.Context(),
+	if err := checkAndAttachBillingDecision(
+		c,
+		h.billingCacheService,
 		apiKey.User,
 		apiKey,
 		apiKey.Group,

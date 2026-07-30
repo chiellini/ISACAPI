@@ -387,6 +387,18 @@ const (
 	// sidebar entry is hidden. Defaults to false (opt-in feature).
 	SettingKeyAvailableChannelsEnabled = "available_channels_enabled"
 
+	// SettingKeyModelPlazaEnabled is a DB-backed soft switch for the Model Plaza page
+	// (public group/model pricing showcase). Defaults to false (opt-in feature).
+	SettingKeyModelPlazaEnabled = "model_plaza_enabled"
+
+	// SettingKeyModelPlazaRequireAuth controls whether the Model Plaza page requires a
+	// logged-in user. Anonymous visitors only see non-exclusive groups.
+	SettingKeyModelPlazaRequireAuth = "model_plaza_require_auth"
+
+	// SettingKeyModelPlazaDescription stores the Markdown blurb rendered at the top of
+	// the Model Plaza page.
+	SettingKeyModelPlazaDescription = "model_plaza_description"
+
 	// SettingKeyPublicStatusEnabled is a DB-backed soft switch for the public (no-auth)
 	// service status page. When true: the /status/public endpoint serves availability
 	// aggregated by provider/model (internal channel/group names stripped). Defaults to

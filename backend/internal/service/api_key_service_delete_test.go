@@ -86,7 +86,7 @@ func (s *apiKeyRepoStub) FindInternalChatKey(ctx context.Context, userID int64) 
 	panic("unexpected FindInternalChatKey call")
 }
 
-func (s *apiKeyRepoStub) Update(ctx context.Context, key *APIKey) error {
+func (s *apiKeyRepoStub) Update(ctx context.Context, key *APIKey, _ APIKeyUpdateFields) error {
 	if key != nil {
 		s.updatedKeys = append(s.updatedKeys, *key)
 	}
