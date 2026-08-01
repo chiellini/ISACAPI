@@ -528,6 +528,7 @@ export default {
       qqGroupSuffix: '，有问题可以进群联系站长。',
       trust: '请认准 ISACAI 官方站点与当前 API 入口，避免使用不明来源链接。',
       status: '当前服务入口：',
+      closePermanently: '永久关闭',
       closeToday: '今日关闭',
       close: '关闭公告'
     },

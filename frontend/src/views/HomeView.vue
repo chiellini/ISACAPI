@@ -705,6 +705,12 @@
 
           <div class="flex flex-wrap items-center justify-end gap-3 border-t border-slate-200 px-5 py-4 dark:border-dark-700">
             <button
+              @click="closeNoticePermanently"
+              class="rounded-lg bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-200 dark:bg-dark-800 dark:text-dark-200 dark:hover:bg-dark-700"
+            >
+              {{ t('home.notice.closePermanently') }}
+            </button>
+            <button
               @click="closeNoticeToday"
               class="rounded-lg bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-200 dark:bg-dark-800 dark:text-dark-200 dark:hover:bg-dark-700"
             >
@@ -889,6 +895,7 @@ const teamFeatures = [
 const NOTICE_VERSION = '2026-07-pricing-v2'
 const NOTICE_SESSION_KEY = `isacai_home_notice_session_${NOTICE_VERSION}`
 const NOTICE_DATE_KEY = `isacai_home_notice_date_${NOTICE_VERSION}`
+const NOTICE_PERMANENT_KEY = `isacai_home_notice_permanent_${NOTICE_VERSION}`
 
 const isAuthenticated = computed(() => authStore.isAuthenticated)
 const isAdmin = computed(() => authStore.isAdmin)
@@ -1025,8 +1032,14 @@ function focusNotice() {
 function initNotice() {
   const closedForSession = sessionStorage.getItem(NOTICE_SESSION_KEY) === '1'
   const closedToday = localStorage.getItem(NOTICE_DATE_KEY) === todayKey()
-  showNotice.value = !closedForSession && !closedToday
+  const closedPermanently = localStorage.getItem(NOTICE_PERMANENT_KEY) === '1'
+  showNotice.value = !closedForSession && !closedToday && !closedPermanently
   if (showNotice.value) focusNotice()
+}
+
+function closeNoticePermanently() {
+  localStorage.setItem(NOTICE_PERMANENT_KEY, '1')
+  showNotice.value = false
 }
 
 function closeNoticeToday() {

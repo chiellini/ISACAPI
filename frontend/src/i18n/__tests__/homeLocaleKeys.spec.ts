@@ -103,10 +103,10 @@ describe('HomeView product focus', () => {
     expect(homeViewSource).toContain("name: 'VS Code / Cursor / IDE'")
   })
 
-  it('restores the versioned homepage notice without a permanent dismissal', () => {
+  it('supports a versioned permanent dismissal for the homepage notice', () => {
     expect(homeViewSource).toContain("const NOTICE_VERSION = '2026-07-pricing-v2'")
     expect(homeViewSource).toContain('sessionStorage.getItem(NOTICE_SESSION_KEY)')
-    expect(homeViewSource).toContain('showNotice.value = !closedForSession && !closedToday')
-    expect(homeViewSource).not.toContain('NOTICE_PERMANENT_KEY')
+    expect(homeViewSource).toContain('localStorage.getItem(NOTICE_PERMANENT_KEY)')
+    expect(homeViewSource).toContain('showNotice.value = !closedForSession && !closedToday && !closedPermanently')
   })
 })

@@ -56,6 +56,7 @@ vi.mock('vue-i18n', async () => {
 const NOTICE_VERSION = '2026-07-pricing-v2'
 const NOTICE_SESSION_KEY = `isacai_home_notice_session_${NOTICE_VERSION}`
 const NOTICE_DATE_KEY = `isacai_home_notice_date_${NOTICE_VERSION}`
+const NOTICE_PERMANENT_KEY = `isacai_home_notice_permanent_${NOTICE_VERSION}`
 
 function mountHome(): VueWrapper {
   return mount(HomeView, {
@@ -265,6 +266,23 @@ describe('HomeView notice persistence', () => {
     const remountedWrapper = mountHome()
     await nextTick()
     expect(hasNotice(remountedWrapper)).toBe(false)
+    remountedWrapper.unmount()
+  })
+
+  it('permanently dismisses the current notice while keeping it available from the bell', async () => {
+    const wrapper = mountHome()
+    await nextTick()
+
+    await buttonWithText(wrapper, 'home.notice.closePermanently').trigger('click')
+    expect(localStorage.getItem(NOTICE_PERMANENT_KEY)).toBe('1')
+    wrapper.unmount()
+
+    const remountedWrapper = mountHome()
+    await nextTick()
+    expect(hasNotice(remountedWrapper)).toBe(false)
+
+    await remountedWrapper.get('[data-testid="home-notice-bell"]').trigger('click')
+    expect(hasNotice(remountedWrapper)).toBe(true)
     remountedWrapper.unmount()
   })
 })

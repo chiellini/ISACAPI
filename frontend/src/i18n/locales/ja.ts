@@ -455,6 +455,7 @@ export default {
       qqGroupSuffix: '。問題があればグループで管理者に連絡できます。',
       trust: 'ISACAI 公式サイトと現在の API エントリを利用し、不明なリンクは避けてください。',
       status: '現在のサービス入口：',
+      closePermanently: '今後表示しない',
       closeToday: '今日は閉じる',
       close: '公告を閉じる'
     },

@@ -528,6 +528,7 @@ export default {
       qqGroupSuffix: '. Join the group to contact the site admin.',
       trust: 'Use the official ISACAI site and current API entry to avoid unknown links.',
       status: 'Current service entry: ',
+      closePermanently: 'Do not show again',
       closeToday: 'Close today',
       close: 'Close notice'
     },

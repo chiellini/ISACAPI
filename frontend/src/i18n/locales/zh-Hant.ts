@@ -222,6 +222,7 @@ export default {
       qqGroupSuffix: '，有問題可以進群聯繫站長。',
       trust: '請認準 ISACAI 官方站點與目前 API 入口，避免使用不明來源連結。',
       status: '目前服務入口：',
+      closePermanently: '永久關閉',
       closeToday: '今日關閉',
       close: '關閉公告'
     },
