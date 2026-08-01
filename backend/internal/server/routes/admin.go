@@ -435,6 +435,7 @@ func registerAccountRoutes(admin *gin.RouterGroup, h *handler.Handlers, stepUpAu
 		writes.POST("/batch-update-credentials", h.Admin.Account.BatchUpdateCredentials)
 		writes.POST("/batch-refresh-tier", h.Admin.Account.BatchRefreshTier)
 		writes.POST("/bulk-update", h.Admin.Account.BulkUpdate)
+		writes.POST("/batch-delete", h.Admin.Account.BatchDelete)
 		writes.POST("/batch-clear-error", h.Admin.Account.BatchClearError)
 		writes.POST("/batch-refresh", h.Admin.Account.BatchRefresh)
 
