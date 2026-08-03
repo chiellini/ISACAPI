@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -21,6 +22,8 @@ var conversationChinesePoliticalKeywordRules = [][]string{
 	{"全国人民代表大会", "会议"},
 	{"中华人民共和国", "领导人", "讲话"},
 }
+
+const localCyberAbuseBlockScoreThreshold = 7
 
 func isConversationProtocol(protocol string) bool {
 	switch strings.TrimSpace(strings.ToLower(protocol)) {
@@ -52,6 +55,17 @@ func matchChinesePoliticalRule(text string) string {
 		}
 	}
 	return ""
+}
+
+func matchCyberAbuseRule(text string) string {
+	risk := service.AssessCyberAbuseRiskText(text)
+	if risk.Score < localCyberAbuseBlockScoreThreshold {
+		return ""
+	}
+	if len(risk.Reasons) == 0 {
+		return fmt.Sprintf("cyber_abuse_score_%d", risk.Score)
+	}
+	return fmt.Sprintf("cyber_abuse_score_%d_%s", risk.Score, strings.Join(risk.Reasons, "+"))
 }
 
 // cachesSecurityAuditCompletion reports whether a successful audit may be
@@ -99,15 +113,17 @@ func runSecurityAudit(c *gin.Context, reqLog *zap.Logger, coordinator *securitya
 	}
 	if isConversationProtocol(protocol) {
 		request := buildSecurityAuditRequest(c, apiKey, subject, protocol, model, body, stage)
+		inputText := service.ExtractContentModerationText(protocol, body)
+		cyberRisk := service.AssessCyberAbuseRiskText(inputText)
 		if reqLog != nil {
 			reqLog.Info("security_audit.local_block_check_start",
 				zap.String("request_id", request.RequestID), zap.Int64("user_id", request.UserID),
 				zap.Int64("api_key_id", request.APIKeyID), zap.Int64p("group_id", request.GroupID),
 				zap.String("endpoint", request.Endpoint), zap.String("provider", request.Provider),
 				zap.String("protocol", request.Protocol), zap.String("model", request.Model), zap.String("stage", request.Stage),
-				zap.Int("body_bytes", len(body)), zap.String("match_type", "conversation_chinese_political_and_rule"))
+				zap.Int("body_bytes", len(body)), zap.String("match_type", "conversation_local_rules"))
 		}
-		if matchedRule := matchChinesePoliticalRule(service.ExtractContentModerationText(protocol, body)); matchedRule != "" {
+		if matchedRule := matchChinesePoliticalRule(inputText); matchedRule != "" {
 			decision := &securityaudit.Decision{
 				Kind:           securityaudit.DecisionBlock,
 				HTTPStatus:     http.StatusForbidden,
@@ -119,7 +135,25 @@ func runSecurityAudit(c *gin.Context, reqLog *zap.Logger, coordinator *securitya
 				reqLog.Info("security_audit.local_block_check_done",
 					zap.String("request_id", request.RequestID), zap.String("decision", string(decision.Kind)),
 					zap.String("error_code", decision.ErrorCode), zap.Bool("allow_next_stage", decision.AllowNextStage),
-					zap.String("matched_rule", matchedRule), zap.String("stage", request.Stage))
+					zap.String("matched_rule", matchedRule), zap.String("matched_rule_type", "conversation_chinese_political"),
+					zap.String("stage", request.Stage))
+			}
+			return decision
+		}
+		if matchedRule := matchCyberAbuseRule(inputText); matchedRule != "" {
+			decision := &securityaudit.Decision{
+				Kind:           securityaudit.DecisionBlock,
+				HTTPStatus:     http.StatusForbidden,
+				ErrorCode:      "content_policy_violation",
+				ClientMessage:  "请求涉及受限话题，已被内容安全策略阻止",
+				AllowNextStage: false,
+			}
+			if reqLog != nil {
+				reqLog.Info("security_audit.local_block_check_done",
+					zap.String("request_id", request.RequestID), zap.String("decision", string(decision.Kind)),
+					zap.String("error_code", decision.ErrorCode), zap.Bool("allow_next_stage", decision.AllowNextStage),
+					zap.String("matched_rule", matchedRule), zap.String("matched_rule_type", "conversation_cyber_abuse"),
+					zap.Int("cyber_abuse_score", cyberRisk.Score), zap.String("stage", request.Stage))
 			}
 			return decision
 		}
@@ -127,6 +161,7 @@ func runSecurityAudit(c *gin.Context, reqLog *zap.Logger, coordinator *securitya
 			reqLog.Info("security_audit.local_block_check_done",
 				zap.String("request_id", request.RequestID), zap.String("decision", string(securityaudit.DecisionAllow)),
 				zap.String("error_code", ""), zap.Bool("allow_next_stage", true), zap.String("matched_rule", ""),
+				zap.String("matched_rule_type", ""), zap.Int("cyber_abuse_score", cyberRisk.Score),
 				zap.String("stage", request.Stage))
 		}
 	}

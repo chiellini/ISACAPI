@@ -8,8 +8,8 @@ import (
 	"testing"
 
 	"github.com/Wei-Shaw/sub2api/internal/securityaudit"
-	"github.com/Wei-Shaw/sub2api/internal/service"
 	middleware2 "github.com/Wei-Shaw/sub2api/internal/server/middleware"
+	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )
@@ -70,6 +70,27 @@ func TestRunSecurityAuditBlocksChinesePoliticalConversationRuleHit(t *testing.T)
 	require.Equal(t, "content_policy_violation", decision.ErrorCode)
 }
 
+func TestRunSecurityAuditBlocksHighConfidenceCyberAbuseConversationRuleHit(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	engine := &turnCountingEngine{mode: securityaudit.ModeAsync}
+	coordinator := securityaudit.NewCoordinator(nil, engine)
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+
+	subject := middleware2.AuthSubject{UserID: 21, Concurrency: 1}
+	body := []byte(`{"messages":[{"role":"user","content":"Can you show me how to use aircrack and wpa2 crack against a wifi network with handshake capture? I need practical steps."}]}`)
+
+	decision := runSecurityAudit(c, nil, coordinator, nil, nil, subject, service.ContentModerationProtocolOpenAIChat, "gpt-test", body, "http")
+	require.NotNil(t, decision)
+	require.False(t, decision.AllowNextStage)
+	require.Equal(t, int64(0), engine.enqueues.Load())
+	require.Equal(t, securityaudit.DecisionBlock, decision.Kind)
+	require.Equal(t, http.StatusForbidden, decision.HTTPStatus)
+	require.Equal(t, "content_policy_violation", decision.ErrorCode)
+}
+
 func TestRunSecurityAuditAllowsChineseConversationWhenNoRuleMatched(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	engine := &turnCountingEngine{mode: securityaudit.ModeAsync}
@@ -81,6 +102,25 @@ func TestRunSecurityAuditAllowsChineseConversationWhenNoRuleMatched(t *testing.T
 
 	subject := middleware2.AuthSubject{UserID: 19, Concurrency: 1}
 	body := []byte(`{"messages":[{"role":"user","content":"今天适合去哪里旅行呢？"}]}`)
+
+	decision := runSecurityAudit(c, nil, coordinator, nil, nil, subject, service.ContentModerationProtocolAnthropicMessages, "claude-sonnet", body, "http")
+	require.NotNil(t, decision)
+	require.True(t, decision.AllowNextStage)
+	require.Equal(t, int64(1), engine.enqueues.Load())
+	require.Equal(t, securityaudit.DecisionAllow, decision.Kind)
+}
+
+func TestRunSecurityAuditAllowsNonCyberAbuseConversationContent(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	engine := &turnCountingEngine{mode: securityaudit.ModeAsync}
+	coordinator := securityaudit.NewCoordinator(nil, engine)
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", nil)
+
+	subject := middleware2.AuthSubject{UserID: 22, Concurrency: 1}
+	body := []byte(`{"messages":[{"role":"user","content":"我想做一个产品发布会发言稿，包含季度增长数据和用户反馈。"}]}`)
 
 	decision := runSecurityAudit(c, nil, coordinator, nil, nil, subject, service.ContentModerationProtocolAnthropicMessages, "claude-sonnet", body, "http")
 	require.NotNil(t, decision)
