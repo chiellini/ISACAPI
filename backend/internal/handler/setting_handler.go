@@ -3,6 +3,7 @@ package handler
 import (
 	"html"
 	"net/http"
+	"sort"
 	"strings"
 
 	"github.com/Wei-Shaw/sub2api/internal/handler/dto"
@@ -17,6 +18,7 @@ import (
 type SettingHandler struct {
 	settingService           *service.SettingService
 	notificationEmailService *service.NotificationEmailService
+	pricingService           *service.PricingService
 	version                  string
 }
 
@@ -32,6 +34,11 @@ func NewSettingHandler(settingService *service.SettingService, version string) *
 // changing the constructor signature used by existing tests.
 func (h *SettingHandler) SetNotificationEmailService(notificationEmailService *service.NotificationEmailService) {
 	h.notificationEmailService = notificationEmailService
+}
+
+// SetPricingService wires in dynamic model pricing for public pricing pages.
+func (h *SettingHandler) SetPricingService(pricingService *service.PricingService) {
+	h.pricingService = pricingService
 }
 
 // GetPublicSettings 获取公开设置
@@ -112,6 +119,86 @@ func (h *SettingHandler) GetPublicSettings(c *gin.Context) {
 
 		AllowUserViewErrorRequests: settings.AllowUserViewErrorRequests,
 	})
+}
+
+func publicModelFamily(provider string) string {
+	switch strings.ToLower(strings.TrimSpace(provider)) {
+	case "openai":
+		return "gpt"
+	case "anthropic":
+		return "claude"
+	default:
+		return provider
+	}
+}
+
+func publicModelFamilySortFamily(family string) int {
+	switch family {
+	case "gpt":
+		return 0
+	case "claude":
+		return 1
+	default:
+		return 2
+	}
+}
+
+// GetPublicPricingModels returns public model pricing rows consumed by the pricing page.
+// GET /api/v1/settings/public/pricing-models
+func (h *SettingHandler) GetPublicPricingModels(c *gin.Context) {
+	if h.pricingService == nil {
+		response.InternalError(c, "pricing service is not configured")
+		return
+	}
+
+	const usdcPerTokenToPerMillion = 1_000_000.0
+
+	providers := []string{"openai", "anthropic"}
+	models := make([]dto.PublicModelPricing, 0)
+	seen := make(map[string]struct{}, 128)
+
+	for _, provider := range providers {
+		for _, model := range h.pricingService.ListModelNamesByProvider(provider) {
+			model = strings.TrimSpace(model)
+			if model == "" {
+				continue
+			}
+			if _, ok := seen[model]; ok {
+				continue
+			}
+
+			pricing := h.pricingService.GetModelPricing(model)
+			if pricing == nil || pricing.TokenPricingAbsent {
+				continue
+			}
+
+			input := pricing.InputCostPerToken * usdcPerTokenToPerMillion
+			output := pricing.OutputCostPerToken * usdcPerTokenToPerMillion
+			cacheRead := pricing.CacheReadInputTokenCost * usdcPerTokenToPerMillion
+			if input <= 0 && output <= 0 && cacheRead <= 0 {
+				continue
+			}
+
+			models = append(models, dto.PublicModelPricing{
+				ID:                           model,
+				Name:                         model,
+				Family:                       publicModelFamily(provider),
+				BenchmarkInputUsdPerMillion:  input,
+				BenchmarkOutputUsdPerMillion: output,
+				BenchmarkCacheReadUsdPerMillion: cacheRead,
+			})
+			seen[model] = struct{}{}
+		}
+	}
+
+	sort.SliceStable(models, func(i, j int) bool {
+		if models[i].Family == models[j].Family {
+			return models[i].ID < models[j].ID
+		}
+		return publicModelFamilySortFamily(models[i].Family) < publicModelFamilySortFamily(models[j].Family)
+	})
+
+	response.Success(c, dto.PublicModelPricingListResponse{Models: models})
 }
 
 // UnsubscribeNotificationEmail handles optional notification email opt-outs.

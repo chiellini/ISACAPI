@@ -368,6 +368,19 @@ export interface PublicSettings {
   allow_user_view_error_requests?: boolean
 }
 
+export interface PublicPricingModel {
+  id: string
+  name: string
+  family: 'gpt' | 'claude' | string
+  benchmark_input_usd_per_million: number
+  benchmark_output_usd_per_million: number
+  benchmark_cache_read_usd_per_million: number
+}
+
+export interface PublicPricingModelsResponse {
+  models: PublicPricingModel[]
+}
+
 export interface AuthResponse {
   access_token: string
   refresh_token?: string  // New: Refresh Token for token renewal

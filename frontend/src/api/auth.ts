@@ -17,6 +17,7 @@ import type {
   SendVerifyCodeRequest,
   SendVerifyCodeResponse,
   PublicSettings,
+  PublicPricingModelsResponse,
   TotpLoginResponse,
   TotpLogin2FARequest
 } from '@/types'
@@ -340,6 +341,17 @@ export function isAuthenticated(): boolean {
  */
 export async function getPublicSettings(): Promise<PublicSettings> {
   const { data } = await apiClient.get<PublicSettings>('/settings/public')
+  return data
+}
+
+/**
+ * Get public model pricing list for pricing page
+ * @returns Model pricing rows for public pricing page rendering
+ */
+export async function getPublicPricingModels(): Promise<PublicPricingModelsResponse> {
+  const { data } = await apiClient.get<PublicPricingModelsResponse>(
+    '/settings/public/pricing-models'
+  )
   return data
 }
 
@@ -682,6 +694,7 @@ export const authAPI = {
   getTokenExpiresAt,
   clearAuthToken,
   getPublicSettings,
+  getPublicPricingModels,
   sendVerifyCode,
   sendPendingOAuthVerifyCode,
   validatePromoCode,

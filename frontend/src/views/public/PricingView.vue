@@ -142,7 +142,7 @@
             data-testid="model-count"
             class="text-sm font-bold text-slate-700 dark:text-dark-200"
           >
-            {{ t('pricingPage.visibleModels', { count: PUBLIC_MODEL_PRICES.length }) }}
+            {{ t('pricingPage.visibleModels', { count: publicModelPrices.length }) }}
           </p>
         </div>
 
@@ -159,7 +159,7 @@
           </div>
 
           <article
-            v-for="model in PUBLIC_MODEL_PRICES"
+            v-for="model in publicModelPrices"
             :key="model.id"
             :data-testid="`model-card-${model.id}`"
             class="grid gap-4 border-b border-slate-100 p-5 last:border-b-0 dark:border-dark-800 md:grid-cols-[minmax(220px,1.45fr)_repeat(3,minmax(145px,1fr))] md:items-center"
@@ -263,6 +263,7 @@ import { useAppStore, useAuthStore } from '@/stores'
 import Icon from '@/components/icons/Icon.vue'
 import LocaleSwitcher from '@/components/common/LocaleSwitcher.vue'
 import ModelIcon from '@/components/common/ModelIcon.vue'
+import { authAPI } from '@/api/auth'
 import {
   PUBLIC_MODEL_PRICES,
   PUBLIC_RECHARGE_USD_PER_CNY,
@@ -270,6 +271,7 @@ import {
   formatCompactNumber,
   type PublicModelPrice,
 } from '@/utils/pricing'
+import type { PublicPricingModel } from '@/types'
 import { sanitizeUrl } from '@/utils/url'
 
 const { t, locale } = useI18n()
@@ -298,6 +300,36 @@ const rechargeUsdPerCny = computed(() => {
     : PUBLIC_RECHARGE_USD_PER_CNY
 })
 const rechargeRateLabel = computed(() => formatCompactNumber(rechargeUsdPerCny.value, 6))
+const publicModelPrices = ref<PublicModelPrice[]>([...PUBLIC_MODEL_PRICES])
+
+function toPublicModelPrice(item: PublicPricingModel): PublicModelPrice {
+  return {
+    id: item.id,
+    name: item.name,
+    family: item.family as PublicModelPrice['family'],
+    benchmarkInputUsdPerMillion: item.benchmark_input_usd_per_million,
+    benchmarkOutputUsdPerMillion: item.benchmark_output_usd_per_million,
+    benchmarkCacheReadUsdPerMillion: item.benchmark_cache_read_usd_per_million,
+  }
+}
+
+function applyFallbackModelPrices() {
+  publicModelPrices.value = [...PUBLIC_MODEL_PRICES]
+}
+
+async function loadPublicModelPrices() {
+  try {
+    const response = await authAPI.getPublicPricingModels()
+    const models = response?.models
+    if (!models || models.length === 0) {
+      applyFallbackModelPrices()
+      return
+    }
+    publicModelPrices.value = models.map(toPublicModelPrice)
+  } catch {
+    applyFallbackModelPrices()
+  }
+}
 
 function providerLabel(family: PublicModelPrice['family']): string {
   return family === 'gpt' ? 'OpenAI' : 'Anthropic'
@@ -332,5 +364,6 @@ onMounted(() => {
   initTheme()
   authStore.checkAuth()
   if (!appStore.publicSettingsLoaded) appStore.fetchPublicSettings()
+  loadPublicModelPrices()
 })
 </script>
