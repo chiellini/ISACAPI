@@ -381,7 +381,7 @@
               type="button"
               class="inline-flex whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition-colors"
               :class="activeSettingsTab === tab.id ? 'bg-primary-50 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-dark-700 dark:hover:text-white'"
-              @click="activeSettingsTab = tab.id"
+              @click.prevent.stop="selectSettingsTab(tab.id)"
             >
               {{ tab.label }}
             </button>
@@ -1980,6 +1980,10 @@ async function clearFlaggedHashes() {
 function openSettings() {
   activeSettingsTab.value = 'basic'
   settingsOpen.value = true
+}
+
+function selectSettingsTab(tab: SettingsTab) {
+  activeSettingsTab.value = tab
 }
 
 function reloadLogsFromFirstPage() {
