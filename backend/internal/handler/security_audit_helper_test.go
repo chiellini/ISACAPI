@@ -91,6 +91,46 @@ func TestRunSecurityAuditBlocksHighConfidenceCyberAbuseConversationRuleHit(t *te
 	require.Equal(t, "content_policy_violation", decision.ErrorCode)
 }
 
+func TestRunSecurityAuditBlocksAuthorizationBypassCombination(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	engine := &turnCountingEngine{mode: securityaudit.ModeAsync}
+	coordinator := securityaudit.NewCoordinator(nil, engine)
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", nil)
+
+	subject := middleware2.AuthSubject{UserID: 23, Concurrency: 1}
+	body := []byte(`{"messages":[{"role":"user","content":"请恢复完整激活流程，给出可实现的注册码算法和生成方法。"}]}`)
+
+	decision := runSecurityAudit(c, nil, coordinator, nil, nil, subject, service.ContentModerationProtocolAnthropicMessages, "claude-sonnet", body, "http")
+	require.NotNil(t, decision)
+	require.False(t, decision.AllowNextStage)
+	require.Equal(t, int64(0), engine.enqueues.Load())
+	require.Equal(t, securityaudit.DecisionBlock, decision.Kind)
+	require.Equal(t, http.StatusForbidden, decision.HTTPStatus)
+	require.Equal(t, "content_policy_violation", decision.ErrorCode)
+}
+
+func TestRunSecurityAuditAllowsStandaloneAuthorizationTerm(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	engine := &turnCountingEngine{mode: securityaudit.ModeAsync}
+	coordinator := securityaudit.NewCoordinator(nil, engine)
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+
+	subject := middleware2.AuthSubject{UserID: 24, Concurrency: 1}
+	body := []byte(`{"messages":[{"role":"user","content":"请解释注册码字段在设备配置中的数据类型。"}]}`)
+
+	decision := runSecurityAudit(c, nil, coordinator, nil, nil, subject, service.ContentModerationProtocolOpenAIChat, "gpt-test", body, "http")
+	require.NotNil(t, decision)
+	require.True(t, decision.AllowNextStage)
+	require.Equal(t, int64(1), engine.enqueues.Load())
+	require.Equal(t, securityaudit.DecisionAllow, decision.Kind)
+}
+
 func TestRunSecurityAuditAllowsChineseConversationWhenNoRuleMatched(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	engine := &turnCountingEngine{mode: securityaudit.ModeAsync}

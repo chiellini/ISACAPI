@@ -23,6 +23,90 @@ var conversationChinesePoliticalKeywordRules = [][]string{
 	{"中华人民共和国", "领导人", "讲话"},
 }
 
+var conversationAuthorizationBypassKeywordRules = [][]string{
+	{"注册码", "破解"},
+	{"注册码", "算法", "生成"},
+	{"激活流程", "绕过"},
+	{"激活码", "绕过"},
+	{"授权校验", "跳过"},
+	{"无限制补丁", "固件"},
+	{"文件偏移", "运行地址", "原指令字节"},
+	{"原指令字节", "建议新指令"},
+	{"chipid", "注册码", "生成"},
+	{"mac", "注册码", "生成"},
+	{"bootloader", "授权", "跳过"},
+	{"firmware", "license", "bypass"},
+	{"activation", "keygen", "firmware"},
+	{"license key", "crack"},
+	{"registration code", "algorithm", "generate"},
+	{"activation flow", "bypass"},
+	{"activation code", "bypass"},
+	{"authorization check", "skip"},
+	{"unlimited patch", "firmware"},
+	{"file offset", "runtime address", "opcode"},
+	{"original instruction bytes", "replacement instruction"},
+	{"chip id", "registration code", "generate"},
+	{"mac", "keygen", "firmware"},
+	{"bootloader", "authorization", "bypass"},
+	{"软件破解", "激活码"},
+	{"软件破解", "注册码"},
+	{"破解软件", "授权校验"},
+	{"逆向分析", "破解"},
+	{"软件逆向", "绕过"},
+	{"反编译", "授权校验"},
+	{"反汇编", "授权校验"},
+	{"脱壳", "破解"},
+	{"脱壳", "去除授权"},
+	{"试用限制", "解除"},
+	{"试用次数", "绕过"},
+	{"功能限制", "解锁", "补丁"},
+	{"订阅限制", "绕过"},
+	{"数字签名", "伪造"},
+	{"签名校验", "绕过"},
+	{"代码签名", "绕过"},
+	{"反调试", "绕过"},
+	{"调试器", "跳过授权"},
+	{"动态调试", "修改", "授权"},
+	{"内存补丁", "授权"},
+	{"注入", "绕过", "校验"},
+	{"提取密钥", "生成", "注册码"},
+	{"密钥生成器", "破解"},
+	{"序列号", "破解"},
+	{"授权文件", "伪造"},
+	{"校验逻辑", "修改", "破解"},
+	{"二进制", "补丁", "授权"},
+	{"固件", "反汇编", "补丁"},
+	{"固件", "反编译", "绕过"},
+	{"软件破解", "license"},
+	{"reverse engineering", "license bypass"},
+	{"reverse engineer", "activation bypass"},
+	{"decompile", "license check", "patch"},
+	{"disassemble", "authorization", "bypass"},
+	{"unpack", "license", "patch"},
+	{"trial limit", "bypass"},
+	{"trial counter", "reset", "patch"},
+	{"feature lock", "remove", "patch"},
+	{"subscription lock", "bypass"},
+	{"drm", "bypass"},
+	{"digital signature", "forge"},
+	{"signature check", "bypass"},
+	{"code signing", "bypass", "patch"},
+	{"anti-debug", "bypass"},
+	{"debugger", "skip", "license check"},
+	{"memory patch", "license"},
+	{"dll injection", "license bypass"},
+	{"extract key", "generate", "license"},
+	{"serial number", "crack"},
+	{"license file", "forge"},
+	{"binary patch", "authorization"},
+	{"firmware", "disassemble", "patch"},
+	{"firmware", "decompile", "bypass"},
+	{"restore source code", "bypass", "license"},
+	{"key generator", "license"},
+	{"keygen", "serial"},
+	{"remove protection", "software"},
+}
+
 const localCyberAbuseBlockScoreThreshold = 7
 
 func isConversationProtocol(protocol string) bool {
@@ -35,17 +119,26 @@ func isConversationProtocol(protocol string) bool {
 }
 
 func matchChinesePoliticalRule(text string) string {
+	return matchConversationKeywordRule(text, conversationChinesePoliticalKeywordRules)
+}
+
+func matchAuthorizationBypassRule(text string) string {
+	return matchConversationKeywordRule(text, conversationAuthorizationBypassKeywordRules)
+}
+
+func matchConversationKeywordRule(text string, rules [][]string) string {
 	normalized := strings.ToLower(strings.Join(strings.Fields(text), ""))
-	for _, rule := range conversationChinesePoliticalKeywordRules {
+	for _, rule := range rules {
 		if len(rule) == 0 {
 			continue
 		}
 		matched := true
 		for _, keyword := range rule {
-			if keyword == "" {
+			normalizedKeyword := strings.ToLower(strings.Join(strings.Fields(keyword), ""))
+			if normalizedKeyword == "" {
 				continue
 			}
-			if !strings.Contains(normalized, strings.ToLower(keyword)) {
+			if !strings.Contains(normalized, normalizedKeyword) {
 				matched = false
 				break
 			}
@@ -137,6 +230,23 @@ func runSecurityAudit(c *gin.Context, reqLog *zap.Logger, coordinator *securitya
 					zap.String("error_code", decision.ErrorCode), zap.Bool("allow_next_stage", decision.AllowNextStage),
 					zap.String("matched_rule", matchedRule), zap.String("matched_rule_type", "conversation_chinese_political"),
 					zap.String("stage", request.Stage))
+			}
+			return decision
+		}
+		if matchedRule := matchAuthorizationBypassRule(inputText); matchedRule != "" {
+			decision := &securityaudit.Decision{
+				Kind:           securityaudit.DecisionBlock,
+				HTTPStatus:     http.StatusForbidden,
+				ErrorCode:      "content_policy_violation",
+				ClientMessage:  "请求涉及受限话题，已被内容安全策略阻止",
+				AllowNextStage: false,
+			}
+			if reqLog != nil {
+				reqLog.Info("security_audit.local_block_check_done",
+					zap.String("request_id", request.RequestID), zap.String("decision", string(decision.Kind)),
+					zap.String("error_code", decision.ErrorCode), zap.Bool("allow_next_stage", decision.AllowNextStage),
+					zap.String("matched_rule", matchedRule), zap.String("matched_rule_type", "conversation_authorization_bypass"),
+					zap.Int("cyber_abuse_score", cyberRisk.Score), zap.String("stage", request.Stage))
 			}
 			return decision
 		}
