@@ -9,6 +9,15 @@ export interface ContentModerationModelFilter {
   models: string[]
 }
 
+export interface ContentModerationLocalSecurityRule {
+  rule_name: string
+  enabled: boolean
+  actions?: string[]
+  targets?: string[]
+  exact?: string[]
+  all?: string[]
+}
+
 export interface ContentModerationConfig {
   enabled: boolean
   mode: ModerationMode
@@ -40,6 +49,8 @@ export interface ContentModerationConfig {
   pre_hash_check_enabled: boolean
   blocked_keywords: string[]
   keyword_blocking_mode: KeywordBlockingMode
+  local_security_rules: ContentModerationLocalSecurityRule[]
+  local_security_whitelist_user_ids: number[]
   model_filter: ContentModerationModelFilter
   cyber_policy_exclude_from_ban_count: boolean
 }
@@ -120,6 +131,8 @@ export interface UpdateContentModerationConfig {
   pre_hash_check_enabled?: boolean
   blocked_keywords?: string[]
   keyword_blocking_mode?: KeywordBlockingMode
+  local_security_rules?: ContentModerationLocalSecurityRule[]
+  local_security_whitelist_user_ids?: number[]
   model_filter?: ContentModerationModelFilter
   cyber_policy_exclude_from_ban_count?: boolean
 }

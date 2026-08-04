@@ -54,6 +54,8 @@ type contentModerationConfigRequest struct {
 	PreHashCheckEnabled            *bool                                 `json:"pre_hash_check_enabled"`
 	BlockedKeywords                *[]string                             `json:"blocked_keywords"`
 	KeywordBlockingMode            *string                               `json:"keyword_blocking_mode"`
+	LocalSecurityRules             *[]service.ContentModerationLocalSecurityRule `json:"local_security_rules"`
+	LocalSecurityWhitelistUserIDs  *[]int64                              `json:"local_security_whitelist_user_ids"`
 	ModelFilter                    *service.ContentModerationModelFilter `json:"model_filter"`
 }
 
@@ -118,6 +120,8 @@ func (h *ContentModerationHandler) UpdateConfig(c *gin.Context) {
 		PreHashCheckEnabled:            req.PreHashCheckEnabled,
 		BlockedKeywords:                req.BlockedKeywords,
 		KeywordBlockingMode:            req.KeywordBlockingMode,
+		LocalSecurityRules:             req.LocalSecurityRules,
+		LocalSecurityWhitelistUserIDs:  req.LocalSecurityWhitelistUserIDs,
 		ModelFilter:                    req.ModelFilter,
 	})
 	if err != nil {

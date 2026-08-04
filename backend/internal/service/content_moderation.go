@@ -87,6 +87,10 @@ const (
 	maxContentModerationTestImageDataURLBytes    = 12 * 1024 * 1024
 	maxContentModerationBlockedKeywords          = 10000
 	maxContentModerationBlockedKeywordRunes      = 200
+	maxContentModerationLocalSecurityRules       = 500
+	maxContentModerationLocalRuleTerms           = 100
+	maxContentModerationLocalRuleTermRunes       = 200
+	maxContentModerationLocalWhitelistUserIDs    = 10000
 	maxContentModerationModelFilterModels        = 1000
 	maxContentModerationModelFilterRunes         = 200
 
@@ -167,6 +171,8 @@ type ContentModerationConfig struct {
 	PreHashCheckEnabled  bool                         `json:"pre_hash_check_enabled"`
 	BlockedKeywords      []string                     `json:"blocked_keywords"`
 	KeywordBlockingMode  string                       `json:"keyword_blocking_mode"`
+	LocalSecurityRules   []ContentModerationLocalSecurityRule `json:"local_security_rules"`
+	LocalSecurityWhitelistUserIDs []int64             `json:"local_security_whitelist_user_ids"`
 	ModelFilter          ContentModerationModelFilter `json:"model_filter"`
 	// CyberPolicyExcludeFromBanCount 为 true 时，cyber_policy 命中不参与自动封号计数：
 	// 当次不判定封号，且历史 cyber 行在 CountFlaggedByUserSince 中被排除。
@@ -205,6 +211,8 @@ type ContentModerationConfigView struct {
 	PreHashCheckEnabled            bool                            `json:"pre_hash_check_enabled"`
 	BlockedKeywords                []string                        `json:"blocked_keywords"`
 	KeywordBlockingMode            string                          `json:"keyword_blocking_mode"`
+	LocalSecurityRules             []ContentModerationLocalSecurityRule `json:"local_security_rules"`
+	LocalSecurityWhitelistUserIDs []int64                         `json:"local_security_whitelist_user_ids"`
 	ModelFilter                    ContentModerationModelFilter    `json:"model_filter"`
 	CyberPolicyExcludeFromBanCount bool                            `json:"cyber_policy_exclude_from_ban_count"`
 }
@@ -297,6 +305,8 @@ type UpdateContentModerationConfigInput struct {
 	PreHashCheckEnabled            *bool                         `json:"pre_hash_check_enabled"`
 	BlockedKeywords                *[]string                     `json:"blocked_keywords"`
 	KeywordBlockingMode            *string                       `json:"keyword_blocking_mode"`
+	LocalSecurityRules             *[]ContentModerationLocalSecurityRule `json:"local_security_rules"`
+	LocalSecurityWhitelistUserIDs  *[]int64                      `json:"local_security_whitelist_user_ids"`
 	ModelFilter                    *ContentModerationModelFilter `json:"model_filter"`
 	CyberPolicyExcludeFromBanCount *bool                         `json:"cyber_policy_exclude_from_ban_count"`
 }
@@ -304,6 +314,18 @@ type UpdateContentModerationConfigInput struct {
 type ContentModerationModelFilter struct {
 	Type   string   `json:"type"`
 	Models []string `json:"models"`
+}
+
+// ContentModerationLocalSecurityRule is an administrator-managed local rule.
+// Exact terms match independently; All terms must all be present; and
+// Actions plus Targets provide an additional combination trigger.
+type ContentModerationLocalSecurityRule struct {
+	RuleName string   `json:"rule_name"`
+	Enabled  bool     `json:"enabled"`
+	Actions  []string `json:"actions,omitempty"`
+	Targets  []string `json:"targets,omitempty"`
+	Exact    []string `json:"exact,omitempty"`
+	All      []string `json:"all,omitempty"`
 }
 
 type ContentModerationCheckInput struct {
@@ -683,6 +705,12 @@ func (s *ContentModerationService) UpdateConfig(ctx context.Context, input Updat
 	}
 	if input.KeywordBlockingMode != nil {
 		cfg.KeywordBlockingMode = strings.TrimSpace(*input.KeywordBlockingMode)
+	}
+	if input.LocalSecurityRules != nil {
+		cfg.LocalSecurityRules = normalizeLocalSecurityRules(*input.LocalSecurityRules)
+	}
+	if input.LocalSecurityWhitelistUserIDs != nil {
+		cfg.LocalSecurityWhitelistUserIDs = normalizeLocalSecurityWhitelistUserIDs(*input.LocalSecurityWhitelistUserIDs)
 	}
 	if input.ModelFilter != nil {
 		cfg.ModelFilter = *input.ModelFilter
@@ -1672,6 +1700,17 @@ func (s *ContentModerationService) validateConfig(ctx context.Context, cfg *Cont
 	if cfg.ModelFilter.Type != ContentModerationModelFilterAll && len(cfg.ModelFilter.Models) == 0 {
 		return infraerrors.BadRequest("INVALID_CONTENT_MODERATION_MODEL_FILTER", "指定或排除模型时至少需要配置 1 个模型")
 	}
+	if len(cfg.LocalSecurityRules) > maxContentModerationLocalSecurityRules {
+		return infraerrors.BadRequest("INVALID_CONTENT_MODERATION_LOCAL_SECURITY_RULES", "本地安全规则数量超出限制")
+	}
+	for _, rule := range cfg.LocalSecurityRules {
+		if len(rule.Actions) > maxContentModerationLocalRuleTerms ||
+			len(rule.Targets) > maxContentModerationLocalRuleTerms ||
+			len(rule.Exact) > maxContentModerationLocalRuleTerms ||
+			len(rule.All) > maxContentModerationLocalRuleTerms {
+			return infraerrors.BadRequest("INVALID_CONTENT_MODERATION_LOCAL_SECURITY_RULE", "单条本地安全规则的词条数量超出限制")
+		}
+	}
 	if !cfg.AllGroups && len(cfg.GroupIDs) > 0 && s.groupRepo != nil {
 		for _, groupID := range cfg.GroupIDs {
 			if _, err := s.groupRepo.GetByIDLite(ctx, groupID); err != nil {
@@ -2102,6 +2141,8 @@ func defaultContentModerationConfig() *ContentModerationConfig {
 		PreHashCheckEnabled:  false,
 		BlockedKeywords:      []string{},
 		KeywordBlockingMode:  ContentModerationKeywordModeKeywordAndAPI,
+		LocalSecurityRules:   []ContentModerationLocalSecurityRule{},
+		LocalSecurityWhitelistUserIDs: []int64{},
 		ModelFilter: ContentModerationModelFilter{
 			Type:   ContentModerationModelFilterAll,
 			Models: []string{},
@@ -2119,6 +2160,8 @@ func cloneContentModerationConfig(cfg *ContentModerationConfig) *ContentModerati
 	clone.APIKeys = append([]string(nil), cfg.APIKeys...)
 	clone.GroupIDs = append([]int64(nil), cfg.GroupIDs...)
 	clone.BlockedKeywords = append([]string(nil), cfg.BlockedKeywords...)
+	clone.LocalSecurityRules = cloneLocalSecurityRules(cfg.LocalSecurityRules)
+	clone.LocalSecurityWhitelistUserIDs = append([]int64(nil), cfg.LocalSecurityWhitelistUserIDs...)
 	clone.Thresholds = cloneFloatMap(cfg.Thresholds)
 	clone.ModelFilter = ContentModerationModelFilter{
 		Type:   cfg.ModelFilter.Type,
@@ -2207,6 +2250,8 @@ func (cfg *ContentModerationConfig) normalize() {
 	cfg.Thresholds = mergeContentModerationThresholds(ContentModerationDefaultThresholds(), cfg.Thresholds)
 	cfg.BlockedKeywords = normalizeBlockedKeywords(cfg.BlockedKeywords)
 	cfg.KeywordBlockingMode = normalizeKeywordBlockingMode(cfg.KeywordBlockingMode)
+	cfg.LocalSecurityRules = normalizeLocalSecurityRules(cfg.LocalSecurityRules)
+	cfg.LocalSecurityWhitelistUserIDs = normalizeLocalSecurityWhitelistUserIDs(cfg.LocalSecurityWhitelistUserIDs)
 	cfg.ModelFilter = normalizeContentModerationModelFilter(cfg.ModelFilter)
 }
 
@@ -2437,6 +2482,8 @@ func (s *ContentModerationService) configView(cfg *ContentModerationConfig) *Con
 		PreHashCheckEnabled:            cfg.PreHashCheckEnabled,
 		BlockedKeywords:                append([]string(nil), cfg.BlockedKeywords...),
 		KeywordBlockingMode:            cfg.KeywordBlockingMode,
+		LocalSecurityRules:             cloneLocalSecurityRules(cfg.LocalSecurityRules),
+		LocalSecurityWhitelistUserIDs:  append([]int64(nil), cfg.LocalSecurityWhitelistUserIDs...),
 		ModelFilter:                    cloneContentModerationModelFilter(cfg.ModelFilter),
 		CyberPolicyExcludeFromBanCount: cfg.CyberPolicyExcludeFromBanCount,
 	}
@@ -2766,6 +2813,107 @@ func normalizeBlockedKeywords(in []string) []string {
 		}
 	}
 	return out
+}
+
+func normalizeLocalSecurityRules(in []ContentModerationLocalSecurityRule) []ContentModerationLocalSecurityRule {
+	if len(in) == 0 {
+		return []ContentModerationLocalSecurityRule{}
+	}
+	out := make([]ContentModerationLocalSecurityRule, 0, len(in))
+	for index, rule := range in {
+		rule.RuleName = strings.TrimSpace(rule.RuleName)
+		if rule.RuleName == "" {
+			rule.RuleName = fmt.Sprintf("custom_%d", index+1)
+		}
+		rule.Actions = normalizeLocalSecurityRuleTerms(rule.Actions)
+		rule.Targets = normalizeLocalSecurityRuleTerms(rule.Targets)
+		rule.Exact = normalizeLocalSecurityRuleTerms(rule.Exact)
+		rule.All = normalizeLocalSecurityRuleTerms(rule.All)
+		out = append(out, rule)
+		if len(out) >= maxContentModerationLocalSecurityRules {
+			break
+		}
+	}
+	return out
+}
+
+func normalizeLocalSecurityRuleTerms(in []string) []string {
+	if len(in) == 0 {
+		return []string{}
+	}
+	seen := make(map[string]struct{}, len(in))
+	out := make([]string, 0, len(in))
+	for _, raw := range in {
+		term := trimRunes(strings.TrimSpace(raw), maxContentModerationLocalRuleTermRunes)
+		if term == "" {
+			continue
+		}
+		key := strings.ToLower(term)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, term)
+		if len(out) >= maxContentModerationLocalRuleTerms {
+			break
+		}
+	}
+	return out
+}
+
+func cloneLocalSecurityRules(in []ContentModerationLocalSecurityRule) []ContentModerationLocalSecurityRule {
+	if len(in) == 0 {
+		return []ContentModerationLocalSecurityRule{}
+	}
+	out := make([]ContentModerationLocalSecurityRule, len(in))
+	for i, rule := range in {
+		out[i] = rule
+		out[i].Actions = append([]string(nil), rule.Actions...)
+		out[i].Targets = append([]string(nil), rule.Targets...)
+		out[i].Exact = append([]string(nil), rule.Exact...)
+		out[i].All = append([]string(nil), rule.All...)
+	}
+	return out
+}
+
+func normalizeLocalSecurityWhitelistUserIDs(in []int64) []int64 {
+	ids := normalizeInt64IDs(in)
+	if len(ids) > maxContentModerationLocalWhitelistUserIDs {
+		ids = ids[:maxContentModerationLocalWhitelistUserIDs]
+	}
+	return ids
+}
+
+// LocalSecurityRules returns a defensive copy of the rules in the current
+// runtime snapshot so the gateway can use them without sharing mutable state.
+func (s *ContentModerationService) LocalSecurityRules(ctx context.Context) []ContentModerationLocalSecurityRule {
+	if s == nil {
+		return nil
+	}
+	snapshot, err := s.loadRuntimeSnapshot(ctx)
+	if err != nil || snapshot == nil || snapshot.config == nil {
+		return nil
+	}
+	return cloneLocalSecurityRules(snapshot.config.LocalSecurityRules)
+}
+
+// IsLocalSecurityWhitelistUser reports whether the account bypasses the
+// gateway's local keyword isolation layer. Other moderation and account
+// controls remain unchanged.
+func (s *ContentModerationService) IsLocalSecurityWhitelistUser(ctx context.Context, userID int64) bool {
+	if s == nil || userID <= 0 {
+		return false
+	}
+	snapshot, err := s.loadRuntimeSnapshot(ctx)
+	if err != nil || snapshot == nil || snapshot.config == nil {
+		return false
+	}
+	for _, allowedID := range snapshot.config.LocalSecurityWhitelistUserIDs {
+		if allowedID == userID {
+			return true
+		}
+	}
+	return false
 }
 
 func normalizeKeywordBlockingMode(mode string) string {

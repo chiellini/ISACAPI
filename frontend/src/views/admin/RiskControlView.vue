@@ -1026,6 +1026,34 @@
                 {{ t('admin.riskControl.blockedKeywordsLimit', { max: blockedKeywordMax }) }}
               </p>
             </div>
+
+            <div>
+              <div class="mb-2 flex items-center justify-between">
+                <label class="input-label mb-0">{{ t('admin.riskControl.localSecurityRules') }}</label>
+              </div>
+              <textarea
+                v-model="configForm.local_security_rules_text"
+                class="input min-h-72 resize-y font-mono text-sm"
+                :placeholder="t('admin.riskControl.localSecurityRulesPlaceholder')"
+              ></textarea>
+              <p class="mt-2 whitespace-pre-line text-xs text-gray-500 dark:text-gray-400">
+                {{ t('admin.riskControl.localSecurityRulesHint') }}
+              </p>
+            </div>
+
+            <div>
+              <div class="mb-2 flex items-center justify-between">
+                <label class="input-label mb-0">{{ t('admin.riskControl.localSecurityWhitelist') }}</label>
+              </div>
+              <textarea
+                v-model="configForm.local_security_whitelist_user_ids_text"
+                class="input min-h-32 resize-y font-mono text-sm"
+                :placeholder="t('admin.riskControl.localSecurityWhitelistPlaceholder')"
+              ></textarea>
+              <p class="mt-2 whitespace-pre-line text-xs text-gray-500 dark:text-gray-400">
+                {{ t('admin.riskControl.localSecurityWhitelistHint') }}
+              </p>
+            </div>
           </div>
 
           <div v-else class="grid grid-cols-1 gap-5 lg:grid-cols-2">
@@ -1134,6 +1162,7 @@ import type {
   ContentModerationAPIKeyLoad,
   ContentModerationAPIKeyStatus,
   ContentModerationConfig,
+  ContentModerationLocalSecurityRule,
   ContentModerationLog,
   ContentModerationModelFilter,
   ContentModerationModelFilterType,
@@ -1257,6 +1286,8 @@ const configForm = reactive({
   pre_hash_check_enabled: false,
   thresholds: { ...riskThresholdDefaults } as Record<string, number>,
   blocked_keywords_text: '',
+  local_security_rules_text: '[]',
+  local_security_whitelist_user_ids_text: '',
   keyword_blocking_mode: 'keyword_and_api' as KeywordBlockingMode,
   model_filter_type: 'all' as ContentModerationModelFilterType,
   model_filter_models: [] as string[],
@@ -1735,6 +1766,10 @@ function applyConfig(config: ContentModerationConfig) {
   configForm.pre_hash_check_enabled = config.pre_hash_check_enabled ?? false
   configForm.thresholds = riskThresholdsFromConfig(config.thresholds)
   configForm.blocked_keywords_text = Array.isArray(config.blocked_keywords) ? config.blocked_keywords.join('\n') : ''
+  configForm.local_security_rules_text = JSON.stringify(config.local_security_rules || [], null, 2)
+  configForm.local_security_whitelist_user_ids_text = Array.isArray(config.local_security_whitelist_user_ids)
+    ? config.local_security_whitelist_user_ids.join('\n')
+    : ''
   configForm.keyword_blocking_mode = normalizeKeywordBlockingMode(config.keyword_blocking_mode)
   const modelFilter = normalizeModelFilter(config.model_filter)
   configForm.model_filter_type = modelFilter.type
@@ -1822,6 +1857,8 @@ async function saveConfig() {
       thresholds: buildRiskThresholdPayload(),
       blocked_keywords: blockedKeywordList.value,
       keyword_blocking_mode: configForm.keyword_blocking_mode,
+      local_security_rules: parseLocalSecurityRules(configForm.local_security_rules_text),
+      local_security_whitelist_user_ids: parseLocalSecurityWhitelistUserIDs(configForm.local_security_whitelist_user_ids_text),
       model_filter: modelFilterPayload,
     }
     const keys = parseApiKeys(configForm.api_keys_text)
@@ -2332,6 +2369,38 @@ function parseBlockedKeywords(value: string): string[] {
     if (seen.has(key)) continue
     seen.add(key)
     out.push(kw)
+  }
+  return out
+}
+
+function parseLocalSecurityRules(value: string): ContentModerationLocalSecurityRule[] {
+  const raw = value.trim()
+  if (!raw) return []
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(raw)
+  } catch {
+    throw new Error(t('admin.riskControl.localSecurityRulesInvalidJSON'))
+  }
+  if (!Array.isArray(parsed)) {
+    throw new Error(t('admin.riskControl.localSecurityRulesInvalidJSON'))
+  }
+  return parsed as ContentModerationLocalSecurityRule[]
+}
+
+function parseLocalSecurityWhitelistUserIDs(value: string): number[] {
+  const seen = new Set<number>()
+  const out: number[] = []
+  for (const line of value.split(/\r?\n/)) {
+    const raw = line.trim()
+    if (!raw) continue
+    const userID = Number(raw)
+    if (!Number.isSafeInteger(userID) || userID <= 0) {
+      throw new Error(t('admin.riskControl.localSecurityWhitelistInvalid'))
+    }
+    if (seen.has(userID)) continue
+    seen.add(userID)
+    out.push(userID)
   }
   return out
 }

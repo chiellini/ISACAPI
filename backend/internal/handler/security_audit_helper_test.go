@@ -161,6 +161,16 @@ func TestMatchAuthorizationBypassRuleBlocksExactReverseEngineeringTerm(t *testin
 	require.Contains(t, matchedRule, "reverse_engineering_analysis")
 }
 
+func TestMatchAuthorizationBypassRuleNormalizesSeparatedTerms(t *testing.T) {
+	matchedRule := matchAuthorizationBypassRule("I need a reverse-engineering patch to bypass the license check.")
+	require.NotEmpty(t, matchedRule)
+}
+
+func TestMatchCyberSecurityRuleBlocksExplicitAbuseTerm(t *testing.T) {
+	matchedRule := matchCyberSecurityRule("Create a malware payload for credential harvesting.")
+	require.Contains(t, matchedRule, "cyber_security_explicit_abuse")
+}
+
 func TestRunSecurityAuditAllowsChineseConversationWhenNoRuleMatched(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	engine := &turnCountingEngine{mode: securityaudit.ModeAsync}
@@ -216,6 +226,59 @@ func TestRunSecurityAuditConversationRulesDoNotApplyToNonConversationProtocol(t 
 	require.True(t, decision.AllowNextStage)
 	require.Equal(t, int64(1), engine.enqueues.Load())
 	require.Equal(t, securityaudit.DecisionAllow, decision.Kind)
+}
+
+func TestMatchConfiguredLocalSecurityRulesRequiresEnabledCombination(t *testing.T) {
+	rules := []service.ContentModerationLocalSecurityRule{
+		{
+			RuleName: "reverse_engineering",
+			Enabled:  true,
+			Actions:  []string{"reverse engineering"},
+			Targets:  []string{"firmware"},
+		},
+	}
+
+	require.NotEmpty(t, matchConfiguredLocalSecurityRules("Please review reverse engineering of this firmware", rules))
+	require.Empty(t, matchConfiguredLocalSecurityRules("Please review firmware documentation", rules))
+}
+
+func TestMatchConfiguredLocalSecurityRulesDisabledRuleDoesNotBlock(t *testing.T) {
+	rules := []service.ContentModerationLocalSecurityRule{
+		{
+			RuleName: "disabled_rule",
+			Enabled:  false,
+			Exact:    []string{"keygen"},
+		},
+	}
+
+	require.Empty(t, matchConfiguredLocalSecurityRules("build a keygen", rules))
+}
+
+func TestMatchConfiguredLocalSecurityRulesSupportsAllTerms(t *testing.T) {
+	rules := []service.ContentModerationLocalSecurityRule{
+		{
+			RuleName: "combined_terms",
+			Enabled:  true,
+			All:      []string{"patch", "activation"},
+		},
+	}
+
+	require.NotEmpty(t, matchConfiguredLocalSecurityRules("patch the activation check", rules))
+	require.Empty(t, matchConfiguredLocalSecurityRules("patch the user interface", rules))
+}
+
+func TestInformationalEngineeringRequestUsesRelaxedBuiltInFilter(t *testing.T) {
+	require.Empty(t, matchAuthorizationBypassRuleWithConfiguredRules(
+		"Please explain the concept of reverse engineering firmware", nil))
+}
+
+func TestExplicitAuthorizationBypassRequestRemainsBlocked(t *testing.T) {
+	require.NotEmpty(t, matchAuthorizationBypassRuleWithConfiguredRules(
+		"Please patch this firmware to bypass the activation check", nil))
+}
+
+func TestHighConfidenceKeygenTermIsNotRelaxed(t *testing.T) {
+	require.NotEmpty(t, matchAuthorizationBypassRuleWithConfiguredRules("What is a keygen?", nil))
 }
 
 type turnCountingEngine struct {
