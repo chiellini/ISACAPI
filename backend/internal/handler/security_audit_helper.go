@@ -107,7 +107,38 @@ var conversationAuthorizationBypassKeywordRules = [][]string{
 	{"remove protection", "software"},
 }
 
+var conversationCyberSecurityAuditRules = []restrictedEngineeringAuditRule{
+	{
+		ruleName: "cyber_security_abuse",
+		actions:  []string{"制作", "编写", "生成", "部署", "执行", "窃取", "盗取", "爆破", "利用", "植入", "持久化", "隐藏", "绕过", "免杀", "exfiltrate", "steal", "deploy", "execute", "exploit", "inject", "persist", "evade", "bypass", "brute force"},
+		targets:  []string{"木马", "恶意软件", "后门", "凭证", "密码", "cookie", "token", "钓鱼", "勒索", "提权", "漏洞", "远程代码执行", "DDoS", "僵尸网络", "ransomware", "malware", "backdoor", "credential", "password", "phishing", "keylogger", "botnet", "rootkit", "privilege escalation", "remote code execution", "payload"},
+		exact:    []string{"窃取密码", "窃取凭证", "窃取cookie", "窃取token", "钓鱼页面", "钓鱼套件", "勒索软件", "植入后门", "绕过杀毒", "绕过EDR", "提权利用", "批量爆破", "密码爆破", "malware payload", "credential stealer", "password stealer", "cookie theft", "token theft", "phishing kit", "ransomware payload", "antivirus bypass", "edr bypass", "privilege escalation exploit", "remote code execution payload", "ddos attack"},
+	},
+}
+
 const localCyberAbuseBlockScoreThreshold = 7
+
+type restrictedEngineeringAuditRule struct {
+	ruleName string
+	actions  []string
+	targets  []string
+	exact    []string
+}
+
+var restrictedEngineeringAuditRules = []restrictedEngineeringAuditRule{
+	{
+		ruleName: "software_activation_crack",
+		actions:  []string{"破解", "绕过", "跳过", "伪造", "替换", "补丁", "强制", "免激活", "crack", "bypass", "patch", "spoof", "forge"},
+		targets:  []string{"激活码", "注册码", "序列号", "密钥生成", "试用次数", "试用期", "功能限制", "订阅限制", "drm", "授权校验", "激活机制", "正版校验", "主程序", "activation", "license", "serial", "trial", "subscription"},
+		exact:    []string{"keygen", "密钥生成器", "算号器", "注册机", "注册码算法", "无限制补丁", "跳过激活", "强制激活成功", "破解版主程序"},
+	},
+	{
+		ruleName: "reverse_engineering_analysis",
+		actions:  []string{"逆向", "反编译", "反汇编", "脱壳", "注入", "修改", "篡改", "hook", "reverse", "decompile", "disassemble", "unpack", "inject"},
+		targets:  []string{"固件", "内存", "dll", "二进制", "汇编指令", "hex", "十六进制", "向量表", "签名校验", "代码签名", "数字签名", "反调试", "调试器", "防调试", "bootloader", "firmware", "binary", "signature", "anti-debug", "debugger"},
+		exact:    []string{"reverse engineering", "内存补丁", "dll 注入", "dll injection", "固件破解", "破解固件"},
+	},
+}
 
 func isConversationProtocol(protocol string) bool {
 	switch strings.TrimSpace(strings.ToLower(protocol)) {
@@ -123,18 +154,90 @@ func matchChinesePoliticalRule(text string) string {
 }
 
 func matchAuthorizationBypassRule(text string) string {
+	if matchedRule := matchRestrictedEngineeringRule(text); matchedRule != "" {
+		return matchedRule
+	}
+	if matchedRule := matchCyberSecurityRule(text); matchedRule != "" {
+		return matchedRule
+	}
 	return matchConversationKeywordRule(text, conversationAuthorizationBypassKeywordRules)
 }
 
+func matchCyberSecurityRule(text string) string {
+	normalized := normalizeConversationRuleText(text)
+	if normalized == "" {
+		return ""
+	}
+	for _, rule := range conversationCyberSecurityAuditRules {
+		for _, exactTerm := range rule.exact {
+			normalizedExactTerm := normalizeConversationRuleText(exactTerm)
+			if normalizedExactTerm != "" && strings.Contains(normalized, normalizedExactTerm) {
+				return rule.ruleName + " (exact: " + exactTerm + ")"
+			}
+		}
+		matchedAction := ""
+		for _, action := range rule.actions {
+			normalizedAction := normalizeConversationRuleText(action)
+			if normalizedAction != "" && strings.Contains(normalized, normalizedAction) {
+				matchedAction = action
+				break
+			}
+		}
+		if matchedAction == "" {
+			continue
+		}
+		for _, target := range rule.targets {
+			normalizedTarget := normalizeConversationRuleText(target)
+			if normalizedTarget != "" && strings.Contains(normalized, normalizedTarget) {
+				return rule.ruleName + " (combined: " + matchedAction + "+" + target + ")"
+			}
+		}
+	}
+	return ""
+}
+
+func matchRestrictedEngineeringRule(text string) string {
+	normalized := normalizeConversationRuleText(text)
+	if normalized == "" {
+		return ""
+	}
+	for _, rule := range restrictedEngineeringAuditRules {
+		for _, exactTerm := range rule.exact {
+			normalizedExactTerm := normalizeConversationRuleText(exactTerm)
+			if normalizedExactTerm != "" && strings.Contains(normalized, normalizedExactTerm) {
+				return rule.ruleName + " (exact: " + exactTerm + ")"
+			}
+		}
+		matchedAction := ""
+		for _, action := range rule.actions {
+			normalizedAction := normalizeConversationRuleText(action)
+			if normalizedAction != "" && strings.Contains(normalized, normalizedAction) {
+				matchedAction = action
+				break
+			}
+		}
+		if matchedAction == "" {
+			continue
+		}
+		for _, target := range rule.targets {
+			normalizedTarget := normalizeConversationRuleText(target)
+			if normalizedTarget != "" && strings.Contains(normalized, normalizedTarget) {
+				return rule.ruleName + " (combined: " + matchedAction + "+" + target + ")"
+			}
+		}
+	}
+	return ""
+}
+
 func matchConversationKeywordRule(text string, rules [][]string) string {
-	normalized := strings.ToLower(strings.Join(strings.Fields(text), ""))
+	normalized := normalizeConversationRuleText(text)
 	for _, rule := range rules {
 		if len(rule) == 0 {
 			continue
 		}
 		matched := true
 		for _, keyword := range rule {
-			normalizedKeyword := strings.ToLower(strings.Join(strings.Fields(keyword), ""))
+			normalizedKeyword := normalizeConversationRuleText(keyword)
 			if normalizedKeyword == "" {
 				continue
 			}
@@ -148,6 +251,10 @@ func matchConversationKeywordRule(text string, rules [][]string) string {
 		}
 	}
 	return ""
+}
+
+func normalizeConversationRuleText(text string) string {
+	return strings.ToLower(strings.Join(strings.Fields(text), ""))
 }
 
 func matchCyberAbuseRule(text string) string {
