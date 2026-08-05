@@ -124,32 +124,41 @@ type restrictedEngineeringAuditRule struct {
 	exact    []string
 }
 
-// restrictedEngineeringAuditRules is the only built-in intent the local
-// isolation layer blocks: 破甲（授权/激活破解）与逆向工程。Generic security,
-// debugging and low-level engineering vocabulary is deliberately excluded —
-// single technical words caused the bulk of the false positives.
+// restrictedEngineeringAuditRules covers the local hard-block intents for
+// authorization/activation cracking and reverse engineering. Generic
+// security, debugging and low-level engineering vocabulary is deliberately
+// excluded — single technical words caused the bulk of the false positives.
 var restrictedEngineeringAuditRules = []restrictedEngineeringAuditRule{
 	{
 		ruleName: "software_activation_crack",
-		actions:  []string{"破解", "绕过", "跳过", "伪造", "免激活", "补丁", "crack", "bypass", "patch", "spoof", "forge"},
+		actions:  []string{"破解", "绕过", "跳过", "伪造", "免激活", "补丁", "恢复", "重建", "复现", "提取", "生成", "crack", "bypass", "skip", "patch", "spoof", "forge", "recover", "rebuild", "reproduce", "extract", "generate"},
 		targets:  []string{"激活码", "注册码", "序列号", "密钥生成", "试用次数", "试用期", "功能限制", "订阅限制", "drm", "授权校验", "激活校验", "激活机制", "正版校验", "activation", "license", "serial number", "trial limit", "trial version", "subscription lock"},
-		exact:    []string{"keygen", "密钥生成器", "算号器", "注册机", "注册码算法", "无限制补丁", "跳过激活", "强制激活成功", "破解版主程序", "破解版软件"},
+		exact: []string{
+			"keygen", "密钥生成器", "算号器", "注册机", "注册码算法", "注册码生成", "生成注册码",
+			"激活码生成", "生成激活码", "恢复激活流程", "恢复完整激活流程", "激活流程恢复",
+			"无限制补丁", "永久激活补丁", "激活绕过", "绕过激活", "跳过激活", "强制激活成功",
+			"破解版主程序", "破解版软件", "去除授权", "破除授权", "绕过付费", "绕过订阅",
+			"registration code algorithm", "registration code generator", "generate registration code",
+			"activation code generator", "activation bypass", "bypass activation", "skip activation",
+			"unlimited patch", "permanent activation patch", "cracked executable", "cracked software",
+			"license bypass", "bypass license", "remove license check",
+		},
 	},
 	{
 		ruleName: "reverse_engineering_analysis",
 		actions:  []string{"逆向", "反编译", "反汇编", "脱壳", "decompile", "disassemble", "deobfuscate"},
 		targets:  []string{"固件", "二进制", "可执行文件", "安装包", "apk", "exe", "程序", "字节码", "firmware", "binary", "executable", "bytecode"},
-		exact:    []string{"reverse engineering", "reverse engineer", "逆向工程", "逆向分析", "软件逆向", "固件破解", "破解固件"},
+		exact:    []string{"reverse engineering", "reverse engineer", "逆向工程", "逆向分析", "软件逆向", "固件破解", "破解固件", "固件逆向", "反编译固件", "反汇编固件"},
 	},
 }
 
-func isConversationProtocol(protocol string) bool {
-	switch strings.TrimSpace(strings.ToLower(protocol)) {
-	case service.ContentModerationProtocolAnthropicMessages, service.ContentModerationProtocolOpenAIChat, service.ContentModerationProtocolOpenAIResponses:
-		return true
-	default:
-		return false
-	}
+func isLocalSecurityAuditProtocol(protocol string) bool {
+	// Every gateway handler that reaches runSecurityAudit supplies a protocol
+	// name. The extractor below only returns client-controlled text it
+	// understands, so applying local checks to all such protocols closes gaps
+	// for embeddings and newer endpoint shapes without treating metadata alone
+	// as an auditable prompt.
+	return strings.TrimSpace(protocol) != ""
 }
 
 func matchChinesePoliticalRule(text string) string {
@@ -306,12 +315,35 @@ func normalizeConversationRuleText(text string) string {
 		if r >= '\uFF01' && r <= '\uFF5E' {
 			r -= '\uFEE0'
 		}
+		r = normalizeConversationRuleLeetspeak(r)
 		if unicode.IsSpace(r) || unicode.Is(unicode.Cf, r) || unicode.IsPunct(r) || unicode.IsSymbol(r) {
 			continue
 		}
 		normalized.WriteRune(r)
 	}
 	return normalized.String()
+}
+
+// normalizeConversationRuleLeetspeak catches common ASCII substitutions used
+// to evade simple keyword matching. It intentionally remains narrow instead
+// of attempting general transliteration.
+func normalizeConversationRuleLeetspeak(r rune) rune {
+	switch r {
+	case '@', '4':
+		return 'a'
+	case '3':
+		return 'e'
+	case '1', '!':
+		return 'i'
+	case '0':
+		return 'o'
+	case '5', '$':
+		return 's'
+	case '7', '+':
+		return 't'
+	default:
+		return r
+	}
 }
 
 // cachesSecurityAuditCompletion reports whether a successful audit may be
@@ -372,10 +404,10 @@ func runSecurityAudit(c *gin.Context, reqLog *zap.Logger, coordinator *securitya
 	}
 	// The local rule layer honours the configured model filter, so admins can
 	// exempt models (review/agent models in particular) from keyword blocking.
-	localRulesApply := isConversationProtocol(protocol) && (legacy == nil || legacy.IsLocalSecurityAuditedModel(c.Request.Context(), model))
+	localRulesApply := isLocalSecurityAuditProtocol(protocol) && (legacy == nil || legacy.IsLocalSecurityAuditedModel(c.Request.Context(), model))
 	if localRulesApply {
 		request := buildSecurityAuditRequest(c, apiKey, subject, protocol, model, body, stage)
-		inputText := service.ExtractContentModerationText(protocol, body)
+		inputText := extractLocalSecurityAuditText(protocol, body)
 		if reqLog != nil {
 			reqLog.Info("security_audit.local_block_check_start",
 				zap.String("request_id", request.RequestID), zap.Int64("user_id", request.UserID),
@@ -474,26 +506,20 @@ func matchAuthorizationBypassRuleWithConfiguredRules(text string, configured []s
 	if matchedRule := matchConfiguredLocalSecurityRules(text, configured); matchedRule != "" {
 		return matchedRule
 	}
-	if isLowRiskInformationalRequest(text) && !containsHighConfidenceAuthorizationTerm(text) {
-		return ""
-	}
 	return matchAuthorizationBypassRule(text)
 }
 
-func isLowRiskInformationalRequest(text string) bool {
-	return containsConversationRuleTerm(text, []string{
-		"是什么", "什么是", "解释", "介绍", "概念", "原理", "区别", "对比",
-		"防御", "防护", "安全建议", "最佳实践", "文档", "规范", "为什么",
-		"what is", "explain", "overview", "concept", "difference", "compare",
-		"defensive", "prevention", "best practices", "documentation",
+func extractLocalSecurityAuditText(protocol string, body []byte) string {
+	snapshot, err := securityaudit.ExtractPromptSnapshot(securityaudit.Request{
+		Protocol: protocol,
+		Body:     body,
 	})
-}
-
-func containsHighConfidenceAuthorizationTerm(text string) bool {
-	return containsConversationRuleTerm(text, []string{
-		"keygen", "密钥生成器", "算号器", "注册机", "注册码算法",
-		"破解激活码", "绕过授权", "跳过激活", "破解版",
-	})
+	if err == nil && strings.TrimSpace(snapshot.ScanText) != "" {
+		return snapshot.ScanText
+	}
+	// Preserve the established extractor for legacy payload shapes that are not
+	// recognized by the prompt-audit parser.
+	return service.ExtractContentModerationText(protocol, body)
 }
 
 // securityAuditUserIdentifiers returns the non-numeric identifiers an admin may
@@ -511,20 +537,6 @@ func securityAuditUserIdentifiers(apiKey *service.APIKey) []string {
 		appendIdentifier(apiKey.User.Username)
 	}
 	return identifiers
-}
-
-func containsConversationRuleTerm(text string, terms []string) bool {
-	normalized := normalizeConversationRuleText(text)
-	if normalized == "" {
-		return false
-	}
-	for _, term := range terms {
-		normalizedTerm := normalizeConversationRuleText(term)
-		if normalizedTerm != "" && strings.Contains(normalized, normalizedTerm) {
-			return true
-		}
-	}
-	return false
 }
 
 func matchConfiguredLocalSecurityRules(text string, rules []service.ContentModerationLocalSecurityRule) string {
