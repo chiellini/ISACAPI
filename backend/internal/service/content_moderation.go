@@ -173,6 +173,7 @@ type ContentModerationConfig struct {
 	KeywordBlockingMode  string                       `json:"keyword_blocking_mode"`
 	LocalSecurityRules   []ContentModerationLocalSecurityRule `json:"local_security_rules"`
 	LocalSecurityWhitelistUserIDs []int64             `json:"local_security_whitelist_user_ids"`
+	LocalSecurityWhitelistUsers   []string            `json:"local_security_whitelist_users"`
 	ModelFilter          ContentModerationModelFilter `json:"model_filter"`
 	// CyberPolicyExcludeFromBanCount 为 true 时，cyber_policy 命中不参与自动封号计数：
 	// 当次不判定封号，且历史 cyber 行在 CountFlaggedByUserSince 中被排除。
@@ -213,6 +214,7 @@ type ContentModerationConfigView struct {
 	KeywordBlockingMode            string                          `json:"keyword_blocking_mode"`
 	LocalSecurityRules             []ContentModerationLocalSecurityRule `json:"local_security_rules"`
 	LocalSecurityWhitelistUserIDs []int64                         `json:"local_security_whitelist_user_ids"`
+	LocalSecurityWhitelistUsers   []string                        `json:"local_security_whitelist_users"`
 	ModelFilter                    ContentModerationModelFilter    `json:"model_filter"`
 	CyberPolicyExcludeFromBanCount bool                            `json:"cyber_policy_exclude_from_ban_count"`
 }
@@ -307,6 +309,7 @@ type UpdateContentModerationConfigInput struct {
 	KeywordBlockingMode            *string                       `json:"keyword_blocking_mode"`
 	LocalSecurityRules             *[]ContentModerationLocalSecurityRule `json:"local_security_rules"`
 	LocalSecurityWhitelistUserIDs  *[]int64                      `json:"local_security_whitelist_user_ids"`
+	LocalSecurityWhitelistUsers    *[]string                     `json:"local_security_whitelist_users"`
 	ModelFilter                    *ContentModerationModelFilter `json:"model_filter"`
 	CyberPolicyExcludeFromBanCount *bool                         `json:"cyber_policy_exclude_from_ban_count"`
 }
@@ -711,6 +714,9 @@ func (s *ContentModerationService) UpdateConfig(ctx context.Context, input Updat
 	}
 	if input.LocalSecurityWhitelistUserIDs != nil {
 		cfg.LocalSecurityWhitelistUserIDs = normalizeLocalSecurityWhitelistUserIDs(*input.LocalSecurityWhitelistUserIDs)
+	}
+	if input.LocalSecurityWhitelistUsers != nil {
+		cfg.LocalSecurityWhitelistUsers = normalizeLocalSecurityWhitelistUsers(*input.LocalSecurityWhitelistUsers)
 	}
 	if input.ModelFilter != nil {
 		cfg.ModelFilter = *input.ModelFilter
@@ -2143,6 +2149,7 @@ func defaultContentModerationConfig() *ContentModerationConfig {
 		KeywordBlockingMode:  ContentModerationKeywordModeKeywordAndAPI,
 		LocalSecurityRules:   []ContentModerationLocalSecurityRule{},
 		LocalSecurityWhitelistUserIDs: []int64{},
+		LocalSecurityWhitelistUsers:   []string{},
 		ModelFilter: ContentModerationModelFilter{
 			Type:   ContentModerationModelFilterAll,
 			Models: []string{},
@@ -2162,6 +2169,7 @@ func cloneContentModerationConfig(cfg *ContentModerationConfig) *ContentModerati
 	clone.BlockedKeywords = append([]string(nil), cfg.BlockedKeywords...)
 	clone.LocalSecurityRules = cloneLocalSecurityRules(cfg.LocalSecurityRules)
 	clone.LocalSecurityWhitelistUserIDs = append([]int64(nil), cfg.LocalSecurityWhitelistUserIDs...)
+	clone.LocalSecurityWhitelistUsers = append([]string(nil), cfg.LocalSecurityWhitelistUsers...)
 	clone.Thresholds = cloneFloatMap(cfg.Thresholds)
 	clone.ModelFilter = ContentModerationModelFilter{
 		Type:   cfg.ModelFilter.Type,
@@ -2252,6 +2260,7 @@ func (cfg *ContentModerationConfig) normalize() {
 	cfg.KeywordBlockingMode = normalizeKeywordBlockingMode(cfg.KeywordBlockingMode)
 	cfg.LocalSecurityRules = normalizeLocalSecurityRules(cfg.LocalSecurityRules)
 	cfg.LocalSecurityWhitelistUserIDs = normalizeLocalSecurityWhitelistUserIDs(cfg.LocalSecurityWhitelistUserIDs)
+	cfg.LocalSecurityWhitelistUsers = normalizeLocalSecurityWhitelistUsers(cfg.LocalSecurityWhitelistUsers)
 	cfg.ModelFilter = normalizeContentModerationModelFilter(cfg.ModelFilter)
 }
 
@@ -2484,6 +2493,7 @@ func (s *ContentModerationService) configView(cfg *ContentModerationConfig) *Con
 		KeywordBlockingMode:            cfg.KeywordBlockingMode,
 		LocalSecurityRules:             cloneLocalSecurityRules(cfg.LocalSecurityRules),
 		LocalSecurityWhitelistUserIDs:  append([]int64(nil), cfg.LocalSecurityWhitelistUserIDs...),
+		LocalSecurityWhitelistUsers:    append([]string(nil), cfg.LocalSecurityWhitelistUsers...),
 		ModelFilter:                    cloneContentModerationModelFilter(cfg.ModelFilter),
 		CyberPolicyExcludeFromBanCount: cfg.CyberPolicyExcludeFromBanCount,
 	}
@@ -2884,6 +2894,35 @@ func normalizeLocalSecurityWhitelistUserIDs(in []int64) []int64 {
 	return ids
 }
 
+func normalizeLocalSecurityWhitelistUsers(in []string) []string {
+	if len(in) == 0 {
+		return []string{}
+	}
+	seen := make(map[string]struct{}, len(in))
+	out := make([]string, 0, len(in))
+	for _, raw := range in {
+		identifier := normalizeLocalSecurityWhitelistUser(raw)
+		if identifier == "" {
+			continue
+		}
+		if _, ok := seen[identifier]; ok {
+			continue
+		}
+		seen[identifier] = struct{}{}
+		out = append(out, identifier)
+		if len(out) >= maxContentModerationLocalWhitelistUserIDs {
+			break
+		}
+	}
+	return out
+}
+
+// normalizeLocalSecurityWhitelistUser folds an email or username to the form
+// used for comparison so administrators do not have to match letter case.
+func normalizeLocalSecurityWhitelistUser(raw string) string {
+	return strings.ToLower(trimRunes(strings.TrimSpace(raw), maxContentModerationLocalRuleTermRunes))
+}
+
 // LocalSecurityRules returns a defensive copy of the rules in the current
 // runtime snapshot so the gateway can use them without sharing mutable state.
 func (s *ContentModerationService) LocalSecurityRules(ctx context.Context) []ContentModerationLocalSecurityRule {
@@ -2897,23 +2936,55 @@ func (s *ContentModerationService) LocalSecurityRules(ctx context.Context) []Con
 	return cloneLocalSecurityRules(snapshot.config.LocalSecurityRules)
 }
 
-// IsLocalSecurityWhitelistUser reports whether the account bypasses the
-// gateway's local keyword isolation layer. Other moderation and account
-// controls remain unchanged.
-func (s *ContentModerationService) IsLocalSecurityWhitelistUser(ctx context.Context, userID int64) bool {
-	if s == nil || userID <= 0 {
+// IsLocalSecurityWhitelisted reports whether the account is exempt from the
+// gateway security audit. Whitelisted accounts skip every audit layer, so they
+// can be matched by internal user ID or by the identifiers an administrator
+// actually has at hand (email or username).
+func (s *ContentModerationService) IsLocalSecurityWhitelisted(ctx context.Context, userID int64, identifiers ...string) bool {
+	if s == nil {
 		return false
 	}
 	snapshot, err := s.loadRuntimeSnapshot(ctx)
 	if err != nil || snapshot == nil || snapshot.config == nil {
 		return false
 	}
-	for _, allowedID := range snapshot.config.LocalSecurityWhitelistUserIDs {
-		if allowedID == userID {
-			return true
+	if userID > 0 {
+		for _, allowedID := range snapshot.config.LocalSecurityWhitelistUserIDs {
+			if allowedID == userID {
+				return true
+			}
+		}
+	}
+	if len(snapshot.config.LocalSecurityWhitelistUsers) == 0 {
+		return false
+	}
+	for _, identifier := range identifiers {
+		normalized := normalizeLocalSecurityWhitelistUser(identifier)
+		if normalized == "" {
+			continue
+		}
+		for _, allowed := range snapshot.config.LocalSecurityWhitelistUsers {
+			if allowed == normalized {
+				return true
+			}
 		}
 	}
 	return false
+}
+
+// IsLocalSecurityAuditedModel reports whether the gateway's local keyword
+// isolation layer applies to a model. It reuses the moderation model filter so
+// a model excluded from content moderation is also excluded from local
+// blocking.
+func (s *ContentModerationService) IsLocalSecurityAuditedModel(ctx context.Context, model string) bool {
+	if s == nil {
+		return true
+	}
+	snapshot, err := s.loadRuntimeSnapshot(ctx)
+	if err != nil || snapshot == nil || snapshot.config == nil {
+		return true
+	}
+	return snapshot.config.includesModel(model)
 }
 
 func normalizeKeywordBlockingMode(mode string) string {

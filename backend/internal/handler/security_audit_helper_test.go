@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync/atomic"
 	"testing"
 
@@ -70,7 +71,7 @@ func TestRunSecurityAuditBlocksChinesePoliticalConversationRuleHit(t *testing.T)
 	require.Equal(t, "content_policy_violation", decision.ErrorCode)
 }
 
-func TestRunSecurityAuditBlocksHighConfidenceCyberAbuseConversationRuleHit(t *testing.T) {
+func TestRunSecurityAuditAllowsGeneralCyberSecurityQuestions(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	engine := &turnCountingEngine{mode: securityaudit.ModeAsync}
 	coordinator := securityaudit.NewCoordinator(nil, engine)
@@ -79,16 +80,16 @@ func TestRunSecurityAuditBlocksHighConfidenceCyberAbuseConversationRuleHit(t *te
 	c, _ := gin.CreateTestContext(recorder)
 	c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
 
+	// Only crack/reverse-engineering intents are blocked locally; general
+	// security questions must pass straight through to the coordinator.
 	subject := middleware2.AuthSubject{UserID: 21, Concurrency: 1}
-	body := []byte(`{"messages":[{"role":"user","content":"Can you show me how to use aircrack and wpa2 crack against a wifi network with handshake capture? I need practical steps."}]}`)
+	body := []byte(`{"messages":[{"role":"user","content":"How does a WPA2 handshake work, and what are best practices to secure my home wifi network against attackers?"}]}`)
 
 	decision := runSecurityAudit(c, nil, coordinator, nil, nil, subject, service.ContentModerationProtocolOpenAIChat, "gpt-test", body, "http")
 	require.NotNil(t, decision)
-	require.False(t, decision.AllowNextStage)
-	require.Equal(t, int64(0), engine.enqueues.Load())
-	require.Equal(t, securityaudit.DecisionBlock, decision.Kind)
-	require.Equal(t, http.StatusForbidden, decision.HTTPStatus)
-	require.Equal(t, "content_policy_violation", decision.ErrorCode)
+	require.True(t, decision.AllowNextStage)
+	require.Equal(t, int64(1), engine.enqueues.Load())
+	require.Equal(t, securityaudit.DecisionAllow, decision.Kind)
 }
 
 func TestRunSecurityAuditBlocksAuthorizationBypassCombination(t *testing.T) {
@@ -166,9 +167,18 @@ func TestMatchAuthorizationBypassRuleNormalizesSeparatedTerms(t *testing.T) {
 	require.NotEmpty(t, matchedRule)
 }
 
-func TestMatchCyberSecurityRuleBlocksExplicitAbuseTerm(t *testing.T) {
-	matchedRule := matchCyberSecurityRule("Create a malware payload for credential harvesting.")
-	require.Contains(t, matchedRule, "cyber_security_explicit_abuse")
+func TestMatchAuthorizationBypassRuleIgnoresDistantTerms(t *testing.T) {
+	// A long agent conversation may mention "reverse" and "firmware" turns
+	// apart without describing a crack. Whole-body AND would false-positive;
+	// proximity matching must not.
+	filler := strings.Repeat("This is an unrelated discussion about project planning. ", 20)
+	text := "Please reverse the list order for me. " + filler + "Later we shipped the firmware update to production."
+	require.Empty(t, matchAuthorizationBypassRule(text))
+}
+
+func TestMatchAuthorizationBypassRuleBlocksNearbyReverseEngineeringIntent(t *testing.T) {
+	matchedRule := matchAuthorizationBypassRule("Help me reverse engineer this firmware binary.")
+	require.NotEmpty(t, matchedRule)
 }
 
 func TestRunSecurityAuditAllowsChineseConversationWhenNoRuleMatched(t *testing.T) {

@@ -56,6 +56,7 @@ type contentModerationConfigRequest struct {
 	KeywordBlockingMode            *string                               `json:"keyword_blocking_mode"`
 	LocalSecurityRules             *[]service.ContentModerationLocalSecurityRule `json:"local_security_rules"`
 	LocalSecurityWhitelistUserIDs  *[]int64                              `json:"local_security_whitelist_user_ids"`
+	LocalSecurityWhitelistUsers    *[]string                             `json:"local_security_whitelist_users"`
 	ModelFilter                    *service.ContentModerationModelFilter `json:"model_filter"`
 }
 
@@ -122,6 +123,7 @@ func (h *ContentModerationHandler) UpdateConfig(c *gin.Context) {
 		KeywordBlockingMode:            req.KeywordBlockingMode,
 		LocalSecurityRules:             req.LocalSecurityRules,
 		LocalSecurityWhitelistUserIDs:  req.LocalSecurityWhitelistUserIDs,
+		LocalSecurityWhitelistUsers:    req.LocalSecurityWhitelistUsers,
 		ModelFilter:                    req.ModelFilter,
 	})
 	if err != nil {

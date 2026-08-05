@@ -51,6 +51,7 @@ export interface ContentModerationConfig {
   keyword_blocking_mode: KeywordBlockingMode
   local_security_rules: ContentModerationLocalSecurityRule[]
   local_security_whitelist_user_ids: number[]
+  local_security_whitelist_users: string[]
   model_filter: ContentModerationModelFilter
   cyber_policy_exclude_from_ban_count: boolean
 }
@@ -133,6 +134,7 @@ export interface UpdateContentModerationConfig {
   keyword_blocking_mode?: KeywordBlockingMode
   local_security_rules?: ContentModerationLocalSecurityRule[]
   local_security_whitelist_user_ids?: number[]
+  local_security_whitelist_users?: string[]
   model_filter?: ContentModerationModelFilter
   cyber_policy_exclude_from_ban_count?: boolean
 }

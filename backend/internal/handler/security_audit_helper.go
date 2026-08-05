@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"fmt"
 	"net/http"
 	"strings"
 	"unicode"
@@ -14,6 +13,16 @@ import (
 )
 
 const securityAuditCompletedContextKey = "sub2api.security_audit.completed"
+
+// conversationRuleProximityWindow bounds how far apart two rule terms may sit in
+// the normalized request text before they stop counting as one intent. The
+// gateway audits the whole conversation (system prompt + full history), so
+// whole-body AND matching flagged long agent sessions that merely mentioned the
+// terms in unrelated turns.
+const conversationRuleProximityWindow = 320
+
+// conversationRuleMaxAnchorScans bounds proximity scanning cost on large bodies.
+const conversationRuleMaxAnchorScans = 64
 
 var conversationChinesePoliticalKeywordRules = [][]string{
 	{"中共中央", "政治局"},
@@ -108,21 +117,6 @@ var conversationAuthorizationBypassKeywordRules = [][]string{
 	{"remove protection", "software"},
 }
 
-var conversationCyberSecurityAuditRules = []restrictedEngineeringAuditRule{
-	{
-		ruleName: "cyber_security_abuse",
-		actions:  []string{"制作", "编写", "生成", "部署", "执行", "窃取", "盗取", "爆破", "利用", "植入", "持久化", "隐藏", "绕过", "免杀", "exfiltrate", "steal", "deploy", "execute", "exploit", "inject", "persist", "evade", "bypass", "brute force"},
-		targets:  []string{"木马", "恶意软件", "后门", "凭证", "密码", "cookie", "token", "钓鱼", "勒索", "提权", "漏洞", "远程代码执行", "DDoS", "僵尸网络", "ransomware", "malware", "backdoor", "credential", "password", "phishing", "keylogger", "botnet", "rootkit", "privilege escalation", "remote code execution", "payload"},
-		exact:    []string{"窃取密码", "窃取凭证", "窃取cookie", "窃取token", "钓鱼页面", "钓鱼套件", "勒索软件", "植入后门", "绕过杀毒", "绕过EDR", "提权利用", "批量爆破", "密码爆破", "malware payload", "credential stealer", "password stealer", "cookie theft", "token theft", "phishing kit", "ransomware payload", "antivirus bypass", "edr bypass", "privilege escalation exploit", "remote code execution payload", "ddos attack"},
-	},
-	{
-		ruleName: "cyber_security_explicit_abuse",
-		exact:    []string{"木马源码", "恶意代码", "后门程序", "凭证窃取", "数据外传", "命令控制", "反弹shell", "远程控制木马", "exploit development", "malware development", "credential harvesting", "payload generation", "persistence mechanism", "reverse shell", "command and control"},
-	},
-}
-
-const localCyberAbuseBlockScoreThreshold = 7
-
 type restrictedEngineeringAuditRule struct {
 	ruleName string
 	actions  []string
@@ -130,18 +124,22 @@ type restrictedEngineeringAuditRule struct {
 	exact    []string
 }
 
+// restrictedEngineeringAuditRules is the only built-in intent the local
+// isolation layer blocks: 破甲（授权/激活破解）与逆向工程。Generic security,
+// debugging and low-level engineering vocabulary is deliberately excluded —
+// single technical words caused the bulk of the false positives.
 var restrictedEngineeringAuditRules = []restrictedEngineeringAuditRule{
 	{
 		ruleName: "software_activation_crack",
-		actions:  []string{"破解", "绕过", "跳过", "伪造", "替换", "补丁", "强制", "免激活", "crack", "bypass", "patch", "spoof", "forge"},
-		targets:  []string{"激活码", "注册码", "序列号", "密钥生成", "试用次数", "试用期", "功能限制", "订阅限制", "drm", "授权校验", "激活机制", "正版校验", "主程序", "activation", "license", "serial", "trial", "subscription"},
-		exact:    []string{"keygen", "密钥生成器", "算号器", "注册机", "注册码算法", "无限制补丁", "跳过激活", "强制激活成功", "破解版主程序"},
+		actions:  []string{"破解", "绕过", "跳过", "伪造", "免激活", "补丁", "crack", "bypass", "patch", "spoof", "forge"},
+		targets:  []string{"激活码", "注册码", "序列号", "密钥生成", "试用次数", "试用期", "功能限制", "订阅限制", "drm", "授权校验", "激活校验", "激活机制", "正版校验", "activation", "license", "serial number", "trial limit", "trial version", "subscription lock"},
+		exact:    []string{"keygen", "密钥生成器", "算号器", "注册机", "注册码算法", "无限制补丁", "跳过激活", "强制激活成功", "破解版主程序", "破解版软件"},
 	},
 	{
 		ruleName: "reverse_engineering_analysis",
-		actions:  []string{"逆向", "反编译", "反汇编", "脱壳", "注入", "修改", "篡改", "hook", "reverse", "decompile", "disassemble", "unpack", "inject"},
-		targets:  []string{"固件", "内存", "dll", "二进制", "汇编指令", "hex", "十六进制", "向量表", "签名校验", "代码签名", "数字签名", "反调试", "调试器", "防调试", "bootloader", "firmware", "binary", "signature", "anti-debug", "debugger"},
-		exact:    []string{"reverse engineering", "内存补丁", "dll 注入", "dll injection", "固件破解", "破解固件"},
+		actions:  []string{"逆向", "反编译", "反汇编", "脱壳", "decompile", "disassemble", "deobfuscate"},
+		targets:  []string{"固件", "二进制", "可执行文件", "安装包", "apk", "exe", "程序", "字节码", "firmware", "binary", "executable", "bytecode"},
+		exact:    []string{"reverse engineering", "reverse engineer", "逆向工程", "逆向分析", "软件逆向", "固件破解", "破解固件"},
 	},
 }
 
@@ -162,43 +160,7 @@ func matchAuthorizationBypassRule(text string) string {
 	if matchedRule := matchRestrictedEngineeringRule(text); matchedRule != "" {
 		return matchedRule
 	}
-	if matchedRule := matchCyberSecurityRule(text); matchedRule != "" {
-		return matchedRule
-	}
 	return matchConversationKeywordRule(text, conversationAuthorizationBypassKeywordRules)
-}
-
-func matchCyberSecurityRule(text string) string {
-	normalized := normalizeConversationRuleText(text)
-	if normalized == "" {
-		return ""
-	}
-	for _, rule := range conversationCyberSecurityAuditRules {
-		for _, exactTerm := range rule.exact {
-			normalizedExactTerm := normalizeConversationRuleText(exactTerm)
-			if normalizedExactTerm != "" && strings.Contains(normalized, normalizedExactTerm) {
-				return rule.ruleName + " (exact: " + exactTerm + ")"
-			}
-		}
-		matchedAction := ""
-		for _, action := range rule.actions {
-			normalizedAction := normalizeConversationRuleText(action)
-			if normalizedAction != "" && strings.Contains(normalized, normalizedAction) {
-				matchedAction = action
-				break
-			}
-		}
-		if matchedAction == "" {
-			continue
-		}
-		for _, target := range rule.targets {
-			normalizedTarget := normalizeConversationRuleText(target)
-			if normalizedTarget != "" && strings.Contains(normalized, normalizedTarget) {
-				return rule.ruleName + " (combined: " + matchedAction + "+" + target + ")"
-			}
-		}
-	}
-	return ""
 }
 
 func matchRestrictedEngineeringRule(text string) string {
@@ -213,33 +175,42 @@ func matchRestrictedEngineeringRule(text string) string {
 				return rule.ruleName + " (exact: " + exactTerm + ")"
 			}
 		}
-		matchedAction := ""
-		for _, action := range rule.actions {
-			normalizedAction := normalizeConversationRuleText(action)
-			if normalizedAction != "" && strings.Contains(normalized, normalizedAction) {
-				matchedAction = action
-				break
-			}
-		}
-		if matchedAction == "" {
-			continue
-		}
-		for _, target := range rule.targets {
-			normalizedTarget := normalizeConversationRuleText(target)
-			if normalizedTarget != "" && strings.Contains(normalized, normalizedTarget) {
-				return rule.ruleName + " (combined: " + matchedAction + "+" + target + ")"
-			}
+		if action, target := matchRuleCombination(normalized, rule); action != "" {
+			return rule.ruleName + " (combined: " + action + "+" + target + ")"
 		}
 	}
 	return ""
 }
 
+// matchRuleCombination requires an action and a target to appear close to each
+// other, so unrelated mentions scattered across a long conversation no longer
+// combine into a hit.
+func matchRuleCombination(normalized string, rule restrictedEngineeringAuditRule) (string, string) {
+	presentActions := presentConversationRuleTerms(normalized, rule.actions)
+	if len(presentActions) == 0 {
+		return "", ""
+	}
+	presentTargets := presentConversationRuleTerms(normalized, rule.targets)
+	if len(presentTargets) == 0 {
+		return "", ""
+	}
+	for _, action := range presentActions {
+		for _, target := range presentTargets {
+			if conversationRuleTermsAreClose(normalized, action.normalized, target.normalized) {
+				return action.raw, target.raw
+			}
+		}
+	}
+	return "", ""
+}
+
 func matchConversationKeywordRule(text string, rules [][]string) string {
 	normalized := normalizeConversationRuleText(text)
+	if normalized == "" {
+		return ""
+	}
 	for _, rule := range rules {
-		if len(rule) == 0 {
-			continue
-		}
+		terms := make([]string, 0, len(rule))
 		matched := true
 		for _, keyword := range rule {
 			normalizedKeyword := normalizeConversationRuleText(keyword)
@@ -250,12 +221,80 @@ func matchConversationKeywordRule(text string, rules [][]string) string {
 				matched = false
 				break
 			}
+			terms = append(terms, normalizedKeyword)
 		}
-		if matched {
+		if !matched || len(terms) == 0 {
+			continue
+		}
+		if conversationRuleTermsAreClose(normalized, terms...) {
 			return strings.Join(rule, "+")
 		}
 	}
 	return ""
+}
+
+type conversationRuleTerm struct {
+	raw        string
+	normalized string
+}
+
+// presentConversationRuleTerms keeps the terms that occur anywhere in the text.
+// Filtering first keeps the proximity scan off the (common) path where a rule
+// cannot possibly match.
+func presentConversationRuleTerms(normalized string, terms []string) []conversationRuleTerm {
+	present := make([]conversationRuleTerm, 0, len(terms))
+	for _, raw := range terms {
+		normalizedTerm := normalizeConversationRuleText(raw)
+		if normalizedTerm == "" || !strings.Contains(normalized, normalizedTerm) {
+			continue
+		}
+		present = append(present, conversationRuleTerm{raw: raw, normalized: normalizedTerm})
+	}
+	return present
+}
+
+// conversationRuleTermsAreClose reports whether every term occurs within
+// conversationRuleProximityWindow bytes of one occurrence of the first term.
+func conversationRuleTermsAreClose(normalized string, terms ...string) bool {
+	if len(terms) == 0 {
+		return false
+	}
+	anchor := terms[0]
+	if len(terms) == 1 {
+		return strings.Contains(normalized, anchor)
+	}
+	for offset, scans := 0, 0; offset < len(normalized) && scans < conversationRuleMaxAnchorScans; scans++ {
+		index := strings.Index(normalized[offset:], anchor)
+		if index < 0 {
+			return false
+		}
+		start := offset + index
+		window := conversationRuleWindow(normalized, start, len(anchor))
+		matched := true
+		for _, term := range terms[1:] {
+			if !strings.Contains(window, term) {
+				matched = false
+				break
+			}
+		}
+		if matched {
+			return true
+		}
+		offset = start + len(anchor)
+	}
+	return false
+}
+
+func conversationRuleWindow(normalized string, start, length int) string {
+	from := start - conversationRuleProximityWindow
+	if from < 0 {
+		from = 0
+	}
+	to := start + length + conversationRuleProximityWindow
+	if to > len(normalized) {
+		to = len(normalized)
+	}
+	return normalized[from:to]
 }
 
 func normalizeConversationRuleText(text string) string {
@@ -273,17 +312,6 @@ func normalizeConversationRuleText(text string) string {
 		normalized.WriteRune(r)
 	}
 	return normalized.String()
-}
-
-func matchCyberAbuseRule(text string) string {
-	risk := service.AssessCyberAbuseRiskText(text)
-	if risk.Score < localCyberAbuseBlockScoreThreshold {
-		return ""
-	}
-	if len(risk.Reasons) == 0 {
-		return fmt.Sprintf("cyber_abuse_score_%d", risk.Score)
-	}
-	return fmt.Sprintf("cyber_abuse_score_%d_%s", risk.Score, strings.Join(risk.Reasons, "+"))
 }
 
 // cachesSecurityAuditCompletion reports whether a successful audit may be
@@ -329,10 +357,25 @@ func runSecurityAudit(c *gin.Context, reqLog *zap.Logger, coordinator *securitya
 			return nil
 		}
 	}
-	if isConversationProtocol(protocol) {
+	// Whitelisted accounts skip every audit layer — local rules, the legacy
+	// moderation service and the coordinator alike.
+	if legacy != nil && legacy.IsLocalSecurityWhitelisted(c.Request.Context(), subject.UserID, securityAuditUserIdentifiers(apiKey)...) {
+		if reqLog != nil {
+			reqLog.Info("security_audit.whitelist_bypass",
+				zap.Int64("user_id", subject.UserID), zap.String("protocol", protocol),
+				zap.String("model", model), zap.String("stage", strings.TrimSpace(stage)))
+		}
+		if cacheCompletion {
+			c.Set(securityAuditCompletedContextKey, true)
+		}
+		return nil
+	}
+	// The local rule layer honours the configured model filter, so admins can
+	// exempt models (review/agent models in particular) from keyword blocking.
+	localRulesApply := isConversationProtocol(protocol) && (legacy == nil || legacy.IsLocalSecurityAuditedModel(c.Request.Context(), model))
+	if localRulesApply {
 		request := buildSecurityAuditRequest(c, apiKey, subject, protocol, model, body, stage)
 		inputText := service.ExtractContentModerationText(protocol, body)
-		cyberRisk := service.AssessCyberAbuseRiskText(inputText)
 		if reqLog != nil {
 			reqLog.Info("security_audit.local_block_check_start",
 				zap.String("request_id", request.RequestID), zap.Int64("user_id", request.UserID),
@@ -341,14 +384,7 @@ func runSecurityAudit(c *gin.Context, reqLog *zap.Logger, coordinator *securitya
 				zap.String("protocol", request.Protocol), zap.String("model", request.Model), zap.String("stage", request.Stage),
 				zap.Int("body_bytes", len(body)), zap.String("match_type", "conversation_local_rules"))
 		}
-		localSecurityWhitelist := legacy != nil && legacy.IsLocalSecurityWhitelistUser(c.Request.Context(), subject.UserID)
-		if localSecurityWhitelist && reqLog != nil {
-			reqLog.Info("security_audit.local_whitelist_bypass",
-				zap.String("request_id", request.RequestID),
-				zap.Int64("user_id", subject.UserID),
-				zap.String("stage", request.Stage))
-		}
-		if matchedRule := matchChinesePoliticalRule(inputText); matchedRule != "" && !localSecurityWhitelist {
+		if matchedRule := matchChinesePoliticalRule(inputText); matchedRule != "" {
 			decision := &securityaudit.Decision{
 				Kind:           securityaudit.DecisionBlock,
 				HTTPStatus:     http.StatusForbidden,
@@ -369,7 +405,7 @@ func runSecurityAudit(c *gin.Context, reqLog *zap.Logger, coordinator *securitya
 		if legacy != nil {
 			configuredRules = legacy.LocalSecurityRules(c.Request.Context())
 		}
-		if matchedRule := matchAuthorizationBypassRuleWithConfiguredRules(inputText, configuredRules); matchedRule != "" && !localSecurityWhitelist {
+		if matchedRule := matchAuthorizationBypassRuleWithConfiguredRules(inputText, configuredRules); matchedRule != "" {
 			decision := &securityaudit.Decision{
 				Kind:           securityaudit.DecisionBlock,
 				HTTPStatus:     http.StatusForbidden,
@@ -382,24 +418,7 @@ func runSecurityAudit(c *gin.Context, reqLog *zap.Logger, coordinator *securitya
 					zap.String("request_id", request.RequestID), zap.String("decision", string(decision.Kind)),
 					zap.String("error_code", decision.ErrorCode), zap.Bool("allow_next_stage", decision.AllowNextStage),
 					zap.String("matched_rule", matchedRule), zap.String("matched_rule_type", "conversation_authorization_bypass"),
-					zap.Int("cyber_abuse_score", cyberRisk.Score), zap.String("stage", request.Stage))
-			}
-			return decision
-		}
-		if matchedRule := matchCyberAbuseRule(inputText); matchedRule != "" && !localSecurityWhitelist {
-			decision := &securityaudit.Decision{
-				Kind:           securityaudit.DecisionBlock,
-				HTTPStatus:     http.StatusForbidden,
-				ErrorCode:      "content_policy_violation",
-				ClientMessage:  "请求涉及受限话题，已被内容安全策略阻止",
-				AllowNextStage: false,
-			}
-			if reqLog != nil {
-				reqLog.Info("security_audit.local_block_check_done",
-					zap.String("request_id", request.RequestID), zap.String("decision", string(decision.Kind)),
-					zap.String("error_code", decision.ErrorCode), zap.Bool("allow_next_stage", decision.AllowNextStage),
-					zap.String("matched_rule", matchedRule), zap.String("matched_rule_type", "conversation_cyber_abuse"),
-					zap.Int("cyber_abuse_score", cyberRisk.Score), zap.String("stage", request.Stage))
+					zap.String("stage", request.Stage))
 			}
 			return decision
 		}
@@ -407,8 +426,7 @@ func runSecurityAudit(c *gin.Context, reqLog *zap.Logger, coordinator *securitya
 			reqLog.Info("security_audit.local_block_check_done",
 				zap.String("request_id", request.RequestID), zap.String("decision", string(securityaudit.DecisionAllow)),
 				zap.String("error_code", ""), zap.Bool("allow_next_stage", true), zap.String("matched_rule", ""),
-				zap.String("matched_rule_type", ""), zap.Int("cyber_abuse_score", cyberRisk.Score),
-				zap.String("stage", request.Stage))
+				zap.String("matched_rule_type", ""), zap.String("stage", request.Stage))
 		}
 	}
 	if coordinator == nil {
@@ -473,9 +491,26 @@ func isLowRiskInformationalRequest(text string) bool {
 
 func containsHighConfidenceAuthorizationTerm(text string) bool {
 	return containsConversationRuleTerm(text, []string{
-		"keygen", "密钥生成器", "算号器", "注册机", "破解激活码", "绕过授权",
-		"shellcode", "payload", "credential theft", "exfiltrate", "ransomware",
+		"keygen", "密钥生成器", "算号器", "注册机", "注册码算法",
+		"破解激活码", "绕过授权", "跳过激活", "破解版",
 	})
+}
+
+// securityAuditUserIdentifiers returns the non-numeric identifiers an admin may
+// have put in the whitelist (email or username), so the whitelist is usable
+// without looking up internal user IDs.
+func securityAuditUserIdentifiers(apiKey *service.APIKey) []string {
+	identifiers := make([]string, 0, 2)
+	appendIdentifier := func(value string) {
+		if trimmed := strings.TrimSpace(value); trimmed != "" {
+			identifiers = append(identifiers, trimmed)
+		}
+	}
+	if apiKey != nil && apiKey.User != nil {
+		appendIdentifier(apiKey.User.Email)
+		appendIdentifier(apiKey.User.Username)
+	}
+	return identifiers
 }
 
 func containsConversationRuleTerm(text string, terms []string) bool {

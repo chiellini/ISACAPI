@@ -1767,9 +1767,10 @@ function applyConfig(config: ContentModerationConfig) {
   configForm.thresholds = riskThresholdsFromConfig(config.thresholds)
   configForm.blocked_keywords_text = Array.isArray(config.blocked_keywords) ? config.blocked_keywords.join('\n') : ''
   configForm.local_security_rules_text = JSON.stringify(config.local_security_rules || [], null, 2)
-  configForm.local_security_whitelist_user_ids_text = Array.isArray(config.local_security_whitelist_user_ids)
-    ? config.local_security_whitelist_user_ids.join('\n')
-    : ''
+  configForm.local_security_whitelist_user_ids_text = [
+    ...(Array.isArray(config.local_security_whitelist_user_ids) ? config.local_security_whitelist_user_ids : []),
+    ...(Array.isArray(config.local_security_whitelist_users) ? config.local_security_whitelist_users : []),
+  ].join('\n')
   configForm.keyword_blocking_mode = normalizeKeywordBlockingMode(config.keyword_blocking_mode)
   const modelFilter = normalizeModelFilter(config.model_filter)
   configForm.model_filter_type = modelFilter.type
@@ -1828,6 +1829,7 @@ async function saveConfig() {
       appStore.showError(t('admin.riskControl.modelFilterModelsRequired'))
       return
     }
+    const localSecurityWhitelist = parseLocalSecurityWhitelist(configForm.local_security_whitelist_user_ids_text)
     const payload: UpdateContentModerationConfig = {
       enabled: configForm.enabled,
       mode: configForm.mode,
@@ -1858,7 +1860,8 @@ async function saveConfig() {
       blocked_keywords: blockedKeywordList.value,
       keyword_blocking_mode: configForm.keyword_blocking_mode,
       local_security_rules: parseLocalSecurityRules(configForm.local_security_rules_text),
-      local_security_whitelist_user_ids: parseLocalSecurityWhitelistUserIDs(configForm.local_security_whitelist_user_ids_text),
+      local_security_whitelist_user_ids: localSecurityWhitelist.userIDs,
+      local_security_whitelist_users: localSecurityWhitelist.users,
       model_filter: modelFilterPayload,
     }
     const keys = parseApiKeys(configForm.api_keys_text)
@@ -2392,21 +2395,38 @@ function parseLocalSecurityRules(value: string): ContentModerationLocalSecurityR
   return parsed as ContentModerationLocalSecurityRule[]
 }
 
-function parseLocalSecurityWhitelistUserIDs(value: string): number[] {
-  const seen = new Set<number>()
-  const out: number[] = []
+interface LocalSecurityWhitelist {
+  userIDs: number[]
+  users: string[]
+}
+
+// parseLocalSecurityWhitelist accepts one entry per line: a positive integer is
+// treated as an internal user ID, anything else (email or username) is matched
+// case-insensitively against the account.
+function parseLocalSecurityWhitelist(value: string): LocalSecurityWhitelist {
+  const seenIDs = new Set<number>()
+  const seenUsers = new Set<string>()
+  const userIDs: number[] = []
+  const users: string[] = []
   for (const line of value.split(/\r?\n/)) {
     const raw = line.trim()
     if (!raw) continue
-    const userID = Number(raw)
-    if (!Number.isSafeInteger(userID) || userID <= 0) {
-      throw new Error(t('admin.riskControl.localSecurityWhitelistInvalid'))
+    if (/^\d+$/.test(raw)) {
+      const userID = Number(raw)
+      if (!Number.isSafeInteger(userID) || userID <= 0) {
+        throw new Error(t('admin.riskControl.localSecurityWhitelistInvalid'))
+      }
+      if (seenIDs.has(userID)) continue
+      seenIDs.add(userID)
+      userIDs.push(userID)
+      continue
     }
-    if (seen.has(userID)) continue
-    seen.add(userID)
-    out.push(userID)
+    const identifier = raw.toLowerCase()
+    if (seenUsers.has(identifier)) continue
+    seenUsers.add(identifier)
+    users.push(raw)
   }
-  return out
+  return { userIDs, users }
 }
 
 function violationCountText(row: ContentModerationLog): string {
