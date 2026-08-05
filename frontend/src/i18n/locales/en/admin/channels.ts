@@ -421,6 +421,8 @@ export default {
       localSecurityWhitelistPlaceholder: 'One entry per line — user ID, email, or username, e.g.\n10001\nuser@example.com\nalice',
       localSecurityWhitelistHint: 'Whitelisted accounts skip the entire security audit (local keyword rules and upstream moderation alike). Match by numeric user ID, email, or username (case-insensitive). Billing, routing, and other account controls are unchanged.',
       localSecurityWhitelistInvalid: 'Numeric whitelist entries must be a positive integer user ID.',
+      localSecurityWhitelistSave: 'Save whitelist',
+      localSecurityWhitelistMovedHint: 'The account whitelist has moved to the top of the Risk Control page — edit and save it there.',
       keywordBlockingMode: 'Moderation strategy',
       keywordModeKeywordAndApi: 'Keyword + API',
       keywordModeKeywordAndApiDesc: 'Block on keyword hit; otherwise fall through to the upstream moderation API.',

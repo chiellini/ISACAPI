@@ -421,6 +421,8 @@ export default {
       localSecurityWhitelistPlaceholder: '每行填写一个用户 ID、邮箱或用户名，例如：\n10001\nuser@example.com\nalice',
       localSecurityWhitelistHint: '白名单账号将跳过整个安全审计（本地关键词规则与上游内容审计都不再执行）。支持按数字用户 ID、邮箱或用户名匹配（不区分大小写）。计费、路由及其他账号风控仍然生效。',
       localSecurityWhitelistInvalid: '白名单中的数字项必须是正整数用户 ID。',
+      localSecurityWhitelistSave: '保存白名单',
+      localSecurityWhitelistMovedHint: '账号白名单已移动到风控中心页面顶部，可直接在那里编辑并保存。',
       keywordBlockingMode: '审计策略',
       keywordModeKeywordAndApi: '关键词 + API',
       keywordModeKeywordAndApiDesc: '命中关键词直接拦截；未命中时再调用上游审计接口。',

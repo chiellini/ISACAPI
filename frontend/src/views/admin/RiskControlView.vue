@@ -53,6 +53,32 @@
           </div>
         </div>
 
+        <div data-test="local-security-whitelist-card" class="card">
+          <div class="flex flex-col gap-4 border-b border-gray-100 px-6 py-4 dark:border-dark-700 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <h2 class="text-lg font-semibold text-gray-900 dark:text-white">{{ t('admin.riskControl.localSecurityWhitelist') }}</h2>
+              <p class="mt-1 whitespace-pre-line text-sm text-gray-500 dark:text-gray-400">{{ t('admin.riskControl.localSecurityWhitelistHint') }}</p>
+            </div>
+            <button
+              type="button"
+              class="btn btn-primary inline-flex w-fit items-center gap-2"
+              :disabled="savingWhitelist"
+              @click="saveWhitelistOnly"
+            >
+              <Icon v-if="savingWhitelist" name="refresh" size="sm" class="animate-spin" />
+              <Icon v-else name="check" size="sm" />
+              {{ savingWhitelist ? t('common.saving') : t('admin.riskControl.localSecurityWhitelistSave') }}
+            </button>
+          </div>
+          <div class="p-6">
+            <textarea
+              v-model="configForm.local_security_whitelist_user_ids_text"
+              class="input min-h-32 resize-y font-mono text-sm"
+              :placeholder="t('admin.riskControl.localSecurityWhitelistPlaceholder')"
+            ></textarea>
+          </div>
+        </div>
+
         <div
           v-if="showPreBlockRuntimeCard"
           data-test="pre-block-runtime-cards"
@@ -1041,19 +1067,9 @@
               </p>
             </div>
 
-            <div>
-              <div class="mb-2 flex items-center justify-between">
-                <label class="input-label mb-0">{{ t('admin.riskControl.localSecurityWhitelist') }}</label>
-              </div>
-              <textarea
-                v-model="configForm.local_security_whitelist_user_ids_text"
-                class="input min-h-32 resize-y font-mono text-sm"
-                :placeholder="t('admin.riskControl.localSecurityWhitelistPlaceholder')"
-              ></textarea>
-              <p class="mt-2 whitespace-pre-line text-xs text-gray-500 dark:text-gray-400">
-                {{ t('admin.riskControl.localSecurityWhitelistHint') }}
-              </p>
-            </div>
+            <p class="text-xs text-gray-400 dark:text-gray-500">
+              {{ t('admin.riskControl.localSecurityWhitelistMovedHint') }}
+            </p>
           </div>
 
           <div v-else class="grid grid-cols-1 gap-5 lg:grid-cols-2">
@@ -1230,6 +1246,7 @@ const defaultBlockMessage = () => t('admin.riskControl.defaultBlockMessage')
 
 const loading = ref(true)
 const saving = ref(false)
+const savingWhitelist = ref(false)
 const logsLoading = ref(false)
 const statusLoading = ref(false)
 const apiKeyTesting = ref(false)
@@ -1887,6 +1904,25 @@ async function saveConfig() {
     appStore.showError(extractApiErrorMessage(err, t('admin.riskControl.saveFailed')))
   } finally {
     saving.value = false
+  }
+}
+
+// saveWhitelistOnly persists just the security-audit whitelist from the
+// top-of-page card, without touching the rest of the moderation config.
+async function saveWhitelistOnly() {
+  savingWhitelist.value = true
+  try {
+    const whitelist = parseLocalSecurityWhitelist(configForm.local_security_whitelist_user_ids_text)
+    const updated = await adminAPI.riskControl.updateConfig({
+      local_security_whitelist_user_ids: whitelist.userIDs,
+      local_security_whitelist_users: whitelist.users,
+    })
+    applyConfig(updated)
+    appStore.showSuccess(t('admin.riskControl.saved'))
+  } catch (err: unknown) {
+    appStore.showError(extractApiErrorMessage(err, t('admin.riskControl.saveFailed')))
+  } finally {
+    savingWhitelist.value = false
   }
 }
 
