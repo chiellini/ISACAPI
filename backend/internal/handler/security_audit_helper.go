@@ -33,6 +33,30 @@ var conversationChinesePoliticalKeywordRules = [][]string{
 	{"中华人民共和国", "领导人", "讲话"},
 }
 
+// conversationPromptInjectionKeywordRules hard-blocks high-confidence prompt
+// injection / role-override fingerprints that omni-moderation and optional
+// Qwen3Guard often miss — especially meta "safety classifier" prompts that
+// force the model into an ambient-suggestion compliance evaluator and demand
+// JSON-only output. Keep this list narrow: single benign policy words must
+// not trip it.
+var conversationPromptInjectionKeywordRules = [][]string{
+	{"codex ambient suggestions"},
+	{"ambient suggestion candidates"},
+	{"upholding safety and compliance standards", "codex"},
+	{"upholding safety and compliance standards", "ambient suggestion"},
+	{"ambient suggestion", "suggestion_id", "exclude"},
+	{"policies to always exclude", "ambient suggestion"},
+	{"suggestion candidates to evaluate", "suggestion_id"},
+	{"ignore previous instructions"},
+	{"ignore all previous instructions"},
+	{"disregard previous instructions"},
+	{"disregard all previous instructions"},
+	{"you are now dan"},
+	{"do anything now"},
+	{"jailbreak mode"},
+	{"developer mode enabled"},
+}
+
 var conversationAuthorizationBypassKeywordRules = [][]string{
 	{"注册码", "破解"},
 	{"注册码", "算法", "生成"},
@@ -163,6 +187,10 @@ func isLocalSecurityAuditProtocol(protocol string) bool {
 
 func matchChinesePoliticalRule(text string) string {
 	return matchConversationKeywordRule(text, conversationChinesePoliticalKeywordRules)
+}
+
+func matchPromptInjectionRule(text string) string {
+	return matchConversationKeywordRule(text, conversationPromptInjectionKeywordRules)
 }
 
 func matchAuthorizationBypassRule(text string) string {
@@ -429,6 +457,23 @@ func runSecurityAudit(c *gin.Context, reqLog *zap.Logger, coordinator *securitya
 					zap.String("request_id", request.RequestID), zap.String("decision", string(decision.Kind)),
 					zap.String("error_code", decision.ErrorCode), zap.Bool("allow_next_stage", decision.AllowNextStage),
 					zap.String("matched_rule", matchedRule), zap.String("matched_rule_type", "conversation_chinese_political"),
+					zap.String("stage", request.Stage))
+			}
+			return decision
+		}
+		if matchedRule := matchPromptInjectionRule(inputText); matchedRule != "" {
+			decision := &securityaudit.Decision{
+				Kind:           securityaudit.DecisionBlock,
+				HTTPStatus:     http.StatusForbidden,
+				ErrorCode:      "content_policy_violation",
+				ClientMessage:  "请求涉及受限话题，已被内容安全策略阻止",
+				AllowNextStage: false,
+			}
+			if reqLog != nil {
+				reqLog.Info("security_audit.local_block_check_done",
+					zap.String("request_id", request.RequestID), zap.String("decision", string(decision.Kind)),
+					zap.String("error_code", decision.ErrorCode), zap.Bool("allow_next_stage", decision.AllowNextStage),
+					zap.String("matched_rule", matchedRule), zap.String("matched_rule_type", "conversation_prompt_injection"),
 					zap.String("stage", request.Stage))
 			}
 			return decision
