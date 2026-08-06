@@ -1006,6 +1006,30 @@
               </div>
             </div>
 
+            <div class="rounded-xl border border-gray-100 p-4 dark:border-dark-700">
+              <div>
+                <h3 class="text-base font-semibold text-gray-900 dark:text-white">{{ t('admin.riskControl.localSecurityScoring') }}</h3>
+                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ t('admin.riskControl.localSecurityScoringHint') }}</p>
+              </div>
+              <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
+                <div>
+                  <label class="input-label">{{ t('admin.riskControl.localSecurityObserveScore') }}</label>
+                  <input data-test="local-security-observe-score" v-model.number="configForm.local_security_observe_score" type="number" min="1" max="100" class="input" />
+                  <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('admin.riskControl.localSecurityObserveScoreHint') }}</p>
+                </div>
+                <div>
+                  <label class="input-label">{{ t('admin.riskControl.localSecurityBlockScore') }}</label>
+                  <input data-test="local-security-block-score" v-model.number="configForm.local_security_block_score" type="number" min="1" max="100" class="input" />
+                  <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('admin.riskControl.localSecurityBlockScoreHint') }}</p>
+                </div>
+                <div>
+                  <label class="input-label">{{ t('admin.riskControl.preBlockFailureMode') }}</label>
+                  <Select v-model="configForm.pre_block_failure_mode" :options="preBlockFailureModeOptions" />
+                  <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('admin.riskControl.preBlockFailureModeHint') }}</p>
+                </div>
+              </div>
+            </div>
+
             <div class="space-y-2">
               <label class="input-label">{{ t('admin.riskControl.keywordBlockingMode') }}</label>
               <div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
@@ -1186,6 +1210,7 @@ import type {
   ContentModerationTestAuditResult,
   KeywordBlockingMode,
   ModerationMode,
+  PreBlockFailureMode,
   UpdateContentModerationConfig,
 } from '@/api/admin/riskControl'
 import type { AdminGroup, Proxy, SelectOption } from '@/types'
@@ -1306,6 +1331,9 @@ const configForm = reactive({
   local_security_rules_text: '[]',
   local_security_whitelist_user_ids_text: '',
   keyword_blocking_mode: 'keyword_and_api' as KeywordBlockingMode,
+  local_security_block_score: 80,
+  local_security_observe_score: 50,
+  pre_block_failure_mode: 'allow' as PreBlockFailureMode,
   model_filter_type: 'all' as ContentModerationModelFilterType,
   model_filter_models: [] as string[],
 })
@@ -1358,6 +1386,11 @@ const keywordBlockingModeOptions = computed<Array<{ value: KeywordBlockingMode; 
     label: t('admin.riskControl.keywordModeApiOnly'),
     description: t('admin.riskControl.keywordModeApiOnlyDesc'),
   },
+])
+
+const preBlockFailureModeOptions = computed<SelectOption[]>(() => [
+  { value: 'allow', label: t('admin.riskControl.preBlockFailureAllow') },
+  { value: 'block', label: t('admin.riskControl.preBlockFailureBlock') },
 ])
 
 const modelFilterOptions = computed<Array<{ value: ContentModerationModelFilterType; label: string; description: string }>>(() => [
@@ -1784,6 +1817,11 @@ function applyConfig(config: ContentModerationConfig) {
   configForm.thresholds = riskThresholdsFromConfig(config.thresholds)
   configForm.blocked_keywords_text = Array.isArray(config.blocked_keywords) ? config.blocked_keywords.join('\n') : ''
   configForm.local_security_rules_text = JSON.stringify(config.local_security_rules || [], null, 2)
+  configForm.local_security_block_score = Math.min(Math.max(config.local_security_policy?.block_score || 80, 1), 100)
+  configForm.local_security_observe_score = Math.min(
+    Math.max(config.local_security_policy?.observe_score || 50, 1),
+    configForm.local_security_block_score
+  )
   configForm.local_security_whitelist_user_ids_text = [
     ...(Array.isArray(config.local_security_whitelist_user_ids) ? config.local_security_whitelist_user_ids : []),
     ...(Array.isArray(config.local_security_whitelist_users) ? config.local_security_whitelist_users : []),
@@ -1877,6 +1915,14 @@ async function saveConfig() {
       blocked_keywords: blockedKeywordList.value,
       keyword_blocking_mode: configForm.keyword_blocking_mode,
       local_security_rules: parseLocalSecurityRules(configForm.local_security_rules_text),
+      local_security_policy: {
+        block_score: Math.min(Math.max(Number(configForm.local_security_block_score) || 80, 1), 100),
+        observe_score: Math.min(
+          Math.max(Number(configForm.local_security_observe_score) || 50, 1),
+          Math.min(Math.max(Number(configForm.local_security_block_score) || 80, 1), 100)
+        ),
+      },
+      pre_block_failure_mode: configForm.pre_block_failure_mode,
       local_security_whitelist_user_ids: localSecurityWhitelist.userIDs,
       local_security_whitelist_users: localSecurityWhitelist.users,
       model_filter: modelFilterPayload,

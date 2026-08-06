@@ -440,6 +440,20 @@ func TestContentModerationConfigNormalize_NonHitRetentionMaxThreeDays(t *testing
 	require.Equal(t, 3, cfg.NonHitRetentionDays)
 }
 
+func TestContentModerationConfigNormalize_LocalSecurityPolicy(t *testing.T) {
+	cfg := defaultContentModerationConfig()
+	cfg.LocalSecurityPolicy = ContentModerationLocalSecurityPolicy{
+		BlockScore:   70,
+		ObserveScore: 90,
+	}
+
+	cfg.normalize()
+
+	require.Equal(t, 70, cfg.LocalSecurityPolicy.BlockScore)
+	require.Equal(t, 70, cfg.LocalSecurityPolicy.ObserveScore)
+	require.Equal(t, ContentModerationPreBlockFailureAllow, cfg.PreBlockFailureMode)
+}
+
 func TestNormalizeBlockedKeywords_TrimsDedupesAndCaps(t *testing.T) {
 	out := normalizeBlockedKeywords([]string{"  foo ", "FOO", "", "bar", "baz", "bar"})
 	require.Equal(t, []string{"foo", "bar", "baz"}, out)
@@ -652,6 +666,40 @@ func TestNormalizeKeywordBlockingMode_UnknownFallsBackToDefault(t *testing.T) {
 	require.Equal(t, ContentModerationKeywordModeKeywordAndAPI, normalizeKeywordBlockingMode("bogus"))
 	require.Equal(t, ContentModerationKeywordModeKeywordOnly, normalizeKeywordBlockingMode("keyword_only"))
 	require.Equal(t, ContentModerationKeywordModeAPIOnly, normalizeKeywordBlockingMode("api_only"))
+}
+
+func TestContentModerationCheck_PreBlockFailureModeControlsNoKeyDecision(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		failure   string
+		wantBlock bool
+	}{
+		{name: "fail open", failure: ContentModerationPreBlockFailureAllow, wantBlock: false},
+		{name: "fail closed", failure: ContentModerationPreBlockFailureBlock, wantBlock: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := defaultContentModerationConfig()
+			cfg.Enabled = true
+			cfg.Mode = ContentModerationModePreBlock
+			cfg.PreBlockFailureMode = tc.failure
+			cfg.APIKeys = []string{}
+			svc, _ := newContentModerationModelFilterTestService(t, cfg)
+
+			decision, err := svc.Check(context.Background(), ContentModerationCheckInput{
+				Protocol: ContentModerationProtocolOpenAIChat,
+				Body:     []byte(`{"messages":[{"role":"user","content":"test prompt"}]}`),
+			})
+
+			require.NoError(t, err)
+			require.Equal(t, tc.wantBlock, decision.Blocked)
+			if tc.wantBlock {
+				require.Equal(t, http.StatusServiceUnavailable, decision.StatusCode)
+				require.Equal(t, ContentModerationActionError, decision.Action)
+			} else {
+				require.True(t, decision.Allowed)
+			}
+		})
+	}
 }
 
 func TestContentModerationCheck_ModelFilterAllAuditsEveryModel(t *testing.T) {

@@ -2,6 +2,7 @@ import { apiClient } from '../client'
 
 export type ModerationMode = 'off' | 'observe' | 'pre_block'
 export type KeywordBlockingMode = 'keyword_only' | 'keyword_and_api' | 'api_only'
+export type PreBlockFailureMode = 'allow' | 'block'
 export type ContentModerationModelFilterType = 'all' | 'include' | 'exclude'
 
 export interface ContentModerationModelFilter {
@@ -12,10 +13,16 @@ export interface ContentModerationModelFilter {
 export interface ContentModerationLocalSecurityRule {
   rule_name: string
   enabled: boolean
+  score?: number
   actions?: string[]
   targets?: string[]
   exact?: string[]
   all?: string[]
+}
+
+export interface ContentModerationLocalSecurityPolicy {
+  block_score: number
+  observe_score: number
 }
 
 export interface ContentModerationConfig {
@@ -49,7 +56,9 @@ export interface ContentModerationConfig {
   pre_hash_check_enabled: boolean
   blocked_keywords: string[]
   keyword_blocking_mode: KeywordBlockingMode
+  pre_block_failure_mode: PreBlockFailureMode
   local_security_rules: ContentModerationLocalSecurityRule[]
+  local_security_policy: ContentModerationLocalSecurityPolicy
   local_security_whitelist_user_ids: number[]
   local_security_whitelist_users: string[]
   model_filter: ContentModerationModelFilter
@@ -132,7 +141,9 @@ export interface UpdateContentModerationConfig {
   pre_hash_check_enabled?: boolean
   blocked_keywords?: string[]
   keyword_blocking_mode?: KeywordBlockingMode
+  pre_block_failure_mode?: PreBlockFailureMode
   local_security_rules?: ContentModerationLocalSecurityRule[]
+  local_security_policy?: ContentModerationLocalSecurityPolicy
   local_security_whitelist_user_ids?: number[]
   local_security_whitelist_users?: string[]
   model_filter?: ContentModerationModelFilter

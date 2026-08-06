@@ -393,6 +393,52 @@ func TestMatchConfiguredLocalSecurityRulesSupportsAllTerms(t *testing.T) {
 	require.Empty(t, matchConfiguredLocalSecurityRules("patch the user interface", rules))
 }
 
+func TestEvaluateConfiguredLocalSecurityRiskDowngradesDistantCombination(t *testing.T) {
+	rules := []service.ContentModerationLocalSecurityRule{
+		{
+			RuleName: "activation_bypass",
+			Enabled:  true,
+			Actions:  []string{"bypass"},
+			Targets:  []string{"activation"},
+		},
+	}
+	filler := strings.Repeat("unrelated project-planning context ", 20)
+
+	risk := evaluateConfiguredLocalSecurityRisk("Please bypass "+filler+"the activation flow.", rules)
+
+	require.Equal(t, 55, risk.Score)
+	require.Equal(t, "configured_combination", risk.MatchType)
+}
+
+func TestEvaluateConfiguredLocalSecurityRiskHonorsRuleScore(t *testing.T) {
+	rules := []service.ContentModerationLocalSecurityRule{
+		{
+			RuleName: "review_only",
+			Enabled:  true,
+			Score:    60,
+			Exact:    []string{"registration-code-review"},
+		},
+	}
+
+	risk := evaluateConfiguredLocalSecurityRisk("Please perform registration-code-review.", rules)
+
+	require.Equal(t, 60, risk.Score)
+	require.Equal(t, "configured_exact", risk.MatchType)
+}
+
+func TestEvaluateConfiguredLocalSecurityRiskAccumulatesIndependentRules(t *testing.T) {
+	rules := []service.ContentModerationLocalSecurityRule{
+		{RuleName: "signal_one", Enabled: true, Score: 45, Exact: []string{"marker-one"}},
+		{RuleName: "signal_two", Enabled: true, Score: 45, Exact: []string{"marker-two"}},
+	}
+
+	risk := evaluateConfiguredLocalSecurityRisk("marker-one and marker-two", rules)
+
+	require.Equal(t, 90, risk.Score)
+	require.Equal(t, 2, risk.Signals)
+	require.Equal(t, "multiple_configured_signals", risk.MatchType)
+}
+
 func TestInformationalEngineeringRequestRequiresWhitelist(t *testing.T) {
 	require.NotEmpty(t, matchAuthorizationBypassRuleWithConfiguredRules(
 		"Please explain the concept of reverse engineering firmware", nil))

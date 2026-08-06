@@ -103,6 +103,14 @@ const baseConfig = (): ContentModerationConfig => ({
   pre_hash_check_enabled: false,
   blocked_keywords: [],
   keyword_blocking_mode: 'keyword_and_api',
+  pre_block_failure_mode: 'allow',
+  local_security_rules: [],
+  local_security_policy: {
+    block_score: 80,
+    observe_score: 50,
+  },
+  local_security_whitelist_user_ids: [],
+  local_security_whitelist_users: [],
   thresholds: {
     harassment: 0.98,
     sexual: 0.65,
@@ -281,6 +289,40 @@ describe('admin RiskControlView', () => {
         sexual: 0.72,
         harassment: 0.99,
       }),
+    }))
+    expect(showError).not.toHaveBeenCalled()
+  })
+
+  it('saves local security score thresholds', async () => {
+    const wrapper = mount(RiskControlView, {
+      global: {
+        stubs: {
+          AppLayout: AppLayoutStub,
+          BaseDialog: BaseDialogStub,
+          Icon: true,
+          Select: true,
+          Toggle: true,
+          Pagination: true,
+          ModelWhitelistSelector: ModelWhitelistSelectorStub,
+          ProxySelector: true,
+        },
+      },
+    })
+
+    await flushPromises()
+
+    await findButtonByText(wrapper, 'admin.riskControl.openSettings').trigger('click')
+    await findButtonByText(wrapper, 'admin.riskControl.tabs.keywords').trigger('click')
+    await wrapper.get('[data-test="local-security-observe-score"]').setValue('45')
+    await wrapper.get('[data-test="local-security-block-score"]').setValue('85')
+    await findButtonByText(wrapper, 'admin.riskControl.saveConfig').trigger('click')
+    await flushPromises()
+
+    expect(updateConfig).toHaveBeenCalledWith(expect.objectContaining({
+      local_security_policy: {
+        observe_score: 45,
+        block_score: 85,
+      },
     }))
     expect(showError).not.toHaveBeenCalled()
   })

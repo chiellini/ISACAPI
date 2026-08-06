@@ -194,29 +194,95 @@ func matchPromptInjectionRule(text string) string {
 }
 
 func matchAuthorizationBypassRule(text string) string {
-	if matchedRule := matchRestrictedEngineeringRule(text); matchedRule != "" {
-		return matchedRule
-	}
-	return matchConversationKeywordRule(text, conversationAuthorizationBypassKeywordRules)
+	return evaluateAuthorizationBypassRisk(text, nil).Rule
 }
 
-func matchRestrictedEngineeringRule(text string) string {
+type localSecurityRiskMatch struct {
+	Rule      string
+	MatchType string
+	Score     int
+	Signals   int
+}
+
+func (m localSecurityRiskMatch) matched() bool {
+	return m.Rule != "" && m.Score > 0
+}
+
+func higherLocalSecurityRiskMatch(current, candidate localSecurityRiskMatch) localSecurityRiskMatch {
+	if candidate.Score > current.Score {
+		return candidate
+	}
+	return current
+}
+
+// accumulateLocalSecurityRiskMatch combines independent configured-rule
+// signals while capping the score. Individual rule match types still use the
+// highest-confidence signal, so a rule containing exact/all/combo terms is
+// not counted repeatedly.
+func accumulateLocalSecurityRiskMatch(current, candidate localSecurityRiskMatch) localSecurityRiskMatch {
+	if !current.matched() {
+		candidate.Signals = 1
+		return candidate
+	}
+	if !candidate.matched() {
+		return current
+	}
+	current.Score += candidate.Score
+	if current.Score > 100 {
+		current.Score = 100
+	}
+	if current.Signals < 1 {
+		current.Signals = 1
+	}
+	current.Signals++
+	if current.Signals == 2 {
+		current.Rule = current.Rule + "; " + candidate.Rule
+		current.MatchType = "multiple_configured_signals"
+	}
+	return current
+}
+
+func evaluateAuthorizationBypassRisk(text string, configured []service.ContentModerationLocalSecurityRule) localSecurityRiskMatch {
+	best := evaluateConfiguredLocalSecurityRisk(text, configured)
+	best = higherLocalSecurityRiskMatch(best, evaluateRestrictedEngineeringRisk(text))
+	if matchedRule := matchConversationKeywordRule(text, conversationAuthorizationBypassKeywordRules); matchedRule != "" {
+		best = higherLocalSecurityRiskMatch(best, localSecurityRiskMatch{
+			Rule:      "authorization_bypass (" + matchedRule + ")",
+			MatchType: "built_in_combination",
+			Score:     90,
+			Signals:   1,
+		})
+	}
+	return best
+}
+
+func evaluateRestrictedEngineeringRisk(text string) localSecurityRiskMatch {
 	normalized := normalizeConversationRuleText(text)
 	if normalized == "" {
-		return ""
+		return localSecurityRiskMatch{}
 	}
 	for _, rule := range restrictedEngineeringAuditRules {
 		for _, exactTerm := range rule.exact {
 			normalizedExactTerm := normalizeConversationRuleText(exactTerm)
 			if normalizedExactTerm != "" && strings.Contains(normalized, normalizedExactTerm) {
-				return rule.ruleName + " (exact: " + exactTerm + ")"
+				return localSecurityRiskMatch{
+					Rule:      rule.ruleName + " (exact: " + exactTerm + ")",
+					MatchType: "built_in_exact",
+					Score:     100,
+					Signals:   1,
+				}
 			}
 		}
 		if action, target := matchRuleCombination(normalized, rule); action != "" {
-			return rule.ruleName + " (combined: " + action + "+" + target + ")"
+			return localSecurityRiskMatch{
+				Rule:      rule.ruleName + " (combined: " + action + "+" + target + ")",
+				MatchType: "built_in_combination",
+				Score:     90,
+				Signals:   1,
+			}
 		}
 	}
-	return ""
+	return localSecurityRiskMatch{}
 }
 
 // matchRuleCombination requires an action and a target to appear close to each
@@ -479,10 +545,16 @@ func runSecurityAudit(c *gin.Context, reqLog *zap.Logger, coordinator *securitya
 			return decision
 		}
 		configuredRules := []service.ContentModerationLocalSecurityRule(nil)
+		localPolicy := service.ContentModerationLocalSecurityPolicy{
+			BlockScore:   80,
+			ObserveScore: 50,
+		}
 		if legacy != nil {
 			configuredRules = legacy.LocalSecurityRules(c.Request.Context())
+			localPolicy = legacy.LocalSecurityPolicy(c.Request.Context())
 		}
-		if matchedRule := matchAuthorizationBypassRuleWithConfiguredRules(inputText, configuredRules); matchedRule != "" {
+		riskMatch := evaluateAuthorizationBypassRisk(inputText, configuredRules)
+		if riskMatch.matched() && riskMatch.Score >= localPolicy.BlockScore {
 			decision := &securityaudit.Decision{
 				Kind:           securityaudit.DecisionBlock,
 				HTTPStatus:     http.StatusForbidden,
@@ -494,10 +566,18 @@ func runSecurityAudit(c *gin.Context, reqLog *zap.Logger, coordinator *securitya
 				reqLog.Info("security_audit.local_block_check_done",
 					zap.String("request_id", request.RequestID), zap.String("decision", string(decision.Kind)),
 					zap.String("error_code", decision.ErrorCode), zap.Bool("allow_next_stage", decision.AllowNextStage),
-					zap.String("matched_rule", matchedRule), zap.String("matched_rule_type", "conversation_authorization_bypass"),
+					zap.String("matched_rule", riskMatch.Rule), zap.String("matched_rule_type", riskMatch.MatchType),
+					zap.Int("risk_score", riskMatch.Score), zap.Int("risk_signals", riskMatch.Signals), zap.Int("block_score", localPolicy.BlockScore),
 					zap.String("stage", request.Stage))
 			}
 			return decision
+		}
+		if riskMatch.matched() && riskMatch.Score >= localPolicy.ObserveScore && reqLog != nil {
+			reqLog.Info("security_audit.local_risk_observed",
+				zap.String("request_id", request.RequestID), zap.String("matched_rule", riskMatch.Rule),
+				zap.String("matched_rule_type", riskMatch.MatchType), zap.Int("risk_score", riskMatch.Score),
+				zap.Int("risk_signals", riskMatch.Signals), zap.Int("observe_score", localPolicy.ObserveScore), zap.Int("block_score", localPolicy.BlockScore),
+				zap.String("protocol", request.Protocol), zap.String("model", request.Model), zap.String("stage", request.Stage))
 		}
 		if reqLog != nil {
 			reqLog.Info("security_audit.local_block_check_done",
@@ -548,10 +628,7 @@ func runSecurityAudit(c *gin.Context, reqLog *zap.Logger, coordinator *securitya
 }
 
 func matchAuthorizationBypassRuleWithConfiguredRules(text string, configured []service.ContentModerationLocalSecurityRule) string {
-	if matchedRule := matchConfiguredLocalSecurityRules(text, configured); matchedRule != "" {
-		return matchedRule
-	}
-	return matchAuthorizationBypassRule(text)
+	return evaluateAuthorizationBypassRisk(text, configured).Rule
 }
 
 func extractLocalSecurityAuditText(protocol string, body []byte) string {
@@ -585,21 +662,32 @@ func securityAuditUserIdentifiers(apiKey *service.APIKey) []string {
 }
 
 func matchConfiguredLocalSecurityRules(text string, rules []service.ContentModerationLocalSecurityRule) string {
+	return evaluateConfiguredLocalSecurityRisk(text, rules).Rule
+}
+
+func evaluateConfiguredLocalSecurityRisk(text string, rules []service.ContentModerationLocalSecurityRule) localSecurityRiskMatch {
 	if text == "" {
-		return ""
+		return localSecurityRiskMatch{}
 	}
 	normalized := normalizeConversationRuleText(text)
+	best := localSecurityRiskMatch{}
 	for _, rule := range rules {
 		if !rule.Enabled {
 			continue
 		}
+		ruleRisk := localSecurityRiskMatch{}
 		for _, exact := range rule.Exact {
 			term := normalizeConversationRuleText(exact)
 			if term != "" && strings.Contains(normalized, term) {
-				return "LocalSecurityRule:" + rule.RuleName + " (exact: " + exact + ")"
+				ruleRisk = higherLocalSecurityRiskMatch(ruleRisk, localSecurityRiskMatch{
+					Rule:      "LocalSecurityRule:" + rule.RuleName + " (exact: " + exact + ")",
+					MatchType: "configured_exact",
+					Score:     configuredLocalSecurityRuleScore(rule, 100),
+				})
 			}
 		}
 		if len(rule.All) > 0 {
+			terms := make([]string, 0, len(rule.All))
 			allMatched := true
 			for _, required := range rule.All {
 				term := normalizeConversationRuleText(required)
@@ -607,9 +695,18 @@ func matchConfiguredLocalSecurityRules(text string, rules []service.ContentModer
 					allMatched = false
 					break
 				}
+				terms = append(terms, term)
 			}
-			if allMatched {
-				return "LocalSecurityRule:" + rule.RuleName + " (all terms)"
+			if allMatched && len(terms) > 0 {
+				score := configuredLocalSecurityRuleScore(rule, 90)
+				if !conversationRuleTermsAreClose(normalized, terms...) {
+					score = minLocalSecurityRiskScore(score, 55)
+				}
+				ruleRisk = higherLocalSecurityRiskMatch(ruleRisk, localSecurityRiskMatch{
+					Rule:      "LocalSecurityRule:" + rule.RuleName + " (all terms)",
+					MatchType: "configured_all",
+					Score:     score,
+				})
 			}
 		}
 		for _, action := range rule.Actions {
@@ -620,12 +717,35 @@ func matchConfiguredLocalSecurityRules(text string, rules []service.ContentModer
 			for _, target := range rule.Targets {
 				targetTerm := normalizeConversationRuleText(target)
 				if targetTerm != "" && strings.Contains(normalized, targetTerm) {
-					return "LocalSecurityRule:" + rule.RuleName + " (action + target)"
+					score := configuredLocalSecurityRuleScore(rule, 80)
+					if !conversationRuleTermsAreClose(normalized, actionTerm, targetTerm) {
+						score = minLocalSecurityRiskScore(score, 55)
+					}
+					ruleRisk = higherLocalSecurityRiskMatch(ruleRisk, localSecurityRiskMatch{
+						Rule:      "LocalSecurityRule:" + rule.RuleName + " (action + target: " + action + "+" + target + ")",
+						MatchType: "configured_combination",
+						Score:     score,
+					})
 				}
 			}
 		}
+		best = accumulateLocalSecurityRiskMatch(best, ruleRisk)
 	}
-	return ""
+	return best
+}
+
+func configuredLocalSecurityRuleScore(rule service.ContentModerationLocalSecurityRule, fallback int) int {
+	if rule.Score > 0 {
+		return rule.Score
+	}
+	return fallback
+}
+
+func minLocalSecurityRiskScore(left, right int) int {
+	if left < right {
+		return left
+	}
+	return right
 }
 
 func buildSecurityAuditRequest(c *gin.Context, apiKey *service.APIKey, subject middleware2.AuthSubject, protocol, model string, body []byte, stage string) securityaudit.Request {
