@@ -1,6 +1,7 @@
 import { apiClient } from '../client'
 
 export type ModerationMode = 'off' | 'observe' | 'pre_block'
+export type ContentModerationAPIFormat = 'openai_moderations' | 'chat_completions'
 export type KeywordBlockingMode = 'keyword_only' | 'keyword_and_api' | 'api_only'
 export type PreBlockFailureMode = 'allow' | 'block'
 export type ContentModerationModelFilterType = 'all' | 'include' | 'exclude'
@@ -26,6 +27,7 @@ export interface ContentModerationLocalSecurityPolicy {
 }
 
 export interface ContentModerationConfig {
+  api_format?: ContentModerationAPIFormat
   enabled: boolean
   mode: ModerationMode
   base_url: string
@@ -84,6 +86,7 @@ export interface ContentModerationAPIKeyStatus {
 }
 
 export interface TestContentModerationAPIKeysPayload {
+  api_format?: ContentModerationAPIFormat
   api_keys?: string[]
   base_url?: string
   model?: string
@@ -110,6 +113,7 @@ export interface ContentModerationTestAuditResult {
 }
 
 export interface UpdateContentModerationConfig {
+  api_format?: ContentModerationAPIFormat
   enabled?: boolean
   mode?: ModerationMode
   base_url?: string

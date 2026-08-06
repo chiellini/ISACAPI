@@ -27,6 +27,16 @@ For product, storefront, documentation, and UI iconography, use the ISAC AI logo
 
 Place frontend tests beside the feature in `__tests__/` and name them `*.spec.ts`; Vitest runs in jsdom. The configured coverage thresholds are 80% globally for statements, branches, functions, and lines. Add or update tests for behavior changes, especially API compatibility, billing, authentication, migrations, and visible UI states.
 
+### WSL-Only Validation Policy
+
+Run all project tests, lint checks, type checks, and build validation inside WSL. Do not execute the Windows-host Go, Node.js, pnpm, Vitest, or build toolchains for repository validation. The canonical WSL repository path is `/mnt/g/Projects/ISACAPI`.
+
+- Backend example: `wsl.exe -e bash -lc 'cd /mnt/g/Projects/ISACAPI/backend && go test ./...'`
+- Frontend example: `wsl.exe -e bash -lc 'cd /mnt/g/Projects/ISACAPI && pnpm --dir frontend run test:run'`
+- Targeted frontend example: `wsl.exe -e bash -lc 'cd /mnt/g/Projects/ISACAPI/frontend && ./node_modules/.bin/vitest run src/path/to/test.spec.ts'`
+
+Prefer one WSL invocation for related checks because WSL startup on Windows may be slow. Set command timeouts high enough for WSL startup and first-time compilation. Do not reinstall dependencies merely to run a test unless the user explicitly requests dependency installation.
+
 ## Commit & Pull Request Guidelines
 
 Follow the existing Conventional Commit style: `feat(auth): support combined admin provider role` or `fix(openai): preserve image function tools`. Use an imperative, scoped subject. PRs should explain the user impact, list validation commands, link relevant issues, and include screenshots for UI changes. Include migration and lockfile updates when applicable. Never commit secrets, local databases, generated `node_modules`, or `.pnpm-store`; review `DEV_GUIDE.md` before changing local setup or dependency tooling.

@@ -57,6 +57,47 @@ var conversationPromptInjectionKeywordRules = [][]string{
 	{"developer mode enabled"},
 }
 
+// conversationMandatoryDenyKeywordRules 是不可由评分阈值或审核失败策略降级的硬拒绝规则。
+// 单元素规则用于明确要求全部拒绝的高风险短语；多元素规则用于避免英文通用动词造成额外误报。
+var conversationMandatoryDenyKeywordRules = [][]string{
+	{"无限制prompt"}, {"无限制提示词"}, {"无限制系统提示词"},
+	{"无审查prompt"}, {"无过滤prompt"}, {"解除所有限制"},
+	{"解除安全限制"}, {"关闭安全限制"}, {"关闭内容审计"},
+	{"绕过内容审计"}, {"绕开内容审计"}, {"绕过安全策略"},
+	{"绕开安全策略"}, {"绕过安全防护"}, {"移除安全防护"},
+	{"破掉防护"}, {"突破防护"}, {"破防"}, {"破甲"},
+	{"越狱"}, {"忽略安全规则"}, {"无视安全规则"}, {"开发者模式"},
+	{"無限制prompt"}, {"無限制提示詞"}, {"無審查prompt"},
+	{"無過濾prompt"}, {"關閉安全限制"}, {"關閉內容審核"},
+	{"繞過內容審核"}, {"繞過安全策略"}, {"移除安全防護"}, {"破掉防護"},
+	{"破防"}, {"越獄"}, {"忽略安全規則"}, {"開發者模式"},
+	{"unrestricted prompt"}, {"uncensored prompt"}, {"unfiltered prompt"},
+	{"no restriction prompt"}, {"no restrictions prompt"}, {"no limits prompt"},
+	{"fully unrestricted", "prompt"}, {"remove all restrictions"},
+	{"disable safety filters"}, {"disable safeguards"}, {"remove guardrails"},
+	{"bypass guardrails"}, {"bypass safety filters"}, {"bypass safety policy"},
+	{"ignore safety rules"}, {"ignore all safety rules"}, {"break guardrails"},
+	{"jailbreak prompt"}, {"jailbreak the model"},
+	{"逆向"}, {"逆向工程"}, {"反编译"}, {"反汇编"}, {"脱壳"},
+	{"破解"}, {"注册机"}, {"密钥生成器"}, {"内存补丁"}, {"dll注入"},
+	{"反編譯"}, {"反組譯"}, {"脫殼"}, {"破解軟體"}, {"註冊機"},
+	{"reverse engineering"}, {"software cracking"}, {"license cracking"},
+	{"activation bypass"}, {"keygen"}, {"dll injection"}, {"memory patch"},
+	{"firmware patch"}, {"decompile", "binary"}, {"decompile", "firmware"},
+	{"decompile", "dll"}, {"disassemble", "binary"}, {"disassemble", "firmware"},
+	{"网络安全"}, {"網路安全"}, {"cyber security"}, {"cybersecurity"},
+	{"信息安全"}, {"資訊安全"}, {"web security"}, {"application security"},
+	{"渗透测试"}, {"滲透測試"}, {"penetration testing"}, {"漏洞利用"},
+	{"exploit development"}, {"攻击载荷"}, {"攻擊載荷"},
+	{"credential theft"}, {"malware"}, {"wpa2 handshake"}, {"wifi", "attackers"},
+	{"sql injection"}, {"cross site scripting"}, {"remote code execution"},
+	{"privilege escalation"}, {"phishing"}, {"ransomware"}, {"botnet"},
+	{"恶意软件"}, {"惡意軟體"}, {"钓鱼攻击"}, {"釣魚攻擊"},
+	{"勒索软件"}, {"勒索軟體"}, {"木马"}, {"木馬"}, {"提权"}, {"提權"},
+	{"sql注入"}, {"跨站脚本"}, {"跨站指令碼"}, {"远程代码执行"}, {"遠端程式碼執行"},
+	{"hacking"}, {"黑客攻击"}, {"駭客攻擊"},
+}
+
 var conversationAuthorizationBypassKeywordRules = [][]string{
 	{"注册码", "破解"},
 	{"注册码", "算法", "生成"},
@@ -191,6 +232,10 @@ func matchChinesePoliticalRule(text string) string {
 
 func matchPromptInjectionRule(text string) string {
 	return matchConversationKeywordRule(text, conversationPromptInjectionKeywordRules)
+}
+
+func matchMandatoryDenyRule(text string) string {
+	return matchConversationKeywordRule(text, conversationMandatoryDenyKeywordRules)
 }
 
 func matchAuthorizationBypassRule(text string) string {
@@ -496,9 +541,29 @@ func runSecurityAudit(c *gin.Context, reqLog *zap.Logger, coordinator *securitya
 		}
 		return nil
 	}
-	// The local rule layer honours the configured model filter, so admins can
-	// exempt models (review/agent models in particular) from keyword blocking.
-	localRulesApply := isLocalSecurityAuditProtocol(protocol) && (legacy == nil || legacy.IsLocalSecurityAuditedModel(c.Request.Context(), model))
+	conversationProtocol := isLocalSecurityAuditProtocol(protocol)
+	// 硬拒绝规则只允许账号白名单绕过，不受模型过滤、评分阈值或审核服务状态影响。
+	if conversationProtocol {
+		inputText := extractLocalSecurityAuditText(protocol, body)
+		if matchedRule := matchMandatoryDenyRule(inputText); matchedRule != "" {
+			request := buildSecurityAuditRequest(c, apiKey, subject, protocol, model, body, stage)
+			decision := &securityaudit.Decision{
+				Kind: securityaudit.DecisionBlock, HTTPStatus: http.StatusForbidden,
+				ErrorCode: "content_policy_violation", ClientMessage: "请求涉及受限话题，已被内容安全策略阻止",
+				AllowNextStage: false,
+			}
+			if reqLog != nil {
+				reqLog.Info("security_audit.local_block_check_done",
+					zap.String("request_id", request.RequestID), zap.String("decision", string(decision.Kind)),
+					zap.String("error_code", decision.ErrorCode), zap.Bool("allow_next_stage", decision.AllowNextStage),
+					zap.String("matched_rule", matchedRule), zap.String("matched_rule_type", "conversation_mandatory_deny"),
+					zap.String("stage", request.Stage))
+			}
+			return decision
+		}
+	}
+	// 可配置评分规则仍遵守模型范围，便于管理员控制哪些模型进入灰区复审。
+	localRulesApply := conversationProtocol && (legacy == nil || legacy.IsLocalSecurityAuditedModel(c.Request.Context(), model))
 	if localRulesApply {
 		request := buildSecurityAuditRequest(c, apiKey, subject, protocol, model, body, stage)
 		inputText := extractLocalSecurityAuditText(protocol, body)
@@ -572,12 +637,47 @@ func runSecurityAudit(c *gin.Context, reqLog *zap.Logger, coordinator *securitya
 			}
 			return decision
 		}
-		if riskMatch.matched() && riskMatch.Score >= localPolicy.ObserveScore && reqLog != nil {
-			reqLog.Info("security_audit.local_risk_observed",
-				zap.String("request_id", request.RequestID), zap.String("matched_rule", riskMatch.Rule),
-				zap.String("matched_rule_type", riskMatch.MatchType), zap.Int("risk_score", riskMatch.Score),
-				zap.Int("risk_signals", riskMatch.Signals), zap.Int("observe_score", localPolicy.ObserveScore), zap.Int("block_score", localPolicy.BlockScore),
-				zap.String("protocol", request.Protocol), zap.String("model", request.Model), zap.String("stage", request.Stage))
+		if riskMatch.matched() && riskMatch.Score >= localPolicy.ObserveScore {
+			if reqLog != nil {
+				reqLog.Info("security_audit.local_risk_review_start",
+					zap.String("request_id", request.RequestID), zap.String("matched_rule", riskMatch.Rule),
+					zap.String("matched_rule_type", riskMatch.MatchType), zap.Int("risk_score", riskMatch.Score),
+					zap.Int("risk_signals", riskMatch.Signals), zap.Int("observe_score", localPolicy.ObserveScore), zap.Int("block_score", localPolicy.BlockScore),
+					zap.String("protocol", request.Protocol), zap.String("model", request.Model), zap.String("stage", request.Stage))
+			}
+			if legacy == nil {
+				return &securityaudit.Decision{Kind: securityaudit.DecisionBlock, HTTPStatus: http.StatusForbidden, ErrorCode: "content_policy_violation", ClientMessage: "内容安全复审暂不可用，请稍后重试", AllowNextStage: false}
+			}
+			reviewDecision, reviewErr := legacy.ReviewLocalSecurityRisk(c.Request.Context(), buildContentModerationInput(c, apiKey, subject, protocol, model, body))
+			if reviewErr != nil || reviewDecision == nil {
+				if reqLog != nil {
+					reqLog.Warn("security_audit.local_risk_review_failed", zap.String("request_id", request.RequestID), zap.Error(reviewErr))
+				}
+				return &securityaudit.Decision{Kind: securityaudit.DecisionBlock, HTTPStatus: http.StatusForbidden, ErrorCode: "content_policy_violation", ClientMessage: "内容安全复审暂不可用，请稍后重试", AllowNextStage: false}
+			}
+			decision := &securityaudit.Decision{Kind: securityaudit.DecisionAllow, HTTPStatus: http.StatusOK, AllowNextStage: true}
+			decision.Legacy = &securityaudit.LegacyDecision{
+				Allowed: reviewDecision.Allowed, Blocked: reviewDecision.Blocked, Flagged: reviewDecision.Flagged,
+				Message: reviewDecision.Message, StatusCode: reviewDecision.StatusCode,
+				ErrorCode: "content_policy_violation", Action: reviewDecision.Action,
+			}
+			if reviewDecision.Blocked || reviewDecision.Flagged {
+				decision.Kind = securityaudit.DecisionBlock
+				decision.HTTPStatus = contentModerationStatus(reviewDecision)
+				decision.ErrorCode = "content_policy_violation"
+				decision.ClientMessage = reviewDecision.Message
+				decision.AllowNextStage = false
+			}
+			if reqLog != nil {
+				reqLog.Info("security_audit.local_risk_review_done",
+					zap.String("request_id", request.RequestID), zap.String("decision", string(decision.Kind)),
+					zap.Bool("allow_next_stage", decision.AllowNextStage), zap.Bool("flagged", reviewDecision.Flagged),
+					zap.String("matched_rule", riskMatch.Rule), zap.Int("risk_score", riskMatch.Score))
+			}
+			if decision.AllowNextStage && cacheCompletion {
+				c.Set(securityAuditCompletedContextKey, true)
+			}
+			return decision
 		}
 		if reqLog != nil {
 			reqLog.Info("security_audit.local_block_check_done",
@@ -585,6 +685,11 @@ func runSecurityAudit(c *gin.Context, reqLog *zap.Logger, coordinator *securitya
 				zap.String("error_code", ""), zap.Bool("allow_next_stage", true), zap.String("matched_rule", ""),
 				zap.String("matched_rule_type", ""), zap.String("stage", request.Stage))
 		}
+		decision := &securityaudit.Decision{Kind: securityaudit.DecisionAllow, HTTPStatus: http.StatusOK, AllowNextStage: true}
+		if cacheCompletion {
+			c.Set(securityAuditCompletedContextKey, true)
+		}
+		return decision
 	}
 	if coordinator == nil {
 		legacyDecision := runContentModeration(c, reqLog, legacy, apiKey, subject, protocol, model, body)

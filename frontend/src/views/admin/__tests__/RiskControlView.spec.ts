@@ -103,7 +103,8 @@ const baseConfig = (): ContentModerationConfig => ({
   pre_hash_check_enabled: false,
   blocked_keywords: [],
   keyword_blocking_mode: 'keyword_and_api',
-  pre_block_failure_mode: 'allow',
+  api_format: 'chat_completions',
+  pre_block_failure_mode: 'block',
   local_security_rules: [],
   local_security_policy: {
     block_score: 80,

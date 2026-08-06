@@ -428,12 +428,37 @@
                 <p class="mt-2 text-xs leading-5 text-gray-500 dark:text-gray-400">{{ modeDescription(configForm.mode) }}</p>
               </div>
               <div>
+                <label class="input-label">{{ t('admin.riskControl.auditAPIFormat') }}</label>
+                <Select
+                  v-model="configForm.api_format"
+                  :options="[
+                    { value: 'openai_moderations', label: t('admin.riskControl.auditAPIFormatOpenAI') },
+                    { value: 'chat_completions', label: t('admin.riskControl.auditAPIFormatChat') },
+                  ]"
+                />
+                <p class="mt-2 text-xs leading-5 text-gray-500 dark:text-gray-400">
+                  {{ configForm.api_format === 'chat_completions'
+                    ? t('admin.riskControl.auditAPIFormatChatDesc')
+                    : t('admin.riskControl.auditAPIFormatOpenAIDesc') }}
+                </p>
+              </div>
+              <div>
                 <label class="input-label">{{ t('admin.riskControl.baseUrl') }}</label>
-                <input v-model.trim="configForm.base_url" type="url" class="input" placeholder="https://api.openai.com" />
+                <input
+                  v-model.trim="configForm.base_url"
+                  type="url"
+                  class="input"
+                  :placeholder="configForm.api_format === 'chat_completions' ? 'https://api.deepseek.com' : 'https://api.openai.com'"
+                />
               </div>
               <div>
                 <label class="input-label">{{ t('admin.riskControl.model') }}</label>
-                <input v-model.trim="configForm.model" type="text" class="input" placeholder="omni-moderation-latest" />
+                <input
+                  v-model.trim="configForm.model"
+                  type="text"
+                  class="input"
+                  :placeholder="configForm.api_format === 'chat_completions' ? 'deepseek-chat' : 'omni-moderation-latest'"
+                />
               </div>
               <div>
                 <label class="input-label">{{ t('admin.riskControl.timeoutMs') }}</label>
@@ -1201,6 +1226,7 @@ import { adminAPI } from '@/api/admin'
 import type {
   ContentModerationAPIKeyLoad,
   ContentModerationAPIKeyStatus,
+  ContentModerationAPIFormat,
   ContentModerationConfig,
   ContentModerationLocalSecurityRule,
   ContentModerationLog,
@@ -1297,6 +1323,7 @@ let statusTimer: number | null = null
 const configForm = reactive({
   enabled: false,
   mode: 'pre_block' as ModerationMode,
+  api_format: 'openai_moderations' as ContentModerationAPIFormat,
   base_url: 'https://api.openai.com',
   model: 'omni-moderation-latest',
   proxy_id: null as number | null,
@@ -1333,7 +1360,7 @@ const configForm = reactive({
   keyword_blocking_mode: 'keyword_and_api' as KeywordBlockingMode,
   local_security_block_score: 80,
   local_security_observe_score: 50,
-  pre_block_failure_mode: 'allow' as PreBlockFailureMode,
+  pre_block_failure_mode: 'block' as PreBlockFailureMode,
   model_filter_type: 'all' as ContentModerationModelFilterType,
   model_filter_models: [] as string[],
 })
@@ -1782,6 +1809,7 @@ const runtimeBadgeClass = computed(() => {
 function applyConfig(config: ContentModerationConfig) {
   configForm.enabled = config.enabled
   configForm.mode = config.mode
+  configForm.api_format = config.api_format === 'chat_completions' ? 'chat_completions' : 'openai_moderations'
   configForm.base_url = config.base_url || 'https://api.openai.com'
   configForm.model = config.model || 'omni-moderation-latest'
   configForm.proxy_id = config.proxy_id || null
@@ -1888,6 +1916,7 @@ async function saveConfig() {
     const payload: UpdateContentModerationConfig = {
       enabled: configForm.enabled,
       mode: configForm.mode,
+      api_format: configForm.api_format,
       base_url: configForm.base_url,
       model: configForm.model,
       // 后端语义：0 清除代理（直连），>0 指定代理
@@ -2121,6 +2150,7 @@ async function testApiKeys(useInputKeys: boolean) {
   try {
     const result = await adminAPI.riskControl.testAPIKeys({
       api_keys: keys,
+      api_format: configForm.api_format,
       base_url: configForm.base_url,
       model: configForm.model,
       timeout_ms: Number(configForm.timeout_ms) || 3000,

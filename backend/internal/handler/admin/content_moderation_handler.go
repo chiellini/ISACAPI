@@ -20,6 +20,7 @@ func NewContentModerationHandler(svc *service.ContentModerationService) *Content
 }
 
 type contentModerationConfigRequest struct {
+	APIFormat *string `json:"api_format"`
 	Enabled *bool   `json:"enabled"`
 	Mode    *string `json:"mode"`
 	BaseURL *string `json:"base_url"`
@@ -63,6 +64,7 @@ type contentModerationConfigRequest struct {
 }
 
 type contentModerationAPIKeyTestRequest struct {
+	APIFormat string   `json:"api_format"`
 	APIKeys   []string `json:"api_keys"`
 	BaseURL   string   `json:"base_url"`
 	Model     string   `json:"model"`
@@ -92,6 +94,7 @@ func (h *ContentModerationHandler) UpdateConfig(c *gin.Context) {
 		return
 	}
 	cfg, err := h.service.UpdateConfig(c.Request.Context(), service.UpdateContentModerationConfigInput{
+		APIFormat:                      req.APIFormat,
 		Enabled:                        req.Enabled,
 		Mode:                           req.Mode,
 		BaseURL:                        req.BaseURL,
@@ -144,6 +147,7 @@ func (h *ContentModerationHandler) TestAPIKeys(c *gin.Context) {
 		return
 	}
 	result, err := h.service.TestAPIKeys(c.Request.Context(), service.TestContentModerationAPIKeysInput{
+		APIFormat: req.APIFormat,
 		APIKeys:   req.APIKeys,
 		BaseURL:   req.BaseURL,
 		Model:     req.Model,
