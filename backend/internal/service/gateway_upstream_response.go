@@ -365,6 +365,10 @@ func (s *GatewayService) handleErrorResponse(ctx context.Context, resp *http.Res
 		logger.LegacyPrintf("service.gateway", "[Forward] Failed to fully read upstream error body: Account=%d(%s) Status=%d err=%v",
 			account.ID, account.Name, resp.StatusCode, readErr)
 	}
+	// Preserve explicit policy refusals independently from the optional general
+	// upstream-body logging switch. The handler consumes this bounded payload on
+	// terminal paths where the service already wrote the client response.
+	SetOpsUpstreamPolicyPayload(c, resp.StatusCode, body)
 
 	// 调试日志：打印上游错误响应
 	logger.LegacyPrintf("service.gateway", "[Forward] Upstream error (non-retryable): Account=%d(%s) Status=%d RequestID=%s Body=%s",
@@ -550,6 +554,7 @@ func (s *GatewayService) handleRetryExhaustedError(ctx context.Context, resp *ht
 	respBody, _ := s.readUpstreamErrorBody(resp)
 	_ = resp.Body.Close()
 	resp.Body = io.NopCloser(bytes.NewReader(respBody))
+	SetOpsUpstreamPolicyPayload(c, resp.StatusCode, respBody)
 
 	s.handleRetryExhaustedSideEffects(ctx, resp, account)
 

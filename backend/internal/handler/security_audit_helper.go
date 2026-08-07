@@ -898,14 +898,16 @@ func recordUpstreamPolicyBlock(c *gin.Context, moderation *service.ContentModera
 		input.Provider = resolvedProvider
 	}
 	input.Body = nil
-	c.Set(securityAuditUpstreamPolicyRecordedKey, true)
-	moderation.RecordUpstreamPolicyBlock(c.Request.Context(), service.UpstreamPolicyBlockInput{
+	if err := moderation.RecordUpstreamPolicyBlock(c.Request.Context(), service.UpstreamPolicyBlockInput{
 		Request:      input,
 		StatusCode:   statusCode,
 		PolicyCode:   rejection.Code,
 		Message:      rejection.Message,
 		ResponseBody: responseBody,
-	})
+	}); err != nil {
+		return false
+	}
+	c.Set(securityAuditUpstreamPolicyRecordedKey, true)
 	return true
 }
 

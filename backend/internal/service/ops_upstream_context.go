@@ -203,6 +203,9 @@ func SetOpsUpstreamPolicyPayload(c *gin.Context, statusCode int, payload []byte)
 	if _, rejected := DetectUpstreamContentPolicyRejection(statusCode, payload); !rejected {
 		return
 	}
+	if statusCode > 0 {
+		c.Set(OpsUpstreamStatusCodeKey, statusCode)
+	}
 	c.Set(OpsUpstreamPolicyPayloadKey, truncateString(string(payload), 4096))
 }
 

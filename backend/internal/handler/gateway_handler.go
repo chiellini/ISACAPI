@@ -463,6 +463,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 				requestCtx = service.WithAccountSwitchCount(requestCtx, fs.SwitchCount, h.metadataBridgeEnabled())
 			}
 			// 记录 Forward 前已写入字节数，Forward 后若增加则说明 SSE 内容已发，禁止 failover
+			service.ResetOpsUpstreamErrorAttemptContext(c)
 			writerSizeBeforeForward := c.Writer.Size()
 			if account.Platform == service.PlatformAntigravity {
 				result, err = h.antigravityGatewayService.ForwardGemini(
@@ -485,6 +486,10 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 			if err != nil {
 				var failoverErr *service.UpstreamFailoverError
 				if errors.As(err, &failoverErr) {
+					// An explicit provider policy refusal is security-relevant even if
+					// a later account attempt succeeds. Persist it at the first point
+					// where the original structured response is still available.
+					recordUpstreamPolicyBlock(c, h.contentModerationService, account.Platform, failoverErr.StatusCode, string(failoverErr.ResponseBody))
 					// 流式内容已写入客户端，无法撤销，禁止 failover 以防止流拼接腐化
 					if c.Writer.Size() != writerSizeBeforeForward {
 						h.handleFailoverExhausted(c, failoverErr, service.PlatformGemini, true)
@@ -502,6 +507,10 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 						return
 					}
 				}
+				// Some provider adapters write the final upstream refusal directly
+				// and return a regular error. This is a terminal path, so bridge the
+				// bounded structured policy payload before returning to the client.
+				recordUpstreamPolicyBlockFromOpsContext(c, h.contentModerationService, account.Platform)
 				upstreamErrorAlreadyCommunicated := gatewayForwardErrorAlreadyCommunicated(c, writerSizeBeforeForward, err)
 				wroteFallback := false
 				if !upstreamErrorAlreadyCommunicated {
@@ -858,6 +867,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 				requestCtx = service.WithForceCacheBilling(requestCtx)
 			}
 			// 记录 Forward 前已写入字节数，Forward 后若增加则说明 SSE 内容已发，禁止 failover
+			service.ResetOpsUpstreamErrorAttemptContext(c)
 			writerSizeBeforeForward := c.Writer.Size()
 			if account.Platform == service.PlatformAntigravity && account.Type != service.AccountTypeAPIKey {
 				result, err = h.antigravityGatewayService.Forward(requestCtx, c, account, attemptBody, hasBoundSession)
@@ -992,6 +1002,9 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 				}
 				var failoverErr *service.UpstreamFailoverError
 				if errors.As(err, &failoverErr) {
+					// Record the provider policy refusal before failover mutates the
+					// terminal error. The audit helper de-duplicates per request.
+					recordUpstreamPolicyBlock(c, h.contentModerationService, account.Platform, failoverErr.StatusCode, string(failoverErr.ResponseBody))
 					// 流式内容已写入客户端，无法撤销，禁止 failover 以防止流拼接腐化
 					if c.Writer.Size() != writerSizeBeforeForward {
 						h.handleFailoverExhausted(c, failoverErr, account.Platform, true)
@@ -1009,6 +1022,9 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 						return
 					}
 				}
+				// Some provider adapters write the final upstream refusal directly
+				// and return a regular error instead of UpstreamFailoverError.
+				recordUpstreamPolicyBlockFromOpsContext(c, h.contentModerationService, account.Platform)
 				upstreamErrorAlreadyCommunicated := gatewayForwardErrorAlreadyCommunicated(c, writerSizeBeforeForward, err)
 				wroteFallback := false
 				if !upstreamErrorAlreadyCommunicated {

@@ -1323,7 +1323,7 @@ type SecurityPolicyBlockInput struct {
 // RecordUpstreamPolicyBlock writes an explicit provider policy refusal directly
 // to the risk-control audit store. It is audit-only: it does not auto-ban or
 // notify, and it does not depend on the configured moderation mode or sampling.
-func (s *ContentModerationService) RecordUpstreamPolicyBlock(ctx context.Context, in UpstreamPolicyBlockInput) {
+func (s *ContentModerationService) RecordUpstreamPolicyBlock(ctx context.Context, in UpstreamPolicyBlockInput) error {
 	policyCode := strings.TrimSpace(in.PolicyCode)
 	if policyCode == "" {
 		policyCode = contentModerationUpstreamPolicyCategory
@@ -1335,7 +1335,7 @@ func (s *ContentModerationService) RecordUpstreamPolicyBlock(ctx context.Context
 	if in.StatusCode > 0 {
 		errorDetail = fmt.Sprintf("upstream_status=%d\n%s", in.StatusCode, errorDetail)
 	}
-	s.recordSecurityPolicyBlock(ctx, SecurityPolicyBlockInput{
+	return s.recordSecurityPolicyBlock(ctx, SecurityPolicyBlockInput{
 		Request: in.Request, Action: ContentModerationActionUpstreamPolicyBlock,
 		Category: policyCode, MatchedRule: policyCode, Message: errorDetail,
 	}, "post_upstream")
@@ -1344,12 +1344,12 @@ func (s *ContentModerationService) RecordUpstreamPolicyBlock(ctx context.Context
 // RecordSecurityPolicyBlock bridges a final gateway/Prompt Guard block into the
 // unified risk-control audit list without applying account side effects.
 func (s *ContentModerationService) RecordSecurityPolicyBlock(ctx context.Context, in SecurityPolicyBlockInput) {
-	s.recordSecurityPolicyBlock(ctx, in, ContentModerationModePreBlock)
+	_ = s.recordSecurityPolicyBlock(ctx, in, ContentModerationModePreBlock)
 }
 
-func (s *ContentModerationService) recordSecurityPolicyBlock(ctx context.Context, in SecurityPolicyBlockInput, mode string) {
+func (s *ContentModerationService) recordSecurityPolicyBlock(ctx context.Context, in SecurityPolicyBlockInput, mode string) error {
 	if s == nil || s.repo == nil {
-		return
+		return errors.New("content moderation audit repository unavailable")
 	}
 	baseCtx := context.Background()
 	if ctx != nil {
@@ -1392,7 +1392,9 @@ func (s *ContentModerationService) recordSecurityPolicyBlock(ctx context.Context
 	log.MatchedKeyword = trimRunes(strings.TrimSpace(in.MatchedRule), maxContentModerationLocalRuleTermRunes)
 	if err := s.repo.CreateLog(auditCtx, log); err != nil {
 		slog.Warn("content_moderation.security_policy_log_failed", "request_id", in.Request.RequestID, "action", action, "category", category, "error", err)
+		return err
 	}
+	return nil
 }
 
 func (s *ContentModerationService) enqueueAsync(input ContentModerationCheckInput, cfg *ContentModerationConfig, content ContentModerationInput, hashText string) {

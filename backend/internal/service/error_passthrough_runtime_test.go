@@ -63,6 +63,31 @@ func TestGatewayHandleErrorResponse_NoRuleKeepsDefault(t *testing.T) {
 	assert.Equal(t, "Upstream request failed", errField["message"])
 }
 
+func TestGatewayHandleErrorResponsePreservesContentPolicyPayloadForTerminalAudit(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+
+	svc := &GatewayService{}
+	respBody := []byte(`{"error":{"code":"content_policy_violation","message":"请求涉及受限话题，已被内容安全策略阻止","type":"permission_error"},"type":"error"}`)
+	resp := &http.Response{
+		StatusCode: http.StatusForbidden,
+		Body:       io.NopCloser(bytes.NewReader(respBody)),
+		Header:     http.Header{},
+	}
+	account := &Account{ID: 11, Platform: PlatformAnthropic, Type: AccountTypeAPIKey}
+
+	_, err := svc.handleErrorResponse(context.Background(), resp, c, account)
+	require.Error(t, err)
+
+	stored, exists := c.Get(OpsUpstreamPolicyPayloadKey)
+	require.True(t, exists)
+	require.JSONEq(t, string(respBody), stored.(string))
+	status, exists := c.Get(OpsUpstreamStatusCodeKey)
+	require.True(t, exists)
+	require.Equal(t, http.StatusForbidden, status)
+}
+
 func TestOpenAIHandleErrorResponse_NoRuleKeepsDefault(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	rec := httptest.NewRecorder()

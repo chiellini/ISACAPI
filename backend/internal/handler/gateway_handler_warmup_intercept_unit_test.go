@@ -6,6 +6,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
+	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -14,6 +16,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/tlsfingerprint"
 	middleware "github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 
@@ -156,11 +159,49 @@ func (f *fakeConcurrencyCache) CleanupExpiredAccountSlots(context.Context, int64
 func (f *fakeConcurrencyCache) CleanupExpiredAccountSlotKeys(context.Context) error     { return nil }
 func (f *fakeConcurrencyCache) CleanupStaleProcessSlots(context.Context, string) error  { return nil }
 
+type fixedGatewayHTTPUpstream struct {
+	statusCode int
+	body       string
+	calls      int
+}
+
+func (f *fixedGatewayHTTPUpstream) response() *http.Response {
+	f.calls++
+	return &http.Response{
+		StatusCode: f.statusCode,
+		Header: http.Header{
+			"Content-Type": []string{"application/json"},
+			"X-Request-Id": []string{"req-native-anthropic-policy"},
+		},
+		Body: io.NopCloser(strings.NewReader(f.body)),
+	}
+}
+
+func (f *fixedGatewayHTTPUpstream) Do(*http.Request, string, int64, int) (*http.Response, error) {
+	return f.response(), nil
+}
+
+func (f *fixedGatewayHTTPUpstream) DoWithTLS(*http.Request, string, int64, int, *tlsfingerprint.Profile) (*http.Response, error) {
+	return f.response(), nil
+}
+
 func newTestGatewayHandler(t *testing.T, group *service.Group, accounts []*service.Account) (*GatewayHandler, func()) {
+	return newTestGatewayHandlerWithDependencies(t, group, accounts, nil, nil)
+}
+
+func newTestGatewayHandlerWithDependencies(
+	t *testing.T,
+	group *service.Group,
+	accounts []*service.Account,
+	httpUpstream service.HTTPUpstream,
+	moderationService *service.ContentModerationService,
+) (*GatewayHandler, func()) {
 	t.Helper()
 
 	schedulerCache := &fakeSchedulerCache{accounts: accounts}
 	schedulerSnapshot := service.NewSchedulerSnapshotService(schedulerCache, nil, nil, nil, nil)
+	cfg := &config.Config{RunMode: config.RunModeSimple}
+	rateLimitService := service.NewRateLimitService(nil, nil, cfg, nil, nil)
 
 	gwSvc := service.NewGatewayService(
 		nil, // accountRepo (not used: scheduler snapshot hit)
@@ -171,14 +212,14 @@ func newTestGatewayHandler(t *testing.T, group *service.Group, accounts []*servi
 		nil, // userSubRepo
 		nil, // userGroupRateRepo
 		nil, // cache (disable sticky)
-		nil, // cfg
+		cfg,
 		schedulerSnapshot,
 		nil, // concurrencyService (disable load-aware; tryAcquire always acquired)
 		nil, // billingService
-		nil, // rateLimitService
+		rateLimitService,
 		nil, // billingCacheService
 		nil, // identityService
-		nil, // httpUpstream
+		httpUpstream,
 		nil, // deferredService
 		nil, // claudeTokenProvider
 		nil, // sessionLimitCache
@@ -194,25 +235,118 @@ func newTestGatewayHandler(t *testing.T, group *service.Group, accounts []*servi
 	)
 
 	// RunModeSimple：跳过计费检查，避免引入 repo/cache 依赖。
-	cfg := &config.Config{RunMode: config.RunModeSimple}
 	billingCacheSvc := service.NewBillingCacheService(nil, nil, nil, nil, nil, nil, cfg, nil)
 
 	concurrencySvc := service.NewConcurrencyService(&fakeConcurrencyCache{})
 	concurrencyHelper := NewConcurrencyHelper(concurrencySvc, SSEPingFormatClaude, 0)
 
 	h := &GatewayHandler{
-		gatewayService:      gwSvc,
-		billingCacheService: billingCacheSvc,
-		concurrencyHelper:   concurrencyHelper,
+		gatewayService:           gwSvc,
+		billingCacheService:      billingCacheSvc,
+		contentModerationService: moderationService,
+		concurrencyHelper:        concurrencyHelper,
 		// 这些字段对本测试不敏感，保持较小即可
 		maxAccountSwitches:       1,
 		maxAccountSwitchesGemini: 1,
+		cfg:                      cfg,
 	}
 
 	cleanup := func() {
 		billingCacheSvc.Stop()
 	}
 	return h, cleanup
+}
+
+func TestGatewayHandlerMessages_RecordsNativeAnthropicUpstreamPolicyBlocks(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	const upstreamBody = `{"error":{"code":"content_policy_violation","message":"请求涉及受限话题，已被内容安全策略阻止","type":"permission_error"},"type":"error"}`
+	tests := []struct {
+		name       string
+		statusCode int
+	}{
+		{name: "failover error is audited immediately", statusCode: http.StatusForbidden},
+		{name: "ordinary terminal error is audited from ops context", statusCode: http.StatusBadRequest},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			groupID := int64(2100 + tt.statusCode)
+			accountID := int64(1100 + tt.statusCode)
+			userID := int64(4100 + tt.statusCode)
+			group := &service.Group{
+				ID:       groupID,
+				Hydrated: true,
+				Platform: service.PlatformAnthropic,
+				Status:   service.StatusActive,
+			}
+			account := &service.Account{
+				ID:          accountID,
+				Name:        "native-anthropic-policy",
+				Platform:    service.PlatformAnthropic,
+				Type:        service.AccountTypeAPIKey,
+				Concurrency: 1,
+				Credentials: map[string]any{
+					"api_key":                      "upstream-anthropic-key",
+					"base_url":                     "https://api.anthropic.com",
+					"pool_mode":                    true,
+					"pool_mode_retry_count":        0,
+					"pool_mode_retry_status_codes": []any{},
+				},
+				Extra:         map[string]any{"anthropic_passthrough": true},
+				Status:        service.StatusActive,
+				Schedulable:   true,
+				AccountGroups: []service.AccountGroup{{AccountID: accountID, GroupID: groupID}},
+			}
+
+			upstream := &fixedGatewayHTTPUpstream{statusCode: tt.statusCode, body: upstreamBody}
+			moderationRepo := &contentModerationHandlerTestRepo{}
+			moderationService := newSecurityAuditTestModerationService(t, &service.ContentModerationConfig{}, moderationRepo)
+			h, cleanup := newTestGatewayHandlerWithDependencies(
+				t,
+				group,
+				[]*service.Account{account},
+				upstream,
+				moderationService,
+			)
+			defer cleanup()
+
+			recorder := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(recorder)
+			body := []byte(`{"model":"claude-fable-5","max_tokens":32,"stream":false,"messages":[{"role":"user","content":"hello"}]}`)
+			req := httptest.NewRequest(http.MethodPost, "/v1/messages", bytes.NewReader(body))
+			req.Header.Set("Content-Type", "application/json")
+			req = req.WithContext(context.WithValue(req.Context(), ctxkey.Group, group))
+			c.Request = req
+
+			apiKey := &service.APIKey{
+				ID:      int64(3100 + tt.statusCode),
+				UserID:  userID,
+				GroupID: &groupID,
+				Status:  service.StatusActive,
+				User: &service.User{
+					ID:          userID,
+					Concurrency: 10,
+					Balance:     100,
+				},
+				Group: group,
+			}
+			c.Set(string(middleware.ContextKeyAPIKey), apiKey)
+			c.Set(string(middleware.ContextKeyUser), middleware.AuthSubject{UserID: userID, Concurrency: 10})
+
+			h.Messages(c)
+
+			require.Equal(t, 1, upstream.calls)
+			logs := moderationRepo.logSnapshot()
+			require.Len(t, logs, 1)
+			require.Equal(t, service.ContentModerationActionUpstreamPolicyBlock, logs[0].Action)
+			require.Equal(t, service.PlatformAnthropic, logs[0].Provider)
+			require.Equal(t, "content_policy_violation", logs[0].HighestCategory)
+			require.Equal(t, "content_policy_violation", logs[0].MatchedKeyword)
+			require.Contains(t, logs[0].Error, "upstream_status=")
+			require.Empty(t, logs[0].InputExcerpt)
+		})
+	}
 }
 
 func TestGatewayHandlerMessages_InterceptWarmup_AntigravityAccount_MixedSchedulingV1(t *testing.T) {

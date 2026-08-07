@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -307,6 +308,29 @@ func TestRecordUpstreamPolicyBlockWritesRiskAuditOnce(t *testing.T) {
 	require.Contains(t, logs[0].Error, "upstream_status=403")
 }
 
+func TestRecordUpstreamPolicyBlockRetriesAfterAuditWriteFailure(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	stored := &contentModerationHandlerTestRepo{}
+	repo := &failOnceContentModerationHandlerRepo{contentModerationHandlerTestRepo: stored}
+	moderationSvc := newSecurityAuditTestModerationService(t, &service.ContentModerationConfig{}, repo)
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", nil)
+	c.Set(securityAuditInputContextKey, service.ContentModerationCheckInput{
+		RequestID: "retry-policy-request", UserID: 47, Endpoint: "/v1/messages",
+		Provider: service.PlatformAnthropic, Model: "claude-fable-5", Protocol: service.ContentModerationProtocolAnthropicMessages,
+	})
+	upstreamBody := `{"error":{"code":"content_policy_violation","message":"请求涉及受限话题，已被内容安全策略阻止","type":"permission_error"},"type":"error"}`
+
+	first := recordUpstreamPolicyBlock(c, moderationSvc, service.PlatformAnthropic, http.StatusForbidden, upstreamBody)
+	second := recordUpstreamPolicyBlock(c, moderationSvc, service.PlatformAnthropic, http.StatusForbidden, upstreamBody)
+
+	require.False(t, first)
+	require.True(t, second)
+	require.Equal(t, int64(2), repo.calls.Load())
+	require.Len(t, stored.logSnapshot(), 1)
+}
+
 func TestRecordUpstreamPolicyBlockFromOpsContextSkipsDedicatedCyberPolicyAudit(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	repo := &contentModerationHandlerTestRepo{}
@@ -326,6 +350,34 @@ func TestRecordUpstreamPolicyBlockFromOpsContextSkipsDedicatedCyberPolicyAudit(t
 
 	require.False(t, recorded)
 	require.Empty(t, repo.logSnapshot())
+}
+
+func TestRecordUpstreamPolicyBlockFromOpsContextWritesTerminalServiceError(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	repo := &contentModerationHandlerTestRepo{}
+	moderationSvc := newSecurityAuditTestModerationService(t, &service.ContentModerationConfig{}, repo)
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", nil)
+	c.Set(securityAuditInputContextKey, service.ContentModerationCheckInput{
+		RequestID: "terminal-policy-request", UserID: 46, Endpoint: "/v1/messages",
+		Provider: service.PlatformAnthropic, Model: "claude-fable-5", Protocol: service.ContentModerationProtocolAnthropicMessages,
+	})
+	payload := []byte(`{"error":{"code":"content_policy_violation","message":"请求涉及受限话题，已被内容安全策略阻止","type":"permission_error"},"type":"error"}`)
+	service.SetOpsUpstreamPolicyPayload(c, http.StatusForbidden, payload)
+	c.Set(service.OpsUpstreamErrorMessageKey, "请求涉及受限话题，已被内容安全策略阻止")
+
+	recorded := recordUpstreamPolicyBlockFromOpsContext(c, moderationSvc, service.PlatformAnthropic)
+	recordedAgain := recordUpstreamPolicyBlockFromOpsContext(c, moderationSvc, service.PlatformAnthropic)
+
+	require.True(t, recorded)
+	require.False(t, recordedAgain)
+	logs := repo.logSnapshot()
+	require.Len(t, logs, 1)
+	require.Equal(t, "terminal-policy-request", logs[0].RequestID)
+	require.Equal(t, service.ContentModerationActionUpstreamPolicyBlock, logs[0].Action)
+	require.Equal(t, "content_policy_violation", logs[0].HighestCategory)
+	require.Contains(t, logs[0].Error, "upstream_status=403")
 }
 
 func TestRecordPromptGuardBlockBridgesIntoRiskAudit(t *testing.T) {
@@ -752,7 +804,19 @@ func TestKeygenAloneIsNotReviewEligible(t *testing.T) {
 	require.Equal(t, 1, risk.EvidenceTerms)
 }
 
-func newSecurityAuditTestModerationService(t *testing.T, cfg *service.ContentModerationConfig, repo *contentModerationHandlerTestRepo) *service.ContentModerationService {
+type failOnceContentModerationHandlerRepo struct {
+	*contentModerationHandlerTestRepo
+	calls atomic.Int64
+}
+
+func (r *failOnceContentModerationHandlerRepo) CreateLog(ctx context.Context, log *service.ContentModerationLog) error {
+	if r.calls.Add(1) == 1 {
+		return errors.New("temporary audit write failure")
+	}
+	return r.contentModerationHandlerTestRepo.CreateLog(ctx, log)
+}
+
+func newSecurityAuditTestModerationService(t *testing.T, cfg *service.ContentModerationConfig, repo service.ContentModerationRepository) *service.ContentModerationService {
 	t.Helper()
 	rawCfg, err := json.Marshal(cfg)
 	require.NoError(t, err)
