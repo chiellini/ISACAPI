@@ -179,6 +179,7 @@ func (h *OpenAIGatewayHandler) writeLiveCreateError(c *gin.Context, err error) {
 		}
 		var upstreamErr *service.UpstreamFailoverError
 		if errors.As(err, &upstreamErr) && upstreamErr.StatusCode >= 400 && upstreamErr.StatusCode < 500 {
+			recordUpstreamPolicyBlock(c, h.contentModerationService, service.PlatformOpenAI, upstreamErr.StatusCode, string(upstreamErr.ResponseBody))
 			h.errorResponse(c, upstreamErr.StatusCode, "invalid_request_error", "Live upstream rejected the request")
 			return
 		}

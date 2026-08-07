@@ -23,6 +23,8 @@ func (a *LegacyModerationAdapter) Check(ctx context.Context, req Request) (*Lega
 		APIKeyID: req.APIKeyID, APIKeyName: req.APIKeyName, GroupID: cloneInt64Ptr(req.GroupID),
 		GroupName: req.GroupName, Endpoint: req.Endpoint, Provider: req.Provider,
 		Model: req.Model, Protocol: req.Protocol, Body: req.Body,
+		ForceLocalSecurityReview: req.ForceLocalSecurityReview,
+		LocalSecurityMatchedRule: req.LocalSecurityMatchedRule,
 	})
 	if err != nil || decision == nil {
 		return nil, err

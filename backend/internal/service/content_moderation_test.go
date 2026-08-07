@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -471,10 +472,10 @@ func TestMatchBlockedKeyword_CaseInsensitiveSubstring(t *testing.T) {
 	require.False(t, hit)
 }
 
-func TestContentModerationCheck_PreBlockKeywordHitSkipsUpstreamCall(t *testing.T) {
-	upstreamCalled := false
+func TestContentModerationCheck_SingleKeywordNeedsMoreEvidence(t *testing.T) {
+	var upstreamCalled atomic.Bool
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		upstreamCalled = true
+		upstreamCalled.Store(true)
 		_ = json.NewEncoder(w).Encode(moderationAPIResponse{Results: []moderationAPIResult{{}}})
 	}))
 	defer server.Close()
@@ -512,14 +513,48 @@ func TestContentModerationCheck_PreBlockKeywordHitSkipsUpstreamCall(t *testing.T
 	})
 
 	require.NoError(t, err)
+	require.True(t, decision.Allowed)
+	require.False(t, decision.Blocked)
+	require.True(t, upstreamCalled.Load(), "a single keyword must not short-circuit contextual API review")
+}
+
+func TestContentModerationCheck_KeywordCombinationBlocksOnlyAfterAPIConfirmation(t *testing.T) {
+	var upstreamCalls atomic.Int64
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		upstreamCalls.Add(1)
+		_ = json.NewEncoder(w).Encode(moderationAPIResponse{Results: []moderationAPIResult{{
+			CategoryScores: map[string]float64{"illicit": 0.99},
+		}}})
+	}))
+	defer server.Close()
+
+	cfg := defaultContentModerationConfig()
+	cfg.Enabled = true
+	cfg.Mode = ContentModerationModePreBlock
+	cfg.BaseURL = server.URL
+	cfg.APIKeys = []string{"sk-test"}
+	cfg.BlockedKeywords = []string{"leak", "secret-token"}
+	rawCfg, err := json.Marshal(cfg)
+	require.NoError(t, err)
+	repo := &contentModerationTestRepo{}
+	svc := NewContentModerationService(
+		&contentModerationTestSettingRepo{values: map[string]string{
+			SettingKeyRiskControlEnabled: "true", SettingKeyContentModerationConfig: string(rawCfg),
+		}},
+		repo, &contentModerationTestHashCache{}, nil, nil, nil, nil, nil,
+	)
+	body := []byte(`{"messages":[{"role":"user","content":"please leak this secret-token"}]}`)
+
+	decision, err := svc.Check(context.Background(), ContentModerationCheckInput{
+		Endpoint: "/v1/messages", Provider: "anthropic", Protocol: ContentModerationProtocolAnthropicMessages, Body: body,
+	})
+
+	require.NoError(t, err)
 	require.True(t, decision.Blocked)
-	require.Equal(t, ContentModerationActionKeywordBlock, decision.Action)
-	require.False(t, upstreamCalled, "keyword block must short-circuit upstream moderation call")
+	require.Equal(t, int64(1), upstreamCalls.Load())
 	logs := requireContentModerationLogCount(t, repo, 1)
-	require.True(t, logs[0].Flagged)
-	require.Equal(t, ContentModerationActionKeywordBlock, logs[0].Action)
-	require.Equal(t, contentModerationKeywordCategory, logs[0].HighestCategory)
-	require.Equal(t, "secret-token", logs[0].MatchedKeyword, "blocked log must record which keyword was hit")
+	require.Equal(t, ContentModerationActionBlock, logs[0].Action)
+	require.Contains(t, logs[0].MatchedKeyword, "leak+secret-token")
 }
 
 func TestContentModerationCheck_KeywordsIgnoredInObserveMode(t *testing.T) {
@@ -715,7 +750,7 @@ func TestContentModerationCheck_ModelFilterAllAuditsEveryModel(t *testing.T) {
 		})
 		require.NoError(t, err)
 		require.True(t, decision.Blocked)
-		require.Equal(t, ContentModerationActionKeywordBlock, decision.Action)
+		require.Equal(t, ContentModerationActionBlock, decision.Action)
 	}
 	requireContentModerationLogCount(t, repo, 2)
 }
@@ -732,7 +767,7 @@ func TestContentModerationCheck_ModelFilterIncludeOnlyAuditsListedModels(t *test
 	})
 	require.NoError(t, err)
 	require.True(t, decision.Blocked)
-	require.Equal(t, ContentModerationActionKeywordBlock, decision.Action)
+	require.Equal(t, ContentModerationActionBlock, decision.Action)
 
 	decision, err = svc.Check(context.Background(), ContentModerationCheckInput{
 		Model:    "gpt-5.4",
@@ -759,7 +794,7 @@ func TestContentModerationCheck_ModelFilterExcludeSkipsListedModels(t *testing.T
 	})
 	require.NoError(t, err)
 	require.True(t, decision.Blocked)
-	require.Equal(t, ContentModerationActionKeywordBlock, decision.Action)
+	require.Equal(t, ContentModerationActionBlock, decision.Action)
 
 	decision, err = svc.Check(context.Background(), ContentModerationCheckInput{
 		Model:    "gpt-5.4",
@@ -811,7 +846,7 @@ func TestContentModerationCheck_ModelFilterUsesRequestedModelNotBodyModel(t *tes
 
 	require.NoError(t, err)
 	require.True(t, decision.Blocked)
-	require.Equal(t, ContentModerationActionKeywordBlock, decision.Action)
+	require.Equal(t, ContentModerationActionBlock, decision.Action)
 	logs := requireContentModerationLogCount(t, repo, 1)
 	require.Equal(t, "gpt-5.5", logs[0].Model)
 }
@@ -820,12 +855,20 @@ func defaultContentModerationModelFilterTestConfig() *ContentModerationConfig {
 	cfg := defaultContentModerationConfig()
 	cfg.Enabled = true
 	cfg.Mode = ContentModerationModePreBlock
-	cfg.BlockedKeywords = []string{"secret-token"}
+	cfg.BlockedKeywords = []string{"leak", "secret-token"}
 	return cfg
 }
 
 func newContentModerationModelFilterTestService(t *testing.T, cfg *ContentModerationConfig) (*ContentModerationService, *contentModerationTestRepo) {
 	t.Helper()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(moderationAPIResponse{Results: []moderationAPIResult{{
+			CategoryScores: map[string]float64{"illicit": 0.99},
+		}}})
+	}))
+	t.Cleanup(server.Close)
+	cfg.BaseURL = server.URL
+	cfg.APIKeys = []string{"sk-test"}
 	rawCfg, err := json.Marshal(cfg)
 	require.NoError(t, err)
 	repo := &contentModerationTestRepo{}
@@ -1305,11 +1348,19 @@ func TestContentModerationStatusTracksPreBlockAPIKeyLoad(t *testing.T) {
 }
 
 func TestContentModerationStatusTracksPreBlockLocalBlocks(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(moderationAPIResponse{Results: []moderationAPIResult{{
+			CategoryScores: map[string]float64{"illicit": 0.99},
+		}}})
+	}))
+	defer server.Close()
 	cfg := defaultContentModerationConfig()
 	cfg.Enabled = true
 	cfg.Mode = ContentModerationModePreBlock
 	cfg.KeywordBlockingMode = ContentModerationKeywordModeKeywordOnly
-	cfg.BlockedKeywords = []string{"blocked"}
+	cfg.BaseURL = server.URL
+	cfg.APIKeys = []string{"sk-test"}
+	cfg.BlockedKeywords = []string{"blocked", "prompt"}
 	rawCfg, err := json.Marshal(cfg)
 	require.NoError(t, err)
 
@@ -1920,4 +1971,46 @@ func TestContentModerationUpdateConfig_CyberPolicyExcludeFromBanCount(t *testing
 	})
 	require.NoError(t, err)
 	require.False(t, view.CyberPolicyExcludeFromBanCount)
+}
+
+func TestHighConfidenceLocalSecurityReviewThresholdsEnforcesFloor(t *testing.T) {
+	thresholds := highConfidenceLocalSecurityReviewThresholds(map[string]float64{
+		"illicit":  0.40,
+		"violence": 0.97,
+	})
+
+	require.Equal(t, 0.90, thresholds["illicit"])
+	require.Equal(t, 0.97, thresholds["violence"])
+}
+
+func TestMatchBlockedKeywordCombinationRequiresDistinctNearbyTerms(t *testing.T) {
+	tests := []struct {
+		name     string
+		text     string
+		keywords []string
+		wantHit  bool
+	}{
+		{name: "single keyword", text: "please leak this token", keywords: []string{"leak", "credential"}},
+		{name: "duplicate configuration", text: "please leak this token", keywords: []string{"leak", "LEAK"}},
+		{name: "overlapping terms", text: "license bypass", keywords: []string{"license", "license bypass"}},
+		{name: "far apart", text: "leak" + strings.Repeat("x", contentModerationKeywordProximityWindow*3) + "credential", keywords: []string{"leak", "credential"}},
+		{name: "nearby combination", text: "please leak the credential now", keywords: []string{"leak", "credential"}, wantHit: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, hit := matchBlockedKeywordCombination(tt.text, tt.keywords)
+			require.Equal(t, tt.wantHit, hit)
+		})
+	}
+}
+
+func TestChatCompletionsModerationResultDoesNotPromoteLowConfidenceFlag(t *testing.T) {
+	result, err := chatCompletionsModerationResult(
+		`{"flagged":true,"category":"illicit","score":0.42}`,
+		map[string]float64{"illicit": 0.90},
+	)
+
+	require.NoError(t, err)
+	require.Equal(t, 0.42, result.CategoryScores["illicit"])
 }

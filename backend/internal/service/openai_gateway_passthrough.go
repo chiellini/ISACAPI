@@ -981,6 +981,7 @@ func (s *OpenAIGatewayService) recordOpenAIStreamUpstreamError(
 	}
 	if c != nil {
 		setOpsUpstreamError(c, statusCode, message, detail)
+		SetOpsUpstreamPolicyPayload(c, statusCode, payload)
 		event := OpsUpstreamErrorEvent{
 			Platform:           PlatformOpenAI,
 			UpstreamStatusCode: statusCode,
@@ -1195,6 +1196,7 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
 							s.newOpenAIStreamFailoverError(c, account, true, upstreamRequestID, dataBytes, failedMessage, resp.Header)
 					}
 				}
+				s.recordOpenAIStreamUpstreamError(c, account, true, upstreamRequestID, "stream_error", dataBytes, failedMessage)
 				forceFlushFailedEvent = true
 				sawFailedEvent = true
 			}

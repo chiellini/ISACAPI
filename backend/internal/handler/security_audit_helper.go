@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/json"
 	"net/http"
 	"strings"
 	"unicode"
@@ -12,7 +13,10 @@ import (
 	"go.uber.org/zap"
 )
 
-const securityAuditCompletedContextKey = "sub2api.security_audit.completed"
+const (
+	securityAuditCompletedContextKey = "sub2api.security_audit.completed"
+	securityAuditInputContextKey     = "sub2api.security_audit.input"
+)
 
 // conversationRuleProximityWindow bounds how far apart two rule terms may sit in
 // the normalized request text before they stop counting as one intent. The
@@ -24,6 +28,10 @@ const conversationRuleProximityWindow = 320
 // conversationRuleMaxAnchorScans bounds proximity scanning cost on large bodies.
 const conversationRuleMaxAnchorScans = 64
 
+// localSecurityClearMaliciousScore is the final high-confidence gate after a
+// local combination has triggered contextual API review.
+const localSecurityClearMaliciousScore = 0.90
+
 var conversationChinesePoliticalKeywordRules = [][]string{
 	{"中共中央", "政治局"},
 	{"习近平", "总书记"},
@@ -33,32 +41,32 @@ var conversationChinesePoliticalKeywordRules = [][]string{
 	{"中华人民共和国", "领导人", "讲话"},
 }
 
-// conversationPromptInjectionKeywordRules hard-blocks high-confidence prompt
-// injection / role-override fingerprints that omni-moderation and optional
-// Qwen3Guard often miss — especially meta "safety classifier" prompts that
-// force the model into an ambient-suggestion compliance evaluator and demand
-// JSON-only output. Keep this list narrow: single benign policy words must
-// not trip it.
+// conversationPromptInjectionKeywordRules identifies prompt-injection
+// candidates for contextual API review. Every rule contains at least two
+// independent fragments; a single policy word or quoted phrase is never enough
+// to reject a request locally.
 var conversationPromptInjectionKeywordRules = [][]string{
-	{"codex ambient suggestions"},
-	{"ambient suggestion candidates"},
+	{"codex", "ambient suggestions"},
+	{"ambient suggestion", "candidates"},
 	{"upholding safety and compliance standards", "codex"},
 	{"upholding safety and compliance standards", "ambient suggestion"},
 	{"ambient suggestion", "suggestion_id", "exclude"},
 	{"policies to always exclude", "ambient suggestion"},
 	{"suggestion candidates to evaluate", "suggestion_id"},
-	{"ignore previous instructions"},
-	{"ignore all previous instructions"},
-	{"disregard previous instructions"},
-	{"disregard all previous instructions"},
-	{"you are now dan"},
-	{"do anything now"},
-	{"jailbreak mode"},
-	{"developer mode enabled"},
+	{"ignore", "previous instructions"},
+	{"ignore", "all previous instructions"},
+	{"disregard", "previous instructions"},
+	{"disregard", "all previous instructions"},
+	{"you are now", "dan"},
+	{"do anything", "now"},
+	{"jailbreak", "mode"},
+	{"developer mode", "enabled"},
 }
 
-// conversationMandatoryDenyKeywordRules 是不可由评分阈值或审核失败策略降级的硬拒绝规则。
-// 单元素规则用于明确要求全部拒绝的高风险短语；多元素规则用于避免英文通用动词造成额外误报。
+// conversationMandatoryDenyKeywordRules is a legacy catalogue of restricted
+// intent markers. Single-element entries are retained for configuration
+// compatibility but are observation-only; matchConversationKeywordRuleEvidence
+// only promotes rules with at least two distinct nearby terms.
 var conversationMandatoryDenyKeywordRules = [][]string{
 	{"无限制prompt"}, {"无限制提示词"}, {"无限制系统提示词"},
 	{"无审查prompt"}, {"无过滤prompt"}, {"解除所有限制"},
@@ -199,7 +207,7 @@ type restrictedEngineeringAuditRule struct {
 	exact    []string
 }
 
-// restrictedEngineeringAuditRules covers the local hard-block intents for
+// restrictedEngineeringAuditRules covers local review candidates for
 // authorization/activation cracking and reverse engineering. Generic
 // security, debugging and low-level engineering vocabulary is deliberately
 // excluded — single technical words caused the bulk of the false positives.
@@ -221,7 +229,7 @@ var restrictedEngineeringAuditRules = []restrictedEngineeringAuditRule{
 	},
 	{
 		ruleName: "reverse_engineering_analysis",
-		actions:  []string{"逆向", "反编译", "反汇编", "脱壳", "decompile", "disassemble", "deobfuscate"},
+		actions:  []string{"逆向", "反编译", "反汇编", "脱壳", "reverse engineer", "reverse engineering", "decompile", "disassemble", "deobfuscate"},
 		targets:  []string{"固件", "二进制", "可执行文件", "安装包", "apk", "exe", "程序", "字节码", "firmware", "binary", "executable", "bytecode"},
 		exact:    []string{"reverse engineering", "reverse engineer", "逆向工程", "逆向分析", "软件逆向", "固件破解", "破解固件", "固件逆向", "反编译固件", "反汇编固件"},
 	},
@@ -253,10 +261,11 @@ func matchAuthorizationBypassRule(text string) string {
 }
 
 type localSecurityRiskMatch struct {
-	Rule      string
-	MatchType string
-	Score     int
-	Signals   int
+	Rule          string
+	MatchType     string
+	Score         int
+	Signals       int
+	EvidenceTerms int
 }
 
 func (m localSecurityRiskMatch) matched() bool {
@@ -264,6 +273,14 @@ func (m localSecurityRiskMatch) matched() bool {
 }
 
 func higherLocalSecurityRiskMatch(current, candidate localSecurityRiskMatch) localSecurityRiskMatch {
+	currentReviewEligible := current.EvidenceTerms >= 2
+	candidateReviewEligible := candidate.EvidenceTerms >= 2
+	if candidateReviewEligible != currentReviewEligible {
+		if candidateReviewEligible {
+			return candidate
+		}
+		return current
+	}
 	if candidate.Score > current.Score {
 		return candidate
 	}
@@ -276,7 +293,9 @@ func higherLocalSecurityRiskMatch(current, candidate localSecurityRiskMatch) loc
 // not counted repeatedly.
 func accumulateLocalSecurityRiskMatch(current, candidate localSecurityRiskMatch) localSecurityRiskMatch {
 	if !current.matched() {
-		candidate.Signals = 1
+		if candidate.Signals < 1 {
+			candidate.Signals = 1
+		}
 		return candidate
 	}
 	if !candidate.matched() {
@@ -289,7 +308,13 @@ func accumulateLocalSecurityRiskMatch(current, candidate localSecurityRiskMatch)
 	if current.Signals < 1 {
 		current.Signals = 1
 	}
-	current.Signals++
+	if candidate.Signals < 1 {
+		candidate.Signals = 1
+	}
+	current.Signals += candidate.Signals
+	if candidate.EvidenceTerms > current.EvidenceTerms {
+		current.EvidenceTerms = candidate.EvidenceTerms
+	}
 	if current.Signals == 2 {
 		current.Rule = current.Rule + "; " + candidate.Rule
 		current.MatchType = "multiple_configured_signals"
@@ -300,12 +325,40 @@ func accumulateLocalSecurityRiskMatch(current, candidate localSecurityRiskMatch)
 func evaluateAuthorizationBypassRisk(text string, configured []service.ContentModerationLocalSecurityRule) localSecurityRiskMatch {
 	best := evaluateConfiguredLocalSecurityRisk(text, configured)
 	best = higherLocalSecurityRiskMatch(best, evaluateRestrictedEngineeringRisk(text))
-	if matchedRule := matchConversationKeywordRule(text, conversationAuthorizationBypassKeywordRules); matchedRule != "" {
+	if matchedRule, evidenceTerms := matchConversationKeywordRuleEvidence(text, conversationAuthorizationBypassKeywordRules); matchedRule != "" {
 		best = higherLocalSecurityRiskMatch(best, localSecurityRiskMatch{
-			Rule:      "authorization_bypass (" + matchedRule + ")",
-			MatchType: "built_in_combination",
-			Score:     90,
-			Signals:   1,
+			Rule:          "authorization_bypass (" + matchedRule + ")",
+			MatchType:     "built_in_combination",
+			Score:         90,
+			Signals:       1,
+			EvidenceTerms: evidenceTerms,
+		})
+	}
+	return best
+}
+
+func evaluateConversationLocalSecurityRisk(text string, configured []service.ContentModerationLocalSecurityRule) localSecurityRiskMatch {
+	best := evaluateAuthorizationBypassRisk(text, configured)
+	for _, candidate := range []struct {
+		rules     [][]string
+		ruleName  string
+		matchType string
+		score     int
+	}{
+		{conversationMandatoryDenyKeywordRules, "restricted_intent", "conversation_restricted_intent", 100},
+		{conversationPromptInjectionKeywordRules, "prompt_injection", "conversation_prompt_injection", 90},
+		{conversationChinesePoliticalKeywordRules, "chinese_political", "conversation_chinese_political", 80},
+	} {
+		matchedRule, evidenceTerms := matchConversationKeywordRuleEvidence(text, candidate.rules)
+		if matchedRule == "" {
+			continue
+		}
+		best = higherLocalSecurityRiskMatch(best, localSecurityRiskMatch{
+			Rule:          candidate.ruleName + " (" + matchedRule + ")",
+			MatchType:     candidate.matchType,
+			Score:         candidate.score,
+			Signals:       1,
+			EvidenceTerms: evidenceTerms,
 		})
 	}
 	return best
@@ -316,28 +369,33 @@ func evaluateRestrictedEngineeringRisk(text string) localSecurityRiskMatch {
 	if normalized == "" {
 		return localSecurityRiskMatch{}
 	}
+	best := localSecurityRiskMatch{}
 	for _, rule := range restrictedEngineeringAuditRules {
+		ruleRisk := localSecurityRiskMatch{}
 		for _, exactTerm := range rule.exact {
 			normalizedExactTerm := normalizeConversationRuleText(exactTerm)
 			if normalizedExactTerm != "" && strings.Contains(normalized, normalizedExactTerm) {
-				return localSecurityRiskMatch{
-					Rule:      rule.ruleName + " (exact: " + exactTerm + ")",
-					MatchType: "built_in_exact",
-					Score:     100,
-					Signals:   1,
-				}
+				ruleRisk = higherLocalSecurityRiskMatch(ruleRisk, localSecurityRiskMatch{
+					Rule:          rule.ruleName + " (exact: " + exactTerm + ")",
+					MatchType:     "built_in_exact",
+					Score:         55,
+					Signals:       1,
+					EvidenceTerms: 1,
+				})
 			}
 		}
 		if action, target := matchRuleCombination(normalized, rule); action != "" {
-			return localSecurityRiskMatch{
-				Rule:      rule.ruleName + " (combined: " + action + "+" + target + ")",
-				MatchType: "built_in_combination",
-				Score:     90,
-				Signals:   1,
-			}
+			ruleRisk = higherLocalSecurityRiskMatch(ruleRisk, localSecurityRiskMatch{
+				Rule:          rule.ruleName + " (combined: " + action + "+" + target + ")",
+				MatchType:     "built_in_combination",
+				Score:         90,
+				Signals:       1,
+				EvidenceTerms: distinctConversationRuleTermCount(action, target),
+			})
 		}
+		best = higherLocalSecurityRiskMatch(best, ruleRisk)
 	}
-	return localSecurityRiskMatch{}
+	return best
 }
 
 // matchRuleCombination requires an action and a target to appear close to each
@@ -363,12 +421,18 @@ func matchRuleCombination(normalized string, rule restrictedEngineeringAuditRule
 }
 
 func matchConversationKeywordRule(text string, rules [][]string) string {
+	matchedRule, _ := matchConversationKeywordRuleEvidence(text, rules)
+	return matchedRule
+}
+
+func matchConversationKeywordRuleEvidence(text string, rules [][]string) (string, int) {
 	normalized := normalizeConversationRuleText(text)
 	if normalized == "" {
-		return ""
+		return "", 0
 	}
 	for _, rule := range rules {
 		terms := make([]string, 0, len(rule))
+		distinctTerms := make(map[string]struct{}, len(rule))
 		matched := true
 		for _, keyword := range rule {
 			normalizedKeyword := normalizeConversationRuleText(keyword)
@@ -380,15 +444,26 @@ func matchConversationKeywordRule(text string, rules [][]string) string {
 				break
 			}
 			terms = append(terms, normalizedKeyword)
+			distinctTerms[normalizedKeyword] = struct{}{}
 		}
-		if !matched || len(terms) == 0 {
+		if !matched || len(distinctTerms) < 2 {
 			continue
 		}
 		if conversationRuleTermsAreClose(normalized, terms...) {
-			return strings.Join(rule, "+")
+			return strings.Join(rule, "+"), len(distinctTerms)
 		}
 	}
-	return ""
+	return "", 0
+}
+
+func distinctConversationRuleTermCount(terms ...string) int {
+	distinct := make(map[string]struct{}, len(terms))
+	for _, term := range terms {
+		if normalized := normalizeConversationRuleText(term); normalized != "" {
+			distinct[normalized] = struct{}{}
+		}
+	}
+	return len(distinct)
 }
 
 type conversationRuleTerm struct {
@@ -411,8 +486,10 @@ func presentConversationRuleTerms(normalized string, terms []string) []conversat
 	return present
 }
 
-// conversationRuleTermsAreClose reports whether every term occurs within
-// conversationRuleProximityWindow bytes of one occurrence of the first term.
+// conversationRuleTermsAreClose reports whether every term has its own
+// non-overlapping occurrence within conversationRuleProximityWindow bytes of
+// one occurrence of the first term. A longer phrase therefore cannot satisfy a
+// "combination" merely because it contains a shorter configured term.
 func conversationRuleTermsAreClose(normalized string, terms ...string) bool {
 	if len(terms) == 0 {
 		return false
@@ -427,15 +504,8 @@ func conversationRuleTermsAreClose(normalized string, terms ...string) bool {
 			return false
 		}
 		start := offset + index
-		window := conversationRuleWindow(normalized, start, len(anchor))
-		matched := true
-		for _, term := range terms[1:] {
-			if !strings.Contains(window, term) {
-				matched = false
-				break
-			}
-		}
-		if matched {
+		from, window := conversationRuleWindow(normalized, start, len(anchor))
+		if conversationRuleTermsHaveDistinctOccurrences(window, start-from, len(anchor), terms[1:]) {
 			return true
 		}
 		offset = start + len(anchor)
@@ -443,7 +513,7 @@ func conversationRuleTermsAreClose(normalized string, terms ...string) bool {
 	return false
 }
 
-func conversationRuleWindow(normalized string, start, length int) string {
+func conversationRuleWindow(normalized string, start, length int) (int, string) {
 	from := start - conversationRuleProximityWindow
 	if from < 0 {
 		from = 0
@@ -452,7 +522,46 @@ func conversationRuleWindow(normalized string, start, length int) string {
 	if to > len(normalized) {
 		to = len(normalized)
 	}
-	return normalized[from:to]
+	return from, normalized[from:to]
+}
+
+type conversationRuleOccurrence struct {
+	start int
+	end   int
+}
+
+func conversationRuleTermsHaveDistinctOccurrences(window string, anchorStart, anchorLength int, terms []string) bool {
+	occupied := []conversationRuleOccurrence{{start: anchorStart, end: anchorStart + anchorLength}}
+	for _, term := range terms {
+		matched := false
+		for offset, scans := 0, 0; offset < len(window) && scans < conversationRuleMaxAnchorScans; scans++ {
+			index := strings.Index(window[offset:], term)
+			if index < 0 {
+				break
+			}
+			start := offset + index
+			candidate := conversationRuleOccurrence{start: start, end: start + len(term)}
+			if !conversationRuleOccurrenceOverlaps(candidate, occupied) {
+				occupied = append(occupied, candidate)
+				matched = true
+				break
+			}
+			offset = start + 1
+		}
+		if !matched {
+			return false
+		}
+	}
+	return true
+}
+
+func conversationRuleOccurrenceOverlaps(candidate conversationRuleOccurrence, occupied []conversationRuleOccurrence) bool {
+	for _, existing := range occupied {
+		if candidate.start < existing.end && existing.start < candidate.end {
+			return true
+		}
+	}
+	return false
 }
 
 func normalizeConversationRuleText(text string) string {
@@ -532,6 +641,9 @@ func runSecurityAudit(c *gin.Context, reqLog *zap.Logger, coordinator *securitya
 	if c == nil || c.Request == nil {
 		return nil
 	}
+	// Preserve request metadata for a policy refusal reported by the model
+	// provider after this preflight check has completed.
+	c.Set(securityAuditInputContextKey, buildContentModerationInput(c, apiKey, subject, protocol, model, body))
 	cacheCompletion := cachesSecurityAuditCompletion(stage)
 	if cacheCompletion {
 		if completed, exists := c.Get(securityAuditCompletedContextKey); exists && completed == true {
@@ -552,27 +664,10 @@ func runSecurityAudit(c *gin.Context, reqLog *zap.Logger, coordinator *securitya
 		return nil
 	}
 	conversationProtocol := isLocalSecurityAuditProtocol(protocol)
-	// 硬拒绝规则只允许账号白名单绕过，不受模型过滤、评分阈值或审核服务状态影响。
-	if conversationProtocol {
-		inputText := extractLocalSecurityAuditText(protocol, body)
-		if matchedRule := matchMandatoryDenyRule(inputText); matchedRule != "" {
-			request := buildSecurityAuditRequest(c, apiKey, subject, protocol, model, body, stage)
-			decision := &securityaudit.Decision{
-				Kind: securityaudit.DecisionBlock, HTTPStatus: http.StatusForbidden,
-				ErrorCode: "content_policy_violation", ClientMessage: "请求涉及受限话题，已被内容安全策略阻止",
-				AllowNextStage: false,
-			}
-			if reqLog != nil {
-				reqLog.Info("security_audit.local_block_check_done",
-					zap.String("request_id", request.RequestID), zap.String("decision", string(decision.Kind)),
-					zap.String("error_code", decision.ErrorCode), zap.Bool("allow_next_stage", decision.AllowNextStage),
-					zap.String("matched_rule", matchedRule), zap.String("matched_rule_type", "conversation_mandatory_deny"),
-					zap.String("stage", request.Stage))
-			}
-			return decision
-		}
-	}
-	// 可配置评分规则仍遵守模型范围，便于管理员控制哪些模型进入灰区复审。
+	forceLocalReview := false
+	localReviewRule := ""
+	// Local rules only nominate nearby multi-term combinations for contextual
+	// API review. They never produce a final block verdict by themselves.
 	localRulesApply := conversationProtocol && (legacy == nil || legacy.IsLocalSecurityAuditedModel(c.Request.Context(), model))
 	if localRulesApply {
 		request := buildSecurityAuditRequest(c, apiKey, subject, protocol, model, body, stage)
@@ -585,40 +680,6 @@ func runSecurityAudit(c *gin.Context, reqLog *zap.Logger, coordinator *securitya
 				zap.String("protocol", request.Protocol), zap.String("model", request.Model), zap.String("stage", request.Stage),
 				zap.Int("body_bytes", len(body)), zap.String("match_type", "conversation_local_rules"))
 		}
-		if matchedRule := matchChinesePoliticalRule(inputText); matchedRule != "" {
-			decision := &securityaudit.Decision{
-				Kind:           securityaudit.DecisionBlock,
-				HTTPStatus:     http.StatusForbidden,
-				ErrorCode:      "content_policy_violation",
-				ClientMessage:  "请求涉及受限话题，已被内容安全策略阻止",
-				AllowNextStage: false,
-			}
-			if reqLog != nil {
-				reqLog.Info("security_audit.local_block_check_done",
-					zap.String("request_id", request.RequestID), zap.String("decision", string(decision.Kind)),
-					zap.String("error_code", decision.ErrorCode), zap.Bool("allow_next_stage", decision.AllowNextStage),
-					zap.String("matched_rule", matchedRule), zap.String("matched_rule_type", "conversation_chinese_political"),
-					zap.String("stage", request.Stage))
-			}
-			return decision
-		}
-		if matchedRule := matchPromptInjectionRule(inputText); matchedRule != "" {
-			decision := &securityaudit.Decision{
-				Kind:           securityaudit.DecisionBlock,
-				HTTPStatus:     http.StatusForbidden,
-				ErrorCode:      "content_policy_violation",
-				ClientMessage:  "请求涉及受限话题，已被内容安全策略阻止",
-				AllowNextStage: false,
-			}
-			if reqLog != nil {
-				reqLog.Info("security_audit.local_block_check_done",
-					zap.String("request_id", request.RequestID), zap.String("decision", string(decision.Kind)),
-					zap.String("error_code", decision.ErrorCode), zap.Bool("allow_next_stage", decision.AllowNextStage),
-					zap.String("matched_rule", matchedRule), zap.String("matched_rule_type", "conversation_prompt_injection"),
-					zap.String("stage", request.Stage))
-			}
-			return decision
-		}
 		configuredRules := []service.ContentModerationLocalSecurityRule(nil)
 		localPolicy := service.ContentModerationLocalSecurityPolicy{
 			BlockScore:   80,
@@ -628,80 +689,82 @@ func runSecurityAudit(c *gin.Context, reqLog *zap.Logger, coordinator *securitya
 			configuredRules = legacy.LocalSecurityRules(c.Request.Context())
 			localPolicy = legacy.LocalSecurityPolicy(c.Request.Context())
 		}
-		riskMatch := evaluateAuthorizationBypassRisk(inputText, configuredRules)
-		if riskMatch.matched() && riskMatch.Score >= localPolicy.BlockScore {
-			decision := &securityaudit.Decision{
-				Kind:           securityaudit.DecisionBlock,
-				HTTPStatus:     http.StatusForbidden,
-				ErrorCode:      "content_policy_violation",
-				ClientMessage:  "请求涉及受限话题，已被内容安全策略阻止",
-				AllowNextStage: false,
-			}
-			if reqLog != nil {
-				reqLog.Info("security_audit.local_block_check_done",
-					zap.String("request_id", request.RequestID), zap.String("decision", string(decision.Kind)),
-					zap.String("error_code", decision.ErrorCode), zap.Bool("allow_next_stage", decision.AllowNextStage),
-					zap.String("matched_rule", riskMatch.Rule), zap.String("matched_rule_type", riskMatch.MatchType),
-					zap.Int("risk_score", riskMatch.Score), zap.Int("risk_signals", riskMatch.Signals), zap.Int("block_score", localPolicy.BlockScore),
-					zap.String("stage", request.Stage))
-			}
-			return decision
-		}
-		if riskMatch.matched() && riskMatch.Score >= localPolicy.ObserveScore {
+		riskMatch := evaluateConversationLocalSecurityRisk(inputText, configuredRules)
+		forcedReview := riskMatch.matched() && riskMatch.EvidenceTerms >= 2 && riskMatch.Score >= localPolicy.BlockScore
+		if forcedReview {
+			forceLocalReview = true
+			localReviewRule = riskMatch.Rule
 			if reqLog != nil {
 				reqLog.Info("security_audit.local_risk_review_start",
 					zap.String("request_id", request.RequestID), zap.String("matched_rule", riskMatch.Rule),
 					zap.String("matched_rule_type", riskMatch.MatchType), zap.Int("risk_score", riskMatch.Score),
-					zap.Int("risk_signals", riskMatch.Signals), zap.Int("observe_score", localPolicy.ObserveScore), zap.Int("block_score", localPolicy.BlockScore),
+					zap.Int("risk_signals", riskMatch.Signals), zap.Int("risk_evidence_terms", riskMatch.EvidenceTerms),
+					zap.Int("observe_score", localPolicy.ObserveScore), zap.Int("review_score", localPolicy.BlockScore),
 					zap.String("protocol", request.Protocol), zap.String("model", request.Model), zap.String("stage", request.Stage))
 			}
-			if legacy == nil {
-				return &securityaudit.Decision{Kind: securityaudit.DecisionBlock, HTTPStatus: http.StatusForbidden, ErrorCode: "content_policy_violation", ClientMessage: "内容安全复审暂不可用，请稍后重试", AllowNextStage: false}
-			}
-			reviewDecision, reviewErr := legacy.ReviewLocalSecurityRisk(c.Request.Context(), buildContentModerationInput(c, apiKey, subject, protocol, model, body))
-			if reviewErr != nil || reviewDecision == nil {
-				if reqLog != nil {
-					reqLog.Warn("security_audit.local_risk_review_failed", zap.String("request_id", request.RequestID), zap.Error(reviewErr))
+			if coordinator == nil && legacy != nil {
+				reviewInput := buildContentModerationInput(c, apiKey, subject, protocol, model, body)
+				reviewInput.LocalSecurityMatchedRule = riskMatch.Rule
+				reviewDecision, reviewErr := legacy.ReviewLocalSecurityRisk(c.Request.Context(), reviewInput)
+				if reviewErr != nil || reviewDecision == nil {
+					if reqLog != nil {
+						reqLog.Warn("security_audit.local_risk_review_failed", zap.String("request_id", request.RequestID), zap.Error(reviewErr))
+					}
+				} else {
+					decision := &securityaudit.Decision{Kind: securityaudit.DecisionAllow, HTTPStatus: http.StatusOK, AllowNextStage: true}
+					decision.Legacy = &securityaudit.LegacyDecision{
+						Allowed: reviewDecision.Allowed, Blocked: reviewDecision.Blocked, Flagged: reviewDecision.Flagged,
+						Message: reviewDecision.Message, StatusCode: reviewDecision.StatusCode,
+						ErrorCode: "content_policy_violation", Action: reviewDecision.Action,
+					}
+					if reviewDecision.Blocked && reviewDecision.Action != service.ContentModerationActionError && reviewDecision.HighestScore >= localSecurityClearMaliciousScore {
+						decision.Kind = securityaudit.DecisionBlock
+						decision.HTTPStatus = contentModerationStatus(reviewDecision)
+						decision.ErrorCode = "content_policy_violation"
+						decision.ClientMessage = reviewDecision.Message
+						decision.AllowNextStage = false
+					}
+					if reqLog != nil {
+						reqLog.Info("security_audit.local_risk_review_done",
+							zap.String("request_id", request.RequestID), zap.String("decision", string(decision.Kind)),
+							zap.Bool("allow_next_stage", decision.AllowNextStage), zap.Bool("flagged", reviewDecision.Flagged),
+							zap.Float64("review_score", reviewDecision.HighestScore), zap.Float64("malicious_score", localSecurityClearMaliciousScore),
+							zap.String("matched_rule", riskMatch.Rule), zap.Int("risk_score", riskMatch.Score))
+					}
+					if !decision.AllowNextStage {
+						return decision
+					}
 				}
-				return &securityaudit.Decision{Kind: securityaudit.DecisionBlock, HTTPStatus: http.StatusForbidden, ErrorCode: "content_policy_violation", ClientMessage: "内容安全复审暂不可用，请稍后重试", AllowNextStage: false}
+			} else if coordinator == nil && reqLog != nil {
+				reqLog.Warn("security_audit.local_risk_review_unavailable", zap.String("request_id", request.RequestID))
 			}
-			decision := &securityaudit.Decision{Kind: securityaudit.DecisionAllow, HTTPStatus: http.StatusOK, AllowNextStage: true}
-			decision.Legacy = &securityaudit.LegacyDecision{
-				Allowed: reviewDecision.Allowed, Blocked: reviewDecision.Blocked, Flagged: reviewDecision.Flagged,
-				Message: reviewDecision.Message, StatusCode: reviewDecision.StatusCode,
-				ErrorCode: "content_policy_violation", Action: reviewDecision.Action,
-			}
-			if reviewDecision.Blocked || reviewDecision.Flagged {
-				decision.Kind = securityaudit.DecisionBlock
-				decision.HTTPStatus = contentModerationStatus(reviewDecision)
-				decision.ErrorCode = "content_policy_violation"
-				decision.ClientMessage = reviewDecision.Message
-				decision.AllowNextStage = false
-			}
+		} else if riskMatch.matched() && riskMatch.Score >= localPolicy.ObserveScore {
 			if reqLog != nil {
-				reqLog.Info("security_audit.local_risk_review_done",
-					zap.String("request_id", request.RequestID), zap.String("decision", string(decision.Kind)),
-					zap.Bool("allow_next_stage", decision.AllowNextStage), zap.Bool("flagged", reviewDecision.Flagged),
-					zap.String("matched_rule", riskMatch.Rule), zap.Int("risk_score", riskMatch.Score))
+				reqLog.Info("security_audit.local_risk_observed",
+					zap.String("request_id", request.RequestID), zap.String("matched_rule", riskMatch.Rule),
+					zap.String("matched_rule_type", riskMatch.MatchType), zap.Int("risk_score", riskMatch.Score),
+					zap.Int("risk_signals", riskMatch.Signals), zap.Int("risk_evidence_terms", riskMatch.EvidenceTerms),
+					zap.Int("observe_score", localPolicy.ObserveScore), zap.Int("review_score", localPolicy.BlockScore),
+					zap.String("stage", request.Stage))
 			}
-			if decision.AllowNextStage && cacheCompletion {
-				c.Set(securityAuditCompletedContextKey, true)
-			}
-			return decision
 		}
 		if reqLog != nil {
 			reqLog.Info("security_audit.local_block_check_done",
 				zap.String("request_id", request.RequestID), zap.String("decision", string(securityaudit.DecisionAllow)),
-				zap.String("error_code", ""), zap.Bool("allow_next_stage", true), zap.String("matched_rule", ""),
-				zap.String("matched_rule_type", ""), zap.String("stage", request.Stage))
+				zap.String("error_code", ""), zap.Bool("allow_next_stage", true), zap.String("matched_rule", riskMatch.Rule),
+				zap.String("matched_rule_type", riskMatch.MatchType), zap.String("stage", request.Stage))
 		}
-		decision := &securityaudit.Decision{Kind: securityaudit.DecisionAllow, HTTPStatus: http.StatusOK, AllowNextStage: true}
-		if cacheCompletion {
-			c.Set(securityAuditCompletedContextKey, true)
-		}
-		return decision
+		// A local allow is not the final audit decision. The legacy moderation
+		// engine and prompt-audit coordinator still own their independent checks.
 	}
 	if coordinator == nil {
+		if forceLocalReview {
+			decision := &securityaudit.Decision{Kind: securityaudit.DecisionAllow, HTTPStatus: http.StatusOK, AllowNextStage: true}
+			if cacheCompletion {
+				c.Set(securityAuditCompletedContextKey, true)
+			}
+			return decision
+		}
 		legacyDecision := runContentModeration(c, reqLog, legacy, apiKey, subject, protocol, model, body)
 		if legacyDecision == nil {
 			return nil
@@ -721,6 +784,8 @@ func runSecurityAudit(c *gin.Context, reqLog *zap.Logger, coordinator *securitya
 		return &decision
 	}
 	request := buildSecurityAuditRequest(c, apiKey, subject, protocol, model, body, stage)
+	request.ForceLocalSecurityReview = forceLocalReview
+	request.LocalSecurityMatchedRule = localReviewRule
 	if reqLog != nil {
 		reqLog.Info("security_audit.gateway_check_start",
 			zap.String("request_id", request.RequestID), zap.Int64("user_id", request.UserID),
@@ -730,6 +795,7 @@ func runSecurityAudit(c *gin.Context, reqLog *zap.Logger, coordinator *securitya
 			zap.Int("body_bytes", len(body)))
 	}
 	decision := coordinator.Check(c.Request.Context(), request)
+	recordPromptGuardBlock(c, legacy, &decision)
 	if decision.AllowNextStage && cacheCompletion {
 		c.Set(securityAuditCompletedContextKey, true)
 	}
@@ -757,6 +823,147 @@ func extractLocalSecurityAuditText(protocol string, body []byte) string {
 	// Preserve the established extractor for legacy payload shapes that are not
 	// recognized by the prompt-audit parser.
 	return service.ExtractContentModerationText(protocol, body)
+}
+
+const securityAuditUpstreamPolicyRecordedKey = "sub2api.security_audit.upstream_policy_recorded"
+
+const securityAuditPromptGuardRecordedKey = "sub2api.security_audit.prompt_guard_recorded"
+
+const securityAuditSessionPolicyRecordedKey = "sub2api.security_audit.session_policy_recorded"
+
+func recordSessionPolicyBlock(c *gin.Context, moderation *service.ContentModerationService) bool {
+	if c == nil || c.Request == nil || moderation == nil || c.GetBool(securityAuditSessionPolicyRecordedKey) {
+		return false
+	}
+	value, exists := c.Get(securityAuditInputContextKey)
+	input, ok := value.(service.ContentModerationCheckInput)
+	if !exists || !ok {
+		return false
+	}
+	input.Body = nil
+	c.Set(securityAuditSessionPolicyRecordedKey, true)
+	moderation.RecordSecurityPolicyBlock(c.Request.Context(), service.SecurityPolicyBlockInput{
+		Request: input, Action: service.ContentModerationActionSessionPolicyBlock,
+		Category: "cyber_policy_session", MatchedRule: "session_blocked_by_cyber_policy",
+		Message: cyberSessionBlockedClientMsg,
+	})
+	return true
+}
+
+func recordPromptGuardBlock(c *gin.Context, moderation *service.ContentModerationService, decision *securityaudit.Decision) bool {
+	if c == nil || c.Request == nil || moderation == nil || decision == nil || decision.Kind != securityaudit.DecisionBlock || decision.Prompt == nil || decision.Prompt.Kind != securityaudit.DecisionBlock || c.GetBool(securityAuditPromptGuardRecordedKey) {
+		return false
+	}
+	if decision.Legacy != nil && decision.Legacy.Blocked {
+		return false
+	}
+	value, exists := c.Get(securityAuditInputContextKey)
+	input, ok := value.(service.ContentModerationCheckInput)
+	if !exists || !ok {
+		return false
+	}
+	category := "prompt_guard"
+	matchedRule := "prompt_guard"
+	if result := decision.Prompt.Result; result != nil {
+		if len(result.Categories) > 0 && strings.TrimSpace(result.Categories[0]) != "" {
+			category = strings.TrimSpace(result.Categories[0])
+		}
+		if len(result.MatchedScanners) > 0 {
+			matchedRule = strings.Join(result.MatchedScanners, ",")
+		}
+	}
+	input.Body = nil
+	c.Set(securityAuditPromptGuardRecordedKey, true)
+	moderation.RecordSecurityPolicyBlock(c.Request.Context(), service.SecurityPolicyBlockInput{
+		Request: input, Action: service.ContentModerationActionPromptGuardBlock,
+		Category: category, MatchedRule: matchedRule, Message: decision.ClientMessage,
+	})
+	return true
+}
+
+func recordUpstreamPolicyBlock(c *gin.Context, moderation *service.ContentModerationService, provider string, statusCode int, responseBody string) bool {
+	if c == nil || c.Request == nil || moderation == nil || c.GetBool(securityAuditUpstreamPolicyRecordedKey) {
+		return false
+	}
+	rejection, matched := service.DetectUpstreamContentPolicyRejection(statusCode, []byte(responseBody))
+	if !matched {
+		return false
+	}
+	value, exists := c.Get(securityAuditInputContextKey)
+	input, ok := value.(service.ContentModerationCheckInput)
+	if !exists || !ok {
+		return false
+	}
+	if resolvedProvider := strings.TrimSpace(provider); resolvedProvider != "" {
+		input.Provider = resolvedProvider
+	}
+	input.Body = nil
+	c.Set(securityAuditUpstreamPolicyRecordedKey, true)
+	moderation.RecordUpstreamPolicyBlock(c.Request.Context(), service.UpstreamPolicyBlockInput{
+		Request:      input,
+		StatusCode:   statusCode,
+		PolicyCode:   rejection.Code,
+		Message:      rejection.Message,
+		ResponseBody: responseBody,
+	})
+	return true
+}
+
+// recordUpstreamPolicyBlockFromOpsContext covers service paths that already
+// wrote a provider refusal directly to the client instead of returning an
+// UpstreamFailoverError. Those paths preserve the original status/body in the
+// shared Ops context.
+func recordUpstreamPolicyBlockFromOpsContext(c *gin.Context, moderation *service.ContentModerationService, provider string) bool {
+	if c == nil {
+		return false
+	}
+	// cyber_policy has its own authoritative audit path, counters, and alerting.
+	// The upstream ops payload contains the same policy code, so bridging it here
+	// would create a second upstream_policy_block row for one refusal.
+	if service.GetOpsCyberPolicy(c) != nil {
+		return false
+	}
+	statusCode := 0
+	if value, exists := c.Get(service.OpsUpstreamStatusCodeKey); exists {
+		switch status := value.(type) {
+		case int:
+			statusCode = status
+		case int64:
+			statusCode = int(status)
+		}
+	}
+	message, _ := c.Get(service.OpsUpstreamErrorMessageKey)
+	detail, _ := c.Get(service.OpsUpstreamErrorDetailKey)
+	policyPayload, _ := c.Get(service.OpsUpstreamPolicyPayloadKey)
+	parts := make([]string, 0, 3)
+	if text, ok := message.(string); ok && strings.TrimSpace(text) != "" {
+		parts = append(parts, strings.TrimSpace(text))
+	}
+	if text, ok := detail.(string); ok && strings.TrimSpace(text) != "" {
+		parts = append(parts, strings.TrimSpace(text))
+	}
+	if text, ok := policyPayload.(string); ok && strings.TrimSpace(text) != "" {
+		parts = append(parts, strings.TrimSpace(text))
+	}
+	if len(parts) == 0 {
+		return false
+	}
+	return recordUpstreamPolicyBlock(c, moderation, provider, statusCode, strings.Join(parts, "\n"))
+}
+
+func recordOpenAIImagesPolicyBlock(c *gin.Context, moderation *service.ContentModerationService, upstreamErr *service.OpenAIImagesUpstreamError) bool {
+	if upstreamErr == nil {
+		return false
+	}
+	payload, err := json.Marshal(map[string]any{"error": map[string]any{
+		"type":    upstreamErr.ErrorType,
+		"code":    upstreamErr.Code,
+		"message": upstreamErr.Message,
+	}})
+	if err != nil {
+		return false
+	}
+	return recordUpstreamPolicyBlock(c, moderation, service.PlatformOpenAI, upstreamErr.StatusCode, string(payload))
 }
 
 // securityAuditUserIdentifiers returns the non-numeric identifiers an admin may
@@ -795,9 +1002,11 @@ func evaluateConfiguredLocalSecurityRisk(text string, rules []service.ContentMod
 			term := normalizeConversationRuleText(exact)
 			if term != "" && strings.Contains(normalized, term) {
 				ruleRisk = higherLocalSecurityRiskMatch(ruleRisk, localSecurityRiskMatch{
-					Rule:      "LocalSecurityRule:" + rule.RuleName + " (exact: " + exact + ")",
-					MatchType: "configured_exact",
-					Score:     configuredLocalSecurityRuleScore(rule, 100),
+					Rule:          "LocalSecurityRule:" + rule.RuleName + " (exact: " + exact + ")",
+					MatchType:     "configured_exact",
+					Score:         configuredLocalSecurityRuleScore(rule, 100),
+					Signals:       1,
+					EvidenceTerms: 1,
 				})
 			}
 		}
@@ -812,15 +1021,18 @@ func evaluateConfiguredLocalSecurityRisk(text string, rules []service.ContentMod
 				}
 				terms = append(terms, term)
 			}
-			if allMatched && len(terms) > 0 {
+			evidenceTerms := distinctConversationRuleTermCount(rule.All...)
+			if allMatched && evidenceTerms > 0 {
 				score := configuredLocalSecurityRuleScore(rule, 90)
 				if !conversationRuleTermsAreClose(normalized, terms...) {
 					score = minLocalSecurityRiskScore(score, 55)
 				}
 				ruleRisk = higherLocalSecurityRiskMatch(ruleRisk, localSecurityRiskMatch{
-					Rule:      "LocalSecurityRule:" + rule.RuleName + " (all terms)",
-					MatchType: "configured_all",
-					Score:     score,
+					Rule:          "LocalSecurityRule:" + rule.RuleName + " (all terms)",
+					MatchType:     "configured_all",
+					Score:         score,
+					Signals:       1,
+					EvidenceTerms: evidenceTerms,
 				})
 			}
 		}
@@ -832,14 +1044,17 @@ func evaluateConfiguredLocalSecurityRisk(text string, rules []service.ContentMod
 			for _, target := range rule.Targets {
 				targetTerm := normalizeConversationRuleText(target)
 				if targetTerm != "" && strings.Contains(normalized, targetTerm) {
+					evidenceTerms := distinctConversationRuleTermCount(action, target)
 					score := configuredLocalSecurityRuleScore(rule, 80)
 					if !conversationRuleTermsAreClose(normalized, actionTerm, targetTerm) {
 						score = minLocalSecurityRiskScore(score, 55)
 					}
 					ruleRisk = higherLocalSecurityRiskMatch(ruleRisk, localSecurityRiskMatch{
-						Rule:      "LocalSecurityRule:" + rule.RuleName + " (action + target: " + action + "+" + target + ")",
-						MatchType: "configured_combination",
-						Score:     score,
+						Rule:          "LocalSecurityRule:" + rule.RuleName + " (action + target: " + action + "+" + target + ")",
+						MatchType:     "configured_combination",
+						Score:         score,
+						Signals:       1,
+						EvidenceTerms: evidenceTerms,
 					})
 				}
 			}

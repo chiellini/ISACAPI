@@ -127,6 +127,9 @@ func (h *OpenAIGatewayHandler) CountTokens(c *gin.Context) {
 
 	setOpsRequestContext(c, reqModel, false)
 	setOpsEndpointContext(c, "", int16(service.RequestTypeFromLegacy(false, false)))
+	c.Set(securityAuditInputContextKey, buildContentModerationInput(
+		c, apiKey, subject, service.ContentModerationProtocolAnthropicMessages, reqModel, body,
+	))
 
 	channelMapping, _ := h.gatewayService.ResolveChannelMappingAndRestrict(c.Request.Context(), apiKey.GroupID, reqModel)
 	mappedBodyForMessages := newOpenAIModelMappedBodyCache(body, h.gatewayService.ReplaceModelInBody)
@@ -193,7 +196,9 @@ func (h *OpenAIGatewayHandler) CountTokens(c *gin.Context) {
 	forwardBody := mappedBodyForMessages(channelMapping.Mapped, channelMapping.MappedModel)
 	defaultMappedModel := preferredMappedModel
 
+	service.ResetOpsUpstreamErrorAttemptContext(c)
 	if err := h.gatewayService.ForwardCountTokensAsAnthropic(c.Request.Context(), c, account, forwardBody, defaultMappedModel); err != nil {
+		recordUpstreamPolicyBlockFromOpsContext(c, h.contentModerationService, account.Platform)
 		reqLog.Error("openai_count_tokens.forward_failed", zap.Int64("account_id", account.ID), zap.Error(err))
 	}
 }

@@ -374,6 +374,9 @@ func (h *GatewayHandler) chatCompletionsErrorResponse(c *gin.Context, status int
 
 // handleCCFailoverExhausted writes a failover-exhausted error in CC format.
 func (h *GatewayHandler) handleCCFailoverExhausted(c *gin.Context, lastErr *service.UpstreamFailoverError, streamStarted bool) {
+	if lastErr != nil {
+		recordUpstreamPolicyBlock(c, h.contentModerationService, "", lastErr.StatusCode, string(lastErr.ResponseBody))
+	}
 	if streamStarted {
 		return
 	}

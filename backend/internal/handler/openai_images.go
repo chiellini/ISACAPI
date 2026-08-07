@@ -261,6 +261,10 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 			service.SetOpsLatencyMs(c, service.OpsTimeToFirstTokenMsKey, int64(*result.FirstTokenMs))
 		}
 		if err != nil {
+			var policyImageErr *service.OpenAIImagesUpstreamError
+			if errors.As(err, &policyImageErr) {
+				recordOpenAIImagesPolicyBlock(c, h.contentModerationService, policyImageErr)
+			}
 			if result != nil && result.ImageCount > 0 {
 				reqLog.Warn("openai.images.forward_partial_error_with_image_result",
 					zap.Int64("account_id", account.ID),

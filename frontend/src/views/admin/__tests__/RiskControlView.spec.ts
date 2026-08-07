@@ -458,4 +458,69 @@ describe('admin RiskControlView', () => {
       'overflow-y-auto',
     ]))
   })
+
+  it('labels every unified policy block as blocked in the audit log', async () => {
+    const basePolicyLog = {
+      request_id: 'request-policy-block',
+      user_id: 31,
+      user_email: 'user@example.com',
+      api_key_id: 7,
+      api_key_name: 'production',
+      group_id: 2,
+      group_name: 'claude',
+      endpoint: '/v1/messages',
+      provider: 'anthropic',
+      model: 'claude-fable-5',
+      mode: 'pre_block',
+      flagged: true,
+      highest_category: 'content_policy_violation',
+      highest_score: 1,
+      matched_keyword: 'content_policy_violation',
+      category_scores: { content_policy_violation: 1 },
+      threshold_snapshot: {},
+      input_excerpt: '',
+      upstream_latency_ms: null,
+      error: '',
+      violation_count: 0,
+      auto_banned: false,
+      email_sent: false,
+      user_status: 'active',
+      queue_delay_ms: null,
+      created_at: '2026-08-06T08:44:53Z',
+    }
+    listLogs.mockResolvedValue({
+      items: [
+        { ...basePolicyLog, id: 1, action: 'upstream_policy_block' },
+        { ...basePolicyLog, id: 2, action: 'prompt_guard_block' },
+        { ...basePolicyLog, id: 3, action: 'session_policy_block' },
+      ],
+      total: 3,
+      page: 1,
+      page_size: 20,
+      pages: 1,
+    })
+
+    const wrapper = mount(RiskControlView, {
+      global: {
+        stubs: {
+          AppLayout: AppLayoutStub,
+          BaseDialog: BaseDialogStub,
+          Icon: true,
+          Select: true,
+          Toggle: true,
+          Pagination: true,
+          ModelWhitelistSelector: ModelWhitelistSelectorStub,
+          ProxySelector: true,
+        },
+      },
+    })
+
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('admin.riskControl.action.upstreamPolicyBlock')
+    expect(wrapper.text()).toContain('admin.riskControl.action.promptGuardBlock')
+    expect(wrapper.text()).toContain('admin.riskControl.action.sessionPolicyBlock')
+    expect(wrapper.text()).toContain('content_policy_violation')
+    expect(wrapper.findAll('.bg-red-100')).toHaveLength(3)
+  })
 })

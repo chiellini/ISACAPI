@@ -14,7 +14,11 @@ const (
 	OpsUpstreamStatusCodeKey   = "ops_upstream_status_code"
 	OpsUpstreamErrorMessageKey = "ops_upstream_error_message"
 	OpsUpstreamErrorDetailKey  = "ops_upstream_error_detail"
-	OpsUpstreamErrorsKey       = "ops_upstream_errors"
+	// OpsUpstreamPolicyPayloadKey is an audit-only, bounded payload for explicit
+	// policy refusals. It is independent of LogUpstreamErrorBody so a structured
+	// policy code is not lost when general upstream-body logging is disabled.
+	OpsUpstreamPolicyPayloadKey = "ops_upstream_policy_payload"
+	OpsUpstreamErrorsKey        = "ops_upstream_errors"
 
 	// Optional stage latencies (milliseconds) for troubleshooting and alerting.
 	OpsAuthLatencyMsKey      = "ops_auth_latency_ms"
@@ -170,6 +174,36 @@ func GetOpsStreamError(c *gin.Context) (OpsStreamError, bool) {
 // original upstream status code before mapping it to a client-facing code.
 func SetOpsUpstreamError(c *gin.Context, upstreamStatusCode int, upstreamMessage, upstreamDetail string) {
 	setOpsUpstreamError(c, upstreamStatusCode, upstreamMessage, upstreamDetail)
+}
+
+// ResetOpsUpstreamErrorAttemptContext prevents flat fields from one failed
+// account attempt being combined with a later attempt. The accumulated
+// OpsUpstreamErrorsKey history is intentionally preserved.
+func ResetOpsUpstreamErrorAttemptContext(c *gin.Context) {
+	if c == nil {
+		return
+	}
+	for _, key := range []string{
+		OpsUpstreamStatusCodeKey,
+		OpsUpstreamErrorMessageKey,
+		OpsUpstreamErrorDetailKey,
+		OpsUpstreamPolicyPayloadKey,
+	} {
+		c.Set(key, nil)
+	}
+}
+
+// SetOpsUpstreamPolicyPayload preserves only explicit request-scoped policy
+// refusals for the unified security audit. It does not enable general upstream
+// response-body logging.
+func SetOpsUpstreamPolicyPayload(c *gin.Context, statusCode int, payload []byte) {
+	if c == nil || len(payload) == 0 {
+		return
+	}
+	if _, rejected := DetectUpstreamContentPolicyRejection(statusCode, payload); !rejected {
+		return
+	}
+	c.Set(OpsUpstreamPolicyPayloadKey, truncateString(string(payload), 4096))
 }
 
 func setOpsUpstreamError(c *gin.Context, upstreamStatusCode int, upstreamMessage, upstreamDetail string) {

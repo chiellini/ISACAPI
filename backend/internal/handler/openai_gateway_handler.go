@@ -657,6 +657,7 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 		// 用扣除 compact 心跳字节的口径快照：心跳注释不构成语义响应，
 		// 不能因心跳字节变化而放弃 failover 换号（#3887）。
 		writerSizeBeforeForward := service.OpenAICompactKeepaliveAdjustedWrittenSize(c)
+		service.ResetOpsUpstreamErrorAttemptContext(c)
 		// 跨 passthrough 边界的 failover：从 Kiro 等透传账号切到 Bedrock 等非透传账号前，
 		// 从不可变的 canonical forwardBody 派生本次尝试 body 并整块剔除上游私有的加密
 		// reasoning item（含耦合的 id/summary），避免非透传上游 400 拒绝 Kiro reasoning 形态。
@@ -686,6 +687,7 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 		}
 		if err != nil {
 			if result != nil && result.ImageCount > 0 {
+				recordUpstreamPolicyBlockFromOpsContext(c, h.contentModerationService, account.Platform)
 				reqLog.Warn("openai.forward_partial_error_with_image_result",
 					zap.Int64("account_id", account.ID),
 					zap.Int("image_count", result.ImageCount),
@@ -769,6 +771,7 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 					reqLog.Warn("openai.upstream_failover_switching", failoverSwitchFields...)
 					continue
 				}
+				recordUpstreamPolicyBlockFromOpsContext(c, h.contentModerationService, account.Platform)
 				h.gatewayService.ReportOpenAIAccountScheduleResult(account.ID, account.GetMappedModel(reqModel), false, nil)
 				upstreamErrorAlreadyCommunicated := openAIForwardErrorAlreadyCommunicated(c, writerSizeBeforeForward, err)
 				wroteFallback := false
@@ -1220,6 +1223,7 @@ func (h *OpenAIGatewayHandler) Messages(c *gin.Context) {
 		// 应用渠道模型映射到请求体
 		forwardBody := mappedBodyForMessages(channelMappingMsg.Mapped, channelMappingMsg.MappedModel)
 		writerSizeBeforeForward := c.Writer.Size()
+		service.ResetOpsUpstreamErrorAttemptContext(c)
 		result, err := func() (*service.OpenAIForwardResult, error) {
 			defer func() {
 				if accountReleaseFunc != nil {
@@ -1244,7 +1248,10 @@ func (h *OpenAIGatewayHandler) Messages(c *gin.Context) {
 			service.SetOpsLatencyMs(c, service.OpsTimeToFirstTokenMsKey, int64(*result.FirstTokenMs))
 		}
 		if err != nil {
+			// Failover errors are audited only once the failover path is exhausted.
+			// Ordinary errors are terminal here and can be bridged from Ops context.
 			if result != nil && result.ImageCount > 0 {
+				recordUpstreamPolicyBlockFromOpsContext(c, h.contentModerationService, account.Platform)
 				reqLog.Warn("openai_messages.forward_partial_error_with_image_result",
 					zap.Int64("account_id", account.ID),
 					zap.Int("image_count", result.ImageCount),
@@ -1310,6 +1317,7 @@ func (h *OpenAIGatewayHandler) Messages(c *gin.Context) {
 					)
 					continue
 				}
+				recordUpstreamPolicyBlockFromOpsContext(c, h.contentModerationService, account.Platform)
 				if result != nil && result.ClientDisconnect {
 					reqLog.Info("openai_messages.client_disconnected",
 						zap.Int64("account_id", account.ID),
@@ -1429,6 +1437,7 @@ func (h *OpenAIGatewayHandler) anthropicStreamingAwareError(c *gin.Context, stat
 func (h *OpenAIGatewayHandler) handleAnthropicFailoverExhausted(c *gin.Context, failoverErr *service.UpstreamFailoverError, streamStarted bool) {
 	if failoverErr != nil {
 		copyFailoverRetryAfter(c, failoverErr.ResponseHeaders)
+		recordUpstreamPolicyBlock(c, h.contentModerationService, service.PlatformOpenAI, failoverErr.StatusCode, string(failoverErr.ResponseBody))
 	}
 	if failoverErr != nil && failoverErr.IsCredentialFailure() {
 		status, message := credentialFailoverClientResponse(failoverErr)
@@ -1854,6 +1863,7 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 	// （session_id / conversation_id）；无标识则放行，连接内仍有本地 flag 兜底。
 	cyberBlockKey := service.CyberSessionBlockKey(apiKey.ID, c, nil)
 	if cyberBlockKey != "" && h.gatewayService.IsCyberSessionBlocked(c.Request.Context(), cyberBlockKey) {
+		recordSessionPolicyBlock(c, h.contentModerationService)
 		writeCyberSessionBlockedWSError(c.Request.Context(), wsConn)
 		closeOpenAIClientWS(wsConn, coderws.StatusPolicyViolation, "session blocked by cyber-security policy")
 		h.enqueueCyberSessionBlockedOpsEntry(c, apiKey, reqModel, cyberBlockKey)
@@ -1958,6 +1968,7 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 		}
 		releaseAccountSlot()
 		if !failoverErr.ShouldRetryNextAccount() {
+			recordUpstreamPolicyBlock(c, h.contentModerationService, requestPlatform, failoverErr.StatusCode, string(failoverErr.ResponseBody))
 			closeOpenAIWSFailoverExhausted(wsConn, failoverErr)
 			return false
 		}
@@ -1968,11 +1979,13 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 		failedAccountIDs[account.ID] = struct{}{}
 		lastFailoverErr = failoverErr
 		if switchCount >= maxAccountSwitches {
+			recordUpstreamPolicyBlock(c, h.contentModerationService, requestPlatform, failoverErr.StatusCode, string(failoverErr.ResponseBody))
 			closeOpenAIWSFailoverExhausted(wsConn, failoverErr)
 			return false
 		}
 		switchCount++
 		if h.gatewayService.ShouldStopOpenAIOAuth429Failover(account, failoverErr.StatusCode, switchCount, &oauth429FailoverState) {
+			recordUpstreamPolicyBlock(c, h.contentModerationService, requestPlatform, failoverErr.StatusCode, string(failoverErr.ResponseBody))
 			closeOpenAIWSFailoverExhausted(wsConn, failoverErr)
 			return false
 		}
@@ -2029,6 +2042,7 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 				zap.Int("excluded_account_count", len(failedAccountIDs)),
 			)
 			if lastFailoverErr != nil {
+				recordUpstreamPolicyBlock(c, h.contentModerationService, requestPlatform, lastFailoverErr.StatusCode, string(lastFailoverErr.ResponseBody))
 				closeOpenAIWSFailoverExhausted(wsConn, lastFailoverErr)
 			} else {
 				closeOpenAIClientWS(wsConn, coderws.StatusTryAgainLater, "no available account")
@@ -2037,6 +2051,7 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 		}
 		if selection == nil || selection.Account == nil {
 			if lastFailoverErr != nil {
+				recordUpstreamPolicyBlock(c, h.contentModerationService, requestPlatform, lastFailoverErr.StatusCode, string(lastFailoverErr.ResponseBody))
 				closeOpenAIWSFailoverExhausted(wsConn, lastFailoverErr)
 			} else {
 				closeOpenAIClientWS(wsConn, coderws.StatusTryAgainLater, "no available account")
@@ -2201,6 +2216,7 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 			BeforeTurn: func(turn int) error {
 				// turn==1 的会话屏蔽已由握手层检查覆盖；连接内 flag 只拦截后续 turn。
 				if cyberBlockedThisConn {
+					recordSessionPolicyBlock(c, h.contentModerationService)
 					return service.NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, cyberSessionBlockedClientMsg, nil)
 				}
 				// 长连接跨峰谷/倍率刷新防护：每个 turn 按当前时刻重装门并复核
@@ -2364,6 +2380,7 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 		// WebSocket 首包可能很大，hash 必须在 hooks 外算成字符串，避免 AfterTurn 闭包保活请求体。
 		requestPayloadHash = service.HashUsageRequestPayload(wsFirstMessage)
 
+		service.ResetOpsUpstreamErrorAttemptContext(c)
 		if err := h.gatewayService.ProxyResponsesWebSocketFromClient(ctx, c, wsConn, account, token, wsFirstMessage, hooks); err != nil {
 			var failoverErr *service.UpstreamFailoverError
 			if errors.As(err, &failoverErr) {
@@ -2372,6 +2389,7 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 				}
 				return
 			}
+			recordUpstreamPolicyBlockFromOpsContext(c, h.contentModerationService, account.Platform)
 
 			if errors.Is(context.Cause(ctx), service.ErrOpenAIWSIngressLeaseLost) {
 				reqLog.Warn("openai.websocket_ingress_lease_lost",
@@ -2643,6 +2661,7 @@ func (h *OpenAIGatewayHandler) handleFailoverExhausted(c *gin.Context, failoverE
 	}
 	statusCode := failoverErr.StatusCode
 	responseBody := failoverErr.ResponseBody
+	recordUpstreamPolicyBlock(c, h.contentModerationService, service.PlatformOpenAI, statusCode, string(responseBody))
 	if service.IsOpenAISilentRefusalErrorBody(responseBody) {
 		service.SetOpsUpstreamError(c, statusCode, service.OpenAISilentRefusalClientMessage(), "")
 		h.handleStreamingAwareError(c, http.StatusBadGateway, "upstream_error", service.OpenAISilentRefusalClientMessage(), streamStarted)
@@ -3223,6 +3242,7 @@ func (h *OpenAIGatewayHandler) rejectIfCyberSessionBlocked(c *gin.Context, apiKe
 	if !h.gatewayService.IsCyberSessionBlocked(c.Request.Context(), key) {
 		return false
 	}
+	recordSessionPolicyBlock(c, h.contentModerationService)
 	// body-signal compact 心跳可能已把响应头提交为 200（cyber 检查在用户槽位
 	// 长等待之后执行）：以 response.failed 终止事件回传；未提交时停拍后照常
 	// 写 JSON（#3887）。

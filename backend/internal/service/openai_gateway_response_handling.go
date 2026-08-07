@@ -453,6 +453,7 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
 						return
 					}
 				}
+				s.recordOpenAIStreamUpstreamError(c, account, false, upstreamRequestID, "stream_error", dataBytes, failedMessage)
 				forceFlushFailedEvent = true
 				sawFailedEvent = true
 			}
