@@ -344,10 +344,12 @@ type ContentModerationModelFilter struct {
 	Models []string `json:"models"`
 }
 
-// ContentModerationLocalSecurityPolicy turns local rule signals into actions.
-// Nearby multi-term matches at or above BlockScore receive mandatory contextual
-// API review; only that API's affirmative malicious verdict can reject. Scores
-// at or above ObserveScore remain evidence for the downstream audit chain.
+// ContentModerationLocalSecurityPolicy turns ordinary local rule signals into
+// review actions. Nearby multi-term matches at or above BlockScore receive
+// mandatory contextual API review; only that API's affirmative malicious
+// verdict can reject. Narrow built-in prompt-injection fingerprints are handled
+// separately as immediate local blocks. Scores at or above ObserveScore remain
+// evidence for the downstream audit chain.
 type ContentModerationLocalSecurityPolicy struct {
 	BlockScore   int `json:"block_score"`
 	ObserveScore int `json:"observe_score"`
@@ -1313,11 +1315,12 @@ type UpstreamPolicyBlockInput struct {
 // SecurityPolicyBlockInput captures a gateway-side security component's final
 // block verdict for the unified risk-control audit list.
 type SecurityPolicyBlockInput struct {
-	Request     ContentModerationCheckInput
-	Action      string
-	Category    string
-	MatchedRule string
-	Message     string
+	Request      ContentModerationCheckInput
+	Action       string
+	Category     string
+	MatchedRule  string
+	InputExcerpt string
+	Message      string
 }
 
 // RecordUpstreamPolicyBlock writes an explicit provider policy refusal directly
@@ -1345,6 +1348,18 @@ func (s *ContentModerationService) RecordUpstreamPolicyBlock(ctx context.Context
 // unified risk-control audit list without applying account side effects.
 func (s *ContentModerationService) RecordSecurityPolicyBlock(ctx context.Context, in SecurityPolicyBlockInput) {
 	_ = s.recordSecurityPolicyBlock(ctx, in, ContentModerationModePreBlock)
+}
+
+// RecordLocalSecurityBlock records a deterministic local block in the unified
+// risk-control list and updates the synchronous pre-block counters. It remains
+// audit-only and does not apply automatic account or email side effects.
+func (s *ContentModerationService) RecordLocalSecurityBlock(ctx context.Context, in SecurityPolicyBlockInput) error {
+	if s == nil {
+		return errors.New("content moderation service unavailable")
+	}
+	in.Action = ContentModerationActionKeywordBlock
+	s.recordPreBlockSyncMetric(0, in.Action)
+	return s.recordSecurityPolicyBlock(ctx, in, ContentModerationModePreBlock)
 }
 
 func (s *ContentModerationService) recordSecurityPolicyBlock(ctx context.Context, in SecurityPolicyBlockInput, mode string) error {
@@ -1384,7 +1399,7 @@ func (s *ContentModerationService) recordSecurityPolicyBlock(ctx context.Context
 		category,
 		1,
 		map[string]float64{category: 1},
-		"",
+		in.InputExcerpt,
 		nil,
 		nil,
 		in.Message,

@@ -16,6 +16,8 @@ import (
 const (
 	securityAuditCompletedContextKey = "sub2api.security_audit.completed"
 	securityAuditInputContextKey     = "sub2api.security_audit.input"
+	localPromptInjectionCategory     = "prompt_injection"
+	localPromptInjectionBlockMessage = "请求包含明确的提示注入指纹，已被内容安全策略阻止"
 )
 
 // conversationRuleProximityWindow bounds how far apart two rule terms may sit in
@@ -61,6 +63,31 @@ var conversationPromptInjectionKeywordRules = [][]string{
 	{"do anything", "now"},
 	{"jailbreak", "mode"},
 	{"developer mode", "enabled"},
+}
+
+type immediatePromptInjectionFingerprint struct {
+	name   string
+	prefix string
+	all    []string
+}
+
+// immediatePromptInjectionFingerprints are deliberately narrow, structural
+// signatures. Unlike ordinary nearby keyword combinations, these identify a
+// complete instruction-hijacking envelope and may be rejected locally without
+// waiting for an external classifier.
+var immediatePromptInjectionFingerprints = []immediatePromptInjectionFingerprint{
+	{
+		name:   "codex_ambient_policy_prompt",
+		prefix: "you are an expert at upholding safety and compliance standards",
+		all: []string{
+			"codex ambient suggestions",
+			"ambient suggestion candidates",
+			"suggestion_id",
+			"return a json object",
+			"exclude",
+			"must not output any other text",
+		},
+	},
 }
 
 // conversationMandatoryDenyKeywordRules is a legacy catalogue of restricted
@@ -250,6 +277,31 @@ func matchChinesePoliticalRule(text string) string {
 
 func matchPromptInjectionRule(text string) string {
 	return matchConversationKeywordRule(text, conversationPromptInjectionKeywordRules)
+}
+
+func matchImmediatePromptInjectionRule(text string) string {
+	normalized := normalizeConversationRuleText(text)
+	if normalized == "" {
+		return ""
+	}
+	for _, fingerprint := range immediatePromptInjectionFingerprints {
+		prefix := normalizeConversationRuleText(fingerprint.prefix)
+		if prefix == "" || !strings.HasPrefix(normalized, prefix) {
+			continue
+		}
+		matched := true
+		for _, required := range fingerprint.all {
+			term := normalizeConversationRuleText(required)
+			if term == "" || !strings.Contains(normalized, term) {
+				matched = false
+				break
+			}
+		}
+		if matched {
+			return "prompt_injection (" + fingerprint.name + ")"
+		}
+	}
+	return ""
 }
 
 func matchMandatoryDenyRule(text string) string {
@@ -666,8 +718,9 @@ func runSecurityAudit(c *gin.Context, reqLog *zap.Logger, coordinator *securitya
 	conversationProtocol := isLocalSecurityAuditProtocol(protocol)
 	forceLocalReview := false
 	localReviewRule := ""
-	// Local rules only nominate nearby multi-term combinations for contextual
-	// API review. They never produce a final block verdict by themselves.
+	// Narrow, high-confidence instruction-hijacking fingerprints are blocked
+	// locally. All other local combinations only nominate contextual API review
+	// and never produce a final verdict by themselves.
 	localRulesApply := conversationProtocol && (legacy == nil || legacy.IsLocalSecurityAuditedModel(c.Request.Context(), model))
 	if localRulesApply {
 		request := buildSecurityAuditRequest(c, apiKey, subject, protocol, model, body, stage)
@@ -688,6 +741,17 @@ func runSecurityAudit(c *gin.Context, reqLog *zap.Logger, coordinator *securitya
 		if legacy != nil {
 			configuredRules = legacy.LocalSecurityRules(c.Request.Context())
 			localPolicy = legacy.LocalSecurityPolicy(c.Request.Context())
+		}
+		if matchedRule := matchImmediatePromptInjectionRule(inputText); matchedRule != "" {
+			decision := localPromptInjectionBlockDecision()
+			recorded := recordImmediateLocalSecurityBlock(c, legacy, matchedRule, inputText, decision.ClientMessage)
+			if reqLog != nil {
+				reqLog.Warn("security_audit.local_immediate_block",
+					zap.String("request_id", request.RequestID), zap.String("matched_rule", matchedRule),
+					zap.String("category", localPromptInjectionCategory), zap.Bool("audit_recorded", recorded),
+					zap.String("protocol", request.Protocol), zap.String("model", request.Model), zap.String("stage", request.Stage))
+			}
+			return decision
 		}
 		riskMatch := evaluateConversationLocalSecurityRisk(inputText, configuredRules)
 		forcedReview := riskMatch.matched() && riskMatch.EvidenceTerms >= 2 && riskMatch.Score >= localPolicy.BlockScore
@@ -830,6 +894,37 @@ const securityAuditUpstreamPolicyRecordedKey = "sub2api.security_audit.upstream_
 const securityAuditPromptGuardRecordedKey = "sub2api.security_audit.prompt_guard_recorded"
 
 const securityAuditSessionPolicyRecordedKey = "sub2api.security_audit.session_policy_recorded"
+
+func localPromptInjectionBlockDecision() *securityaudit.Decision {
+	return &securityaudit.Decision{
+		Kind:           securityaudit.DecisionBlock,
+		HTTPStatus:     http.StatusForbidden,
+		ErrorCode:      "content_policy_violation",
+		ClientMessage:  localPromptInjectionBlockMessage,
+		AllowNextStage: false,
+		Legacy: &securityaudit.LegacyDecision{
+			Allowed: false, Blocked: true, Flagged: true,
+			Message: localPromptInjectionBlockMessage, StatusCode: http.StatusForbidden,
+			ErrorCode: "content_policy_violation", Action: service.ContentModerationActionKeywordBlock,
+		},
+	}
+}
+
+func recordImmediateLocalSecurityBlock(c *gin.Context, moderation *service.ContentModerationService, matchedRule, inputExcerpt, message string) bool {
+	if c == nil || c.Request == nil || moderation == nil {
+		return false
+	}
+	value, exists := c.Get(securityAuditInputContextKey)
+	input, ok := value.(service.ContentModerationCheckInput)
+	if !exists || !ok {
+		return false
+	}
+	input.Body = nil
+	return moderation.RecordLocalSecurityBlock(c.Request.Context(), service.SecurityPolicyBlockInput{
+		Request: input, Category: localPromptInjectionCategory, MatchedRule: matchedRule,
+		InputExcerpt: inputExcerpt, Message: message,
+	}) == nil
+}
 
 func recordSessionPolicyBlock(c *gin.Context, moderation *service.ContentModerationService) bool {
 	if c == nil || c.Request == nil || moderation == nil || c.GetBool(securityAuditSessionPolicyRecordedKey) {

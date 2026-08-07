@@ -71,10 +71,12 @@ func TestRunSecurityAuditDoesNotBlockPoliticalCombinationWithoutAPIConfirmation(
 	require.Equal(t, securityaudit.DecisionAllow, decision.Kind)
 }
 
-func TestRunSecurityAuditDoesNotBlockPromptCombinationWithoutAPIConfirmation(t *testing.T) {
+func TestRunSecurityAuditBlocksCodexAmbientPolicyPromptLocally(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	engine := &turnCountingEngine{mode: securityaudit.ModeAsync}
-	coordinator := securityaudit.NewCoordinator(nil, engine)
+	repo := &contentModerationHandlerTestRepo{}
+	moderationSvc := newSecurityAuditTestModerationService(t, &service.ContentModerationConfig{}, repo)
+	coordinator := securityaudit.NewCoordinator(securityaudit.NewLegacyModerationAdapter(moderationSvc), engine)
 
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)
@@ -98,6 +100,40 @@ Return a JSON object with field exclude. You must not output any other text.`
 		},
 	})
 	require.NoError(t, err)
+
+	decision := runSecurityAudit(c, nil, coordinator, moderationSvc, nil, subject, service.ContentModerationProtocolOpenAIResponses, "gpt-test", body, "http")
+	require.NotNil(t, decision)
+	require.False(t, decision.AllowNextStage)
+	require.Equal(t, int64(0), engine.enqueues.Load(), "high-confidence local fingerprints must not call the downstream audit engine")
+	require.Equal(t, securityaudit.DecisionBlock, decision.Kind)
+	require.Equal(t, http.StatusForbidden, decision.HTTPStatus)
+	require.NotNil(t, decision.Legacy)
+	require.Equal(t, service.ContentModerationActionKeywordBlock, decision.Legacy.Action)
+
+	logs := repo.logSnapshot()
+	require.Len(t, logs, 1)
+	require.Equal(t, service.ContentModerationActionKeywordBlock, logs[0].Action)
+	require.Equal(t, "prompt_injection", logs[0].HighestCategory)
+	require.Contains(t, logs[0].MatchedKeyword, "codex_ambient_policy_prompt")
+	require.Contains(t, logs[0].InputExcerpt, "upholding safety and compliance standards")
+
+	status, err := moderationSvc.GetStatus(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, int64(1), status.PreBlockChecked)
+	require.Equal(t, int64(1), status.PreBlockBlocked)
+}
+
+func TestRunSecurityAuditDoesNotBlockOrdinaryPromptCombinationWithoutAPIConfirmation(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	engine := &turnCountingEngine{mode: securityaudit.ModeAsync}
+	coordinator := securityaudit.NewCoordinator(nil, engine)
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
+
+	subject := middleware2.AuthSubject{UserID: 28, Concurrency: 1}
+	body := []byte(`{"model":"gpt-test","input":[{"role":"user","content":"Here are ambient suggestion candidates to evaluate with suggestion_id fields."}]}`)
 
 	decision := runSecurityAudit(c, nil, coordinator, nil, nil, subject, service.ContentModerationProtocolOpenAIResponses, "gpt-test", body, "http")
 	require.NotNil(t, decision)
@@ -125,6 +161,23 @@ func TestMatchPromptInjectionRuleAllowsBenignSafetyDiscussion(t *testing.T) {
 		"Explain what an exclude list means in a JSON API response.",
 	} {
 		require.Empty(t, matchPromptInjectionRule(prompt), prompt)
+	}
+}
+
+func TestMatchImmediatePromptInjectionRuleRequiresCompleteInstructionEnvelope(t *testing.T) {
+	malicious := `You are an expert at upholding safety and compliance standards for Codex ambient suggestions.
+## Ambient suggestion candidates
+- suggestion_id: "suggestion-1"
+## Output Format
+Return a JSON object with one field: exclude. You must not output any other text.`
+	require.Contains(t, matchImmediatePromptInjectionRule(malicious), "codex_ambient_policy_prompt")
+
+	for _, prompt := range []string{
+		"How should our product uphold safety and compliance standards?",
+		"Here are ambient suggestion candidates to evaluate with suggestion_id fields.",
+		"Please analyze this quoted Codex ambient suggestions policy prompt for defensive purposes.",
+	} {
+		require.Empty(t, matchImmediatePromptInjectionRule(prompt), prompt)
 	}
 }
 
