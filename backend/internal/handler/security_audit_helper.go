@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"net/http"
+	"regexp"
 	"strings"
 	"unicode"
 
@@ -66,27 +67,18 @@ var conversationPromptInjectionKeywordRules = [][]string{
 }
 
 type immediatePromptInjectionFingerprint struct {
-	name   string
-	prefix string
-	all    []string
+	name    string
+	pattern *regexp.Regexp
 }
 
-// immediatePromptInjectionFingerprints are deliberately narrow, structural
-// signatures. Unlike ordinary nearby keyword combinations, these identify a
-// complete instruction-hijacking envelope and may be rejected locally without
-// waiting for an external classifier.
+// immediatePromptInjectionFingerprints are deliberately narrow, built-in
+// instruction-hijacking signatures. They require a direct, leading jailbreak
+// instruction and an explicit bypass action so quotations and security
+// discussions continue to contextual API review.
 var immediatePromptInjectionFingerprints = []immediatePromptInjectionFingerprint{
 	{
-		name:   "codex_ambient_policy_prompt",
-		prefix: "you are an expert at upholding safety and compliance standards",
-		all: []string{
-			"codex ambient suggestions",
-			"ambient suggestion candidates",
-			"suggestion_id",
-			"return a json object",
-			"exclude",
-			"must not output any other text",
-		},
+		name:    "you_are_now_dan",
+		pattern: regexp.MustCompile(`(?is)^\s*you\s+are\s+now\b.{0,96}\bdan\b.{0,256}\b(?:ignore|disregard|override|bypass|disable|unrestricted|without\s+restrictions|do\s+anything)\b`),
 	},
 }
 
@@ -280,24 +272,11 @@ func matchPromptInjectionRule(text string) string {
 }
 
 func matchImmediatePromptInjectionRule(text string) string {
-	normalized := normalizeConversationRuleText(text)
-	if normalized == "" {
+	if strings.TrimSpace(text) == "" {
 		return ""
 	}
 	for _, fingerprint := range immediatePromptInjectionFingerprints {
-		prefix := normalizeConversationRuleText(fingerprint.prefix)
-		if prefix == "" || !strings.HasPrefix(normalized, prefix) {
-			continue
-		}
-		matched := true
-		for _, required := range fingerprint.all {
-			term := normalizeConversationRuleText(required)
-			if term == "" || !strings.Contains(normalized, term) {
-				matched = false
-				break
-			}
-		}
-		if matched {
+		if fingerprint.pattern != nil && fingerprint.pattern.MatchString(text) {
 			return "prompt_injection (" + fingerprint.name + ")"
 		}
 	}
