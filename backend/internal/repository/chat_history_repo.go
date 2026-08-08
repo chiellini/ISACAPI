@@ -27,7 +27,7 @@ func (r *chatHistoryRepository) ListSessions(ctx context.Context, userID int64) 
 	if err != nil {
 		return nil, fmt.Errorf("list chat sessions: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	out := make([]service.ChatHistorySession, 0)
 	for rows.Next() {
@@ -61,7 +61,7 @@ func (r *chatHistoryRepository) GetSession(ctx context.Context, userID, id int64
 	if err != nil {
 		return nil, fmt.Errorf("get chat messages: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	s.Messages = make([]service.ChatHistoryMessage, 0)
 	for rows.Next() {

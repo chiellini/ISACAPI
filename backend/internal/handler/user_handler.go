@@ -16,14 +16,14 @@ import (
 
 // UserHandler handles user-related requests
 type UserHandler struct {
-	userService           *service.UserService
-	authService           *service.AuthService
-	emailService          *service.EmailService
-	emailCache            service.EmailCache
-	affiliateService      *service.AffiliateService
+	userService            *service.UserService
+	authService            *service.AuthService
+	emailService           *service.EmailService
+	emailCache             service.EmailCache
+	affiliateService       *service.AffiliateService
 	affiliatePayoutService *service.AffiliatePayoutService
-	userPlatformQuotaRepo service.UserPlatformQuotaRepository
-	researchGroupService  *service.ResearchGroupService
+	userPlatformQuotaRepo  service.UserPlatformQuotaRepository
+	researchGroupService   *service.ResearchGroupService
 }
 
 // NewUserHandler creates a new UserHandler
@@ -211,7 +211,9 @@ func (h *UserHandler) GetAffiliate(c *gin.Context) {
 		return
 	}
 	minimum := service.AffiliateMinimumWithdrawalDefault
-	if h.affiliatePayoutService != nil { minimum = h.affiliatePayoutService.MinimumWithdrawal(c.Request.Context()) }
+	if h.affiliatePayoutService != nil {
+		minimum = h.affiliatePayoutService.MinimumWithdrawal(c.Request.Context())
+	}
 	response.Success(c, gin.H{
 		"user_id": detail.UserID, "aff_code": detail.AffCode, "inviter_id": detail.InviterID,
 		"aff_count": detail.AffCount, "aff_quota": detail.AffQuota, "aff_frozen_quota": detail.AffFrozenQuota,
@@ -545,7 +547,7 @@ func (h *UserHandler) buildUserProfileResponse(ctx context.Context, userID int64
 		if err != nil {
 			return userProfileResponse{}, err
 		}
-		out.User.ResearchGroup = researchGroup
+		out.ResearchGroup = researchGroup
 	}
 	return out, nil
 }

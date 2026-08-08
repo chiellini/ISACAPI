@@ -263,16 +263,16 @@ func (h *ProviderHandler) CreateAccount(c *gin.Context) {
 	loadFactor := providerDefaultLoadFactor
 	providerID := subject.UserID
 	account, err := h.adminService.CreateAccount(c.Request.Context(), &service.CreateAccountInput{
-		Name:         req.Name,
-		Notes:        req.Notes,
-		Platform:     req.Platform,
-		Type:         req.Type,
-		Credentials:  req.Credentials,
-		Concurrency:  concurrency,
-		Priority:     providerDefaultPriority,
-		LoadFactor:   &loadFactor,
-		GroupIDs:     req.GroupIDs,
-		ProviderID:   &providerID,
+		Name:                 req.Name,
+		Notes:                req.Notes,
+		Platform:             req.Platform,
+		Type:                 req.Type,
+		Credentials:          req.Credentials,
+		Concurrency:          concurrency,
+		Priority:             providerDefaultPriority,
+		LoadFactor:           &loadFactor,
+		GroupIDs:             req.GroupIDs,
+		ProviderID:           &providerID,
 		SkipDefaultGroupBind: true,
 	})
 	if err != nil {

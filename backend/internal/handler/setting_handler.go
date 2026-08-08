@@ -187,11 +187,11 @@ func (h *SettingHandler) GetPublicPricingModels(c *gin.Context) {
 			}
 
 			models = append(models, dto.PublicModelPricing{
-				ID:                           model,
-				Name:                         model,
-				Family:                       publicModelFamily(provider),
-				BenchmarkInputUsdPerMillion:  input,
-				BenchmarkOutputUsdPerMillion: output,
+				ID:                              model,
+				Name:                            model,
+				Family:                          publicModelFamily(provider),
+				BenchmarkInputUsdPerMillion:     input,
+				BenchmarkOutputUsdPerMillion:    output,
 				BenchmarkCacheReadUsdPerMillion: cacheRead,
 			})
 			seen[model] = struct{}{}

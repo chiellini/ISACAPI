@@ -82,7 +82,9 @@ func TestGatewayHandleErrorResponsePreservesContentPolicyPayloadForTerminalAudit
 
 	stored, exists := c.Get(OpsUpstreamPolicyPayloadKey)
 	require.True(t, exists)
-	require.JSONEq(t, string(respBody), stored.(string))
+	storedPayload, ok := stored.(string)
+	require.True(t, ok)
+	require.JSONEq(t, string(respBody), storedPayload)
 	status, exists := c.Get(OpsUpstreamStatusCodeKey)
 	require.True(t, exists)
 	require.Equal(t, http.StatusForbidden, status)

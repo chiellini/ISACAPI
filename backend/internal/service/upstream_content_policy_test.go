@@ -74,7 +74,9 @@ func TestRecordOpenAIStreamUpstreamErrorPreservesPolicyCodeWhenBodyLoggingDisabl
 
 	stored, exists := c.Get(OpsUpstreamPolicyPayloadKey)
 	require.True(t, exists)
-	require.JSONEq(t, string(payload), stored.(string))
+	storedPayload, ok := stored.(string)
+	require.True(t, ok)
+	require.JSONEq(t, string(payload), storedPayload)
 	_, generalDetailExists := c.Get(OpsUpstreamErrorDetailKey)
 	require.False(t, generalDetailExists)
 }

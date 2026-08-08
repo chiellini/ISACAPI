@@ -1447,13 +1447,6 @@ func nullableArg(v *float64) any {
 	return *v
 }
 
-func nullableInt64Arg(v *int64) any {
-	if v == nil {
-		return nil
-	}
-	return *v
-}
-
 // ListUsersWithCustomSettings 列出有专属配置（自定义码或专属比例）的用户。
 //
 // 单一查询同时处理"无搜索"与"按邮箱/用户名模糊搜索"：

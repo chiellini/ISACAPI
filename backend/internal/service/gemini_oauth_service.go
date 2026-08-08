@@ -107,7 +107,7 @@ func (s *GeminiOAuthService) GenerateAuthURL(ctx context.Context, proxyID *int64
 	oauthType = strings.TrimSpace(oauthType)
 	projectID = strings.TrimSpace(projectID)
 	if GeminiOAuthTypeRequiresProjectID(oauthType) && projectID == "" {
-		return nil, fmt.Errorf("Project ID is required for %s OAuth. Create or select a Google Cloud project, enable Gemini for Google Cloud API, then paste the Project ID before generating the auth URL", oauthType)
+		return nil, fmt.Errorf("project ID is required for %s OAuth. Create or select a Google Cloud project, enable Gemini for Google Cloud API, then paste the Project ID before generating the auth URL", oauthType)
 	}
 
 	state, err := geminicli.GenerateState()
@@ -494,7 +494,7 @@ func (s *GeminiOAuthService) ExchangeCode(ctx context.Context, input *GeminiExch
 	logger.LegacyPrintf("service.gemini_oauth", "[GeminiOAuth] Project ID from session: %s", session.ProjectID)
 
 	if GeminiOAuthTypeRequiresProjectID(oauthType) && strings.TrimSpace(session.ProjectID) == "" {
-		return nil, fmt.Errorf("Project ID is required for %s OAuth. Create or select a Google Cloud project, enable Gemini for Google Cloud API, then regenerate the auth URL with Project ID", oauthType)
+		return nil, fmt.Errorf("project ID is required for %s OAuth. Create or select a Google Cloud project, enable Gemini for Google Cloud API, then regenerate the auth URL with Project ID", oauthType)
 	}
 
 	// If the session was created for AI Studio OAuth, ensure a custom OAuth client is configured.

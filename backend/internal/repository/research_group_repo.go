@@ -299,7 +299,7 @@ func (r *researchGroupRepository) ListMembers(ctx context.Context, groupID int64
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	out := make([]service.ResearchGroupMember, 0)
 	for rows.Next() {
 		member, err := scanResearchGroupMember(rows)
@@ -317,7 +317,7 @@ func (r *researchGroupRepository) ListInvitations(ctx context.Context, userID in
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	out := make([]service.ResearchGroupMember, 0)
 	for rows.Next() {
 		member, err := scanResearchGroupMember(rows)
@@ -608,7 +608,7 @@ func (r *researchGroupRepository) ListFundedUsage(ctx context.Context, groupID, 
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	for rows.Next() {
 		var item service.ResearchGroupUsageItem
 		if err := rows.Scan(&item.ID, &item.UserID, &item.MemberID, &item.RequestID, &item.Model, &item.TotalCost, &item.CreatedAt, &item.Email, &item.Username); err != nil {
@@ -632,7 +632,7 @@ func (r *researchGroupRepository) AdminList(ctx context.Context, pageNumber, pag
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	for rows.Next() {
 		group, err := scanResearchGroup(rows)
 		if err != nil {

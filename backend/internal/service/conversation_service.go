@@ -201,7 +201,7 @@ func formatConversationTranscript(detail *ConversationSessionDetail) string {
 	fmt.Fprintf(&b, "User: %d  Upstream: %s  Protocol: %s\n", sess.UserID, sess.ContextDomain, sess.Protocol)
 	fmt.Fprintf(&b, "Started: %s  Last active: %s\n", sess.StartedAt.Format(time.RFC3339), sess.LastActiveAt.Format(time.RFC3339))
 	fmt.Fprintf(&b, "Requests: %d  Tokens in/out: %d/%d  Status: %s\n", sess.RequestCount, sess.TotalInputTokens, sess.TotalOutputTokens, sess.Status)
-	b.WriteString(strings.Repeat("=", 60) + "\n\n")
+	_, _ = b.WriteString(strings.Repeat("=", 60) + "\n\n")
 
 	for _, ev := range detail.Events {
 		role := strings.ToUpper(ev.Role)

@@ -2606,7 +2606,7 @@ func (s *GeminiMessagesCompatService) handleNativeNonStreamingResponse(c *gin.Co
 	if contentType == "" {
 		contentType = "application/json"
 	}
-	if s != nil && s.cfg != nil && s.cfg.ConversationArchive.Enabled {
+	if s.cfg != nil && s.cfg.ConversationArchive.Enabled {
 		captureGeminiResponseFromJSON(c, respBody)
 	}
 	c.Data(resp.StatusCode, contentType, respBody)

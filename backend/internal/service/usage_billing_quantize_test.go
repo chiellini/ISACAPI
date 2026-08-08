@@ -157,7 +157,12 @@ func TestNormalizeKeepsFingerprintDerivedFromRawAmounts(t *testing.T) {
 	}
 
 	cmd := newCmd()
-	expected := buildUsageBillingFingerprint(newCmd())
+	expectedCommand := newCmd()
+	// Normalize canonicalizes billing attribution before deriving the fingerprint,
+	// while the monetary fields must remain raw until after the fingerprint exists.
+	expectedCommand.PayerUserID = expectedCommand.UserID
+	expectedCommand.FundingSource = FundingSourceSelf
+	expected := buildUsageBillingFingerprint(expectedCommand)
 
 	cmd.Normalize()
 	require.Equal(t, expected, cmd.RequestFingerprint)

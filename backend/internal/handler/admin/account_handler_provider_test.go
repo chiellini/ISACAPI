@@ -16,11 +16,11 @@ import (
 
 type providerAssignmentAdminStub struct {
 	service.AdminService
-	users          map[int64]*service.User
-	getUserCalls   int
-	updateCalls    int
-	lastAccountID  int64
-	lastUpdate     *service.UpdateAccountInput
+	users         map[int64]*service.User
+	getUserCalls  int
+	updateCalls   int
+	lastAccountID int64
+	lastUpdate    *service.UpdateAccountInput
 }
 
 func (s *providerAssignmentAdminStub) GetUser(_ context.Context, id int64) (*service.User, error) {

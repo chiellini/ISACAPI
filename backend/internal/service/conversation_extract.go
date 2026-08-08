@@ -105,9 +105,9 @@ func extractOpenAIContentText(content json.RawMessage) string {
 	for _, p := range parts {
 		if p.Text != "" && (strings.Contains(p.Type, "text") || p.Type == "") {
 			if b.Len() > 0 {
-				b.WriteString("\n")
+				_, _ = b.WriteString("\n")
 			}
-			b.WriteString(p.Text)
+			_, _ = b.WriteString(p.Text)
 		}
 	}
 	return strings.TrimSpace(b.String())
@@ -201,9 +201,9 @@ func ExtractOpenAIResponsesResponse(body []byte) ConversationResponseExtract {
 		for _, c := range item.Content {
 			if c.Text != "" && strings.Contains(c.Type, "text") {
 				if b.Len() > 0 {
-					b.WriteString("\n")
+					_, _ = b.WriteString("\n")
 				}
-				b.WriteString(c.Text)
+				_, _ = b.WriteString(c.Text)
 			}
 		}
 	}
@@ -283,9 +283,9 @@ func extractAnthropicText(raw json.RawMessage) string {
 	for _, bl := range blocks {
 		if bl.Text != "" && (bl.Type == "text" || bl.Type == "") {
 			if b.Len() > 0 {
-				b.WriteString("\n")
+				_, _ = b.WriteString("\n")
 			}
-			b.WriteString(bl.Text)
+			_, _ = b.WriteString(bl.Text)
 		}
 	}
 	return strings.TrimSpace(b.String())
@@ -322,9 +322,9 @@ func ExtractAnthropicMessagesResponse(body []byte) ConversationResponseExtract {
 	for _, c := range resp.Content {
 		if c.Text != "" && c.Type == "text" {
 			if b.Len() > 0 {
-				b.WriteString("\n")
+				_, _ = b.WriteString("\n")
 			}
-			b.WriteString(c.Text)
+			_, _ = b.WriteString(c.Text)
 		}
 	}
 	if text := strings.TrimSpace(b.String()); text != "" {
@@ -395,9 +395,9 @@ func geminiContentText(content geminiArchiveContent) string {
 			continue
 		}
 		if b.Len() > 0 {
-			b.WriteString("\n")
+			_, _ = b.WriteString("\n")
 		}
-		b.WriteString(part.Text)
+		_, _ = b.WriteString(part.Text)
 	}
 	return strings.TrimSpace(b.String())
 }

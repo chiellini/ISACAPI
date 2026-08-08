@@ -420,11 +420,11 @@ type PublicSettings struct {
 }
 
 type PublicModelPricing struct {
-	ID                          string  `json:"id"`
-	Name                        string  `json:"name"`
-	Family                      string  `json:"family"`
-	BenchmarkInputUsdPerMillion  float64 `json:"benchmark_input_usd_per_million"`
-	BenchmarkOutputUsdPerMillion float64 `json:"benchmark_output_usd_per_million"`
+	ID                              string  `json:"id"`
+	Name                            string  `json:"name"`
+	Family                          string  `json:"family"`
+	BenchmarkInputUsdPerMillion     float64 `json:"benchmark_input_usd_per_million"`
+	BenchmarkOutputUsdPerMillion    float64 `json:"benchmark_output_usd_per_million"`
 	BenchmarkCacheReadUsdPerMillion float64 `json:"benchmark_cache_read_usd_per_million"`
 }
 

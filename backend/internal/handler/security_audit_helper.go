@@ -263,10 +263,6 @@ func isLocalSecurityAuditProtocol(protocol string) bool {
 	return strings.TrimSpace(protocol) != ""
 }
 
-func matchChinesePoliticalRule(text string) string {
-	return matchConversationKeywordRule(text, conversationChinesePoliticalKeywordRules)
-}
-
 func matchPromptInjectionRule(text string) string {
 	return matchConversationKeywordRule(text, conversationPromptInjectionKeywordRules)
 }
@@ -608,7 +604,7 @@ func normalizeConversationRuleText(text string) string {
 		if unicode.IsSpace(r) || unicode.Is(unicode.Cf, r) || unicode.IsPunct(r) || unicode.IsSymbol(r) {
 			continue
 		}
-		normalized.WriteRune(r)
+		_, _ = normalized.WriteRune(r)
 	}
 	return normalized.String()
 }
@@ -849,10 +845,6 @@ func runSecurityAudit(c *gin.Context, reqLog *zap.Logger, coordinator *securitya
 			zap.String("stage", request.Stage))
 	}
 	return &decision
-}
-
-func matchAuthorizationBypassRuleWithConfiguredRules(text string, configured []service.ContentModerationLocalSecurityRule) string {
-	return evaluateAuthorizationBypassRisk(text, configured).Rule
 }
 
 func extractLocalSecurityAuditText(protocol string, body []byte) string {

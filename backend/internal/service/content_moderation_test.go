@@ -868,7 +868,9 @@ func newContentModerationModelFilterTestService(t *testing.T, cfg *ContentModera
 	}))
 	t.Cleanup(server.Close)
 	cfg.BaseURL = server.URL
-	cfg.APIKeys = []string{"sk-test"}
+	if cfg.APIKeys == nil {
+		cfg.APIKeys = []string{"sk-test"}
+	}
 	rawCfg, err := json.Marshal(cfg)
 	require.NoError(t, err)
 	repo := &contentModerationTestRepo{}

@@ -1115,12 +1115,6 @@ func (s *BatchImagePublicService) enabled() bool {
 	return s != nil && s.Repo != nil && s.AccountRepo != nil && s.Config != nil && s.Config.BatchImage.Enabled
 }
 
-func (s *BatchImagePublicService) invalidateAuthCache(ctx context.Context, userID int64) {
-	if s != nil && s.AuthCache != nil && userID > 0 {
-		s.AuthCache.InvalidateAuthCacheByUserID(ctx, userID)
-	}
-}
-
 func (s *BatchImagePublicService) maxItems() int {
 	if s != nil && s.Config != nil && s.Config.BatchImage.MaxItemsPerJobDefault > 0 {
 		return s.Config.BatchImage.MaxItemsPerJobDefault

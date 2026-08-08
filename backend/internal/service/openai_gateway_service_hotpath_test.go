@@ -195,7 +195,7 @@ func TestOpenAIGatewayService_Forward_InjectsCodexSecurityBoundaryInstructionsWh
 	}
 	cfg := &config.Config{
 		Gateway: config.GatewayConfig{
-			ForcedCodexInstructionsTemplate: "safe-boundary\n\n{{ .ExistingInstructions }}",
+			ForcedCodexInstructionsTemplate:         "safe-boundary\n\n{{ .ExistingInstructions }}",
 			InjectCodexSecurityBoundaryInstructions: true,
 		},
 	}

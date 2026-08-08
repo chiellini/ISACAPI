@@ -407,13 +407,13 @@ func (a *ConversationArchiver) applyContent(ev *ConversationEvent, content strin
 
 func conversationEventHash(role, kind, content, toolCallID string) string {
 	h := sha256.New()
-	h.Write([]byte(role))
-	h.Write([]byte{0})
-	h.Write([]byte(kind))
-	h.Write([]byte{0})
-	h.Write([]byte(content))
-	h.Write([]byte{0})
-	h.Write([]byte(toolCallID))
+	_, _ = h.Write([]byte(role))
+	_, _ = h.Write([]byte{0})
+	_, _ = h.Write([]byte(kind))
+	_, _ = h.Write([]byte{0})
+	_, _ = h.Write([]byte(content))
+	_, _ = h.Write([]byte{0})
+	_, _ = h.Write([]byte(toolCallID))
 	return hex.EncodeToString(h.Sum(nil))
 }
 

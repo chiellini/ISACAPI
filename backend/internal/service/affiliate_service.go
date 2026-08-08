@@ -83,13 +83,13 @@ type AffiliateInvitee struct {
 }
 
 type AffiliateDetail struct {
-	UserID          int64   `json:"user_id"`
-	AffCode         string  `json:"aff_code"`
-	InviterID       *int64  `json:"inviter_id,omitempty"`
-	AffCount        int     `json:"aff_count"`
-	AffQuota        float64 `json:"aff_quota"`
-	AffFrozenQuota  float64 `json:"aff_frozen_quota"`
-	AffHistoryQuota float64 `json:"aff_history_quota"`
+	UserID               int64   `json:"user_id"`
+	AffCode              string  `json:"aff_code"`
+	InviterID            *int64  `json:"inviter_id,omitempty"`
+	AffCount             int     `json:"aff_count"`
+	AffQuota             float64 `json:"aff_quota"`
+	AffFrozenQuota       float64 `json:"aff_frozen_quota"`
+	AffHistoryQuota      float64 `json:"aff_history_quota"`
 	AgentStatus          string  `json:"agent_status"`
 	AffWithdrawalPending float64 `json:"aff_withdrawal_pending"`
 	AffDebt              float64 `json:"aff_debt"`

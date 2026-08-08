@@ -38,7 +38,7 @@ func (a *openAIResponseAccumulator) observeSSE(data []byte) {
 	switch strings.TrimSpace(gjson.GetBytes(data, "type").String()) {
 	case "response.output_text.delta":
 		if d := gjson.GetBytes(data, "delta").String(); d != "" {
-			a.text.WriteString(d)
+			_, _ = a.text.WriteString(d)
 		}
 	case "response.created", "response.in_progress", "response.completed", "response.done", "response.incomplete":
 		if id := gjson.GetBytes(data, "response.id").String(); id != "" {
@@ -49,7 +49,7 @@ func (a *openAIResponseAccumulator) observeSSE(data []byte) {
 		}
 		if a.text.Len() == 0 {
 			if text := openAITextFromResponseOutput(data); text != "" {
-				a.text.WriteString(text)
+				_, _ = a.text.WriteString(text)
 			}
 		}
 	}
@@ -64,10 +64,10 @@ func (a *openAIResponseAccumulator) observeChatCompletionsSSE(data []byte) {
 	}
 	gjson.GetBytes(data, "choices").ForEach(func(_, choice gjson.Result) bool {
 		if d := choice.Get("delta.content").String(); d != "" {
-			a.text.WriteString(d)
+			_, _ = a.text.WriteString(d)
 		}
 		if t := choice.Get("message.content").String(); t != "" && a.text.Len() == 0 {
-			a.text.WriteString(t)
+			_, _ = a.text.WriteString(t)
 		}
 		if fr := choice.Get("finish_reason").String(); fr != "" {
 			a.finishReason = fr
@@ -87,16 +87,16 @@ func (a *openAIResponseAccumulator) observeAnthropicSSE(data []byte) {
 		}
 		if a.text.Len() == 0 {
 			if text := anthropicTextFromContent(gjson.GetBytes(data, "message.content")); text != "" {
-				a.text.WriteString(text)
+				_, _ = a.text.WriteString(text)
 			}
 		}
 	case "content_block_start":
 		if text := gjson.GetBytes(data, "content_block.text").String(); text != "" {
-			a.text.WriteString(text)
+			_, _ = a.text.WriteString(text)
 		}
 	case "content_block_delta":
 		if text := gjson.GetBytes(data, "delta.text").String(); text != "" {
-			a.text.WriteString(text)
+			_, _ = a.text.WriteString(text)
 		}
 	case "message_delta":
 		if fr := gjson.GetBytes(data, "delta.stop_reason").String(); fr != "" {
@@ -127,9 +127,9 @@ func openAITextFromResponseOutput(data []byte) string {
 			if strings.Contains(c.Get("type").String(), "text") {
 				if t := c.Get("text").String(); t != "" {
 					if b.Len() > 0 {
-						b.WriteString("\n")
+						_, _ = b.WriteString("\n")
 					}
-					b.WriteString(t)
+					_, _ = b.WriteString(t)
 				}
 			}
 			return true
@@ -147,9 +147,9 @@ func anthropicTextFromContent(content gjson.Result) string {
 		}
 		if t := c.Get("text").String(); t != "" {
 			if b.Len() > 0 {
-				b.WriteString("\n")
+				_, _ = b.WriteString("\n")
 			}
-			b.WriteString(t)
+			_, _ = b.WriteString(t)
 		}
 		return true
 	})
@@ -196,9 +196,9 @@ func captureOpenAIChatCompletionsResponseFromJSON(c *gin.Context, body []byte) {
 	gjson.GetBytes(body, "choices").ForEach(func(_, choice gjson.Result) bool {
 		if t := choice.Get("message.content").String(); t != "" {
 			if b.Len() > 0 {
-				b.WriteString("\n")
+				_, _ = b.WriteString("\n")
 			}
-			b.WriteString(t)
+			_, _ = b.WriteString(t)
 		}
 		return true
 	})
@@ -232,9 +232,9 @@ func captureGeminiResponseFromJSON(c *gin.Context, body []byte) {
 		candidate.Get("content.parts").ForEach(func(_, part gjson.Result) bool {
 			if t := part.Get("text").String(); t != "" {
 				if b.Len() > 0 {
-					b.WriteString("\n")
+					_, _ = b.WriteString("\n")
 				}
-				b.WriteString(t)
+				_, _ = b.WriteString(t)
 			}
 			return true
 		})

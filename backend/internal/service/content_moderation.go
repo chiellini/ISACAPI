@@ -1886,16 +1886,6 @@ func (s *ContentModerationService) replaceRuntimeConfig(cfg *ContentModerationCo
 	})
 }
 
-func (s *contentModerationRuntimeSnapshot) matchBlockedKeyword(text string) (string, bool) {
-	if s == nil || s.config == nil {
-		return "", false
-	}
-	if s.keywordMatcher != nil {
-		return s.keywordMatcher.Match(text)
-	}
-	return matchBlockedKeyword(text, s.config.BlockedKeywords)
-}
-
 func (s *contentModerationRuntimeSnapshot) matchBlockedKeywordCombination(text string) (string, bool) {
 	if s == nil || s.config == nil {
 		return "", false

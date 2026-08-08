@@ -100,8 +100,9 @@ func TestModelAliasRateContextRoundTrip(t *testing.T) {
 
 	// <=0 不绑定（无计费覆盖）
 	require.Equal(t, 0.0, ModelAliasRateFromContext(WithModelAliasRate(context.Background(), 0)))
-	// nil ctx 安全
-	require.Equal(t, 0.0, ModelAliasRateFromContext(nil))
+	var nilContext context.Context
+	//nolint:staticcheck // ModelAliasRateFromContext intentionally supports nil contexts.
+	require.Equal(t, 0.0, ModelAliasRateFromContext(nilContext))
 }
 
 func TestModelAliasConfigOverrideAndFallback(t *testing.T) {

@@ -12,18 +12,18 @@ import (
 
 type providerScopedAccountRepoStub struct {
 	AccountRepository
-	account      *Account
-	accounts     []Account
-	result       *pagination.PaginationResult
-	err          error
-	gotID        int64
-	gotProvider  int64
-	updateCalls  int
-	updateInput  *ProviderAccountUpdateInput
-	deleteCalls  int
-	gotParams    pagination.PaginationParams
-	gotPlatform  string
-	gotGroupID   int64
+	account     *Account
+	accounts    []Account
+	result      *pagination.PaginationResult
+	err         error
+	gotID       int64
+	gotProvider int64
+	updateCalls int
+	updateInput *ProviderAccountUpdateInput
+	deleteCalls int
+	gotParams   pagination.PaginationParams
+	gotPlatform string
+	gotGroupID  int64
 }
 
 func (r *providerScopedAccountRepoStub) UpdateForProvider(_ context.Context, id, providerID int64, input *ProviderAccountUpdateInput) (*Account, error) {

@@ -28,7 +28,7 @@ func (s *APIKeyService) GetOrCreateInternalChatKey(ctx context.Context, userID i
 		return existing, nil
 	}
 
-	v, err, _ := internalChatKeySF.Do(fmt.Sprintf("internal-chat-key:%d", userID), func() (interface{}, error) {
+	v, err, _ := internalChatKeySF.Do(fmt.Sprintf("internal-chat-key:%d", userID), func() (any, error) {
 		// 双重检查：抢到 singleflight 的协程可能在等待期间已被其它协程创建。
 		if existing, err := s.apiKeyRepo.FindInternalChatKey(ctx, userID); err == nil && existing != nil {
 			return existing, nil
@@ -48,7 +48,11 @@ func (s *APIKeyService) GetOrCreateInternalChatKey(ctx context.Context, userID i
 	if err != nil {
 		return nil, err
 	}
-	return v.(*APIKey), nil
+	apiKey, ok := v.(*APIKey)
+	if !ok || apiKey == nil {
+		return nil, fmt.Errorf("internal chat key creation returned an unexpected result")
+	}
+	return apiKey, nil
 }
 
 // defaultChatGroupID 选择用户的默认聊天分组。

@@ -21,10 +21,10 @@ func NewContentModerationHandler(svc *service.ContentModerationService) *Content
 
 type contentModerationConfigRequest struct {
 	APIFormat *string `json:"api_format"`
-	Enabled *bool   `json:"enabled"`
-	Mode    *string `json:"mode"`
-	BaseURL *string `json:"base_url"`
-	Model   *string `json:"model"`
+	Enabled   *bool   `json:"enabled"`
+	Mode      *string `json:"mode"`
+	BaseURL   *string `json:"base_url"`
+	Model     *string `json:"model"`
 	// 审计请求使用的代理服务器：null 不修改；0 清除（直连）；>0 指定代理。
 	ProxyID              *int64              `json:"proxy_id"`
 	APIKey               *string             `json:"api_key"`

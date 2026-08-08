@@ -270,14 +270,14 @@ func TestPrepareUsageLogInsert_ArgCountMatchesTypes(t *testing.T) {
 	})
 
 	require.Len(t, prepared.args, len(usageLogInsertArgTypes))
-	require.Len(t, prepared.args, 61)
-	require.Equal(t, sql.NullInt64{Int64: providerID, Valid: true}, prepared.args[56])
-	require.Equal(t, sql.NullInt64{Int64: payerUserID, Valid: true}, prepared.args[57])
-	require.Equal(t, sql.NullInt64{Int64: researchGroupID, Valid: true}, prepared.args[58])
-	require.Equal(t, sql.NullInt64{Int64: researchGroupMemberID, Valid: true}, prepared.args[59])
-	require.Equal(t, sql.NullString{String: fundingSource, Valid: true}, prepared.args[60])
-	require.Equal(t, "bigint", usageLogInsertArgTypes[56])
-	require.Equal(t, "text", usageLogInsertArgTypes[60])
+	require.Len(t, prepared.args, 62)
+	require.Equal(t, sql.NullInt64{Int64: providerID, Valid: true}, prepared.args[57])
+	require.Equal(t, sql.NullInt64{Int64: payerUserID, Valid: true}, prepared.args[58])
+	require.Equal(t, sql.NullInt64{Int64: researchGroupID, Valid: true}, prepared.args[59])
+	require.Equal(t, sql.NullInt64{Int64: researchGroupMemberID, Valid: true}, prepared.args[60])
+	require.Equal(t, sql.NullString{String: fundingSource, Valid: true}, prepared.args[61])
+	require.Equal(t, "bigint", usageLogInsertArgTypes[57])
+	require.Equal(t, "text", usageLogInsertArgTypes[61])
 }
 
 func TestPrepareUsageLogInsert_PersistsImageSizeMetadata(t *testing.T) {

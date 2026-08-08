@@ -37,7 +37,7 @@ func TestResearchGroupRepositoryGetFundingContextUsesApplicationMonthBoundary(t 
 	require.NoError(t, err)
 	require.Equal(t, int64(9), funding.PayerUserID)
 	require.Equal(t, int64(7), funding.CallerUserID)
-	require.Equal(t, float64(75), funding.RemainingAt(timezone.Now()))
+	require.Equal(t, float64(75), funding.RemainingAt(window.Add(12*time.Hour)))
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 

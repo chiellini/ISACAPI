@@ -540,7 +540,7 @@ func (h *AuthHandler) GetCurrentUser(c *gin.Context) {
 			response.ErrorFrom(c, err)
 			return
 		}
-		profileResponse.User.ResearchGroup = researchGroup
+		profileResponse.ResearchGroup = researchGroup
 	}
 
 	response.Success(c, UserResponse{

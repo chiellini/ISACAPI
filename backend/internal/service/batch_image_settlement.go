@@ -293,12 +293,6 @@ func (s *BatchImageSettlementService) recordUsageLog(ctx context.Context, job *B
 	writeUsageLogBestEffort(ctx, s.UsageLogRepo, usageLog, "service.batch_image_settlement")
 }
 
-func (s *BatchImageSettlementService) invalidateAuthCache(ctx context.Context, userID int64) {
-	if s != nil && s.AuthCache != nil && userID > 0 {
-		s.AuthCache.InvalidateAuthCacheByUserID(ctx, userID)
-	}
-}
-
 func (s *BatchImageSettlementService) invalidateBillingCaches(ctx context.Context, job *BatchImageJob) {
 	if s == nil {
 		return

@@ -16,9 +16,9 @@ import (
 // listing users with custom settings, updating per-user invite codes
 // and exclusive rebate rates, and batch operations.
 type AffiliateHandler struct {
-	affiliateService *service.AffiliateService
+	affiliateService       *service.AffiliateService
 	affiliatePayoutService *service.AffiliatePayoutService
-	adminService     service.AdminService
+	adminService           service.AdminService
 }
 
 // NewAffiliateHandler creates a new admin affiliate handler.

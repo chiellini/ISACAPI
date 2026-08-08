@@ -944,10 +944,10 @@ func TestExecuteSubscriptionFulfillmentAppliesAffiliateRebate(t *testing.T) {
 			CreatedAt: time.Now().Add(-24 * time.Hour),
 		},
 		inviterSummary: &AffiliateSummary{
-			UserID:    inviterID,
-			AffCode:   "INVITER",
+			UserID:      inviterID,
+			AffCode:     "INVITER",
 			AgentStatus: AffiliateAgentStatusActive,
-			CreatedAt: time.Now().Add(-48 * time.Hour),
+			CreatedAt:   time.Now().Add(-48 * time.Hour),
 		},
 	}
 	settingSvc := NewSettingService(&paymentFulfillmentSettingRepoStub{values: map[string]string{
@@ -1045,10 +1045,10 @@ func TestExecuteSubscriptionFulfillmentDoesNotDuplicateWorkAfterLegacySuccessAud
 			CreatedAt: time.Now().Add(-24 * time.Hour),
 		},
 		inviterSummary: &AffiliateSummary{
-			UserID:    inviterID,
-			AffCode:   "INVITER",
+			UserID:      inviterID,
+			AffCode:     "INVITER",
 			AgentStatus: AffiliateAgentStatusActive,
-			CreatedAt: time.Now().Add(-48 * time.Hour),
+			CreatedAt:   time.Now().Add(-48 * time.Hour),
 		},
 	}
 	settingSvc := NewSettingService(&paymentFulfillmentSettingRepoStub{values: map[string]string{
