@@ -28,8 +28,8 @@
       <nav class="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 sm:gap-4">
         <div class="flex min-w-0 flex-1 items-center gap-3">
           <img
-            :src="siteLogo || '/logo.svg'"
-            alt="Logo"
+            :src="companyIconUrl"
+            alt="ISACAI"
             class="h-9 w-9 shrink-0 rounded-lg object-contain"
           />
           <span class="min-w-0 truncate text-base font-semibold">{{ siteName }}</span>
@@ -67,8 +67,8 @@
     <main class="flex min-w-0 flex-1 items-center justify-center px-4 py-16 sm:px-6">
       <div class="min-w-0 max-w-2xl text-center">
         <img
-          :src="siteLogo || '/logo.svg'"
-          alt="Logo"
+          :src="companyIconUrl"
+          alt="ISACAI"
           class="mx-auto mb-6 h-20 w-20 rounded-2xl object-contain"
         />
         <h1 class="[overflow-wrap:anywhere] text-3xl font-bold md:text-4xl">{{ siteName }}</h1>
@@ -804,7 +804,6 @@ const appStore = useAppStore()
 
 // Site settings - directly from appStore (already initialized from injected config)
 const siteName = computed(() => appStore.cachedPublicSettings?.site_name || appStore.siteName || 'Sub2API')
-const siteLogo = computed(() => sanitizeUrl(appStore.cachedPublicSettings?.site_logo || appStore.siteLogo || '', { allowRelative: true, allowDataUrl: true }))
 const siteSubtitle = computed(() => appStore.cachedPublicSettings?.site_subtitle || 'AI API Gateway Platform')
 const docUrl = computed(() => sanitizeUrl(appStore.cachedPublicSettings?.doc_url || appStore.docUrl || ''))
 const homeContent = computed(() => appStore.cachedPublicSettings?.home_content || '')

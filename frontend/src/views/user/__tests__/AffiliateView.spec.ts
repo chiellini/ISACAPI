@@ -12,6 +12,14 @@ vi.mock('@/api/user', () => ({
   default: {
     getAffiliateDetail,
     transferAffiliateQuota: vi.fn(),
+    listAffiliatePaymentAccounts: vi.fn().mockResolvedValue([]),
+    listAffiliateWithdrawals: vi.fn().mockResolvedValue({
+      items: [],
+      total: 0,
+      page: 1,
+      page_size: 20,
+      pages: 0,
+    }),
   },
 }))
 
@@ -50,6 +58,7 @@ describe('AffiliateView', () => {
     copyToClipboard.mockResolvedValue(true)
     getAffiliateDetail.mockResolvedValue({
       user_id: 1,
+      status: 'active',
       aff_code: affiliateCode,
       inviter_id: null,
       aff_count: 0,

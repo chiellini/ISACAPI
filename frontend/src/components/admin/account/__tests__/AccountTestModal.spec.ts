@@ -23,6 +23,9 @@ vi.mock('@/composables/useClipboard', () => ({
 
 vi.mock('vue-i18n', async () => {
   const actual = await vi.importActual<typeof import('vue-i18n')>('vue-i18n')
+  const messages: Record<string, string> = {
+    'admin.accounts.imagePromptDefault': 'Generate a cute orange cat astronaut sticker on a clean pastel background.'
+  }
   return {
     ...actual,
     useI18n: () => ({
@@ -30,7 +33,10 @@ vi.mock('vue-i18n', async () => {
         if (key === 'admin.accounts.imageReceived' && params?.count) {
           return `received-${params.count}`
         }
-        return key
+        if (key === 'admin.accounts.imagePreviewAlt' && params?.index) {
+          return `test-image-${params.index}`
+        }
+        return messages[key] || key
       }
     })
   }
@@ -173,7 +179,8 @@ describe('AccountTestModal', () => {
     const [, request] = (global.fetch as any).mock.calls[0]
     expect(JSON.parse(request.body)).toEqual({
       model_id: 'grok-4.3',
-      prompt: ''
+      prompt: '',
+      mode: 'text'
     })
   })
 

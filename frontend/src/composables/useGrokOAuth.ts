@@ -125,6 +125,58 @@ export function useGrokOAuth() {
     return extra
   }
 
+  const validateSSOToken = async (
+    ssoToken: string,
+    proxyId?: number | null
+  ): Promise<GrokTokenInfo | null> => {
+    if (!ssoToken.trim()) {
+      error.value = t('admin.accounts.oauth.grok.pleaseEnterSSOToken', 'Please enter an SSO token')
+      return null
+    }
+    loading.value = true
+    error.value = ''
+    try {
+      return await adminAPI.grok.validateSSOToken(ssoToken.trim(), proxyId)
+    } catch (err: any) {
+      error.value = extractI18nErrorMessage(
+        err,
+        t,
+        'admin.accounts.oauth.grok.errors',
+        t('admin.accounts.oauth.grok.failedToValidateSSO', 'Failed to validate SSO token')
+      )
+      appStore.showError(error.value)
+      return null
+    } finally {
+      loading.value = false
+    }
+  }
+
+  const authorizePassword = async (
+    emailAndPassword: string,
+    proxyId?: number | null
+  ): Promise<GrokTokenInfo | null> => {
+    if (!emailAndPassword.trim()) {
+      error.value = t('admin.accounts.oauth.grok.pleaseEnterPassword', 'Please enter email----password')
+      return null
+    }
+    loading.value = true
+    error.value = ''
+    try {
+      return await adminAPI.grok.authorizePassword(emailAndPassword, proxyId)
+    } catch (err: any) {
+      error.value = extractI18nErrorMessage(
+        err,
+        t,
+        'admin.accounts.oauth.grok.errors',
+        t('admin.accounts.oauth.grok.failedToAuthorizePassword', 'Password authorization failed')
+      )
+      appStore.showError(error.value)
+      return null
+    } finally {
+      loading.value = false
+    }
+  }
+
   return {
     authUrl,
     sessionId,
@@ -135,6 +187,8 @@ export function useGrokOAuth() {
     generateAuthUrl,
     exchangeAuthCode,
     validateRefreshToken,
+    validateSSOToken,
+    authorizePassword,
     buildCredentials,
     buildExtraInfo
   }

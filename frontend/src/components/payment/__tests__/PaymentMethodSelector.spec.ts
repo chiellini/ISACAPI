@@ -23,7 +23,7 @@ describe('PaymentMethodSelector', () => {
     })
 
     const buttons = wrapper.findAll('button')
-    expect(buttons.map(button => button.text().replace('AlipayHK', ''))).toEqual(['easypay', 'alipay', 'wxpay', 'stripe'])
+    expect(buttons.map(button => button.text().replace('AlipayHK', '').trim())).toEqual(['easypay', 'alipay', 'wxpay', 'stripe'])
     expect(buttons[1].text()).toContain('AlipayHK')
     expect(buttons[2].text()).not.toContain('WeChat Pay HK')
   })
