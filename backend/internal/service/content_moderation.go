@@ -46,8 +46,9 @@ const (
 	ContentModerationActionError               = "error"
 	ContentModerationActionCyberPolicy         = "cyber_policy" // cyber_policy 硬阻断的风控日志 action（封号计数排除按此值过滤）
 
-	contentModerationKeywordCategory        = "keyword"
-	contentModerationUpstreamPolicyCategory = "upstream_policy"
+	contentModerationKeywordCategory         = "keyword"
+	contentModerationUpstreamPolicyCategory  = "upstream_policy"
+	contentModerationSecondaryReviewCategory = "secondary_review"
 
 	ContentModerationKeywordModeKeywordOnly   = "keyword_only"
 	ContentModerationKeywordModeKeywordAndAPI = "keyword_and_api"
@@ -900,13 +901,28 @@ func (s *ContentModerationService) TestAPIKeys(ctx context.Context, input TestCo
 
 func (s *ContentModerationService) Check(ctx context.Context, input ContentModerationCheckInput) (*ContentModerationDecision, error) {
 	allow := &ContentModerationDecision{Allowed: true, Action: ContentModerationActionAllow}
-	if s == nil || s.settingRepo == nil || s.repo == nil {
+	reviewStartedAt := time.Now()
+	if s == nil || s.repo == nil {
 		slog.Info("content_moderation.skip_unavailable",
 			"user_id", input.UserID,
 			"api_key_id", input.APIKeyID,
 			"group_id", contentModerationLogGroupID(input.GroupID),
 			"endpoint", input.Endpoint,
 			"protocol", input.Protocol)
+		return allow, nil
+	}
+	if s.settingRepo == nil {
+		err := errors.New("content moderation setting repository unavailable")
+		slog.Warn("content_moderation.skip_config_repository_unavailable",
+			"user_id", input.UserID,
+			"api_key_id", input.APIKeyID,
+			"group_id", contentModerationLogGroupID(input.GroupID),
+			"endpoint", input.Endpoint,
+			"protocol", input.Protocol,
+			"error", err)
+		if input.ForceLocalSecurityReview {
+			s.recordSecondaryReviewSetupFailure(ctx, input, nil, reviewStartedAt, err)
+		}
 		return allow, nil
 	}
 	runtimeSnapshot, err := s.loadRuntimeSnapshot(ctx)
@@ -918,6 +934,9 @@ func (s *ContentModerationService) Check(ctx context.Context, input ContentModer
 			"endpoint", input.Endpoint,
 			"protocol", input.Protocol,
 			"error", err)
+		if input.ForceLocalSecurityReview {
+			s.recordSecondaryReviewSetupFailure(ctx, input, nil, reviewStartedAt, err)
+		}
 		return allow, nil
 	}
 	if !runtimeSnapshot.riskControlEnabled {
@@ -927,6 +946,9 @@ func (s *ContentModerationService) Check(ctx context.Context, input ContentModer
 			"group_id", contentModerationLogGroupID(input.GroupID),
 			"endpoint", input.Endpoint,
 			"protocol", input.Protocol)
+		if input.ForceLocalSecurityReview {
+			s.recordSecondaryReviewSetupFailure(ctx, input, runtimeSnapshot.config, reviewStartedAt, errors.New("content moderation is disabled"))
+		}
 		return allow, nil
 	}
 	cfg := runtimeSnapshot.config
@@ -954,7 +976,11 @@ func (s *ContentModerationService) Check(ctx context.Context, input ContentModer
 		"pre_hash_check_enabled", cfg.PreHashCheckEnabled,
 		"record_non_hits", cfg.RecordNonHits)
 	if input.ForceLocalSecurityReview {
-		return s.reviewLocalSecurityRiskWithConfig(ctx, input, cfg)
+		decision, reviewErr := s.reviewLocalSecurityRiskWithConfig(ctx, input, cfg)
+		if reviewErr != nil {
+			s.recordSecondaryReviewSetupFailure(ctx, input, cfg, reviewStartedAt, reviewErr)
+		}
+		return decision, reviewErr
 	}
 	if !cfg.Enabled {
 		slog.Info("content_moderation.skip_config_disabled",
@@ -1134,17 +1160,34 @@ func (s *ContentModerationService) Check(ctx context.Context, input ContentModer
 // multi-term candidate. Review infrastructure failures are fail-open: an
 // unavailable classifier is not evidence of malicious intent.
 func (s *ContentModerationService) ReviewLocalSecurityRisk(ctx context.Context, input ContentModerationCheckInput) (*ContentModerationDecision, error) {
-	if s == nil || s.settingRepo == nil || s.repo == nil {
+	startedAt := time.Now()
+	if s == nil || s.repo == nil {
 		return nil, errors.New("content moderation service unavailable")
+	}
+	if s.settingRepo == nil {
+		err := errors.New("content moderation setting repository unavailable")
+		s.recordSecondaryReviewSetupFailure(ctx, input, nil, startedAt, err)
+		return nil, err
 	}
 	runtimeSnapshot, err := s.loadRuntimeSnapshot(ctx)
 	if err != nil {
+		s.recordSecondaryReviewSetupFailure(ctx, input, nil, startedAt, err)
 		return nil, err
 	}
 	if runtimeSnapshot == nil || runtimeSnapshot.config == nil || !runtimeSnapshot.riskControlEnabled {
-		return nil, errors.New("content moderation is disabled")
+		err = errors.New("content moderation is disabled")
+		var cfg *ContentModerationConfig
+		if runtimeSnapshot != nil {
+			cfg = runtimeSnapshot.config
+		}
+		s.recordSecondaryReviewSetupFailure(ctx, input, cfg, startedAt, err)
+		return nil, err
 	}
-	return s.reviewLocalSecurityRiskWithConfig(ctx, input, runtimeSnapshot.config)
+	decision, err := s.reviewLocalSecurityRiskWithConfig(ctx, input, runtimeSnapshot.config)
+	if err != nil {
+		s.recordSecondaryReviewSetupFailure(ctx, input, runtimeSnapshot.config, startedAt, err)
+	}
+	return decision, err
 }
 
 func (s *ContentModerationService) reviewLocalSecurityRiskWithConfig(ctx context.Context, input ContentModerationCheckInput, baseCfg *ContentModerationConfig) (*ContentModerationDecision, error) {
@@ -1202,7 +1245,10 @@ func (s *ContentModerationService) checkSync(ctx context.Context, input ContentM
 		if queueDelay != nil {
 			s.asyncErrors.Add(1)
 		}
-		if cfg.RecordNonHits {
+		requiredSecondaryReview := input.ForceLocalSecurityReview || strings.TrimSpace(input.LocalSecurityMatchedRule) != ""
+		if requiredSecondaryReview {
+			s.persistSecondaryReviewFailure(ctx, input, cfg, content.ExcerptText(), hashText, latency, queueDelay, err)
+		} else if cfg.RecordNonHits && s.repo != nil {
 			log := s.buildLog(input, cfg, ContentModerationActionError, false, "", 0, nil, content.ExcerptText(), &latency, queueDelay, err.Error())
 			_ = s.repo.CreateLog(ctx, log)
 		}
@@ -1271,6 +1317,42 @@ func (s *ContentModerationService) checkSync(ctx context.Context, input ContentM
 		CategoryScores:  result.CategoryScores,
 		Action:          action,
 	}
+}
+
+func (s *ContentModerationService) recordSecondaryReviewSetupFailure(ctx context.Context, input ContentModerationCheckInput, cfg *ContentModerationConfig, startedAt time.Time, reviewErr error) {
+	if s == nil || reviewErr == nil {
+		return
+	}
+	latency := int(time.Since(startedAt).Milliseconds())
+	if latency < 0 {
+		latency = 0
+	}
+	s.recordPreBlockSyncMetric(latency, ContentModerationActionError)
+	content := ExtractContentModerationInput(input.Protocol, input.Body)
+	content.Normalize()
+	text := content.ExcerptText()
+	if text == "" {
+		text = string(input.Body)
+	}
+	s.persistSecondaryReviewFailure(ctx, input, cfg, text, content.Hash(), latency, nil, reviewErr)
+}
+
+func (s *ContentModerationService) persistSecondaryReviewFailure(ctx context.Context, input ContentModerationCheckInput, cfg *ContentModerationConfig, text, hashText string, latency int, queueDelay *int, reviewErr error) {
+	if s == nil || reviewErr == nil {
+		return
+	}
+	logCfg := cfg
+	if logCfg == nil {
+		logCfg = defaultContentModerationConfig()
+	}
+	logCfg = cloneContentModerationConfig(logCfg)
+	logCfg.Mode = ContentModerationModePreBlock
+	log := s.buildLog(input, logCfg, ContentModerationActionError, false, contentModerationSecondaryReviewCategory, 0, nil, text, &latency, queueDelay, reviewErr.Error())
+	log.MatchedKeyword = trimRunes(strings.TrimSpace(input.LocalSecurityMatchedRule), maxContentModerationLocalRuleTermRunes)
+	// A local combination explicitly requested a synchronous second review.
+	// Its failure is itself a required security-audit fact, even when non-hits
+	// are not retained or the client disconnects before the insert completes.
+	s.persistRequiredContentModerationLog(ctx, logCfg, log, hashText, false, false)
 }
 
 func contentModerationUnavailableDecision() *ContentModerationDecision {
@@ -1959,7 +2041,13 @@ func (s *ContentModerationService) callModeration(ctx context.Context, cfg *Cont
 	for attempt := 0; attempt < attempts; attempt++ {
 		key, ok := s.nextUsableAPIKey(cfg)
 		if !ok {
-			lastErr = errors.New("no moderation api key available")
+			// Preserve the concrete failure from an earlier attempt. A failed key
+			// may be frozen before the retry runs; replacing its HTTP/transport
+			// error with a generic "no key" message hides the real root cause in
+			// the security-audit record.
+			if lastErr == nil {
+				lastErr = errors.New("no moderation api key available")
+			}
 			break
 		}
 		if trackLoad {
@@ -2276,7 +2364,7 @@ func (s *ContentModerationService) buildLog(input ContentModerationCheckInput, c
 		InputExcerpt:      trimRunes(redactContentModerationSecrets(text), maxModerationExcerptRunes),
 		UpstreamLatencyMS: latency,
 		QueueDelayMS:      queueDelay,
-		Error:             errText,
+		Error:             trimRunes(redactContentModerationSecrets(errText), maxModerationExcerptRunes*4),
 	}
 }
 
@@ -2315,10 +2403,10 @@ func (s *ContentModerationService) persistContentModerationLog(ctx context.Conte
 	}
 }
 
-// persistRequiredContentModerationLog never routes an actual block through the
-// lossy in-memory queue. The detached, bounded context lets the audit insert
-// finish even when the client disconnects immediately after receiving the
-// refusal.
+// persistRequiredContentModerationLog never routes a required audit fact
+// (including an actual block or a mandatory-review failure) through the lossy
+// in-memory queue. The detached, bounded context lets the audit insert finish
+// even when the client disconnects immediately.
 func (s *ContentModerationService) persistRequiredContentModerationLog(ctx context.Context, cfg *ContentModerationConfig, log *ContentModerationLog, hashText string, recordHash bool, applySideEffects bool) {
 	if s == nil || log == nil {
 		return

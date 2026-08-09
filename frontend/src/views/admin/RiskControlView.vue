@@ -374,10 +374,15 @@
                       <button
                         type="button"
                         class="group flex w-full min-w-0 items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-gray-100 dark:hover:bg-dark-700"
-                        :title="inputSummaryText(row)"
+                        :title="auditSummaryTitle(row)"
                         @click="openInputDetail(row)"
                       >
-                        <span class="min-w-0 flex-1 truncate">{{ inputSummaryText(row) }}</span>
+                        <span class="min-w-0 flex-1">
+                          <span class="block truncate">{{ inputSummaryText(row) }}</span>
+                          <span v-if="row.error" data-test="audit-error-summary" class="mt-0.5 block truncate text-xs font-medium text-amber-600 dark:text-amber-300">
+                            {{ t('admin.riskControl.auditErrorReason') }}: {{ row.error }}
+                          </span>
+                        </span>
                         <Icon name="eye" size="xs" class="flex-shrink-0 text-gray-300 transition-colors group-hover:text-primary-500 dark:text-gray-500" />
                       </button>
                     </td>
@@ -1185,6 +1190,11 @@
             </div>
           </div>
 
+          <div v-if="inputDetailRow.error" class="rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/60 dark:bg-amber-900/20">
+            <p class="text-sm font-semibold text-amber-800 dark:text-amber-200">{{ t('admin.riskControl.auditErrorReason') }}</p>
+            <pre class="mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-words text-sm leading-6 text-amber-700 dark:text-amber-300">{{ inputDetailRow.error }}</pre>
+          </div>
+
           <div class="rounded-xl border border-gray-100 bg-white p-4 shadow-sm dark:border-dark-700 dark:bg-dark-800">
             <div class="flex flex-wrap items-center justify-between gap-3">
               <div>
@@ -1694,7 +1704,7 @@ const riskThresholdRows = computed<RiskThresholdRow[]>(() => (
 
 const inputDetailText = computed(() => {
   if (!inputDetailRow.value) return '-'
-  return inputDetailRow.value.input_excerpt || inputDetailRow.value.error || '-'
+  return inputDetailRow.value.input_excerpt || '-'
 })
 
 const queueUsagePercent = computed(() => `${Math.min(100, Math.max(0, status.value?.queue_usage_percent ?? 0)).toFixed(1)}%`)
@@ -1862,6 +1872,9 @@ function applyConfig(config: ContentModerationConfig) {
 
 async function loadAll() {
   loading.value = true
+  // Audit logs must remain available even when malformed settings make the
+  // config or status endpoint fail. loadLogs owns and reports its own error.
+  const logsPromise = loadLogs()
   try {
     const [config, groupItems, runtimeStatus, proxyItems] = await Promise.all([
       adminAPI.riskControl.getConfig(),
@@ -1878,10 +1891,10 @@ async function loadAll() {
       configForm.api_key_statuses = [...runtimeStatus.api_key_statuses]
       prunePendingDeleteAPIKeyHashes()
     }
-    await loadLogs()
   } catch (err: unknown) {
     appStore.showError(extractApiErrorMessage(err, t('admin.riskControl.loadFailed')))
   } finally {
+    await logsPromise
     loading.value = false
   }
 }
@@ -2033,6 +2046,10 @@ function canUnbanRow(row: ContentModerationLog): boolean {
 
 function inputSummaryText(row: ContentModerationLog): string {
   return row.input_excerpt || row.error || '-'
+}
+
+function auditSummaryTitle(row: ContentModerationLog): string {
+  return [row.input_excerpt, row.error].filter((value) => Boolean(value)).join('\n') || '-'
 }
 
 function openInputDetail(row: ContentModerationLog) {

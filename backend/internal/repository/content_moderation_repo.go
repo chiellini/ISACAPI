@@ -223,7 +223,7 @@ func (r *contentModerationRepository) CleanupExpiredLogs(ctx context.Context, hi
 	}
 	hitExec, err := r.db.ExecContext(ctx, `
 DELETE FROM content_moderation_logs
-WHERE flagged = TRUE AND created_at < $1
+WHERE (flagged = TRUE OR action = 'error') AND created_at < $1
 `, hitBefore)
 	if err != nil {
 		return nil, fmt.Errorf("delete expired hit content moderation logs: %w", err)
@@ -232,7 +232,7 @@ WHERE flagged = TRUE AND created_at < $1
 
 	nonHitExec, err := r.db.ExecContext(ctx, `
 DELETE FROM content_moderation_logs
-WHERE flagged = FALSE AND created_at < $1
+WHERE flagged = FALSE AND action <> 'error' AND created_at < $1
 `, nonHitBefore)
 	if err != nil {
 		return nil, fmt.Errorf("delete expired non-hit content moderation logs: %w", err)
@@ -275,9 +275,9 @@ func buildContentModerationLogWhere(filter service.ContentModerationLogFilter) (
 	}
 	if search := strings.TrimSpace(filter.Search); search != "" {
 		like := "%" + search + "%"
-		args = append(args, like, like, like, like, like)
-		idx := len(args) - 4
-		where = append(where, fmt.Sprintf("(l.request_id ILIKE $%d OR l.user_email ILIKE $%d OR l.api_key_name ILIKE $%d OR l.model ILIKE $%d OR l.input_excerpt ILIKE $%d)", idx, idx+1, idx+2, idx+3, idx+4))
+		args = append(args, like, like, like, like, like, like, like, like)
+		idx := len(args) - 7
+		where = append(where, fmt.Sprintf("(l.request_id ILIKE $%d OR l.user_email ILIKE $%d OR l.api_key_name ILIKE $%d OR l.model ILIKE $%d OR l.input_excerpt ILIKE $%d OR l.matched_keyword ILIKE $%d OR l.highest_category ILIKE $%d OR l.error ILIKE $%d)", idx, idx+1, idx+2, idx+3, idx+4, idx+5, idx+6, idx+7))
 	}
 	if filter.From != nil && !filter.From.IsZero() {
 		add("l.created_at >= $%d", *filter.From)

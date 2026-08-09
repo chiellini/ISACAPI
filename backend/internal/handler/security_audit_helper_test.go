@@ -309,9 +309,10 @@ func TestRunSecurityAuditDefensiveCombinationNeedsAndPassesAPIReview(t *testing.
 
 func TestRunSecurityAuditReviewUnavailableDoesNotPretendContentViolation(t *testing.T) {
 	gin.SetMode(gin.TestMode)
+	repo := &contentModerationHandlerTestRepo{}
 	moderationSvc := newSecurityAuditTestModerationService(t, &service.ContentModerationConfig{
 		Enabled: true, Mode: service.ContentModerationModePreBlock, SampleRate: 100, AllGroups: true,
-	}, &contentModerationHandlerTestRepo{})
+	}, repo)
 	promptEngine := &turnCountingEngine{mode: securityaudit.ModeAsync}
 	coordinator := securityaudit.NewCoordinator(securityaudit.NewLegacyModerationAdapter(moderationSvc), promptEngine)
 	recorder := httptest.NewRecorder()
@@ -324,6 +325,16 @@ func TestRunSecurityAuditReviewUnavailableDoesNotPretendContentViolation(t *test
 	require.NotNil(t, decision)
 	require.True(t, decision.AllowNextStage)
 	require.Equal(t, int64(1), promptEngine.enqueues.Load())
+	logs := repo.logSnapshot()
+	require.Len(t, logs, 1)
+	require.Equal(t, service.ContentModerationActionError, logs[0].Action)
+	require.Equal(t, "secondary_review", logs[0].HighestCategory)
+	require.NotEmpty(t, logs[0].MatchedKeyword)
+	require.Contains(t, logs[0].Error, "no moderation api key available")
+	status, err := moderationSvc.GetStatus(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, int64(1), status.PreBlockChecked)
+	require.Equal(t, int64(1), status.PreBlockErrors)
 }
 
 func TestRecordUpstreamPolicyBlockWritesRiskAuditOnce(t *testing.T) {

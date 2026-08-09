@@ -21,6 +21,19 @@ func TestBuildContentModerationLogWhere_BlockedIncludesAllBlockActions(t *testin
 	require.NotContains(t, sql, "l.action = 'block'")
 }
 
+func TestBuildContentModerationLogWhere_SearchIncludesSecondaryReviewFailureFields(t *testing.T) {
+	where, args := buildContentModerationLogWhere(service.ContentModerationLogFilter{Search: "secondary_review"})
+
+	require.Len(t, args, 8)
+	for _, arg := range args {
+		require.Equal(t, "%secondary_review%", arg)
+	}
+	sql := strings.Join(where, " AND ")
+	require.Contains(t, sql, "l.matched_keyword ILIKE")
+	require.Contains(t, sql, "l.highest_category ILIKE")
+	require.Contains(t, sql, "l.error ILIKE")
+}
+
 func TestContentModerationRepositoryCountFlaggedByUserSince_ExcludesHashBlock(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
@@ -72,5 +85,28 @@ func TestContentModerationRepositoryCountFlaggedByUserSince_ExcludesCyberPolicyW
 
 	require.NoError(t, err)
 	require.Equal(t, 3, count)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestContentModerationRepositoryCleanupExpiredLogs_RetainsErrorsAsAuditRecords(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+
+	repo := NewContentModerationRepository(db)
+	hitBefore := time.Now().Add(-180 * 24 * time.Hour)
+	nonHitBefore := time.Now().Add(-3 * 24 * time.Hour)
+	mock.ExpectExec(regexp.QuoteMeta("WHERE (flagged = TRUE OR action = 'error') AND created_at < $1")).
+		WithArgs(hitBefore).
+		WillReturnResult(sqlmock.NewResult(0, 2))
+	mock.ExpectExec(regexp.QuoteMeta("WHERE flagged = FALSE AND action <> 'error' AND created_at < $1")).
+		WithArgs(nonHitBefore).
+		WillReturnResult(sqlmock.NewResult(0, 5))
+
+	result, err := repo.CleanupExpiredLogs(context.Background(), hitBefore, nonHitBefore)
+
+	require.NoError(t, err)
+	require.Equal(t, int64(2), result.DeletedHit)
+	require.Equal(t, int64(5), result.DeletedNonHit)
 	require.NoError(t, mock.ExpectationsWereMet())
 }
