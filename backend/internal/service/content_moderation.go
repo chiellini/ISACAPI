@@ -386,6 +386,7 @@ type ContentModerationCheckInput struct {
 	Body                     []byte
 	ForceLocalSecurityReview bool
 	LocalSecurityMatchedRule string
+	LocalSecurityReviewText  string
 }
 
 type ContentModerationInput struct {
@@ -1199,12 +1200,22 @@ func (s *ContentModerationService) reviewLocalSecurityRiskWithConfig(ctx context
 	cfg.SampleRate = 100
 	cfg.PreBlockFailureMode = ContentModerationPreBlockFailureAllow
 	cfg.Thresholds = highConfidenceLocalSecurityReviewThresholds(cfg.Thresholds)
-	content := ExtractContentModerationInput(input.Protocol, input.Body)
+	content := extractLocalSecurityReviewInput(input)
 	if content.IsEmpty() {
 		return nil, errors.New("content moderation input is empty")
 	}
 	content.Normalize()
 	return s.checkSync(ctx, input, cfg, content, content.Hash(), nil, true), nil
+}
+
+// extractLocalSecurityReviewInput preserves the exact client-controlled text
+// that nominated this request for a second pass. The regular extractor remains
+// the fallback for callers that do not originate from the gateway local scan.
+func extractLocalSecurityReviewInput(input ContentModerationCheckInput) ContentModerationInput {
+	if strings.TrimSpace(input.LocalSecurityReviewText) != "" {
+		return ContentModerationInput{Text: input.LocalSecurityReviewText}
+	}
+	return ExtractContentModerationInput(input.Protocol, input.Body)
 }
 
 func highConfidenceLocalSecurityReviewThresholds(configured map[string]float64) map[string]float64 {
@@ -1328,7 +1339,7 @@ func (s *ContentModerationService) recordSecondaryReviewSetupFailure(ctx context
 		latency = 0
 	}
 	s.recordPreBlockSyncMetric(latency, ContentModerationActionError)
-	content := ExtractContentModerationInput(input.Protocol, input.Body)
+	content := extractLocalSecurityReviewInput(input)
 	content.Normalize()
 	text := content.ExcerptText()
 	if text == "" {
@@ -3485,6 +3496,22 @@ func (s *ContentModerationService) LocalSecurityRules(ctx context.Context) []Con
 		return nil
 	}
 	return cloneLocalSecurityRules(snapshot.config.LocalSecurityRules)
+}
+
+// ShouldApplyLocalSecurityRules reports whether gateway-local prompt-injection
+// rules may run. They are controlled by the global risk-control switch, not by
+// the API moderation mode or group scope: narrow deterministic fingerprints
+// must remain effective while ordinary remote moderation is disabled. They do
+// share the configured model filter.
+func (s *ContentModerationService) ShouldApplyLocalSecurityRules(ctx context.Context, model string) bool {
+	if s == nil {
+		return false
+	}
+	snapshot, err := s.loadRuntimeSnapshot(ctx)
+	if err != nil || snapshot == nil || snapshot.config == nil {
+		return false
+	}
+	return snapshot.riskControlEnabled && snapshot.config.includesModel(model)
 }
 
 // LocalSecurityPolicy returns the normalized local scoring thresholds from the

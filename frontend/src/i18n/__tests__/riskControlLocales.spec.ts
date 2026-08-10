@@ -21,4 +21,11 @@ describe('risk control locale copy', () => {
     expect(zh.admin.riskControl.preBlockAPIKeyLoadHint).not.toContain('Worker 池')
     expect(en.admin.riskControl.preBlockAPIKeyLoadHint).not.toContain('worker pool')
   })
+
+  it('explains that global risk control retains local hard prompt-injection blocks', () => {
+    expect(zh.admin.riskControl.enabledHint).toContain('本地提示注入指纹仍会立即拦截')
+    expect(zh.admin.riskControl.modeOffDesc).toContain('本地提示注入指纹仍会被本地拦截并记录')
+    expect(en.admin.riskControl.enabledHint).toContain('prompt-injection fingerprints still block immediately')
+    expect(en.admin.riskControl.modeOffDesc).toContain('prompt-injection fingerprints are still blocked and recorded locally')
+  })
 })

@@ -25,6 +25,7 @@ func (a *LegacyModerationAdapter) Check(ctx context.Context, req Request) (*Lega
 		Model: req.Model, Protocol: req.Protocol, Body: req.Body,
 		ForceLocalSecurityReview: req.ForceLocalSecurityReview,
 		LocalSecurityMatchedRule: req.LocalSecurityMatchedRule,
+		LocalSecurityReviewText:  req.LocalSecurityReviewText,
 	})
 	if err != nil || decision == nil {
 		return nil, err

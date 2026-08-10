@@ -83,6 +83,7 @@ type Request struct {
 	Stage                    string
 	ForceLocalSecurityReview bool
 	LocalSecurityMatchedRule string
+	LocalSecurityReviewText  string
 }
 
 func (r Request) Clone() Request {

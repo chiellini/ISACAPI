@@ -693,10 +693,11 @@ func runSecurityAudit(c *gin.Context, reqLog *zap.Logger, coordinator *securitya
 	conversationProtocol := isLocalSecurityAuditProtocol(protocol)
 	forceLocalReview := false
 	localReviewRule := ""
+	localReviewText := ""
 	// Narrow, high-confidence instruction-hijacking fingerprints are blocked
 	// locally. All other local combinations only nominate contextual API review
 	// and never produce a final verdict by themselves.
-	localRulesApply := conversationProtocol && (legacy == nil || legacy.IsLocalSecurityAuditedModel(c.Request.Context(), model))
+	localRulesApply := conversationProtocol && (legacy == nil || legacy.ShouldApplyLocalSecurityRules(c.Request.Context(), model))
 	if localRulesApply {
 		request := buildSecurityAuditRequest(c, apiKey, subject, protocol, model, body, stage)
 		inputText := extractLocalSecurityAuditText(protocol, body)
@@ -733,6 +734,7 @@ func runSecurityAudit(c *gin.Context, reqLog *zap.Logger, coordinator *securitya
 		if forcedReview {
 			forceLocalReview = true
 			localReviewRule = riskMatch.Rule
+			localReviewText = inputText
 			if reqLog != nil {
 				reqLog.Info("security_audit.local_risk_review_start",
 					zap.String("request_id", request.RequestID), zap.String("matched_rule", riskMatch.Rule),
@@ -744,6 +746,7 @@ func runSecurityAudit(c *gin.Context, reqLog *zap.Logger, coordinator *securitya
 			if coordinator == nil && legacy != nil {
 				reviewInput := buildContentModerationInput(c, apiKey, subject, protocol, model, body)
 				reviewInput.LocalSecurityMatchedRule = riskMatch.Rule
+				reviewInput.LocalSecurityReviewText = inputText
 				reviewDecision, reviewErr := legacy.ReviewLocalSecurityRisk(c.Request.Context(), reviewInput)
 				if reviewErr != nil || reviewDecision == nil {
 					if reqLog != nil {
@@ -825,6 +828,7 @@ func runSecurityAudit(c *gin.Context, reqLog *zap.Logger, coordinator *securitya
 	request := buildSecurityAuditRequest(c, apiKey, subject, protocol, model, body, stage)
 	request.ForceLocalSecurityReview = forceLocalReview
 	request.LocalSecurityMatchedRule = localReviewRule
+	request.LocalSecurityReviewText = localReviewText
 	if reqLog != nil {
 		reqLog.Info("security_audit.gateway_check_start",
 			zap.String("request_id", request.RequestID), zap.Int64("user_id", request.UserID),
