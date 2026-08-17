@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"net/http"
 	"regexp"
@@ -17,10 +18,19 @@ import (
 
 const (
 	securityAuditCompletedContextKey = "sub2api.security_audit.completed"
+	securityAuditWSTurnContextKey    = "sub2api.security_audit.ws_turn"
+	securityAuditWSDedupeContextKey  = "sub2api.security_audit.ws_dedupe"
 	securityAuditInputContextKey     = "sub2api.security_audit.input"
 	localPromptInjectionCategory     = "prompt_injection"
 	localPromptInjectionBlockMessage = "请求包含明确的提示注入指纹，已被内容安全策略阻止"
 )
+
+type securityAuditWSDedupeEntry struct {
+	stage    string
+	turn     int
+	bodyHash [sha256.Size]byte
+	decision securityaudit.Decision
+}
 
 // conversationRuleProximityWindow bounds how far apart two rule terms may sit in
 // the normalized request text before they stop counting as one intent. The
@@ -644,6 +654,15 @@ func cachesSecurityAuditCompletion(stage string) bool {
 	}
 }
 
+func isSecurityAuditWebSocketStage(stage string) bool {
+	switch strings.TrimSpace(stage) {
+	case "first_turn", "subsequent_turn":
+		return true
+	default:
+		return false
+	}
+}
+
 func (h *GatewayHandler) checkSecurityAudit(c *gin.Context, reqLog *zap.Logger, apiKey *service.APIKey, subject middleware2.AuthSubject, protocol, model string, body []byte) *securityaudit.Decision {
 	if h == nil {
 		return nil
@@ -831,25 +850,35 @@ func runSecurityAudit(c *gin.Context, reqLog *zap.Logger, coordinator *securitya
 	request.ForceLocalSecurityReview = forceLocalReview
 	request.LocalSecurityMatchedRule = localReviewRule
 	request.LocalSecurityReviewText = localReviewText
-	if reqLog != nil {
-		reqLog.Info("security_audit.gateway_check_start",
-			zap.String("request_id", request.RequestID), zap.Int64("user_id", request.UserID),
-			zap.Int64("api_key_id", request.APIKeyID), zap.Int64p("group_id", request.GroupID),
-			zap.String("endpoint", request.Endpoint), zap.String("provider", request.Provider),
-			zap.String("protocol", request.Protocol), zap.String("model", request.Model), zap.String("stage", request.Stage),
-			zap.Int("body_bytes", len(body)))
+	if isSecurityAuditWebSocketStage(request.Stage) {
+		if turnNo, ok := securityAuditWSTurn(c); ok {
+			bodyHash := sha256.Sum256(body)
+			if cached, exists := c.Get(securityAuditWSDedupeContextKey); exists {
+				if entry, ok := cached.(securityAuditWSDedupeEntry); ok &&
+					entry.stage == request.Stage && entry.turn == turnNo && entry.bodyHash == bodyHash {
+					decision := entry.decision
+					logSecurityAuditDone(reqLog, request, decision, true)
+					return &decision
+				}
+			}
+			logSecurityAuditStart(reqLog, request, len(body), false)
+			decision := coordinator.Check(c.Request.Context(), request)
+			if decision.Kind == securityaudit.DecisionAllow {
+				c.Set(securityAuditWSDedupeContextKey, securityAuditWSDedupeEntry{
+					stage: request.Stage, turn: turnNo, bodyHash: bodyHash, decision: decision,
+				})
+			}
+			logSecurityAuditDone(reqLog, request, decision, false)
+			return &decision
+		}
 	}
+	logSecurityAuditStart(reqLog, request, len(body), false)
 	decision := coordinator.Check(c.Request.Context(), request)
 	recordPromptGuardBlock(c, legacy, &decision)
 	if decision.AllowNextStage && cacheCompletion {
 		c.Set(securityAuditCompletedContextKey, true)
 	}
-	if reqLog != nil {
-		reqLog.Info("security_audit.gateway_check_done",
-			zap.String("request_id", request.RequestID), zap.String("decision", string(decision.Kind)),
-			zap.String("error_code", decision.ErrorCode), zap.Bool("allow_next_stage", decision.AllowNextStage),
-			zap.String("stage", request.Stage))
-	}
+	logSecurityAuditDone(reqLog, request, decision, false)
 	return &decision
 }
 
@@ -1162,6 +1191,37 @@ func minLocalSecurityRiskScore(left, right int) int {
 		return left
 	}
 	return right
+}
+
+func logSecurityAuditStart(reqLog *zap.Logger, request securityaudit.Request, bodyBytes int, cached bool) {
+	if reqLog == nil {
+		return
+	}
+	reqLog.Info("security_audit.gateway_check_start",
+		zap.String("request_id", request.RequestID), zap.Int64("user_id", request.UserID),
+		zap.Int64("api_key_id", request.APIKeyID), zap.Int64p("group_id", request.GroupID),
+		zap.String("endpoint", request.Endpoint), zap.String("provider", request.Provider),
+		zap.String("protocol", request.Protocol), zap.String("model", request.Model), zap.String("stage", request.Stage),
+		zap.Int("body_bytes", bodyBytes), zap.Bool("cached", cached))
+}
+
+func logSecurityAuditDone(reqLog *zap.Logger, request securityaudit.Request, decision securityaudit.Decision, cached bool) {
+	if reqLog == nil {
+		return
+	}
+	reqLog.Info("security_audit.gateway_check_done",
+		zap.String("request_id", request.RequestID), zap.String("decision", string(decision.Kind)),
+		zap.String("error_code", decision.ErrorCode), zap.Bool("allow_next_stage", decision.AllowNextStage),
+		zap.String("stage", request.Stage), zap.Bool("cached", cached))
+}
+
+func securityAuditWSTurn(c *gin.Context) (int, bool) {
+	turn, exists := c.Get(securityAuditWSTurnContextKey)
+	if !exists {
+		return 0, false
+	}
+	turnNo, ok := turn.(int)
+	return turnNo, ok
 }
 
 func buildSecurityAuditRequest(c *gin.Context, apiKey *service.APIKey, subject middleware2.AuthSubject, protocol, model string, body []byte, stage string) securityaudit.Request {
