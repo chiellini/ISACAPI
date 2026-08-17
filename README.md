@@ -102,12 +102,15 @@ One-click installation script that downloads pre-built binaries from GitHub Rele
 #### Installation Steps
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/chiellini/ISACAPI/main/deploy/install.sh | sudo bash
+# Replace X.Y.Z with a reviewed published release.
+ISACAPI_VERSION=X.Y.Z
+curl -fsSL "https://raw.githubusercontent.com/chiellini/ISACAPI/v${ISACAPI_VERSION}/deploy/install.sh" \
+  | sudo bash -s -- install --version "v${ISACAPI_VERSION}"
 ```
 
 The script will:
 1. Detect your system architecture
-2. Download the latest release
+2. Download the explicitly selected release
 3. Install binary to `/opt/sub2api`
 4. Create systemd service
 5. Configure system user and permissions
@@ -121,8 +124,12 @@ sudo systemctl start sub2api
 # 2. Enable auto-start on boot
 sudo systemctl enable sub2api
 
-# 3. Open Setup Wizard in browser
-# http://YOUR_SERVER_IP:8080
+# 3. From your workstation, tunnel to the loopback-only setup wizard
+ssh -N -L 8080:127.0.0.1:8080 <user>@<server>
+# Then open http://127.0.0.1:8080 locally
+
+# 4. On the server, read the one-time token and paste it into the wizard
+sudo cat /opt/sub2api/.setup-token
 ```
 
 The Setup Wizard will guide you through:
@@ -152,7 +159,7 @@ sudo journalctl -u sub2api -f
 sudo systemctl restart sub2api
 
 # Uninstall
-curl -sSL https://raw.githubusercontent.com/chiellini/ISACAPI/main/deploy/install.sh | sudo bash -s -- uninstall -y
+curl -fsSL https://raw.githubusercontent.com/chiellini/ISACAPI/vX.Y.Z/deploy/install.sh | sudo bash -s -- uninstall -y
 ```
 
 ---
@@ -174,8 +181,11 @@ Use the automated deployment script for easy setup:
 # Create deployment directory
 mkdir -p sub2api-deploy && cd sub2api-deploy
 
-# Download and run deployment preparation script
-curl -sSL https://raw.githubusercontent.com/chiellini/ISACAPI/main/deploy/docker-deploy.sh | bash
+# Pin deployment assets and the container image to the same release
+# Replace X.Y.Z with a reviewed published release.
+ISACAPI_VERSION=X.Y.Z
+curl -fsSL "https://raw.githubusercontent.com/chiellini/ISACAPI/v${ISACAPI_VERSION}/deploy/docker-deploy.sh" \
+  | IMAGE_TAG="${ISACAPI_VERSION}" bash
 
 # Start services
 docker compose up -d
@@ -186,10 +196,12 @@ docker compose logs -f sub2api
 
 **What the script does:**
 - Downloads `docker-compose.local.yml` (saved as `docker-compose.yml`) and `.env.example`
-- Generates secure credentials (JWT_SECRET, TOTP_ENCRYPTION_KEY, POSTGRES_PASSWORD)
+- Generates secure credentials (JWT_SECRET, TOTP_ENCRYPTION_KEY, POSTGRES_PASSWORD, ADMIN_PASSWORD)
 - Creates `.env` file with auto-generated secrets
 - Creates data directories (uses local directories for easy backup/migration)
-- Displays generated credentials for your reference
+- Stores generated credentials only in `.env` with mode `0600`; values are not printed
+- On a rerun, backs up the existing `.env` and Compose file, preserves every
+  credential, and changes only the explicitly selected `IMAGE_TAG`
 
 #### Manual Deployment
 
@@ -214,13 +226,17 @@ nano .env
 # PostgreSQL password (REQUIRED)
 POSTGRES_PASSWORD=your_secure_password_here
 
+# Immutable application release (REQUIRED for deliberate upgrades)
+IMAGE_REPOSITORY=ghcr.io/chiellini/sub2api
+IMAGE_TAG=X.Y.Z
+
 # JWT Secret (RECOMMENDED - keeps users logged in after restart)
 JWT_SECRET=your_jwt_secret_here
 
 # TOTP Encryption Key (RECOMMENDED - preserves 2FA after restart)
 TOTP_ENCRYPTION_KEY=your_totp_key_here
 
-# Optional: Admin account
+# Initial administrator account (REQUIRED before first start)
 ADMIN_EMAIL=admin@example.com
 ADMIN_PASSWORD=your_admin_password
 
@@ -237,6 +253,9 @@ openssl rand -hex 32
 openssl rand -hex 32
 
 # Generate POSTGRES_PASSWORD
+openssl rand -hex 32
+
+# Generate ADMIN_PASSWORD
 openssl rand -hex 32
 ```
 
@@ -269,20 +288,32 @@ docker compose -f docker-compose.local.yml logs -f sub2api
 
 #### Access
 
-Open `http://YOUR_SERVER_IP:8080` in your browser.
+The production templates bind to `127.0.0.1` by default. For remote access, run
+`ssh -N -L 8080:127.0.0.1:8080 <user>@<server>` on your workstation, then open
+`http://127.0.0.1:8080`. Expose `0.0.0.0` only behind a trusted TLS reverse
+proxy/firewall.
 
-If admin password was auto-generated, find it in logs:
+For the one-click deployment, read the generated admin password locally from the
+mode-`0600` `.env` file, then rotate it after first login:
 ```bash
-docker compose -f docker-compose.local.yml logs sub2api | grep "admin password"
+grep '^ADMIN_PASSWORD=' .env
 ```
 
 #### Upgrade
 
 ```bash
-# Pull latest image and recreate container
+# Re-run the matching reviewed deployment script. It creates a private
+# .isacapi-deploy-backup-* directory and does not rotate existing secrets.
+ISACAPI_VERSION=X.Y.Z
+curl -fsSL "https://raw.githubusercontent.com/chiellini/ISACAPI/v${ISACAPI_VERSION}/deploy/docker-deploy.sh" \
+  | DEPLOY_OVERWRITE=1 IMAGE_TAG="${ISACAPI_VERSION}" bash
 docker compose -f docker-compose.local.yml pull
 docker compose -f docker-compose.local.yml up -d
 ```
+
+Never recreate a missing `.env` for an existing deployment. Restore the
+original file from backup first; it contains the credentials tied to the
+database, login sessions, and encrypted TOTP data.
 
 #### Easy Migration (Local Directory Version)
 
@@ -329,7 +360,7 @@ Apple-silicon Macs running macOS 26 can run the full ISACAPI, PostgreSQL, and Re
 ```bash
 git clone https://github.com/chiellini/ISACAPI.git
 cd ISACAPI/deploy
-./apple-container.sh init
+IMAGE_TAG=X.Y.Z ./apple-container.sh init
 ./apple-container.sh up
 ./apple-container.sh status
 ```
@@ -430,19 +461,28 @@ Additional security-related options are available in `config.yaml`:
 
 **⚠️ Security Warning: HTTP URL Configuration**
 
-When `security.url_allowlist.enabled=false`, the system performs minimal URL validation and **allows HTTP URLs by default** (dev-friendly mode; Docker Compose deployments use the same default). For production, explicitly tighten this to HTTPS-only:
+Production deployment templates enable the URL allowlist, reject private hosts,
+and require HTTPS by default. Only relax these controls in a separate local
+development override after reviewing the destination:
 
 ```yaml
 security:
   url_allowlist:
-    enabled: false                # Disable allowlist checks
-    allow_insecure_http: false    # HTTPS only (recommended for production)
+    enabled: true
+    allow_private_hosts: false
+    allow_insecure_http: false
 ```
+
+Custom upstreams are not trusted automatically. Add each exact hostname (or a
+reviewed `*.example.com` suffix) to `security.url_allowlist.upstream_hosts`.
+Private or local upstreams also require `allow_private_hosts: true` and should
+only be enabled on a trusted network.
 
 **Or via environment variable:**
 
 ```bash
-SECURITY_URL_ALLOWLIST_ENABLED=false
+SECURITY_URL_ALLOWLIST_ENABLED=true
+SECURITY_URL_ALLOWLIST_ALLOW_PRIVATE_HOSTS=false
 SECURITY_URL_ALLOWLIST_ALLOW_INSECURE_HTTP=false
 ```
 

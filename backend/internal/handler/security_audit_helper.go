@@ -7,6 +7,7 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
 	"github.com/Wei-Shaw/sub2api/internal/securityaudit"
 	middleware2 "github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
@@ -668,6 +669,7 @@ func runSecurityAudit(c *gin.Context, reqLog *zap.Logger, coordinator *securitya
 	if c == nil || c.Request == nil {
 		return nil
 	}
+	body = clientControlledSecurityAuditBody(c, body)
 	// Preserve request metadata for a policy refusal reported by the model
 	// provider after this preflight check has completed.
 	c.Set(securityAuditInputContextKey, buildContentModerationInput(c, apiKey, subject, protocol, model, body))
@@ -849,6 +851,18 @@ func runSecurityAudit(c *gin.Context, reqLog *zap.Logger, coordinator *securitya
 			zap.String("stage", request.Stage))
 	}
 	return &decision
+}
+
+func clientControlledSecurityAuditBody(c *gin.Context, fallback []byte) []byte {
+	if c == nil || c.Request == nil {
+		return fallback
+	}
+	value := c.Request.Context().Value(ctxkey.ChatSecurityAuditBody)
+	body, ok := value.([]byte)
+	if !ok || len(body) == 0 {
+		return fallback
+	}
+	return body
 }
 
 func extractLocalSecurityAuditText(protocol string, body []byte) string {

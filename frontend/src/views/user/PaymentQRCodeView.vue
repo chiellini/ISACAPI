@@ -42,6 +42,7 @@ import PaymentBrandSupport from '@/components/payment/PaymentBrandSupport.vue'
 import { usePaymentStore } from '@/stores/payment'
 import { paymentAPI } from '@/api/payment'
 import { extractI18nErrorMessage } from '@/utils/apiError'
+import { sanitizeUrl } from '@/utils/url'
 import { useAppStore } from '@/stores'
 import { isBuiltInAlipayMethod, isBuiltInWxpayMethod } from '@/components/payment/providerConfig'
 import QRCode from 'qrcode'
@@ -196,7 +197,7 @@ watch(qrUrl, () => renderQR())
 onMounted(() => {
   orderId.value = Number(route.query.order_id) || 0
   qrUrl.value = String(route.query.qr || '')
-  payUrl.value = String(route.query.pay_url || '')
+  payUrl.value = sanitizeUrl(String(route.query.pay_url || ''))
   paymentType.value = String(route.query.payment_type || '')
 
   // Calculate countdown from expiresAt

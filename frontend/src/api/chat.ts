@@ -8,6 +8,7 @@
  */
 
 import { apiClient } from './client'
+import { refreshAuthTokens } from './tokenRefresh'
 
 const CHAT_BASE = '/api/v1/chat'
 
@@ -75,6 +76,33 @@ function authToken(): string {
   return localStorage.getItem('auth_token') || ''
 }
 
+/**
+ * Native fetch is required for SSE, so it cannot inherit apiClient's 401
+ * interceptor. Retry an authentication failure once with the shared,
+ * cross-tab-safe refresh flow; a rejected request is safe to replay because
+ * the gateway has not accepted it yet.
+ */
+async function authenticatedFetch(input: string, init: RequestInit): Promise<Response> {
+  const failedAccessToken = authToken()
+  const request = (accessToken: string): Promise<Response> => {
+    const headers = new Headers(init.headers)
+    if (accessToken) headers.set('Authorization', `Bearer ${accessToken}`)
+    else headers.delete('Authorization')
+    return fetch(input, { ...init, headers })
+  }
+
+  const response = await request(failedAccessToken)
+  if (response.status !== 401 || !localStorage.getItem('refresh_token')) return response
+
+  try {
+    const tokens = await refreshAuthTokens({ failedAccessToken: failedAccessToken || null })
+    await response.body?.cancel().catch(() => undefined)
+    return request(tokens.access_token)
+  } catch {
+    return response
+  }
+}
+
 function responseErrorMessage(detail: string, status: number, fallback: string): string {
   const trimmed = detail.trim()
   if (!trimmed) return `${fallback}: ${status}`
@@ -94,22 +122,30 @@ function firstTrimmedString(...values: unknown[]): string {
 }
 
 function imageMimeType(item: ImageGenerationItem): string {
-  const explicit = firstTrimmedString(item.mime_type, item.mimeType, item.content_type)
-  if (explicit.toLowerCase().startsWith('image/')) return explicit
+  const explicit = firstTrimmedString(item.mime_type, item.mimeType, item.content_type).toLowerCase()
+  if (['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(explicit)) return explicit
 
   const format = firstTrimmedString(item.output_format).toLowerCase()
-  if (!format) return 'image/png'
-  if (format === 'jpg') return 'image/jpeg'
-  return `image/${format}`
+  if (format === 'jpg' || format === 'jpeg') return 'image/jpeg'
+  if (format === 'webp') return 'image/webp'
+  if (format === 'gif') return 'image/gif'
+  return 'image/png'
+}
+
+function isRasterImageDataUrl(value: string): boolean {
+  return /^data:image\/(?:png|jpeg|webp|gif);base64,/i.test(value)
 }
 
 function imageItemToSrc(item: ImageGenerationItem): string {
   const b64 = firstTrimmedString(item.b64_json, item.result, item.base64, item.image_base64)
   if (b64) {
-    if (b64.startsWith('data:image/')) return b64
+    if (b64.startsWith('data:image/')) return isRasterImageDataUrl(b64) ? b64 : ''
     return `data:${imageMimeType(item)};base64,${b64}`
   }
-  return item.url?.trim() || ''
+  // The built-in image endpoint forces b64_json. Never make a user's browser
+  // load an upstream-controlled URL, which could disclose their IP/referrer or
+  // persist a tracking URL in chat history.
+  return ''
 }
 
 function addImageSrc(out: string[], item: ImageGenerationItem) {
@@ -327,7 +363,7 @@ export async function generateImage(
   body: { model: string; prompt: string },
   signal?: AbortSignal,
 ): Promise<string[]> {
-  const res = await fetch(`${CHAT_BASE}/v1/images/generations`, {
+  const res = await authenticatedFetch(`${CHAT_BASE}/v1/images/generations`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -344,16 +380,51 @@ export async function generateImage(
 }
 
 /** 获取可用模型列表（复用网关 /v1/models）。 */
-export async function listModels(): Promise<string[]> {
-  const res = await fetch(`${CHAT_BASE}/v1/models`, {
-    headers: { Authorization: `Bearer ${authToken()}` },
-  })
-  if (!res.ok) {
-    throw new Error(`models request failed: ${res.status}`)
+export interface ChatModelCapabilities {
+  vision?: boolean
+  image?: boolean
+  web_search?: boolean
+  context_limit?: number
+}
+
+export interface ChatModelDescriptor {
+  id: string
+  display_name?: string
+  owned_by?: string
+  default?: boolean
+  capabilities?: ChatModelCapabilities
+}
+
+export async function listModels(): Promise<ChatModelDescriptor[]> {
+  // Model discovery is not streamed, so use the shared client to inherit token
+  // refresh and the same authentication failure handling as the rest of the UI.
+  const response = await apiClient.get('/chat/v1/models')
+  const payload: unknown = response.data
+  if (!payload || typeof payload !== 'object') return []
+  const items = (payload as { data?: unknown }).data
+  if (!Array.isArray(items)) return []
+  const result: ChatModelDescriptor[] = []
+  for (const item of items) {
+    if (!item || typeof item !== 'object') continue
+    const raw = item as Record<string, unknown>
+    if (typeof raw.id !== 'string' || !raw.id.trim()) continue
+    const capabilities = raw.capabilities && typeof raw.capabilities === 'object'
+      ? raw.capabilities as Record<string, unknown>
+      : undefined
+    result.push({
+      id: raw.id.trim(),
+      display_name: typeof raw.display_name === 'string' ? raw.display_name.trim() : undefined,
+      owned_by: typeof raw.owned_by === 'string' ? raw.owned_by.trim() : undefined,
+      default: raw.default === true,
+      capabilities: capabilities ? {
+        vision: typeof capabilities.vision === 'boolean' ? capabilities.vision : undefined,
+        image: typeof capabilities.image === 'boolean' ? capabilities.image : undefined,
+        web_search: typeof capabilities.web_search === 'boolean' ? capabilities.web_search : undefined,
+        context_limit: typeof capabilities.context_limit === 'number' ? capabilities.context_limit : undefined,
+      } : undefined,
+    })
   }
-  const data = await res.json()
-  const items: Array<{ id?: string }> = data?.data ?? []
-  return items.map((m) => m.id).filter((id): id is string => !!id)
+  return result
 }
 
 /**
@@ -366,7 +437,7 @@ export async function streamChat(
 ): Promise<void> {
   const { signal, onDelta, onDone, onError } = handlers
   try {
-    const res = await fetch(`${CHAT_BASE}/v1/chat/completions`, {
+    const res = await authenticatedFetch(`${CHAT_BASE}/v1/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -466,7 +537,7 @@ export async function streamChatCompletion(
   body: { model: string; messages: ChatCompletionMessage[]; tools?: unknown[]; tool_choice?: unknown },
   handlers: { signal?: AbortSignal; onDelta?: (text: string) => void } = {},
 ): Promise<CompletionResult> {
-  const res = await fetch(`${CHAT_BASE}/v1/chat/completions`, {
+  const res = await authenticatedFetch(`${CHAT_BASE}/v1/chat/completions`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -537,8 +608,8 @@ export async function streamChatCompletion(
 }
 
 /** 执行一次联网搜索（复用网关侧搜索提供方与配额）。未配置时后端返回 503。 */
-export async function chatSearch(query: string, maxResults = 5): Promise<ChatSource[]> {
-  const r = await apiClient.post('/chat/search', { query, max_results: maxResults })
+export async function chatSearch(model: string, query: string, maxResults = 5): Promise<ChatSource[]> {
+  const r = await apiClient.post('/chat/search', { model, query, max_results: maxResults })
   return (r.data as { results?: ChatSource[] }).results ?? []
 }
 

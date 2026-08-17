@@ -14,6 +14,25 @@
         <p class="mt-2 text-gray-500 dark:text-dark-400">{{ t('setup.description') }}</p>
       </div>
 
+      <div class="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/30">
+        <label for="setup-bootstrap-token" class="mb-2 block text-sm font-semibold text-amber-900 dark:text-amber-100">
+          Setup bootstrap token
+        </label>
+        <input
+          id="setup-bootstrap-token"
+          v-model="setupBootstrapToken"
+          type="password"
+          autocomplete="off"
+          class="input w-full font-mono"
+          placeholder="Read .setup-token on the server over SSH"
+          @input="persistSetupBootstrapToken"
+        />
+        <p class="mt-2 text-xs text-amber-800 dark:text-amber-200">
+          Read the owner-only token file at the path printed by the service, using
+          <code>sudo cat &lt;printed-path&gt;</code>. It is deleted after installation.
+        </p>
+      </div>
+
       <!-- Progress Steps -->
       <div class="mb-8">
         <div class="flex items-center justify-center">
@@ -501,7 +520,13 @@
 <script setup lang="ts">
 import { ref, reactive, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { testDatabase, testRedis, install, type InstallRequest } from '@/api/setup'
+import {
+  testDatabase,
+  testRedis,
+  install,
+  setSetupBootstrapToken,
+  type InstallRequest
+} from '@/api/setup'
 import { buildGatewayUrl } from '@/api/client'
 import Select from '@/components/common/Select.vue'
 import Toggle from '@/components/common/Toggle.vue'
@@ -519,6 +544,11 @@ const steps = computed(() => [
 const currentStep = ref(0)
 const errorMessage = ref('')
 const installSuccess = ref(false)
+const setupBootstrapToken = ref('')
+
+function persistSetupBootstrapToken(): void {
+  setSetupBootstrapToken(setupBootstrapToken.value)
+}
 
 // Connection test states
 const testingDb = ref(false)
@@ -561,7 +591,7 @@ const formData = reactive<InstallRequest>({
     password: ''
   },
   server: {
-    host: '0.0.0.0',
+    host: '127.0.0.1',
     port: getCurrentPort(), // Use current port from browser
     mode: 'release'
   }

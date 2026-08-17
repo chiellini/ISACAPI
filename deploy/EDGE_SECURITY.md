@@ -29,8 +29,9 @@ the application's responsibility.
 
 ## Trusted client IPs
 
-`security.trust_forwarded_ip_for_api_key_acl` is enabled by default for upgrade
-compatibility. While enabled, raw forwarding headers take over client-IP
+The application-level compatibility default for
+`security.trust_forwarded_ip_for_api_key_acl` is enabled for upgrades, but all
+production Compose templates explicitly set it to `false`. While enabled, raw forwarding headers take over client-IP
 resolution for logs and security-sensitive paths. Custom headers from
 `security.forwarded_client_ip_headers` are checked in configured order before
 the built-in `CF-Connecting-IP`, `X-Real-IP`, and `X-Forwarded-For` fallback.

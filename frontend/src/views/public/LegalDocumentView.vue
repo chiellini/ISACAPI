@@ -92,12 +92,11 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
-import { marked } from 'marked'
-import DOMPurify from 'dompurify'
 import { useI18n } from 'vue-i18n'
 import Icon from '@/components/icons/Icon.vue'
 import { getLocale } from '@/i18n'
 import { sanitizeUrl } from '@/utils/url'
+import { renderSafeMarkdown } from '@/utils/safeMarkdown'
 import { useAppStore } from '@/stores/app'
 import type { LoginAgreementDocument } from '@/types'
 import zhAdminCompliance from '../../../../docs/legal/admin-compliance.zh.md?raw'
@@ -111,11 +110,6 @@ const appStore = useAppStore()
 const settings = computed(() => appStore.cachedPublicSettings)
 const loading = ref(!settings.value)
 const loadError = ref(false)
-
-marked.setOptions({
-  breaks: true,
-  gfm: true,
-})
 
 const documentId = computed(() => String(route.params.documentId || ''))
 const isAdminComplianceDocument = computed(() => documentId.value === 'admin-compliance')
@@ -151,11 +145,7 @@ const hasContent = computed(() => Boolean(currentDocument.value?.content_md?.tri
 
 const renderedHtml = computed(() => {
   const content = currentDocument.value?.content_md?.trim() || ''
-  if (!content) {
-    return ''
-  }
-  const html = marked.parse(content) as string
-  return DOMPurify.sanitize(html)
+  return renderSafeMarkdown(content)
 })
 
 const documentIcon = computed<LegalDocumentIcon>(() => {

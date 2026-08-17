@@ -19,7 +19,7 @@ import (
 var installMutex sync.Mutex
 
 // RegisterRoutes registers setup wizard routes
-func RegisterRoutes(r *gin.Engine) {
+func RegisterRoutes(r *gin.Engine, bootstrapToken string) {
 	setup := r.Group("/setup")
 	{
 		// Status endpoint is always accessible (read-only)
@@ -27,7 +27,7 @@ func RegisterRoutes(r *gin.Engine) {
 
 		// All modification endpoints are protected by setupGuard
 		protected := setup.Group("")
-		protected.Use(setupGuard())
+		protected.Use(setupGuard(bootstrapToken))
 		{
 			protected.POST("/test-db", testDatabase)
 			protected.POST("/test-redis", testRedis)
@@ -51,10 +51,15 @@ func getStatus(c *gin.Context) {
 }
 
 // setupGuard middleware ensures setup endpoints are only accessible during setup mode
-func setupGuard() gin.HandlerFunc {
+func setupGuard(bootstrapToken string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if !NeedsSetup() {
 			response.Error(c, http.StatusForbidden, "Setup is not allowed: system is already installed")
+			c.Abort()
+			return
+		}
+		if !validBootstrapToken(bootstrapToken, c.GetHeader(setupBootstrapHeader)) {
+			response.Error(c, http.StatusUnauthorized, "A valid setup bootstrap token is required")
 			c.Abort()
 			return
 		}
@@ -323,7 +328,7 @@ func install(c *gin.Context) {
 		return
 	}
 	if req.Server.Host == "" {
-		req.Server.Host = "0.0.0.0"
+		req.Server.Host = "127.0.0.1"
 	}
 	if req.Server.Port == 0 {
 		req.Server.Port = 8080

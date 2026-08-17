@@ -12,6 +12,7 @@
             <img
               v-if="avatarUrl"
               :src="avatarUrl"
+              referrerpolicy="no-referrer"
               :alt="displayName"
               class="h-full w-full object-cover"
             >
@@ -187,6 +188,7 @@ import ProfileAvatarCard from '@/components/user/profile/ProfileAvatarCard.vue'
 import ProfileEditForm from '@/components/user/profile/ProfileEditForm.vue'
 import ProfileIdentityBindingsSection from '@/components/user/profile/ProfileIdentityBindingsSection.vue'
 import type { User, UserAuthBindingStatus, UserAuthProvider, UserProfileSourceContext } from '@/types'
+import { sanitizeImageUrl } from '@/utils/url'
 
 const props = withDefaults(defineProps<{
   user: User | null
@@ -232,7 +234,10 @@ function isEmailBound(user: User | null | undefined): boolean {
   return normalized ?? false
 }
 
-const avatarUrl = computed(() => props.user?.avatar_url?.trim() || '')
+const avatarUrl = computed(() => sanitizeImageUrl(props.user?.avatar_url || '', {
+  allowRelative: true,
+  allowDataUrl: true,
+}))
 const displayName = computed(() => props.user?.username?.trim() || props.user?.email?.trim() || t('profile.user'))
 const roleBadgeClass = computed(() => {
   if (props.user?.role === 'admin' || props.user?.role === 'admin_provider') {

@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )
@@ -18,9 +19,11 @@ func TestRequireSuperAdmin(t *testing.T) {
 		name           string
 		isSuperAdmin   any
 		setContext     bool
+		authMethod     string
 		expectedStatus int
 	}{
-		{name: "super admin allowed", isSuperAdmin: true, setContext: true, expectedStatus: http.StatusOK},
+		{name: "super admin JWT allowed", isSuperAdmin: true, setContext: true, authMethod: service.AuditAuthMethodJWT, expectedStatus: http.StatusOK},
+		{name: "shared admin API key rejected", isSuperAdmin: true, setContext: true, authMethod: service.AuditAuthMethodAdminAPIKey, expectedStatus: http.StatusForbidden},
 		{name: "ordinary admin rejected", isSuperAdmin: false, setContext: true, expectedStatus: http.StatusForbidden},
 		{name: "missing identity rejected", expectedStatus: http.StatusForbidden},
 		{name: "invalid identity rejected", isSuperAdmin: "true", setContext: true, expectedStatus: http.StatusForbidden},
@@ -32,6 +35,9 @@ func TestRequireSuperAdmin(t *testing.T) {
 			if tt.setContext {
 				router.Use(func(c *gin.Context) {
 					c.Set(string(ContextKeyIsSuperAdmin), tt.isSuperAdmin)
+					if tt.authMethod != "" {
+						c.Set("auth_method", tt.authMethod)
+					}
 					c.Next()
 				})
 			}

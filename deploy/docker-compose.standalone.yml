@@ -12,7 +12,7 @@
 
 services:
   sub2api:
-    image: weishaw/sub2api:latest
+    image: "${IMAGE_REPOSITORY:-ghcr.io/chiellini/sub2api}:${IMAGE_TAG:?Set IMAGE_TAG to a published release version}"
     container_name: sub2api
     restart: unless-stopped
     security_opt:
@@ -22,7 +22,7 @@ services:
         soft: 100000
         hard: 100000
     ports:
-      - "${BIND_HOST:-0.0.0.0}:${SERVER_PORT:-8080}:8080"
+      - "${BIND_HOST:-127.0.0.1}:${SERVER_PORT:-8080}:8080"
     volumes:
       - sub2api_data:/app/data
     extra_hosts:
@@ -74,13 +74,23 @@ services:
       # Admin Account (auto-created on first run)
       # =======================================================================
       - ADMIN_EMAIL=${ADMIN_EMAIL:-admin@sub2api.local}
+      # Required by the application only while initializing an empty database.
+      # Keep Compose upgrades parseable after the initial password is removed.
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
 
       # =======================================================================
       # JWT Configuration
       # =======================================================================
-      - JWT_SECRET=${JWT_SECRET:-}
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is required}
       - JWT_EXPIRE_HOUR=${JWT_EXPIRE_HOUR:-24}
+
+      # =======================================================================
+      # Encryption and Conversation Archive
+      # =======================================================================
+      - TOTP_ENCRYPTION_KEY=${TOTP_ENCRYPTION_KEY:?TOTP_ENCRYPTION_KEY is required}
+      - CONVERSATION_ARCHIVE_ENABLED=${CONVERSATION_ARCHIVE_ENABLED:-false}
+      - CONVERSATION_ARCHIVE_ENCRYPT_CONTENT=${CONVERSATION_ARCHIVE_ENCRYPT_CONTENT:-true}
+      - CONVERSATION_ARCHIVE_ENCRYPTION_KEY=${CONVERSATION_ARCHIVE_ENCRYPTION_KEY:-}
 
       # =======================================================================
       # Setup Configuration
@@ -111,6 +121,16 @@ services:
       - GEMINI_CLI_OAUTH_CLIENT_SECRET=${GEMINI_CLI_OAUTH_CLIENT_SECRET:-}
       - ANTIGRAVITY_OAUTH_CLIENT_SECRET=${ANTIGRAVITY_OAUTH_CLIENT_SECRET:-}
       - ANTIGRAVITY_USER_AGENT_VERSION=${ANTIGRAVITY_USER_AGENT_VERSION:-}
+
+      # =======================================================================
+      # Security Configuration (secure production defaults)
+      # =======================================================================
+      - SECURITY_URL_ALLOWLIST_ENABLED=${SECURITY_URL_ALLOWLIST_ENABLED:-true}
+      - SECURITY_URL_ALLOWLIST_ALLOW_INSECURE_HTTP=${SECURITY_URL_ALLOWLIST_ALLOW_INSECURE_HTTP:-false}
+      - SECURITY_URL_ALLOWLIST_ALLOW_PRIVATE_HOSTS=${SECURITY_URL_ALLOWLIST_ALLOW_PRIVATE_HOSTS:-false}
+      - SECURITY_URL_ALLOWLIST_TRUST_UPSTREAM_PROXY=${SECURITY_URL_ALLOWLIST_TRUST_UPSTREAM_PROXY:-false}
+      - SECURITY_URL_ALLOWLIST_UPSTREAM_HOSTS=${SECURITY_URL_ALLOWLIST_UPSTREAM_HOSTS:-}
+      - SECURITY_TRUST_FORWARDED_IP_FOR_API_KEY_ACL=${SECURITY_TRUST_FORWARDED_IP_FOR_API_KEY_ACL:-false}
 
       # =======================================================================
       # Image Generation Stream & Concurrency

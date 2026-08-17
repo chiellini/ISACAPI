@@ -2,7 +2,7 @@
 #
 # ISACAPI Installation Script
 # ISACAPI 安装脚本
-# Usage: curl -sSL https://raw.githubusercontent.com/Wei-Shaw/sub2api/main/deploy/install.sh | bash
+# Usage: curl -fsSL https://raw.githubusercontent.com/chiellini/ISACAPI/vX.Y.Z/deploy/install.sh | bash
 #
 
 set -e
@@ -31,14 +31,14 @@ CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
 # Configuration
-GITHUB_REPO="Wei-Shaw/sub2api"
+GITHUB_REPO="chiellini/ISACAPI"
 INSTALL_DIR="/opt/sub2api"
 SERVICE_NAME="sub2api"
 SERVICE_USER="sub2api"
 CONFIG_DIR="/etc/sub2api"
 
 # Server configuration (will be set by user)
-SERVER_HOST="0.0.0.0"
+SERVER_HOST="127.0.0.1"
 SERVER_PORT="8080"
 
 # Language (default: zh = Chinese)
@@ -157,7 +157,7 @@ declare -A MSG_ZH=(
     ["server_config_title"]="服务器配置"
     ["server_config_desc"]="配置 ISACAPI 服务监听地址"
     ["server_host_prompt"]="服务器监听地址"
-    ["server_host_hint"]="0.0.0.0 表示监听所有网卡，127.0.0.1 仅本地访问"
+    ["server_host_hint"]="默认 127.0.0.1 仅本地访问；仅在受信任反向代理或防火墙保护时使用 0.0.0.0"
     ["server_port_prompt"]="服务器端口"
     ["server_port_hint"]="建议使用 1024-65535 之间的端口"
     ["server_config_summary"]="服务器配置"
@@ -282,7 +282,7 @@ declare -A MSG_EN=(
     ["server_config_title"]="Server Configuration"
     ["server_config_desc"]="Configure ISACAPI server listen address"
     ["server_host_prompt"]="Server listen address"
-    ["server_host_hint"]="0.0.0.0 listens on all interfaces, 127.0.0.1 for local only"
+    ["server_host_hint"]="Default 127.0.0.1 is local-only; use 0.0.0.0 only behind a trusted reverse proxy or firewall"
     ["server_port_prompt"]="Server port"
     ["server_port_hint"]="Recommended range: 1024-65535"
     ["server_config_summary"]="Server configuration"
@@ -718,7 +718,7 @@ install_service() {
     cat > /etc/systemd/system/sub2api.service << EOF
 [Unit]
 Description=ISACAPI - AI API Gateway Platform
-Documentation=https://github.com/Wei-Shaw/sub2api
+Documentation=https://github.com/chiellini/ISACAPI
 After=network.target postgresql.service redis.service
 Wants=postgresql.service redis.service
 
@@ -745,6 +745,10 @@ ReadWritePaths=/opt/sub2api
 Environment=GIN_MODE=release
 Environment=SERVER_HOST=${SERVER_HOST}
 Environment=SERVER_PORT=${SERVER_PORT}
+# The setup-only listener is intentionally explicit. It follows the address
+# selected above; the secure installer default remains 127.0.0.1.
+Environment=SETUP_HOST=${SERVER_HOST}
+Environment=SETUP_PORT=${SERVER_PORT}
 
 [Install]
 WantedBy=multi-user.target
@@ -763,6 +767,11 @@ prepare_for_setup() {
 
 # Get public IP address
 get_public_ip() {
+    if [ "$SERVER_HOST" = "127.0.0.1" ] || [ "$SERVER_HOST" = "localhost" ]; then
+        PUBLIC_IP="127.0.0.1"
+        return 0
+    fi
+
     print_info "$(msg 'getting_public_ip')"
 
     # Try to get public IP from ipinfo.io
@@ -833,6 +842,16 @@ print_completion() {
     echo "=============================================="
     echo ""
     print_info "     http://${display_host}:${SERVER_PORT}"
+    echo ""
+    if [ "$SERVER_HOST" = "127.0.0.1" ] || [ "$SERVER_HOST" = "localhost" ]; then
+        echo "     Remote setup (run on your workstation):"
+        echo "     ssh -N -L ${SERVER_PORT}:127.0.0.1:${SERVER_PORT} <user>@<server>"
+        echo "     Then open http://127.0.0.1:${SERVER_PORT} locally."
+        echo ""
+    fi
+    echo "     Read the one-time setup token on the server:"
+    echo "     sudo cat ${INSTALL_DIR}/.setup-token"
+    echo "     Paste it into the setup wizard; the file is removed after setup."
     echo ""
     echo "     $(msg 'wizard_guide')"
     echo "     - $(msg 'wizard_db')"

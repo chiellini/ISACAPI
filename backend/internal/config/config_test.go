@@ -68,7 +68,7 @@ func TestLoadHTTPIngressSafetyDefaults(t *testing.T) {
 	require.Equal(t, 64*1024, cfg.Server.MaxHeaderBytes)
 	require.Empty(t, cfg.Server.TrustedProxies)
 	require.False(t, cfg.Server.TrustedProxiesConfigured)
-	require.True(t, cfg.TrustForwardedIPForAPIKeyACL())
+	require.False(t, cfg.TrustForwardedIPForAPIKeyACL())
 	require.Equal(t, int64(32*1024*1024), cfg.Gateway.TextMaxBodySize)
 	require.True(t, cfg.APIKeyAuth.InvalidAbuse.Enabled)
 	require.Equal(t, 120, cfg.APIKeyAuth.InvalidAbuse.Threshold)
@@ -823,23 +823,39 @@ func TestLoadDefaultSecurityToggles(t *testing.T) {
 		t.Fatalf("Load() error: %v", err)
 	}
 
-	if cfg.Security.URLAllowlist.Enabled {
-		t.Fatalf("URLAllowlist.Enabled = true, want false")
+	if !cfg.Security.URLAllowlist.Enabled {
+		t.Fatalf("URLAllowlist.Enabled = false, want true")
 	}
-	if !cfg.Security.URLAllowlist.AllowInsecureHTTP {
-		t.Fatalf("URLAllowlist.AllowInsecureHTTP = false, want true")
+	if cfg.Security.URLAllowlist.AllowInsecureHTTP {
+		t.Fatalf("URLAllowlist.AllowInsecureHTTP = true, want false")
 	}
-	if !cfg.Security.URLAllowlist.AllowPrivateHosts {
-		t.Fatalf("URLAllowlist.AllowPrivateHosts = false, want true")
+	if cfg.Security.URLAllowlist.AllowPrivateHosts {
+		t.Fatalf("URLAllowlist.AllowPrivateHosts = true, want false")
+	}
+	if cfg.Security.URLAllowlist.TrustUpstreamProxy {
+		t.Fatalf("URLAllowlist.TrustUpstreamProxy = true, want false")
 	}
 	if !cfg.Security.ResponseHeaders.Enabled {
 		t.Fatalf("ResponseHeaders.Enabled = false, want true")
 	}
 
 	wantHosts := []string{
+		"api.openai.com",
+		"chatgpt.com",
+		"api.anthropic.com",
+		"api.x.ai",
+		"*.api.x.ai",
+		"vidgen.x.ai",
+		"cli-chat-proxy.grok.com",
 		"api.kimi.com",
 		"api.moonshot.ai",
 		"api.moonshot.cn",
+		"api.minimax.io",
+		"api.deepseek.com",
+		"daily-cloudcode-pa.sandbox.googleapis.com",
+		"*.aiplatform.googleapis.com",
+		"ollama.com",
+		"bedrock-runtime.*.amazonaws.com",
 	}
 	hostSet := make(map[string]struct{}, len(cfg.Security.URLAllowlist.UpstreamHosts))
 	for _, h := range cfg.Security.URLAllowlist.UpstreamHosts {

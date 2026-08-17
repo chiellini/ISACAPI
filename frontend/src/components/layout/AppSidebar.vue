@@ -916,7 +916,7 @@ const adminNavItems = computed((): NavItem[] => {
       featureFlag: flagRiskControl,
       children: [
         { path: '/admin/risk-control', label: t('nav.contentModeration'), icon: ShieldIcon },
-        { path: '/admin/prompt-audit', label: t('nav.promptAudit'), icon: ShieldIcon },
+        { path: '/admin/prompt-audit', label: t('nav.promptAudit'), icon: ShieldIcon, featureFlag: flagSuperAdmin },
       ],
     },
     { path: '/admin/conversations', label: t('nav.conversations'), icon: OrderListIcon, hideInSimpleMode: true, featureFlag: flagSuperAdmin },
@@ -961,6 +961,7 @@ const adminNavItems = computed((): NavItem[] => {
     const filtered = visible.filter(item => !item.hideInSimpleMode)
     filtered.push({ path: '/keys', label: t('nav.apiKeys'), icon: KeyIcon })
     if (authStore.isSuperAdmin) {
+      filtered.push({ path: '/admin/chat-policy', label: 'Chat 模型策略', icon: ChatIcon })
       filtered.push({ path: '/admin/settings', label: t('nav.settings'), icon: CogIcon })
     }
     for (const cm of customMenuItemsForAdmin.value) {
@@ -970,6 +971,7 @@ const adminNavItems = computed((): NavItem[] => {
   }
 
   if (authStore.isSuperAdmin) {
+    visible.push({ path: '/admin/chat-policy', label: 'Chat 模型策略', icon: ChatIcon })
     visible.push({ path: '/admin/settings', label: t('nav.settings'), icon: CogIcon })
   }
   for (const cm of customMenuItemsForAdmin.value) {

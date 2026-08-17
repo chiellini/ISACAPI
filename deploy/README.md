@@ -36,7 +36,7 @@ This directory contains files for deploying ISACAPI on Linux servers and Apple-s
 Apple-silicon Macs running macOS 26 can run the complete ISACAPI, PostgreSQL, and Redis stack with Apple `container` 1.1.0 or newer:
 
 ```bash
-./apple-container.sh init
+IMAGE_TAG=X.Y.Z ./apple-container.sh init
 ./apple-container.sh up
 ./apple-container.sh status
 ./apple-container.sh logs app -f
@@ -55,32 +55,37 @@ See [APPLE_CONTAINER.md](./APPLE_CONTAINER.md) for configuration, upgrades, pers
 Use the automated preparation script for the easiest setup:
 
 ```bash
-# Download and run the preparation script
-curl -sSL https://raw.githubusercontent.com/Wei-Shaw/sub2api/main/deploy/docker-deploy.sh | bash
+# Pin both deployment assets and the container image to one release.
+# Replace X.Y.Z with a reviewed published release.
+ISACAPI_VERSION=X.Y.Z
+curl -fsSL "https://raw.githubusercontent.com/chiellini/ISACAPI/v${ISACAPI_VERSION}/deploy/docker-deploy.sh" \
+  | IMAGE_TAG="${ISACAPI_VERSION}" bash
 
 # Or download first, then run
-curl -sSL https://raw.githubusercontent.com/Wei-Shaw/sub2api/main/deploy/docker-deploy.sh -o docker-deploy.sh
+curl -fsSL "https://raw.githubusercontent.com/chiellini/ISACAPI/v${ISACAPI_VERSION}/deploy/docker-deploy.sh" -o docker-deploy.sh
 chmod +x docker-deploy.sh
-./docker-deploy.sh
+IMAGE_TAG="${ISACAPI_VERSION}" ./docker-deploy.sh
 ```
 
 **What the script does:**
 - Downloads `docker-compose.local.yml` and `.env.example`
-- Automatically generates secure secrets (JWT_SECRET, TOTP_ENCRYPTION_KEY, POSTGRES_PASSWORD)
+- Automatically generates secure secrets (JWT_SECRET, TOTP_ENCRYPTION_KEY, POSTGRES_PASSWORD, ADMIN_PASSWORD)
 - Creates `.env` file with generated secrets
 - Creates necessary data directories (data/, postgres_data/, redis_data/)
-- **Displays generated credentials** (POSTGRES_PASSWORD, JWT_SECRET, etc.)
+- Stores generated credentials only in `.env` with mode `0600`; secret values are not printed
+- On upgrade, creates a private `.isacapi-deploy-backup-*` directory and
+  preserves the complete existing `.env`; only `IMAGE_TAG` is updated
 
 **After running the script:**
 ```bash
-# Start services
-docker compose -f docker-compose.local.yml up -d
+# Start services (the script saves the local-directory variant as docker-compose.yml)
+docker compose up -d
 
 # View logs
-docker compose -f docker-compose.local.yml logs -f sub2api
+docker compose logs -f sub2api
 
-# If admin password was auto-generated, find it in logs:
-docker compose -f docker-compose.local.yml logs sub2api | grep "admin password"
+# Read the generated admin password locally, then rotate it after first login:
+grep '^ADMIN_PASSWORD=' .env
 
 # Access Web UI
 # http://localhost:8080
@@ -92,19 +97,22 @@ If you prefer manual control:
 
 ```bash
 # Clone repository
-git clone https://github.com/Wei-Shaw/sub2api.git
-cd sub2api/deploy
+git clone https://github.com/chiellini/ISACAPI.git
+cd ISACAPI/deploy
 
 # Configure environment
 cp .env.example .env
-chmod 600 .env
-nano .env  # Set POSTGRES_PASSWORD and other required variables
-
-# Generate secure secrets (recommended)
+ISACAPI_VERSION=X.Y.Z
+POSTGRES_PASSWORD=$(openssl rand -hex 32)
+ADMIN_PASSWORD=$(openssl rand -hex 32)
 JWT_SECRET=$(openssl rand -hex 32)
 TOTP_ENCRYPTION_KEY=$(openssl rand -hex 32)
-echo "JWT_SECRET=${JWT_SECRET}" >> .env
-echo "TOTP_ENCRYPTION_KEY=${TOTP_ENCRYPTION_KEY}" >> .env
+sed -i "s/^IMAGE_TAG=.*/IMAGE_TAG=${ISACAPI_VERSION}/" .env
+sed -i "s/^POSTGRES_PASSWORD=.*/POSTGRES_PASSWORD=${POSTGRES_PASSWORD}/" .env
+sed -i "s/^ADMIN_PASSWORD=.*/ADMIN_PASSWORD=${ADMIN_PASSWORD}/" .env
+sed -i "s/^JWT_SECRET=.*/JWT_SECRET=${JWT_SECRET}/" .env
+sed -i "s/^TOTP_ENCRYPTION_KEY=.*/TOTP_ENCRYPTION_KEY=${TOTP_ENCRYPTION_KEY}/" .env
+chmod 600 .env
 
 # Create data directories
 mkdir -p data postgres_data redis_data
@@ -112,7 +120,7 @@ mkdir -p data postgres_data redis_data
 # Start all services using local directory version
 docker compose -f docker-compose.local.yml up -d
 
-# View logs (check for auto-generated admin password)
+# View logs
 docker compose -f docker-compose.local.yml logs -f sub2api
 
 # Access Web UI
@@ -135,16 +143,37 @@ When using Docker Compose with `AUTO_SETUP=true`:
 1. On first run, the system automatically:
    - Connects to PostgreSQL and Redis
    - Applies database migrations (SQL files in `backend/migrations/*.sql`) and records them in `schema_migrations`
-   - Generates JWT secret (if not provided)
-   - Creates admin account (password auto-generated if not provided)
+   - Creates the administrator account from the credentials in `.env`
    - Writes config.yaml
 
-2. No manual Setup Wizard needed - just configure `.env` and start
+2. No manual Setup Wizard is needed. Before the first start, set an exact
+   `IMAGE_TAG`, `POSTGRES_PASSWORD`, `ADMIN_PASSWORD`, `JWT_SECRET`, and
+   `TOTP_ENCRYPTION_KEY`. The preparation scripts generate the secrets without
+   printing their values.
 
-3. If `ADMIN_PASSWORD` is not set, check logs for the generated password:
-   ```bash
-   docker compose logs sub2api | grep "admin password"
-   ```
+3. Read the generated administrator password only from the local mode-`0600`
+   `.env` file, then rotate it after first login.
+
+### Safe Upgrade
+
+Re-run the script for the reviewed target release. `DEPLOY_OVERWRITE=1` is
+appropriate for unattended upgrades after review; without it, the script asks
+for confirmation. Existing PostgreSQL, JWT, TOTP, and administrator credentials
+are copied to a private backup and preserved unchanged.
+
+```bash
+ISACAPI_VERSION=X.Y.Z
+curl -fsSL "https://raw.githubusercontent.com/chiellini/ISACAPI/v${ISACAPI_VERSION}/deploy/docker-deploy.sh" \
+  | DEPLOY_OVERWRITE=1 IMAGE_TAG="${ISACAPI_VERSION}" bash
+docker compose pull
+docker compose up -d
+```
+
+If `docker-compose.yml` exists but `.env` is missing, the script stops without
+changing files. Restore the original `.env`; generating replacements can make
+an existing database inaccessible and invalidate sessions or encrypted TOTP
+data. An `.env`-only partial deployment is recoverable: the script backs it up,
+preserves it, and restores the Compose file.
 
 ### Database Migration Notes (PostgreSQL)
 
@@ -195,7 +224,8 @@ docker compose -f docker-compose.local.yml logs -f sub2api
 # Restart ISACAPI only
 docker compose -f docker-compose.local.yml restart sub2api
 
-# Update to latest version
+# Set an audited release explicitly, then pull and recreate
+sed -i 's/^IMAGE_TAG=.*/IMAGE_TAG=X.Y.Z/' .env
 docker compose -f docker-compose.local.yml pull
 docker compose -f docker-compose.local.yml up -d
 
@@ -219,7 +249,8 @@ docker compose logs -f sub2api
 # Restart ISACAPI only
 docker compose restart sub2api
 
-# Update to latest version
+# Set an audited release explicitly, then pull and recreate
+sed -i 's/^IMAGE_TAG=.*/IMAGE_TAG=X.Y.Z/' .env
 docker compose pull
 docker compose up -d
 
@@ -232,11 +263,12 @@ docker compose down -v
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `POSTGRES_PASSWORD` | **Yes** | - | PostgreSQL password |
-| `JWT_SECRET` | **Recommended** | *(auto-generated)* | JWT secret (fixed for persistent sessions) |
-| `TOTP_ENCRYPTION_KEY` | **Recommended** | *(auto-generated)* | TOTP encryption key (fixed for persistent 2FA) |
+| `IMAGE_TAG` | **Yes** | - | Exact published application version; floating tags are rejected by preparation scripts |
+| `JWT_SECRET` | **Yes** | - | JWT secret (fixed for persistent sessions) |
+| `TOTP_ENCRYPTION_KEY` | **Yes** | - | TOTP encryption key (fixed for persistent 2FA) |
 | `SERVER_PORT` | No | `8080` | Server port |
 | `ADMIN_EMAIL` | No | `admin@sub2api.local` | Admin email |
-| `ADMIN_PASSWORD` | No | *(auto-generated)* | Admin password |
+| `ADMIN_PASSWORD` | **Yes for first start** | - | Initial administrator password; rotate after first login |
 | `TZ` | No | `Asia/Shanghai` | Timezone |
 | `UPDATE_GITHUB_TOKEN` | No | *(empty)* | Token for `api.github.com` release checks only; asset downloads remain anonymous. |
 | `GEMINI_OAUTH_CLIENT_ID` | No | *(builtin)* | Google OAuth client ID (Gemini OAuth). Leave empty to use the built-in Gemini CLI client. |
@@ -246,7 +278,18 @@ docker compose down -v
 
 See `.env.example` for all available options.
 
-> **Note:** The `docker-deploy.sh` script automatically generates `JWT_SECRET`, `TOTP_ENCRYPTION_KEY`, and `POSTGRES_PASSWORD` for you.
+> **Note:** The `docker-deploy.sh` script generates `JWT_SECRET`, `TOTP_ENCRYPTION_KEY`, `POSTGRES_PASSWORD`, and `ADMIN_PASSWORD` into the mode-`0600` `.env` file without printing their values.
+
+The URL allowlist contains only reviewed official endpoints. For a custom
+upstream, explicitly append its exact hostname (or a reviewed wildcard suffix)
+to `security.url_allowlist.upstream_hosts`. Private/local upstreams additionally
+require `security.url_allowlist.allow_private_hosts: true` and should only be
+used on a trusted network. Account-configured HTTP/SOCKS proxies remain blocked
+by default. After auditing a proxy, opt in separately with
+`security.url_allowlist.trust_upstream_proxy: true`; do not use
+`allow_private_hosts` as a proxy-trust switch. URL host, scheme, and redirect
+policy still applies, while DNS pinning beyond the trusted proxy is necessarily
+delegated to that proxy.
 
 ### Easy Migration (Local Directory Version)
 
@@ -376,12 +419,30 @@ For production servers using systemd.
 ### One-Line Installation
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/Wei-Shaw/sub2api/main/deploy/install.sh | sudo bash
+# Replace X.Y.Z with a reviewed published release.
+ISACAPI_VERSION=X.Y.Z
+curl -fsSL "https://raw.githubusercontent.com/chiellini/ISACAPI/v${ISACAPI_VERSION}/deploy/install.sh" \
+  | sudo bash -s -- install --version "v${ISACAPI_VERSION}"
 ```
+
+The service binds to `127.0.0.1:8080` by default so an unauthenticated first-run
+wizard is not exposed publicly. From your workstation, create an SSH tunnel and
+open the wizard locally:
+
+```bash
+ssh -N -L 8080:127.0.0.1:8080 <user>@<server>
+# Open http://127.0.0.1:8080 in your browser.
+
+# Read the owner-only one-time token on the server and paste it into the wizard.
+sudo cat /opt/sub2api/.setup-token
+```
+
+Only change `SERVER_HOST` to `0.0.0.0` after placing the origin behind a trusted
+TLS reverse proxy/firewall and configuring exact trusted proxy addresses.
 
 ### Manual Installation
 
-1. Download the latest release from [GitHub Releases](https://github.com/Wei-Shaw/sub2api/releases)
+1. Download an explicit release from [GitHub Releases](https://github.com/chiellini/ISACAPI/releases)
 2. Extract and copy the binary to `/opt/sub2api/`
 3. Copy `sub2api.service` to `/etc/systemd/system/`
 4. Run:
@@ -390,7 +451,9 @@ curl -sSL https://raw.githubusercontent.com/Wei-Shaw/sub2api/main/deploy/install
    sudo systemctl enable sub2api
    sudo systemctl start sub2api
    ```
-5. Open the Setup Wizard in your browser to complete configuration
+5. Read `/opt/sub2api/.setup-token` as root, open the Setup Wizard, and paste
+   the one-time token to complete configuration. The token file is removed
+   after a successful installation.
 
 ### Commands
 
@@ -443,8 +506,10 @@ To change after installation:
 2. Add or modify:
    ```ini
    [Service]
-   Environment=SERVER_HOST=0.0.0.0
+   Environment=SERVER_HOST=127.0.0.1
    Environment=SERVER_PORT=3000
+   Environment=SETUP_HOST=127.0.0.1
+   Environment=SETUP_PORT=3000
    ```
 
 3. Reload and restart:

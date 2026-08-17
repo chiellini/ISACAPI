@@ -32,7 +32,7 @@ echo "[INFO] 检测到数据模式: $MODE (compose 文件: $COMPOSE_FILE)"
 
 mkdir -p "$WORK_DIR"
 
-# 记录当前镜像的精确 digest —— weishaw/sub2api:latest 在新机可能拉到更新版本，
+# 记录当前镜像的精确 digest，用于验证新机的显式 IMAGE_TAG 对应相同制品，
 # 出问题时可用这里记录的 digest 回退到与旧机完全相同的镜像。
 docker images --digests --format '{{.Repository}}:{{.Tag}} {{.Digest}}' \
   | grep -E 'sub2api|postgres|redis' > "$WORK_DIR/image-digests.txt" || true

@@ -101,7 +101,13 @@ const (
 	upstreamProtocolModeOpenAIH1Fallback = "openai_h1_fallback"
 )
 
-var errUpstreamClientLimitReached = errors.New("upstream client cache limit reached")
+var (
+	errUpstreamClientLimitReached = errors.New("upstream client cache limit reached")
+	errUnverifiableUpstreamProxy  = errors.New(
+		"resolved IP validation cannot be guaranteed through an upstream proxy; " +
+			"set security.url_allowlist.trust_upstream_proxy=true only for a trusted proxy",
+	)
+)
 
 // poolSettings 连接池配置参数
 // 封装 Transport 所需的各项连接池参数
@@ -197,6 +203,9 @@ func NewHTTPUpstream(cfg *config.Config) service.HTTPUpstream {
 //   - inFlight > 0 的客户端不会被淘汰，确保活跃请求不被中断
 func (s *httpUpstreamService) Do(req *http.Request, proxyURL string, accountID int64, accountConcurrency int) (*http.Response, error) {
 	applyGrokCLIProxyHeaders(req)
+	if err := s.validateProxySecurity(proxyURL); err != nil {
+		return nil, err
+	}
 	if err := s.validateRequestHost(req); err != nil {
 		return nil, err
 	}
@@ -251,6 +260,9 @@ func (s *httpUpstreamService) DoWithTLS(req *http.Request, proxyURL string, acco
 		return s.Do(req, proxyURL, accountID, accountConcurrency)
 	}
 	applyGrokCLIProxyHeaders(req)
+	if err := s.validateProxySecurity(proxyURL); err != nil {
+		return nil, err
+	}
 	upstreamProfile := service.HTTPUpstreamProfileDefault
 	if req != nil {
 		upstreamProfile = service.HTTPUpstreamProfileFromContext(req.Context())
@@ -493,11 +505,21 @@ func (s *httpUpstreamService) getClientEntryWithTLS(proxyURL string, accountID i
 	if err != nil {
 		return nil, err
 	}
+	if s.shouldEnforceURLPolicy() && parsedProxy != nil && !s.trustsUpstreamProxy() {
+		return nil, errUnverifiableUpstreamProxy
+	}
+	pinResolvedIP := s.shouldValidateResolvedIP() && parsedProxy == nil
 	settings := s.resolvePoolSettings(isolation, accountConcurrency)
 	settings = s.applyProfilePoolSettings(settings, upstreamProfile)
 	// TLS 指纹客户端使用独立的缓存键，加 "tls:" 前缀
 	cacheKey := "tls:" + buildCacheKey(isolation, proxyKey, accountID, upstreamProtocolModeDefault)
 	poolKey := buildPoolKey(settings, upstreamProtocolModeDefault) + ":tls"
+	if s.shouldEnforceURLPolicy() {
+		poolKey += ":url-policy"
+	}
+	if pinResolvedIP {
+		poolKey += ":ssrf-pinned"
+	}
 
 	now := time.Now()
 	nowUnix := now.UnixNano()
@@ -548,14 +570,14 @@ func (s *httpUpstreamService) getClientEntryWithTLS(proxyURL string, accountID i
 
 	// 创建带 TLS 指纹的 Transport
 	slog.Debug("tls_fingerprint_creating_new_client", "account_id", accountID, "cache_key", cacheKey, "proxy", proxyKey)
-	transport, err := buildUpstreamTransportWithTLSFingerprint(settings, parsedProxy, profile)
+	transport, err := buildUpstreamTransportWithTLSFingerprintPolicy(settings, parsedProxy, profile, pinResolvedIP)
 	if err != nil {
 		s.mu.Unlock()
 		return nil, fmt.Errorf("build TLS fingerprint transport: %w", err)
 	}
 
 	client := &http.Client{Transport: transport}
-	if s.shouldValidateResolvedIP() {
+	if s.shouldEnforceURLPolicy() {
 		client.CheckRedirect = s.redirectChecker
 	}
 
@@ -576,31 +598,48 @@ func (s *httpUpstreamService) getClientEntryWithTLS(proxyURL string, accountID i
 	return entry, nil
 }
 
-func (s *httpUpstreamService) shouldValidateResolvedIP() bool {
+func (s *httpUpstreamService) shouldEnforceURLPolicy() bool {
 	if s.cfg == nil {
 		return false
 	}
-	if !s.cfg.Security.URLAllowlist.Enabled {
-		return false
+	return s.cfg.Security.URLAllowlist.Enabled
+}
+
+func (s *httpUpstreamService) shouldValidateResolvedIP() bool {
+	return s.shouldEnforceURLPolicy() && !s.cfg.Security.URLAllowlist.AllowPrivateHosts
+}
+
+func (s *httpUpstreamService) trustsUpstreamProxy() bool {
+	return s != nil && s.cfg != nil && s.cfg.Security.URLAllowlist.TrustUpstreamProxy
+}
+
+func (s *httpUpstreamService) validateProxySecurity(rawProxyURL string) error {
+	if !s.shouldEnforceURLPolicy() {
+		return nil
 	}
-	return !s.cfg.Security.URLAllowlist.AllowPrivateHosts
+	_, parsed, err := proxyurl.Parse(rawProxyURL)
+	if err != nil {
+		return err
+	}
+	if parsed != nil && !s.trustsUpstreamProxy() {
+		return errUnverifiableUpstreamProxy
+	}
+	return nil
 }
 
 func (s *httpUpstreamService) validateRequestHost(req *http.Request) error {
-	if !s.shouldValidateResolvedIP() {
+	if !s.shouldEnforceURLPolicy() {
 		return nil
 	}
 	if req == nil || req.URL == nil {
 		return errors.New("request url is nil")
 	}
-	host := strings.TrimSpace(req.URL.Hostname())
-	if host == "" {
-		return errors.New("request host is empty")
-	}
-	if err := urlvalidator.ValidateResolvedIP(host); err != nil {
-		return err
-	}
-	return nil
+	_, err := urlvalidator.ValidateHTTPURL(req.URL.String(), s.cfg.Security.URLAllowlist.AllowInsecureHTTP, urlvalidator.ValidationOptions{
+		AllowedHosts:     s.cfg.Security.URLAllowlist.UpstreamHosts,
+		RequireAllowlist: true,
+		AllowPrivate:     s.cfg.Security.URLAllowlist.AllowPrivateHosts,
+	})
+	return err
 }
 
 func (s *httpUpstreamService) redirectChecker(req *http.Request, via []*http.Request) error {
@@ -651,6 +690,10 @@ func (s *httpUpstreamService) getClientEntry(proxyURL string, accountID int64, a
 	if err != nil {
 		return nil, err
 	}
+	if s.shouldEnforceURLPolicy() && parsedProxy != nil && !s.trustsUpstreamProxy() {
+		return nil, errUnverifiableUpstreamProxy
+	}
+	pinResolvedIP := s.shouldValidateResolvedIP() && parsedProxy == nil
 	// 根据请求 profile（例如 OpenAI）选择协议模式
 	protocolMode := s.resolveProtocolMode(profile, proxyKey, parsedProxy)
 	settings := s.resolvePoolSettings(isolation, accountConcurrency)
@@ -659,6 +702,12 @@ func (s *httpUpstreamService) getClientEntry(proxyURL string, accountID int64, a
 	cacheKey := buildCacheKey(isolation, proxyKey, accountID, protocolMode)
 	// 构建连接池配置键（用于检测配置变更）
 	poolKey := buildPoolKey(settings, protocolMode)
+	if s.shouldEnforceURLPolicy() {
+		poolKey += ":url-policy"
+	}
+	if pinResolvedIP {
+		poolKey += ":ssrf-pinned"
+	}
 
 	now := time.Now()
 	nowUnix := now.UnixNano()
@@ -701,13 +750,13 @@ func (s *httpUpstreamService) getClientEntry(proxyURL string, accountID int64, a
 	}
 
 	// 缓存未命中或需要重建，创建新客户端
-	transport, err := buildUpstreamTransport(settings, parsedProxy, protocolMode)
+	transport, err := buildUpstreamTransportPolicy(settings, parsedProxy, protocolMode, pinResolvedIP)
 	if err != nil {
 		s.mu.Unlock()
 		return nil, fmt.Errorf("build transport: %w", err)
 	}
 	client := &http.Client{Transport: transport}
-	if s.shouldValidateResolvedIP() {
+	if s.shouldEnforceURLPolicy() {
 		client.CheckRedirect = s.redirectChecker
 	}
 	entry := &upstreamClientEntry{
@@ -1295,8 +1344,20 @@ func newUpstreamDialer() *net.Dialer {
 //   - IdleConnTimeout: 空闲连接超时（超时后关闭）
 //   - ResponseHeaderTimeout: 等待响应头超时（不影响流式传输）
 func buildUpstreamTransport(settings poolSettings, proxyURL *url.URL, protocolMode string) (*http.Transport, error) {
+	return buildUpstreamTransportPolicy(settings, proxyURL, protocolMode, false)
+}
+
+func buildUpstreamTransportPolicy(settings poolSettings, proxyURL *url.URL, protocolMode string, validateResolvedIP bool) (*http.Transport, error) {
+	baseDialer := newUpstreamDialer()
+	dialContext := baseDialer.DialContext
+	if validateResolvedIP {
+		if proxyURL != nil {
+			return nil, errUnverifiableUpstreamProxy
+		}
+		dialContext = urlvalidator.NewSafeDialer(net.DefaultResolver, baseDialer, defaultUpstreamDialTimeout).DialContext
+	}
 	transport := &http.Transport{
-		DialContext:           newUpstreamDialer().DialContext,
+		DialContext:           dialContext,
 		TLSHandshakeTimeout:   defaultUpstreamTLSHandshakeTimeout,
 		MaxIdleConns:          settings.maxIdleConns,
 		MaxIdleConnsPerHost:   settings.maxIdleConnsPerHost,
@@ -1359,6 +1420,13 @@ func enableOpenAIHTTP2KeepAlive(transport *http.Transport) (*http2.Transport, er
 //   - http/https: HTTP 代理，使用 HTTPProxyDialer（CONNECT 隧道 + utls 握手）
 //   - socks5: SOCKS5 代理，使用 SOCKS5ProxyDialer（SOCKS5 隧道 + utls 握手）
 func buildUpstreamTransportWithTLSFingerprint(settings poolSettings, proxyURL *url.URL, profile *tlsfingerprint.Profile) (*http.Transport, error) {
+	return buildUpstreamTransportWithTLSFingerprintPolicy(settings, proxyURL, profile, false)
+}
+
+func buildUpstreamTransportWithTLSFingerprintPolicy(settings poolSettings, proxyURL *url.URL, profile *tlsfingerprint.Profile, validateResolvedIP bool) (*http.Transport, error) {
+	if validateResolvedIP && proxyURL != nil {
+		return nil, errUnverifiableUpstreamProxy
+	}
 	transport := &http.Transport{
 		MaxIdleConns:          settings.maxIdleConns,
 		MaxIdleConnsPerHost:   settings.maxIdleConnsPerHost,
@@ -1368,12 +1436,21 @@ func buildUpstreamTransportWithTLSFingerprint(settings poolSettings, proxyURL *u
 		// 禁用默认的 TLS，我们使用自定义的 DialTLSContext
 		ForceAttemptHTTP2: false,
 	}
+	var directBaseDialer func(context.Context, string, string) (net.Conn, error)
+	if validateResolvedIP {
+		tcpDialer := newUpstreamDialer()
+		directBaseDialer = urlvalidator.NewSafeDialer(net.DefaultResolver, tcpDialer, defaultUpstreamDialTimeout).DialContext
+		// DoWithTLS routes an initial plain HTTP URL through the normal client,
+		// but a permitted HTTPS-to-HTTP redirect still uses this transport.
+		// Keep that redirect on the same pinned-IP policy.
+		transport.DialContext = directBaseDialer
+	}
 
 	// 根据代理类型选择合适的 TLS 指纹 Dialer
 	if proxyURL == nil {
 		// 直连：使用 TLSFingerprintDialer
 		slog.Debug("tls_fingerprint_transport_direct")
-		dialer := tlsfingerprint.NewDialer(profile, nil)
+		dialer := tlsfingerprint.NewDialer(profile, directBaseDialer)
 		transport.DialTLSContext = dialer.DialTLSContext
 	} else {
 		scheme := strings.ToLower(proxyURL.Scheme)

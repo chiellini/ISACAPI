@@ -100,12 +100,15 @@ GitHub Releases からビルド済みバイナリをダウンロードするワ�
 #### インストール手順
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/chiellini/ISACAPI/main/deploy/install.sh | sudo bash
+# X.Y.Z をレビュー済みの公開リリースに置き換えます。
+ISACAPI_VERSION=X.Y.Z
+curl -fsSL "https://raw.githubusercontent.com/chiellini/ISACAPI/v${ISACAPI_VERSION}/deploy/install.sh" \
+  | sudo bash -s -- install --version "v${ISACAPI_VERSION}"
 ```
 
 スクリプトは以下を実行します:
 1. システムアーキテクチャの検出
-2. 最新リリースのダウンロード
+2. 明示的に指定したリリースのダウンロード
 3. バイナリを `/opt/sub2api` にインストール
 4. systemd サービスの作成
 5. システムユーザーと権限の設定
@@ -119,8 +122,12 @@ sudo systemctl start sub2api
 # 2. 起動時の自動起動を有効化
 sudo systemctl enable sub2api
 
-# 3. ブラウザでセットアップウィザードを開く
-# http://YOUR_SERVER_IP:8080
+# 3. ワークステーションから SSH トンネルを作成（ウィザードはループバックのみで待受）
+ssh -N -L 8080:127.0.0.1:8080 <user>@<server>
+# ローカルで http://127.0.0.1:8080 を開く
+
+# サーバー上で一回限りのトークンを読み、セットアップ画面に貼り付ける
+sudo cat /opt/sub2api/.setup-token
 ```
 
 セットアップウィザードでは以下の設定を行います:
@@ -150,7 +157,7 @@ sudo journalctl -u sub2api -f
 sudo systemctl restart sub2api
 
 # アンインストール
-curl -sSL https://raw.githubusercontent.com/chiellini/ISACAPI/main/deploy/install.sh | sudo bash -s -- uninstall -y
+curl -fsSL https://raw.githubusercontent.com/chiellini/ISACAPI/vX.Y.Z/deploy/install.sh | sudo bash -s -- uninstall -y
 ```
 
 ---
@@ -172,8 +179,11 @@ PostgreSQL と Redis のコンテナを含む Docker Compose でデプロイし�
 # デプロイ用ディレクトリを作成
 mkdir -p sub2api-deploy && cd sub2api-deploy
 
-# デプロイ準備スクリプトをダウンロードして実行
-curl -sSL https://raw.githubusercontent.com/chiellini/ISACAPI/main/deploy/docker-deploy.sh | bash
+# デプロイ資産とコンテナイメージを同じリリースに固定
+# X.Y.Z をレビュー済みの公開リリースに置き換えます。
+ISACAPI_VERSION=X.Y.Z
+curl -fsSL "https://raw.githubusercontent.com/chiellini/ISACAPI/v${ISACAPI_VERSION}/deploy/docker-deploy.sh" \
+  | IMAGE_TAG="${ISACAPI_VERSION}" bash
 
 # サービスを起動
 docker compose up -d
@@ -184,10 +194,11 @@ docker compose logs -f sub2api
 
 **スクリプトの動作内容:**
 - `docker-compose.local.yml`（`docker-compose.yml` として保存）と `.env.example` をダウンロード
-- セキュアな認証情報（JWT_SECRET、TOTP_ENCRYPTION_KEY、POSTGRES_PASSWORD）を自動生成
+- セキュアな認証情報（JWT_SECRET、TOTP_ENCRYPTION_KEY、POSTGRES_PASSWORD、ADMIN_PASSWORD）を自動生成
 - 自動生成されたシークレットで `.env` ファイルを作成
 - データディレクトリを作成（バックアップ・移行が容易なローカルディレクトリを使用）
-- 生成された認証情報を参照用に表示
+- 生成した認証情報はモード `0600` の `.env` にのみ保存し、値は表示しない
+- 再実行時は既存の `.env` と Compose ファイルを先にバックアップし、全認証情報を保持したまま、明示した `IMAGE_TAG` のみ更新
 
 #### 手動デプロイ
 
@@ -212,13 +223,17 @@ nano .env
 # PostgreSQL パスワード（必須）
 POSTGRES_PASSWORD=your_secure_password_here
 
+# レビュー済みの固定アプリケーション版（初回起動前に必須、latest は不可）
+IMAGE_REPOSITORY=ghcr.io/chiellini/sub2api
+IMAGE_TAG=X.Y.Z
+
 # JWT シークレット（推奨 - 再起動後もユーザーのログイン状態を保持）
 JWT_SECRET=your_jwt_secret_here
 
 # TOTP 暗号化キー（推奨 - 再起動後も二要素認証を維持）
 TOTP_ENCRYPTION_KEY=your_totp_key_here
 
-# オプション: 管理者アカウント
+# 初回起動前に必須: 管理者アカウント
 ADMIN_EMAIL=admin@example.com
 ADMIN_PASSWORD=your_admin_password
 
@@ -235,6 +250,9 @@ openssl rand -hex 32
 openssl rand -hex 32
 
 # POSTGRES_PASSWORD を生成
+openssl rand -hex 32
+
+# 初回ログイン用の ADMIN_PASSWORD を生成
 openssl rand -hex 32
 ```
 
@@ -267,20 +285,30 @@ docker compose -f docker-compose.local.yml logs -f sub2api
 
 #### アクセス
 
-ブラウザで `http://YOUR_SERVER_IP:8080` を開いてください。
+本番テンプレートはデフォルトで `127.0.0.1` にバインドします。
+リモートアクセスはワークステーションで
+`ssh -N -L 8080:127.0.0.1:8080 <user>@<server>` を実行し、
+`http://127.0.0.1:8080` を開いてください。`0.0.0.0` は信頼できる TLS リバースプロキシ/ファイアウォールの後方でのみ使用します。
 
-管理者パスワードが自動生成された場合は、ログで確認できます:
+ワンクリックデプロイは管理者パスワードをモード `0600` の `.env` にのみ保存します。サーバー上で読み取り、初回ログイン後に変更してください:
 ```bash
-docker compose -f docker-compose.local.yml logs sub2api | grep "admin password"
+grep '^ADMIN_PASSWORD=' .env
 ```
 
 #### アップグレード
 
 ```bash
-# 最新イメージをプルしてコンテナを再作成
+# 対応するレビュー済みデプロイスクリプトを再実行します。
+# 非公開の .isacapi-deploy-backup-* を作成し、既存シークレットは変更しません。
+ISACAPI_VERSION=X.Y.Z
+curl -fsSL "https://raw.githubusercontent.com/chiellini/ISACAPI/v${ISACAPI_VERSION}/deploy/docker-deploy.sh" \
+  | DEPLOY_OVERWRITE=1 IMAGE_TAG="${ISACAPI_VERSION}" bash
 docker compose -f docker-compose.local.yml pull
 docker compose -f docker-compose.local.yml up -d
 ```
+
+既存デプロイで `.env` が失われた場合は再生成せず、必ずバックアップから復元してください。
+このファイルの認証情報は、データベース、ログインセッション、暗号化済み TOTP データに紐づいています。
 
 #### 簡単な移行（ローカルディレクトリバージョン）
 
@@ -325,9 +353,9 @@ rm -rf data/ postgres_data/ redis_data/
 Apple シリコン搭載 Mac と macOS 26 では、Apple `container` 1.1.0 以降を使用して Sub2API、PostgreSQL、Redis の完全なスタックを実行できます:
 
 ```bash
-git clone https://github.com/Wei-Shaw/sub2api.git
-cd sub2api/deploy
-./apple-container.sh init
+git clone https://github.com/chiellini/ISACAPI.git
+cd ISACAPI/deploy
+IMAGE_TAG=X.Y.Z ./apple-container.sh init
 ./apple-container.sh up
 ./apple-container.sh status
 ```
@@ -428,19 +456,26 @@ default:
 
 **⚠️ セキュリティ警告: HTTP URL 設定**
 
-`security.url_allowlist.enabled=false` の場合、システムは最小限の URL バリデーションのみを行い、**デフォルトで HTTP URL を許可**します（開発フレンドリーモード。Docker Compose デプロイのデフォルトも同じです）。本番環境では、以下のように明示的に HTTPS のみに制限することを推奨します:
+本番デプロイテンプレートは URL 許可リストを有効にし、プライベートホストを拒否し、HTTPS のみを許可します。
+これらの制限は、送信先を確認した上で別のローカル開発 override でのみ緩和してください:
 
 ```yaml
 security:
   url_allowlist:
-    enabled: false                # 許可リストチェックを無効化
-    allow_insecure_http: false    # HTTPS のみ許可（本番環境推奨）
+    enabled: true
+    allow_private_hosts: false
+    allow_insecure_http: false
 ```
+
+カスタム上流は自動的に信頼されません。正確なホスト名（またはレビュー済みの
+`*.example.com` サフィックス）を `security.url_allowlist.upstream_hosts` に明示的に追加してください。
+プライベート/ローカル上流では `allow_private_hosts: true` も必要で、信頼できるネットワークでのみ有効にします。
 
 **または環境変数で設定:**
 
 ```bash
-SECURITY_URL_ALLOWLIST_ENABLED=false
+SECURITY_URL_ALLOWLIST_ENABLED=true
+SECURITY_URL_ALLOWLIST_ALLOW_PRIVATE_HOSTS=false
 SECURITY_URL_ALLOWLIST_ALLOW_INSECURE_HTTP=false
 ```
 

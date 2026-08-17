@@ -1,6 +1,9 @@
 package routes
 
 import (
+	"encoding/json"
+	"errors"
+	"io"
 	"net/http"
 	"time"
 
@@ -13,6 +16,31 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
 )
+
+const maxBuiltInChatSearchBodyBytes int64 = 64 * 1024
+
+type builtInChatSearchRequest struct {
+	Model      string `json:"model"`
+	Query      string `json:"query"`
+	MaxResults int    `json:"max_results"`
+}
+
+func decodeBuiltInChatSearchRequest(body io.Reader) (builtInChatSearchRequest, error) {
+	var req builtInChatSearchRequest
+	decoder := json.NewDecoder(body)
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&req); err != nil {
+		return req, err
+	}
+	var trailing any
+	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
+		if err == nil {
+			return req, errors.New("chat search request must contain one JSON object")
+		}
+		return req, err
+	}
+	return req, nil
+}
 
 // RegisterChatRoutes 注册内置聊天 Playground 路由。
 //
@@ -57,6 +85,7 @@ func RegisterChatRoutes(
 	chat.Use(opsErrorLogger)
 	chat.Use(endpointNorm)
 	chat.Use(gin.HandlerFunc(jwtAuth))
+	chat.Use(middleware.NewChatPolicyMiddleware(settingService, apiKeyService, cfg.Gateway.MaxBodySize))
 	chat.Use(chatBridge)
 	chat.Use(gin.HandlerFunc(apiKeyAuth))
 	chat.Use(requireGroupAnthropic)
@@ -83,8 +112,30 @@ func RegisterChatRoutes(
 			}
 			h.OpenAIGateway.Images(c)
 		})
-		// 模型下拉列表（复用网关 Models）。
-		chat.GET("/v1/models", h.Gateway.Models)
+		// 模型列表只由超级管理员配置的公开别名驱动；未启用策略时
+		// 中间件返回空列表，禁止客户端绕过模型、Prompt 与 Skill 策略。
+		chat.GET("/v1/models", func(c *gin.Context) {
+			policy, err := settingService.GetChatPolicy(c.Request.Context())
+			if err != nil {
+				middleware.AbortWithError(c, http.StatusServiceUnavailable, "CHAT_POLICY_UNAVAILABLE", "chat configuration is temporarily unavailable")
+				return
+			}
+			if policy == nil || !policy.Enabled {
+				c.JSON(http.StatusOK, gin.H{"object": "list", "data": []any{}})
+				return
+			}
+			subject, ok := middleware.GetAuthSubjectFromContext(c)
+			if !ok {
+				middleware.AbortWithError(c, http.StatusUnauthorized, "UNAUTHORIZED", "session authentication required")
+				return
+			}
+			groups, err := apiKeyService.GetAvailableGroups(c.Request.Context(), subject.UserID)
+			if err != nil {
+				middleware.AbortWithError(c, http.StatusServiceUnavailable, "CHAT_GROUPS_UNAVAILABLE", "chat groups are temporarily unavailable")
+				return
+			}
+			c.JSON(http.StatusOK, gin.H{"object": "list", "data": middleware.AvailableChatProfileModels(policy, groups)})
+		})
 	}
 
 	// 会话历史（仅 JWT 鉴权，按 user 隔离，跨设备同步；无需桥接/网关计费）。
@@ -113,9 +164,50 @@ func RegisterChatRoutes(
 	// 真正的预算保护仍由提供方配额（Brave/Tavily quota_limit）承担。
 	searchLimiter := ratemw.NewRateLimiter(redisClient)
 	chatMeta := r.Group("/api/v1/chat")
+	chatMeta.Use(bodyLimit)
 	chatMeta.Use(gin.HandlerFunc(jwtAuth))
 	{
 		chatMeta.GET("/capabilities", h.ChatHistory.Capabilities)
-		chatMeta.POST("/search", searchLimiter.Limit("chat-web-search", 30, time.Minute), h.ChatHistory.Search)
+		chatMeta.POST("/search", middleware.RequestBodyLimit(maxBuiltInChatSearchBodyBytes), searchLimiter.Limit("chat-web-search", 30, time.Minute), func(c *gin.Context) {
+			policy, err := settingService.GetChatPolicy(c.Request.Context())
+			if err != nil {
+				middleware.AbortWithError(c, http.StatusServiceUnavailable, "CHAT_POLICY_UNAVAILABLE", "chat configuration is temporarily unavailable")
+				return
+			}
+			if policy == nil || !policy.Enabled {
+				middleware.AbortWithError(c, http.StatusForbidden, "CHAT_DISABLED", "chat is disabled by the administrator")
+				return
+			}
+			req, decodeErr := decodeBuiltInChatSearchRequest(c.Request.Body)
+			if decodeErr != nil {
+				var maxBytesErr *http.MaxBytesError
+				if errors.As(decodeErr, &maxBytesErr) {
+					middleware.AbortWithError(c, http.StatusRequestEntityTooLarge, "REQUEST_TOO_LARGE", "chat search request exceeds 64 KiB")
+					return
+				}
+				middleware.AbortWithError(c, http.StatusBadRequest, "INVALID_REQUEST", "chat search request must be one valid JSON object with no unknown fields")
+				return
+			}
+			profile, ok := policy.EnabledProfileByModel(req.Model)
+			if !ok || !profile.Capabilities.WebSearch {
+				middleware.AbortWithError(c, http.StatusForbidden, "CHAT_SEARCH_UNAVAILABLE", "web search is not enabled for the selected model")
+				return
+			}
+			subject, ok := middleware.GetAuthSubjectFromContext(c)
+			if !ok {
+				middleware.AbortWithError(c, http.StatusUnauthorized, "UNAUTHORIZED", "session authentication required")
+				return
+			}
+			groups, groupsErr := apiKeyService.GetAvailableGroups(c.Request.Context(), subject.UserID)
+			if groupsErr != nil {
+				middleware.AbortWithError(c, http.StatusServiceUnavailable, "CHAT_GROUPS_UNAVAILABLE", "chat groups are temporarily unavailable")
+				return
+			}
+			if !middleware.ChatProfileGroupAvailable(profile, groups) {
+				middleware.AbortWithError(c, http.StatusForbidden, "CHAT_SEARCH_UNAVAILABLE", "web search is not enabled for the selected model")
+				return
+			}
+			h.ChatHistory.SearchValidated(c, req.Query, req.MaxResults)
+		})
 	}
 }

@@ -13,6 +13,8 @@ redis_data/
 # Backup files
 *.backup
 *.bak
+.isacapi-deploy-backup-*/
+.docker-deploy.tmp.*/
 
 # Temporary files
 *.tmp

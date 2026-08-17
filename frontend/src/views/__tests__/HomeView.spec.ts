@@ -201,12 +201,46 @@ describe('HomeView public navigation', () => {
 
   it('keeps the existing custom-home full-page override behavior', () => {
     appStore.cachedPublicSettings = {
-      home_content: '<main data-testid="custom-home">Custom business homepage</main>',
+      home_content: '<main id="custom-home">Custom business homepage</main>',
     }
     const wrapper = mountHome()
 
-    expect(wrapper.get('[data-testid="custom-home"]').text()).toBe('Custom business homepage')
+    expect(wrapper.get('#custom-home').text()).toBe('Custom business homepage')
     expect(wrapper.find('#teams').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('strictly sanitizes configured custom-home HTML before rendering it', () => {
+    appStore.cachedPublicSettings = {
+      home_content: [
+        '<main id="custom-home">',
+        '<script>window.__homeXss = true</script>',
+        '<img id="unsafe-image" src="x" onerror="window.__homeXss = true">',
+        '<a id="unsafe-link" href="javascript:alert(1)" style="position:fixed">Unsafe</a>',
+        '<p class="safe-copy">Safe content</p>',
+        '</main>',
+      ].join(''),
+    }
+    const wrapper = mountHome()
+
+    expect(wrapper.find('script').exists()).toBe(false)
+    expect(wrapper.get('#unsafe-image').attributes('onerror')).toBeUndefined()
+    expect(wrapper.get('#unsafe-image').attributes('src')).toBeUndefined()
+    expect(wrapper.get('#unsafe-link').attributes('href')).toBeUndefined()
+    expect(wrapper.get('#unsafe-link').attributes('style')).toBeUndefined()
+    expect(wrapper.get('.safe-copy').text()).toBe('Safe content')
+    wrapper.unmount()
+  })
+
+  it('sandboxes external custom-home content without sending a referrer', () => {
+    appStore.cachedPublicSettings = { home_content: 'https://content.example.com/home' }
+    const wrapper = mountHome()
+    const frame = wrapper.get('iframe')
+
+    expect(frame.attributes('src')).toBe('https://content.example.com/home')
+    expect(frame.attributes('sandbox')).toBe('allow-downloads allow-forms allow-popups allow-scripts')
+    expect(frame.attributes('referrerpolicy')).toBe('no-referrer')
+    expect(frame.attributes('allowfullscreen')).toBeUndefined()
     wrapper.unmount()
   })
 })

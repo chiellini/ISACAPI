@@ -33,9 +33,25 @@ export SUB2API_ENV_FILE="${ENV_FILE}"
 
 mkdir -p "${STATE_DIR}"
 
-"${SCRIPT}" init
+UNPINNED_ENV_FILE="${TEST_ROOT}/unpinned.env"
+if SUB2API_ENV_FILE="${UNPINNED_ENV_FILE}" IMAGE_TAG= "${SCRIPT}" init >/dev/null 2>&1; then
+    fail "init accepted an empty image tag"
+fi
+assert_missing "${UNPINNED_ENV_FILE}"
+
+export IMAGE_TAG="0.0.0-test"
+init_output="$("${SCRIPT}" init)"
 [[ "$(stat -f '%Lp' "${ENV_FILE}")" == "600" ]] || fail "init did not create a mode-600 env file"
 grep -q '^POSTGRES_PASSWORD=change_this_secure_password$' "${ENV_FILE}" && fail "init retained the placeholder password"
+grep -Fqx 'IMAGE_TAG=0.0.0-test' "${ENV_FILE}" || fail "init did not persist the exact image tag"
+
+for secret_key in POSTGRES_PASSWORD JWT_SECRET TOTP_ENCRYPTION_KEY ADMIN_PASSWORD; do
+    secret_value="$(awk -F= -v key="${secret_key}" '$1 == key { print substr($0, index($0, "=") + 1); exit }' "${ENV_FILE}")"
+    [[ "${#secret_value}" -eq 64 ]] || fail "init did not generate a 256-bit ${secret_key}"
+    if grep -Fq "${secret_value}" <<<"${init_output}"; then
+        fail "init printed ${secret_key}"
+    fi
+done
 
 chmod 644 "${ENV_FILE}"
 if "${SCRIPT}" up >/dev/null 2>&1; then

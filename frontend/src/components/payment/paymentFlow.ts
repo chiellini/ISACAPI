@@ -6,6 +6,7 @@ import type {
   WechatJSAPIPayload,
   WechatOAuthInfo,
 } from '@/types/payment'
+import { sanitizePaymentNavigationUrl } from '@/components/payment/providerConfig'
 
 export const PAYMENT_RECOVERY_STORAGE_KEY = 'payment.recovery.current'
 
@@ -159,7 +160,7 @@ export function decidePaymentLaunch(
     qrCode: result.qr_code || '',
     expiresAt: result.expires_at || '',
     paymentType: visibleMethod,
-    payUrl: result.pay_url || '',
+    payUrl: sanitizePaymentNavigationUrl(result.pay_url || ''),
     outTradeNo: result.out_trade_no || '',
     clientSecret: result.client_secret || '',
     intentId: result.intent_id || '',
@@ -174,10 +175,11 @@ export function decidePaymentLaunch(
   }, context.now)
 
   if (visibleMethod === 'airwallex' && baseState.clientSecret && baseState.intentId) {
-    if (!context.airwallexRouteUrl) {
+    const airwallexRouteUrl = sanitizePaymentNavigationUrl(context.airwallexRouteUrl || '')
+    if (!airwallexRouteUrl) {
       return { kind: 'unhandled', paymentState: baseState, recovery: baseState }
     }
-    const paymentState = { ...baseState, payUrl: context.airwallexRouteUrl || '' }
+    const paymentState = { ...baseState, payUrl: airwallexRouteUrl }
     return { kind: 'airwallex_route', paymentState, recovery: paymentState }
   }
 
@@ -191,15 +193,26 @@ export function decidePaymentLaunch(
     const kind: PaymentLaunchKind = stripeMethod === 'alipay' && !context.isMobile
       ? 'stripe_popup'
       : 'stripe_route'
-    const payUrl = kind === 'stripe_popup'
+    const payUrl = sanitizePaymentNavigationUrl(kind === 'stripe_popup'
       ? context.stripePopupUrl || context.stripeRouteUrl || ''
-      : context.stripeRouteUrl || context.stripePopupUrl || ''
+      : context.stripeRouteUrl || context.stripePopupUrl || '')
+    if (!payUrl) {
+      return { kind: 'unhandled', paymentState: baseState, recovery: baseState }
+    }
     const paymentState = { ...baseState, payUrl }
     return { kind, paymentState, recovery: paymentState, stripeMethod }
   }
 
   if (result.result_type === 'oauth_required' && result.oauth?.authorize_url) {
-    return { kind: 'wechat_oauth', paymentState: baseState, recovery: baseState, oauth: result.oauth }
+    const authorizeUrl = sanitizePaymentNavigationUrl(result.oauth.authorize_url)
+    if (authorizeUrl) {
+      return {
+        kind: 'wechat_oauth',
+        paymentState: baseState,
+        recovery: baseState,
+        oauth: { ...result.oauth, authorize_url: authorizeUrl },
+      }
+    }
   }
 
   const jsapiPayload = result.jsapi ?? result.jsapi_payload
@@ -254,6 +267,7 @@ export function createPaymentRecoverySnapshot(
 ): PaymentRecoverySnapshot {
   return {
     ...state,
+    payUrl: sanitizePaymentNavigationUrl(state.payUrl),
     createdAt: now,
   }
 }
@@ -312,13 +326,18 @@ export function readPaymentRecoverySnapshot(
       return null
     }
 
+    const payUrl = sanitizePaymentNavigationUrl(parsed.payUrl)
+    if (parsed.payUrl && !payUrl) {
+      return null
+    }
+
     return {
       orderId: parsed.orderId,
       amount: parsed.amount,
       qrCode: parsed.qrCode,
       expiresAt: parsed.expiresAt,
       paymentType: parsed.paymentType,
-      payUrl: parsed.payUrl,
+      payUrl,
       outTradeNo: parsed.outTradeNo || '',
       clientSecret: parsed.clientSecret,
       intentId: parsed.intentId || '',

@@ -25,11 +25,13 @@ container --version
 ## Quick Start
 
 ```bash
-git clone https://github.com/Wei-Shaw/sub2api.git
-cd sub2api/deploy
+git clone https://github.com/chiellini/ISACAPI.git
+cd ISACAPI/deploy
 
-# Creates .env with random PostgreSQL, JWT, and TOTP secrets.
-./apple-container.sh init
+# Pin an exact reviewed release. init writes it to .env and generates random
+# PostgreSQL, JWT, TOTP, and administrator credentials.
+ISACAPI_VERSION=X.Y.Z
+IMAGE_TAG="${ISACAPI_VERSION}" ./apple-container.sh init
 
 # Review optional settings before startup.
 nano .env
@@ -41,13 +43,14 @@ nano .env
 ./apple-container.sh status
 ```
 
-Open `http://localhost:8080`. If `ADMIN_PASSWORD` is empty, retrieve the generated password with:
+Open `http://localhost:8080`. Read the generated administrator password locally
+from the mode-`0600` environment file, then rotate it after first login:
 
 ```bash
-./apple-container.sh logs app
+grep '^ADMIN_PASSWORD=' .env
 ```
 
-The env file uses literal `KEY=value` syntax. Do not use Compose expressions such as `${VALUE:-default}`, and do not quote values unless the quote characters are part of the intended value. `BIND_HOST` must be an IPv4 address, and `SERVER_PORT` must be between 1025 and 65535.
+The env file uses literal `KEY=value` syntax. Do not use Compose expressions such as `${VALUE:-default}`, and do not quote values unless the quote characters are part of the intended value. `BIND_HOST` must be an IPv4 address, and `SERVER_PORT` must be between 1025 and 65535. The secure default is `BIND_HOST=127.0.0.1`; use an SSH tunnel for remote administration or expose the service only through a trusted TLS reverse proxy/firewall.
 
 ## Commands
 
@@ -93,14 +96,18 @@ The script uses `deploy/.env`, the same source file used by Docker Compose. Expo
 
 ```bash
 export SUB2API_ENV_FILE=/absolute/path/to/sub2api.env
-./apple-container.sh init
+IMAGE_TAG=X.Y.Z ./apple-container.sh init
 ./apple-container.sh up
 ```
 
 Apple-specific image overrides are available:
 
 ```dotenv
-APPLE_CONTAINER_SUB2API_IMAGE=weishaw/sub2api:latest
+IMAGE_REPOSITORY=ghcr.io/chiellini/sub2api
+# Replace with a reviewed published release.
+IMAGE_TAG=X.Y.Z
+# Optional full image/digest override.
+APPLE_CONTAINER_SUB2API_IMAGE=
 APPLE_CONTAINER_POSTGRES_IMAGE=postgres:18-alpine
 APPLE_CONTAINER_REDIS_IMAGE=redis:8-alpine
 ```
@@ -175,7 +182,7 @@ To restore these backups into an existing stack, first ensure the image versions
 
 # Remove only the app container so a helper can mount its named volume.
 container delete sub2api-apple
-SUB2API_IMAGE=weishaw/sub2api:latest # Match APPLE_CONTAINER_SUB2API_IMAGE in .env.
+SUB2API_IMAGE=ghcr.io/chiellini/sub2api:X.Y.Z # Match IMAGE_TAG in .env.
 container run --rm --name sub2api-apple-data-restore \
   --entrypoint /bin/sh \
   --volume sub2api-apple-data:/restore \

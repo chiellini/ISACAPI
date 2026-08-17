@@ -5,7 +5,8 @@ import {
   OPENAI_CC_SWITCH_CODEX_MODEL,
   buildCcSwitchImportDeeplink,
   getCcSwitchProtocolFallbackDelayMs,
-  isAppleLikePlatform
+  isAppleLikePlatform,
+  sanitizeCcSwitchDeeplink
 } from '@/utils/ccswitchImport'
 import type { GroupPlatform } from '@/types'
 
@@ -15,6 +16,16 @@ function paramsFromDeeplink(deeplink: string): URLSearchParams {
 }
 
 describe('ccswitchImport utils', () => {
+  it('accepts only the expected CC Switch import route', () => {
+    expect(sanitizeCcSwitchDeeplink('ccswitch://v1/import?resource=provider')).toBe(
+      'ccswitch://v1/import?resource=provider'
+    )
+    expect(sanitizeCcSwitchDeeplink('javascript:alert(1)')).toBe('')
+    expect(sanitizeCcSwitchDeeplink('ccswitch://attacker/import?resource=provider')).toBe('')
+    expect(sanitizeCcSwitchDeeplink('ccswitch://v1/other?resource=provider')).toBe('')
+    expect(sanitizeCcSwitchDeeplink('ccswitch://user@v1/import?resource=provider')).toBe('')
+  })
+
   it('defaults OpenAI CC Switch imports to the current Codex model', () => {
     expect(OPENAI_CC_SWITCH_CODEX_MODEL).toBe('gpt-5.6-sol')
   })

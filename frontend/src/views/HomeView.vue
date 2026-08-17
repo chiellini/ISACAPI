@@ -4,12 +4,13 @@
     <!-- iframe mode -->
     <iframe
       v-if="isHomeContentUrl"
-      :src="homeContent.trim()"
+      :src="homeContentUrl"
       class="min-h-screen w-full flex-1 border-0"
-      allowfullscreen
+      sandbox="allow-downloads allow-forms allow-popups allow-scripts"
+      referrerpolicy="no-referrer"
     ></iframe>
-    <!-- HTML mode - SECURITY: homeContent is admin-only setting, XSS risk is acceptable -->
-    <div v-else class="flex-1" v-html="homeContent"></div>
+    <!-- HTML mode: public settings are untrusted input and must stay inert. -->
+    <div v-else class="flex-1" v-html="sanitizedHomeContent"></div>
     <footer class="bg-white px-4 py-5 dark:bg-dark-950" dir="ltr">
       <div class="mx-auto flex max-w-6xl flex-col items-center justify-center gap-2 text-center text-sm text-slate-500 dark:text-dark-400">
         <img :src="companyIconUrl" alt="ISACAI" class="h-10 w-10 rounded-lg object-contain" />
@@ -787,6 +788,7 @@
 <script setup lang="ts">
 import { ref, computed, nextTick, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
+import DOMPurify from 'dompurify'
 import { useAuthStore, useAppStore } from '@/stores'
 import LocaleSwitcher from '@/components/common/LocaleSwitcher.vue'
 import ModelIcon from '@/components/common/ModelIcon.vue'
@@ -807,6 +809,24 @@ const siteName = computed(() => appStore.cachedPublicSettings?.site_name || appS
 const siteSubtitle = computed(() => appStore.cachedPublicSettings?.site_subtitle || 'AI API Gateway Platform')
 const docUrl = computed(() => sanitizeUrl(appStore.cachedPublicSettings?.doc_url || appStore.docUrl || ''))
 const homeContent = computed(() => appStore.cachedPublicSettings?.home_content || '')
+const homeContentUrl = computed(() => sanitizeUrl(homeContent.value))
+const sanitizedHomeContent = computed(() => DOMPurify.sanitize(homeContent.value, {
+  ALLOWED_TAGS: [
+    'a', 'article', 'aside', 'b', 'blockquote', 'br', 'code', 'div', 'em',
+    'figcaption', 'figure', 'footer', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+    'header', 'hr', 'i', 'img', 'li', 'main', 'nav', 'ol', 'p', 'pre',
+    'section', 'small', 'span', 'strong', 'sub', 'sup', 'table', 'tbody',
+    'td', 'th', 'thead', 'tr', 'u', 'ul',
+  ],
+  ALLOWED_ATTR: [
+    'alt', 'aria-label', 'aria-labelledby', 'class', 'colspan', 'decoding', 'dir',
+    'height', 'href', 'id', 'lang', 'loading', 'rel', 'role', 'rowspan', 'src',
+    'title', 'width',
+  ],
+  ALLOW_DATA_ATTR: false,
+  ALLOW_UNKNOWN_PROTOCOLS: false,
+  ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|tel):|\/(?!\/)|#)/i,
+}))
 const companyIconUrl = '/logo.png'
 const balanceRechargeMultiplier = computed(() =>
   normalizeRechargeUsdPerCny(appStore.cachedPublicSettings?.balance_recharge_multiplier),
@@ -816,8 +836,7 @@ const compactHomeEnabled = computed(() => appStore.cachedPublicSettings?.compact
 const currentYear = computed(() => new Date().getFullYear())
 
 const isHomeContentUrl = computed(() => {
-  const content = homeContent.value.trim()
-  return content.startsWith('http://') || content.startsWith('https://')
+  return homeContentUrl.value !== ''
 })
 
 const isDark = ref(document.documentElement.classList.contains('dark'))

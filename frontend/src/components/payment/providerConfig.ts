@@ -2,6 +2,8 @@
  * Shared constants and types for payment provider management.
  */
 
+import { sanitizeUrl } from '@/utils/url'
+
 // --- Types ---
 
 export interface ConfigFieldDef {
@@ -101,6 +103,48 @@ export function getPaymentPopupFeatures(): string {
   const left = Math.max(0, Math.floor((availW - width) / 2))
   const top = Math.max(0, Math.floor((availH - height) / 2))
   return `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,resizable=yes`
+}
+
+/** Accept only browser-safe payment destinations returned by the backend. */
+export function sanitizePaymentNavigationUrl(value: string): string {
+  return sanitizeUrl(value, { allowRelative: true })
+}
+
+/**
+ * Open a validated payment destination and detach cross-origin pages from the
+ * opener before they can navigate the application tab. Same-origin payment
+ * routes retain their opener because the Stripe popup flow uses postMessage.
+ */
+export function openPaymentPopup(value: string): Window | null {
+  if (typeof window === 'undefined') return null
+
+  const safeUrl = sanitizePaymentNavigationUrl(value)
+  if (!safeUrl) return null
+
+  let targetOrigin: string
+  try {
+    targetOrigin = new URL(safeUrl, window.location.origin).origin
+  } catch {
+    return null
+  }
+
+  if (targetOrigin !== window.location.origin) {
+    // Open a blank browsing context first, sever its opener synchronously, and
+    // only then navigate it. This avoids a race where an external gateway can
+    // access window.opener before the caller clears it.
+    const popup = window.open('', 'paymentPopup', getPaymentPopupFeatures())
+    if (!popup) return null
+    popup.opener = null
+    try {
+      popup.location.replace(safeUrl)
+    } catch {
+      popup.close()
+      return null
+    }
+    return popup
+  }
+
+  return window.open(safeUrl, 'paymentPopup', getPaymentPopupFeatures())
 }
 
 /** Webhook paths for each provider (relative to origin). */

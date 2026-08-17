@@ -6119,11 +6119,17 @@
                   class="mt-2 border-t border-gray-200 pt-2 first:mt-0 first:border-0 first:pt-0 dark:border-dark-600"
                 >
                   <a
-                    :href="r.url"
+                    v-if="safeWebSearchResultUrl(r.url)"
+                    :href="safeWebSearchResultUrl(r.url)"
                     target="_blank"
+                    rel="noopener noreferrer"
                     class="text-sm font-medium text-blue-600 hover:underline dark:text-blue-400"
                     >{{ r.title }}</a
                   >
+                  <span
+                    v-else
+                    class="text-sm font-medium text-gray-700 dark:text-gray-200"
+                  >{{ r.title }}</span>
                   <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
                     {{ r.snippet }}
                   </p>
@@ -8733,6 +8739,7 @@ import TotpStepUpDialog from "@/components/auth/TotpStepUpDialog.vue";
 import { affiliatesAPI, type AffiliateAdminEntry, type SimpleUser as AffiliateSimpleUser } from "@/api/admin/affiliates";
 import { extractApiErrorMessage, extractI18nErrorMessage } from "@/utils/apiError";
 import { PUBLIC_RECHARGE_USD_PER_CNY } from "@/utils/pricing";
+import { sanitizeUrl } from "@/utils/url";
 import { useAppStore } from "@/stores";
 import { useAdminSettingsStore } from "@/stores/adminSettings";
 import { normalizeVisibleMethod } from "@/components/payment/paymentFlow";
@@ -8758,6 +8765,10 @@ const isZhLocale = computed(() => locale.value.startsWith("zh"));
 
 function localText(zh: string, en: string): string {
   return isZhLocale.value ? zh : en;
+}
+
+function safeWebSearchResultUrl(value: string): string {
+  return sanitizeUrl(value || "");
 }
 
 const paymentGuideHref = computed(() =>

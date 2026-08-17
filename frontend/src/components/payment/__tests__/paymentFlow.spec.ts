@@ -84,6 +84,7 @@ describe('decidePaymentLaunch', () => {
       visibleMethod: 'alipay',
       orderType: 'balance',
       isMobile: false,
+      stripePopupUrl: '/payment/stripe-popup?order_id=101',
     })
 
     expect(decision.kind).toBe('stripe_popup')
@@ -100,6 +101,7 @@ describe('decidePaymentLaunch', () => {
       visibleMethod: 'stripe',
       orderType: 'balance',
       isMobile: false,
+      stripeRouteUrl: '/payment/stripe?order_id=101',
     })
 
     expect(decision.kind).toBe('stripe_route')
@@ -113,6 +115,7 @@ describe('decidePaymentLaunch', () => {
       visibleMethod: 'wxpay',
       orderType: 'subscription',
       isMobile: true,
+      stripeRouteUrl: '/payment/stripe?order_id=101',
     })
 
     expect(decision.kind).toBe('stripe_route')
@@ -210,6 +213,34 @@ describe('decidePaymentLaunch', () => {
     expect(decision.kind).toBe('wechat_oauth')
     expect(decision.oauth?.authorize_url).toContain('/api/v1/auth/oauth/wechat/payment/start')
     expect(decision.paymentState.paymentType).toBe('wxpay')
+  })
+
+  it('rejects executable payment and OAuth destinations from the backend', () => {
+    const redirect = decidePaymentLaunch(createOrderResult({
+      pay_url: 'javascript:alert(document.domain)',
+      payment_mode: 'redirect',
+    }), {
+      visibleMethod: 'alipay',
+      orderType: 'balance',
+      isMobile: true,
+    })
+    const oauth = decidePaymentLaunch(createOrderResult({
+      result_type: 'oauth_required',
+      oauth: {
+        authorize_url: 'data:text/html,<script>alert(1)</script>',
+        appid: 'wx123',
+        scope: 'snsapi_base',
+        redirect_url: '/auth/wechat/payment/callback',
+      },
+    }), {
+      visibleMethod: 'wxpay',
+      orderType: 'balance',
+      isMobile: true,
+    })
+
+    expect(redirect.kind).toBe('unhandled')
+    expect(redirect.paymentState.payUrl).toBe('')
+    expect(oauth.kind).toBe('unhandled')
   })
 
   it('returns wechat jsapi launch when backend has a jsapi payload ready', () => {
@@ -471,6 +502,33 @@ describe('readPaymentRecoverySnapshot', () => {
     }), {
       now: Date.UTC(2099, 0, 1, 0, 1, 0),
       resumeToken: 'other-token',
+    })).toBeNull()
+  })
+
+  it('drops recovery state containing a non-web payment destination', () => {
+    const snapshot: PaymentRecoverySnapshot = {
+      orderId: 56,
+      amount: 18,
+      qrCode: '',
+      expiresAt: '2099-01-01T00:10:00.000Z',
+      paymentType: 'wxpay',
+      payUrl: 'javascript:alert(1)',
+      outTradeNo: 'sub2_56',
+      clientSecret: '',
+      intentId: '',
+      currency: '',
+      countryCode: '',
+      paymentEnv: '',
+      payAmount: 18,
+      orderType: 'balance',
+      paymentMode: 'popup',
+      resumeToken: 'resume-56',
+      createdAt: Date.UTC(2099, 0, 1, 0, 0, 0),
+    }
+
+    expect(readPaymentRecoverySnapshot(JSON.stringify(snapshot), {
+      now: Date.UTC(2099, 0, 1, 0, 1, 0),
+      resumeToken: 'resume-56',
     })).toBeNull()
   })
 

@@ -65,13 +65,12 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { marked } from 'marked'
-import DOMPurify from 'dompurify'
 import Icon from '@/components/icons/Icon.vue'
 import PlazaFilterBar from './PlazaFilterBar.vue'
 import PlazaGroupSection from './PlazaGroupSection.vue'
 import type { ModelPlazaGroup, ModelPlazaResponse } from '@/api/modelPlaza'
 import { useAuthStore } from '@/stores/auth'
+import { renderSafeMarkdown } from '@/utils/safeMarkdown'
 
 const props = defineProps<{
   response: ModelPlazaResponse | null
@@ -94,8 +93,7 @@ const searchActive = computed(() => searchQuery.value.trim() !== '')
 
 const descriptionHtml = computed(() => {
   const md = props.response?.description?.trim()
-  if (!md) return ''
-  return DOMPurify.sanitize(marked.parse(md) as string)
+  return renderSafeMarkdown(md || '')
 })
 
 /** 生效倍率 = 用户专属倍率 ?? 分组默认倍率。 */

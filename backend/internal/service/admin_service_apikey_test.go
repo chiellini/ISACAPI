@@ -339,6 +339,21 @@ func TestAdminService_AdminUpdateAPIKeyGroupID_Unbind(t *testing.T) {
 	require.Equal(t, []string{"sk-test"}, cache.keys, "cache should be invalidated")
 }
 
+func TestAdminServiceCannotManageReservedInternalChatKey(t *testing.T) {
+	groupID := int64(5)
+	existing := &APIKey{
+		ID: 1, UserID: 42, Key: "sk-internal", Name: internalChatKeyNameForGroup(groupID), GroupID: &groupID,
+	}
+	repo := &apiKeyRepoStubForGroupUpdate{key: existing}
+	svc := &adminServiceImpl{apiKeyRepo: repo}
+
+	_, err := svc.AdminUpdateAPIKeyGroupID(context.Background(), 1, int64Ptr(0))
+	require.ErrorIs(t, err, ErrReservedAPIKeyName)
+	_, err = svc.AdminResetAPIKeyRateLimitUsage(context.Background(), 1)
+	require.ErrorIs(t, err, ErrReservedAPIKeyName)
+	require.Nil(t, repo.updated)
+}
+
 func TestAdminService_AdminUpdateAPIKeyGroupID_BindActiveGroup(t *testing.T) {
 	existing := &APIKey{ID: 1, Key: "sk-test", GroupID: nil}
 	apiKeyRepo := &apiKeyRepoStubForGroupUpdate{key: existing}

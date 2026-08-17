@@ -31,6 +31,7 @@ var (
 	ErrAPIKeyRateLimited    = infraerrors.TooManyRequests("API_KEY_RATE_LIMITED", "too many failed attempts, please try again later")
 	ErrAPIKeyAuthOverloaded = infraerrors.ServiceUnavailable("API_KEY_AUTH_OVERLOADED", "api key authentication is temporarily overloaded")
 	ErrInvalidIPPattern     = infraerrors.BadRequest("INVALID_IP_PATTERN", "invalid IP or CIDR pattern")
+	ErrReservedAPIKeyName   = infraerrors.Forbidden("RESERVED_API_KEY", "internal chat api keys cannot be managed through the user api")
 	// ErrAPIKeyExpired        = infraerrors.Forbidden("API_KEY_EXPIRED", "api key has expired")
 	ErrAPIKeyExpired = infraerrors.Forbidden("API_KEY_EXPIRED", "api key 已过期")
 	// ErrAPIKeyQuotaExhausted = infraerrors.TooManyRequests("API_KEY_QUOTA_EXHAUSTED", "api key quota exhausted")
@@ -429,6 +430,16 @@ func (s *APIKeyService) canUserBindGroup(ctx context.Context, user *User, group 
 
 // Create 创建API Key
 func (s *APIKeyService) Create(ctx context.Context, userID int64, req CreateAPIKeyRequest) (*APIKey, error) {
+	return s.createAPIKey(ctx, userID, req, false)
+}
+
+// createAPIKey is the common creation path. Only the built-in chat service may
+// opt into reserved internal names; all externally reachable callers use Create.
+func (s *APIKeyService) createAPIKey(ctx context.Context, userID int64, req CreateAPIKeyRequest, allowInternalName bool) (*APIKey, error) {
+	if !allowInternalName && isInternalChatKeyName(req.Name) {
+		return nil, ErrReservedAPIKeyName
+	}
+
 	// 验证用户存在
 	user, err := s.userRepo.GetByID(ctx, userID)
 	if err != nil {
@@ -660,10 +671,15 @@ func (s *APIKeyService) GetByID(ctx context.Context, id int64) (*APIKey, error) 
 	if err != nil {
 		return nil, fmt.Errorf("get api key: %w", err)
 	}
-	s.compileAPIKeyIPRules(apiKey)
-	if apiKey != nil {
-		apiKey.CurrentConcurrency = s.currentConcurrencyForAPIKey(ctx, apiKey.ID)
+	// This method backs user-facing detail and usage-management endpoints. Never
+	// disclose a service-managed Chat credential, even to its owning user: its
+	// secret would allow bypassing model, prompt, skill, and capability policy via
+	// the ordinary API gateway. Authentication uses GetByKey and is unaffected.
+	if apiKey == nil || isInternalChatKeyName(apiKey.Name) {
+		return nil, ErrAPIKeyNotFound
 	}
+	s.compileAPIKeyIPRules(apiKey)
+	apiKey.CurrentConcurrency = s.currentConcurrencyForAPIKey(ctx, apiKey.ID)
 	return apiKey, nil
 }
 
@@ -733,6 +749,9 @@ func (s *APIKeyService) Update(ctx context.Context, id int64, userID int64, req 
 	if apiKey.UserID != userID {
 		return nil, ErrInsufficientPerms
 	}
+	if isInternalChatKeyName(apiKey.Name) {
+		return nil, ErrReservedAPIKeyName
+	}
 
 	// 验证 IP 白名单格式
 	if req.IPWhitelist != nil && len(*req.IPWhitelist) > 0 {
@@ -757,6 +776,9 @@ func (s *APIKeyService) Update(ctx context.Context, id int64, userID int64, req 
 
 	// 更新字段
 	if req.Name != nil {
+		if isInternalChatKeyName(*req.Name) {
+			return nil, ErrReservedAPIKeyName
+		}
 		apiKey.Name = html.EscapeString(*req.Name)
 		fields.Name = true
 	}
@@ -879,14 +901,17 @@ func (s *APIKeyService) Update(ctx context.Context, id int64, userID int64, req 
 
 // Delete 删除API Key
 func (s *APIKeyService) Delete(ctx context.Context, id int64, userID int64) error {
-	key, ownerID, err := s.apiKeyRepo.GetKeyAndOwnerID(ctx, id)
+	apiKey, err := s.apiKeyRepo.GetByID(ctx, id)
 	if err != nil {
 		return fmt.Errorf("get api key: %w", err)
 	}
 
 	// 验证当前用户是否为该 API Key 的所有者
-	if ownerID != userID {
+	if apiKey.UserID != userID {
 		return ErrInsufficientPerms
+	}
+	if isInternalChatKeyName(apiKey.Name) {
+		return ErrReservedAPIKeyName
 	}
 
 	// 事务内:写审计 + 软删除(tombstone)。
@@ -898,7 +923,7 @@ func (s *APIKeyService) Delete(ctx context.Context, id int64, userID int64) erro
 	if s.cache != nil {
 		_ = s.cache.DeleteCreateAttemptCount(ctx, userID)
 	}
-	s.InvalidateAuthCacheByKey(ctx, key)
+	s.InvalidateAuthCacheByKey(ctx, apiKey.Key)
 	s.lastUsedTouchL1.Delete(id)
 
 	return nil

@@ -19,7 +19,13 @@ func NewChatBridgeMiddleware(apiKeyService *service.APIKeyService) gin.HandlerFu
 			return
 		}
 
-		internalKey, err := apiKeyService.GetOrCreateInternalChatKey(c.Request.Context(), subject.UserID)
+		var internalKey *service.APIKey
+		var err error
+		if groupID, ok := ChatPolicyGroupIDFromContext(c); ok {
+			internalKey, err = apiKeyService.GetOrCreateInternalChatKeyForGroup(c.Request.Context(), subject.UserID, groupID)
+		} else {
+			internalKey, err = apiKeyService.GetOrCreateInternalChatKey(c.Request.Context(), subject.UserID)
+		}
 		if err != nil {
 			AbortWithError(c, 403, "CHAT_UNAVAILABLE", "chat is not available for this account")
 			return

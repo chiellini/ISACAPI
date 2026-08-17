@@ -14,7 +14,10 @@ import (
 	"github.com/dgraph-io/ristretto"
 )
 
-const apiKeyAuthSnapshotVersion = 19 // v19: group search/audio/video_model_prices billing fields (force refresh of pre-fix snapshots)
+// Version 20 also invalidates snapshots for historical __chat_playground__
+// keys retired by migration 222. Without the bump, a Redis L2 snapshot could
+// keep a user-preclaimed reserved credential valid until its normal TTL.
+const apiKeyAuthSnapshotVersion = 20
 
 type apiKeyAuthCacheConfig struct {
 	l1Size        int

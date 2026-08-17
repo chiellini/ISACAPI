@@ -135,6 +135,7 @@ import { useI18n } from 'vue-i18n'
 import { storeToRefs } from 'pinia'
 import { useAppStore } from '@/stores/app'
 import { extractApiErrorMessage } from '@/utils/apiError'
+import { sanitizeUrl } from '@/utils/url'
 import { useAutoRefresh } from '@/composables/useAutoRefresh'
 import Icon from '@/components/icons/Icon.vue'
 import {
@@ -145,7 +146,11 @@ import {
 
 const { t } = useI18n()
 const appStore = useAppStore()
-const { siteName, siteLogo } = storeToRefs(appStore)
+const { siteName, siteLogo: rawSiteLogo } = storeToRefs(appStore)
+const siteLogo = computed(() => sanitizeUrl(rawSiteLogo.value || '', {
+  allowRelative: true,
+  allowDataUrl: true,
+}))
 
 const providers = ref<PublicStatusProvider[]>([])
 const overallStatus = ref<PublicStatusValue>('operational')

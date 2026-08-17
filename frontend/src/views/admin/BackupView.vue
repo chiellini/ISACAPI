@@ -413,6 +413,7 @@ import type {
 } from '@/api/admin/backup'
 import { useStepUp, isStepUpBlocked, isStepUpCancelled, stepUpBlockReason } from '@/composables/useStepUp'
 import TotpStepUpDialog from '@/components/auth/TotpStepUpDialog.vue'
+import { sanitizeUrl } from '@/utils/url'
 
 const { t } = useI18n()
 const appStore = useAppStore()
@@ -764,17 +765,24 @@ async function downloadBackup(id: string) {
   try {
     const result = await backupStepUp.run(() => adminAPI.backup.getDownloadURL(id))
     if (result.parts && result.parts.length > 0) {
-      downloadParts.value = result.parts
+      const safeParts = result.parts
+        .map(part => ({ ...part, url: sanitizeUrl(part.url || '', { allowRelative: true }) }))
+        .filter(part => Boolean(part.url))
+      if (safeParts.length === 0) {
+        throw new Error(t('admin.backup.actions.downloadFailed'))
+      }
+      downloadParts.value = safeParts
       downloadPartsModalOpen.value = true
       return
     }
-    if (!result.url) {
+    const downloadUrl = sanitizeUrl(result.url || '', { allowRelative: true })
+    if (!downloadUrl) {
       throw new Error(t('admin.backup.actions.downloadFailed'))
     }
     // 预签名 URL 带 attachment disposition，同页 anchor 导航直接触发下载；
     // 不用 window.open：step-up 弹窗 await 会耗尽瞬态用户激活，新标签页会被浏览器拦截。
     const link = document.createElement('a')
-    link.href = result.url
+    link.href = downloadUrl
     link.rel = 'noopener'
     link.click()
   } catch (error) {

@@ -1,6 +1,6 @@
 [Unit]
 Description=ISACAPI - AI API Gateway Platform
-Documentation=https://github.com/Wei-Shaw/sub2api
+Documentation=https://github.com/chiellini/ISACAPI
 After=network.target postgresql.service redis.service
 Wants=postgresql.service redis.service
 
@@ -26,8 +26,10 @@ ReadWritePaths=/opt/sub2api
 # Environment - Server configuration
 # Modify these values to change listen address and port
 Environment=GIN_MODE=release
-Environment=SERVER_HOST=0.0.0.0
+Environment=SERVER_HOST=127.0.0.1
 Environment=SERVER_PORT=8080
+Environment=SETUP_HOST=127.0.0.1
+Environment=SETUP_PORT=8080
 
 [Install]
 WantedBy=multi-user.target

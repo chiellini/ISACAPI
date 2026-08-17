@@ -131,4 +131,18 @@ describe('AirwallexPaymentView', () => {
     expect(airwallexInit).not.toHaveBeenCalled()
     expect(wrapper.text()).toContain('payment.airwallexMissingParams')
   })
+
+  it('rejects a non-web redirect returned by the payment SDK', async () => {
+    window.localStorage.setItem(
+      PAYMENT_RECOVERY_STORAGE_KEY,
+      JSON.stringify(airwallexSnapshot()),
+    )
+    redirectToCheckout.mockReturnValue('javascript:alert(document.domain)')
+
+    const wrapper = mountView()
+    await flushPromises()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('payment.airwallexLoadFailed')
+  })
 })

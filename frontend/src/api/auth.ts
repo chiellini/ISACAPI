@@ -10,6 +10,7 @@ import {
   regGuardHeaders,
 } from './regGuard'
 import { refreshAuthTokens, type RefreshTokenResponse } from './tokenRefresh'
+import { sanitizeUrl } from '@/utils/url'
 export type { RefreshTokenResponse } from './tokenRefresh'
 import type {
   LoginRequest,
@@ -64,7 +65,11 @@ export async function startOAuthLogin(
     proof,
     { params: request.params }
   )
-  return data
+  const authorizeUrl = sanitizeUrl(data.authorize_url || '', { allowRelative: true })
+  if (!authorizeUrl) {
+    throw new Error('Invalid OAuth authorization URL')
+  }
+  return { ...data, authorize_url: authorizeUrl }
 }
 
 /**

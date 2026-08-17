@@ -4,13 +4,22 @@ ISACAPI is an AI API Gateway Platform for distributing and managing AI product s
 
 ## Quick Start
 
+Replace `X.Y.Z` with a reviewed published release; production examples never
+use a floating `latest` tag.
+
 ```bash
 docker run -d \
   --name sub2api \
-  -p 8080:8080 \
+  -p 127.0.0.1:8080:8080 \
   -e DATABASE_URL="postgres://user:pass@host:5432/sub2api" \
   -e REDIS_URL="redis://host:6379" \
-  weishaw/sub2api:latest
+  -e CONVERSATION_ARCHIVE_ENABLED=false \
+  -e CONVERSATION_ARCHIVE_ENCRYPT_CONTENT=true \
+  -e SECURITY_URL_ALLOWLIST_ENABLED=true \
+  -e SECURITY_URL_ALLOWLIST_ALLOW_INSECURE_HTTP=false \
+  -e SECURITY_URL_ALLOWLIST_ALLOW_PRIVATE_HOSTS=false \
+  -e SECURITY_TRUST_FORWARDED_IP_FOR_API_KEY_ACL=false \
+  ghcr.io/chiellini/sub2api:X.Y.Z
 ```
 
 ## Docker Compose
@@ -20,12 +29,18 @@ version: '3.8'
 
 services:
   sub2api:
-    image: weishaw/sub2api:latest
+    image: ghcr.io/chiellini/sub2api:X.Y.Z
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     environment:
       - DATABASE_URL=postgres://postgres:postgres@db:5432/sub2api?sslmode=disable
       - REDIS_URL=redis://redis:6379
+      - CONVERSATION_ARCHIVE_ENABLED=false
+      - CONVERSATION_ARCHIVE_ENCRYPT_CONTENT=true
+      - SECURITY_URL_ALLOWLIST_ENABLED=true
+      - SECURITY_URL_ALLOWLIST_ALLOW_INSECURE_HTTP=false
+      - SECURITY_URL_ALLOWLIST_ALLOW_PRIVATE_HOSTS=false
+      - SECURITY_TRUST_FORWARDED_IP_FOR_API_KEY_ACL=false
     depends_on:
       - db
       - redis
@@ -65,12 +80,12 @@ volumes:
 
 ## Tags
 
-- `latest` - Latest stable release
-- `x.y.z` - Specific version
-- `x.y` - Latest patch of minor version
-- `x` - Latest minor of major version
+- `x.y.z` - Specific immutable release (required for production)
+
+Floating tags such as `latest`, `x.y`, and `x` are intentionally not used by
+the deployment examples. Change the pinned release only after reviewing it.
 
 ## Links
 
-- [GitHub Repository](https://github.com/weishaw/sub2api)
-- [Documentation](https://github.com/weishaw/sub2api#readme)
+- [GitHub Repository](https://github.com/chiellini/ISACAPI)
+- [Documentation](https://github.com/chiellini/ISACAPI#readme)

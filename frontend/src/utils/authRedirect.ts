@@ -1,3 +1,5 @@
+import { hasUnsafeUrlPathCharacters } from '@/utils/url'
+
 const DEFAULT_AUTH_REDIRECT = '/dashboard'
 const MAX_AUTH_REDIRECT_LENGTH = 2048
 
@@ -17,10 +19,9 @@ export function sanitizeAuthRedirect(
   const redirect = value.trim()
   if (
     !redirect.startsWith('/') ||
-    redirect.startsWith('//') ||
+    /^\/[\\/]/.test(redirect) ||
     redirect.includes('://') ||
-    redirect.includes('\r') ||
-    redirect.includes('\n') ||
+    hasUnsafeUrlPathCharacters(redirect) ||
     redirect.length > MAX_AUTH_REDIRECT_LENGTH
   ) {
     return fallback
@@ -28,4 +29,3 @@ export function sanitizeAuthRedirect(
 
   return redirect
 }
-

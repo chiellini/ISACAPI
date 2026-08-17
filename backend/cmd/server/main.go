@@ -101,18 +101,25 @@ func runSetupServer() {
 	r.Use(middleware.CORS(config.CORSConfig{}))
 	r.Use(middleware.SecurityHeaders(config.CSPConfig{Enabled: true, Policy: config.DefaultCSPPolicy}, nil))
 
-	// Register setup routes
-	setup.RegisterRoutes(r)
+	bootstrapToken, err := setup.LoadOrCreateBootstrapToken()
+	if err != nil {
+		log.Fatalf("Failed to initialize setup bootstrap token: %v", err)
+	}
+
+	// Register setup routes. The secret itself is never written to application
+	// logs; operators read it from the owner-only file over their SSH session.
+	setup.RegisterRoutes(r, bootstrapToken)
 
 	// Serve embedded frontend if available
 	if web.HasEmbeddedFrontend() {
 		r.Use(web.ServeEmbeddedFrontend())
 	}
 
-	// Get server address from config.yaml or environment variables (SERVER_HOST, SERVER_PORT)
-	// This allows users to run setup on a different address if needed
-	addr := config.GetServerAddress()
+	// Uninitialized instances listen on loopback by default. Remote setup must
+	// be an explicit operator decision through SETUP_HOST.
+	addr := setup.GetSetupServerAddress()
 	log.Printf("Setup wizard available at http://%s", addr)
+	log.Printf("Setup bootstrap token file: %s", setup.GetBootstrapTokenPath())
 	log.Println("Complete the setup wizard to configure ISACAPI")
 
 	protocols := new(http.Protocols)
@@ -137,6 +144,9 @@ func runMainServer() {
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
 	}
+	// Binary/web installations persist the bootstrap administrator email in the
+	// owner-only config file. Containers may override it with ADMIN_EMAIL.
+	service.SetConfiguredSuperAdminEmailFallback(cfg.Default.AdminEmail)
 	// 应用模型别名配置（config.yaml 的 model_aliases；为空时回退到内置默认表）。
 	// 必须在 serving 前设置（启动阶段写一次，之后只读）。
 	service.SetModelAliasRegistry(service.ModelAliasSpecsFromConfig(cfg.ModelAliases))

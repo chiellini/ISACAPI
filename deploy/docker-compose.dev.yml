@@ -43,7 +43,9 @@ services:
       - REDIS_PASSWORD=${REDIS_PASSWORD:-}
       - REDIS_DB=${REDIS_DB:-0}
       - ADMIN_EMAIL=${ADMIN_EMAIL:-admin@sub2api.local}
-      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
+      # Local-development default so AUTO_SETUP=true can initialize a fresh
+      # sample stack. Override it in .env for any shared development host.
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-dev-only-change-me-now}
       - JWT_SECRET=${JWT_SECRET:-}
       - SETUP_MIGRATION_TIMEOUT_SECONDS=${SETUP_MIGRATION_TIMEOUT_SECONDS:-0}
       - TOTP_ENCRYPTION_KEY=${TOTP_ENCRYPTION_KEY:-}
@@ -138,9 +140,12 @@ services:
           --save 60 1 \
           --appendonly yes \
           --appendfsync everysec \
-          ${REDIS_PASSWORD:+--requirepass "$REDIS_PASSWORD"}'
+          $${REDIS_PASSWORD:+--requirepass "$$REDIS_PASSWORD"}'
     environment:
       - TZ=${TZ:-Asia/Shanghai}
+      # Keep the password in the container environment; $$ above prevents
+      # Compose from injecting untrusted .env text into the shell program.
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
       - REDISCLI_AUTH=${REDIS_PASSWORD:-}
     networks:
       - sub2api-network

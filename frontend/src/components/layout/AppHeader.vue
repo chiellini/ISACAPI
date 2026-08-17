@@ -117,6 +117,7 @@
               <img
                 v-if="avatarUrl"
                 :src="avatarUrl"
+                referrerpolicy="no-referrer"
                 :alt="displayName"
                 class="h-full w-full object-cover"
               >
@@ -243,7 +244,7 @@ import SubscriptionProgressMini from '@/components/common/SubscriptionProgressMi
 import AnnouncementBell from '@/components/common/AnnouncementBell.vue'
 import QqGroupContact from '@/components/common/QqGroupContact.vue'
 import Icon from '@/components/icons/Icon.vue'
-import { sanitizeUrl } from '@/utils/url'
+import { sanitizeImageUrl, sanitizeUrl } from '@/utils/url'
 import { FeatureFlags, isFeatureFlagEnabled } from '@/utils/featureFlags'
 
 const router = useRouter()
@@ -260,7 +261,10 @@ const dropdownRef = ref<HTMLElement | null>(null)
 const docUrl = computed(() => sanitizeUrl(appStore.docUrl))
 const modelPlazaEnabled = computed(() => isFeatureFlagEnabled(FeatureFlags.modelPlaza))
 const companyIconUrl = '/logo.png'
-const avatarUrl = computed(() => user.value?.avatar_url?.trim() || '')
+const avatarUrl = computed(() => sanitizeImageUrl(user.value?.avatar_url || '', {
+  allowRelative: true,
+  allowDataUrl: true,
+}))
 const availableBalance = computed(() => Number(user.value?.balance || 0))
 const frozenBalance = computed(() => Number(user.value?.frozen_balance || 0))
 const totalBalance = computed(() => availableBalance.value + frozenBalance.value)

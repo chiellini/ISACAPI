@@ -115,16 +115,38 @@ export function getCcSwitchProtocolFallbackDelayMs(nav: CcSwitchNavigatorSnapsho
   return isAppleLikePlatform(nav) ? 5000 : 1800
 }
 
+export function sanitizeCcSwitchDeeplink(value: string): string {
+  const deeplink = value.trim()
+  if (!deeplink) return ''
+  try {
+    const parsed = new URL(deeplink)
+    return parsed.protocol === 'ccswitch:'
+      && parsed.hostname === 'v1'
+      && parsed.pathname === '/import'
+      && !parsed.username
+      && !parsed.password
+      && !parsed.port
+      && !parsed.hash
+      ? deeplink
+      : ''
+  } catch {
+    return ''
+  }
+}
+
 export function openCcSwitchDeeplink(deeplink: string): void {
   if (typeof window === 'undefined') return
 
+  const safeDeeplink = sanitizeCcSwitchDeeplink(deeplink)
+  if (!safeDeeplink) return
+
   if (typeof document === 'undefined' || !document.body) {
-    window.location.assign(deeplink)
+    window.location.assign(safeDeeplink)
     return
   }
 
   const anchor = document.createElement('a')
-  anchor.href = deeplink
+  anchor.href = safeDeeplink
   anchor.style.display = 'none'
   anchor.setAttribute('aria-hidden', 'true')
   document.body.appendChild(anchor)

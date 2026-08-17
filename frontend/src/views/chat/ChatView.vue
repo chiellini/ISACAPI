@@ -9,7 +9,7 @@
         class="flex-col rounded-xl bg-gray-50 p-2 dark:bg-dark-800 sm:static sm:flex sm:w-56"
         :class="showHistory ? 'fixed inset-y-0 left-0 z-40 flex w-64' : 'hidden'"
       >
-        <button class="btn btn-primary mb-2 w-full" :disabled="streaming" @click="newSession">
+        <button class="btn btn-primary mb-2 w-full" :disabled="streaming || modelOptionsLoading || !selectedModel" @click="newSession">
           {{ t('chat.newChat') }}
         </button>
         <div class="flex-1 space-y-1 overflow-y-auto">
@@ -35,7 +35,7 @@
         <div class="mb-3 flex items-center gap-3">
           <button class="btn btn-secondary sm:hidden" :title="t('chat.history')" @click="showHistory = true">☰</button>
           <span class="text-sm text-gray-500 dark:text-gray-400">{{ t('chat.model') }}</span>
-          <select v-model="selectedModel" class="input w-44 sm:w-56" :disabled="streaming">
+          <select v-model="selectedModel" class="input w-44 sm:w-56" :disabled="streaming || modelOptionsLoading || models.length === 0">
             <option v-for="m in models" :key="m.id" :value="m.id">{{ m.label }}</option>
           </select>
           <!-- 联网搜索开关：仅文本模型 + 平台已配置搜索时出现 -->
@@ -176,7 +176,7 @@
           <button
             v-if="!isImageModel(selectedModel)"
             class="btn btn-secondary h-10"
-            :disabled="streaming"
+            :disabled="streaming || !canAttachFiles"
             :title="t('chat.attach')"
             @click="fileInput?.click()"
           >📎</button>
@@ -185,7 +185,7 @@
             type="file"
             class="hidden"
             multiple
-            accept="image/png,image/jpeg,image/webp,image/gif,text/plain,text/markdown,.md,.txt"
+            :accept="attachmentAccept"
             @change="onFiles"
           />
           <textarea
@@ -233,14 +233,24 @@ import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { onKeyStroke } from '@vueuse/core'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/components/layout/AppLayout.vue'
-import { OPENAI_CODEX_DEFAULT_MODEL } from '@/constants/codex'
 import { renderMarkdown } from '@/utils/markdown'
+import { sanitizeUrl } from '@/utils/url'
+import {
+  createChatModelOptions,
+  fallbackChatModelOptions,
+  isImageModelOption,
+  resolveAvailableModel,
+  resolvePromptAgentModel,
+  type ChatModelOption,
+} from './modelOptions'
+import { buildApiMessageContent } from './messageContent'
 import {
   generateImage,
   streamChatCompletion,
   completeChat,
   chatSearch,
   getChatCapabilities,
+  listModels,
   listSessions as apiListSessions,
   getSession as apiGetSession,
   createSession as apiCreateSession,
@@ -251,18 +261,15 @@ import {
   type ChatMessage,
   type ChatCompletionMessage,
   type AssistantToolCall,
-  type ContentPart,
   type ServerMessage,
   type ChatSource,
 } from '@/api/chat'
 
 const { t } = useI18n()
 
-const models: Array<{ id: string; label: string }> = [
-  { id: OPENAI_CODEX_DEFAULT_MODEL, label: OPENAI_CODEX_DEFAULT_MODEL },
-  { id: 'gpt-image-2', label: 'GPT Image 2' },
-]
-const selectedModel = ref(models[0].id)
+const models = ref<ChatModelOption[]>(fallbackChatModelOptions())
+const selectedModel = ref(resolveAvailableModel(models.value))
+const modelOptionsLoading = ref(true)
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024
 const MAX_TEXT_BYTES = 1 * 1024 * 1024
@@ -370,8 +377,17 @@ const summarizedCount = ref(0)
 const WEB_SEARCH_PREF_KEY = 'isac-chat-web-search'
 const webSearchAvailable = ref(false)
 const webSearchOn = ref(localStorage.getItem(WEB_SEARCH_PREF_KEY) === '1')
+const selectedModelOption = computed(() => models.value.find((model) => model.id === selectedModel.value))
 // 仅文本模型 + 平台已配置搜索时，开关才生效。
-const canWebSearch = computed(() => webSearchAvailable.value && !isImageModel(selectedModel.value))
+const canWebSearch = computed(() => webSearchAvailable.value
+  && selectedModelOption.value?.kind === 'chat'
+  && selectedModelOption.value.capabilities.webSearch !== false)
+const canAttachFiles = computed(() => selectedModelOption.value?.kind === 'chat')
+const canAttachImages = computed(() => canAttachFiles.value && selectedModelOption.value?.capabilities.vision !== false)
+const attachmentAccept = computed(() => canAttachImages.value
+  ? 'image/png,image/jpeg,image/webp,image/gif,text/plain,text/markdown,.md,.txt'
+  : 'text/plain,text/markdown,.md,.txt')
+const hasPendingImages = computed(() => pending.value.some((attachment) => attachment.kind === 'image'))
 watch(webSearchOn, (v) => {
   try {
     localStorage.setItem(WEB_SEARCH_PREF_KEY, v ? '1' : '0')
@@ -381,11 +397,29 @@ watch(webSearchOn, (v) => {
 })
 
 const canSend = computed(
-  () => (!!input.value.trim() || pending.value.length > 0) && !!selectedModel.value && !streaming.value,
+  () => (!!input.value.trim() || pending.value.length > 0)
+    && !!selectedModel.value
+    && (!hasPendingImages.value || canAttachImages.value)
+    && !modelOptionsLoading.value
+    && !streaming.value,
 )
 
 function isImageModel(id: string): boolean {
-  return id.startsWith('gpt-image-')
+  return isImageModelOption(models.value, id)
+}
+
+async function loadModelOptions(): Promise<void> {
+  try {
+    const discovered = createChatModelOptions(await listModels())
+    if (!discovered.length) throw new Error('No chat models are available')
+    models.value = discovered
+  } catch {
+    models.value = []
+    errorMsg.value = '无法加载可用模型，请稍后刷新重试。'
+  } finally {
+    selectedModel.value = resolveAvailableModel(models.value, selectedModel.value)
+    modelOptionsLoading.value = false
+  }
 }
 
 function openChatImageDB(): Promise<IDBDatabase> {
@@ -522,7 +556,7 @@ function normalizeStoredAttachment(value: unknown): StoredAttachment | null {
 function normalizeStoredSource(value: unknown): ChatSource | null {
   if (!value || typeof value !== 'object') return null
   const s = value as Record<string, unknown>
-  const url = typeof s.url === 'string' ? s.url.trim() : ''
+  const url = typeof s.url === 'string' ? sanitizeUrl(s.url) : ''
   if (!url) return null
   return {
     url,
@@ -697,7 +731,7 @@ async function loadSessions() {
     sessions.value = []
   }
   if (sessions.value.length) await switchSession(sessions.value[0].id)
-  else await newSession()
+  else if (selectedModel.value) await newSession()
 }
 
 // 每轮对话结束后保存当前会话（自动生成标题、置顶、整体覆盖消息）。
@@ -733,6 +767,12 @@ function resetMemory() {
 
 async function newSession() {
   if (streaming.value) return
+  if (!selectedModel.value) {
+    currentId.value = 0
+    messages.value = []
+    pending.value = []
+    return
+  }
   try {
     const id = await apiCreateSession('', selectedModel.value)
     sessions.value.unshift({ id, title: '', model: selectedModel.value })
@@ -754,7 +794,7 @@ async function switchSession(id: number) {
     const s = await apiGetSession(id)
     currentId.value = id
     messages.value = await Promise.all((s.messages || []).map(fromServerMessage))
-    selectedModel.value = s.model || models[0].id
+    selectedModel.value = resolveAvailableModel(models.value, s.model)
     summary.value = s.summary || ''
     memory.value = s.memory || ''
     // 折叠水位以服务端为准，并夹取到当前消息条数（消息经过滤后条数可能微调）。
@@ -822,6 +862,10 @@ async function onFiles(e: Event) {
   for (const f of Array.from(files)) {
     const isImage = f.type.startsWith('image/')
     if (isImage) {
+      if (!canAttachImages.value) {
+        errorMsg.value = '当前模型未启用视觉能力，请切换模型或仅上传文本附件。'
+        continue
+      }
       if (f.size > MAX_IMAGE_BYTES) {
         errorMsg.value = t('chat.fileTooLarge', { name: f.name })
         continue
@@ -838,19 +882,6 @@ async function onFiles(e: Event) {
     }
   }
   if (fileInput.value) fileInput.value.value = ''
-}
-
-function toApiContent(m: UiMessage): string | ContentPart[] {
-  if (!m.attachments?.length) return m.content
-  let text = m.content
-  for (const a of m.attachments) {
-    if (a.kind === 'text' && a.text) text += `\n\n[${a.name}]\n${a.text}`
-  }
-  const parts: ContentPart[] = [{ type: 'text', text }]
-  for (const a of m.attachments) {
-    if (a.kind === 'image' && a.dataUrl) parts.push({ type: 'image_url', image_url: { url: a.dataUrl } })
-  }
-  return parts
 }
 
 // ───────── 发送 / 重新生成 ─────────
@@ -896,7 +927,6 @@ onKeyStroke('Escape', () => {
 // 当「未折叠的消息」超过 COMPACT_TRIGGER 条时触发一次压缩：把溢出的最早一批折叠进
 // summary/memory，只保留最近 SHORT_TERM_KEEP 条原文，从而把上下文长度稳定在可控区间。
 
-const PROMPT_AGENT_MODEL = OPENAI_CODEX_DEFAULT_MODEL
 const SHORT_TERM_KEEP = 8
 const COMPACT_TRIGGER = 16
 const MEMORY_MAX_CHARS = 2000
@@ -935,7 +965,7 @@ function messageToText(m: UiMessage): string {
 }
 
 // 组装文本对话的实际请求消息：系统提示（含长期记忆 + 中期摘要）+ 短期原文窗口。
-function buildTextMessages(history: UiMessage[]): ChatMessage[] {
+function buildTextMessages(history: UiMessage[], allowImages: boolean): ChatMessage[] {
   const start = Math.min(Math.max(summarizedCount.value, 0), history.length)
   const shortTerm = history.slice(start)
   let system = BASE_CHAT_SYSTEM
@@ -945,7 +975,10 @@ function buildTextMessages(history: UiMessage[]): ChatMessage[] {
     { role: 'system', content: system },
     ...shortTerm
       .filter((m) => m.content || m.attachments?.length)
-      .map((m): ChatMessage => ({ role: m.role, content: toApiContent(m) })),
+      .map((m): ChatMessage => ({
+        role: m.role,
+        content: buildApiMessageContent(m.content, m.attachments, allowImages),
+      })),
   ]
 }
 
@@ -1000,9 +1033,11 @@ async function maybeCompact() {
   }
 
   const sessionAtStart = currentId.value
+  const agentModel = resolvePromptAgentModel(models.value, selectedModel.value)
+  if (!agentModel) return
   try {
     const out = await completeChat({
-      model: PROMPT_AGENT_MODEL,
+      model: agentModel,
       messages: [
         { role: 'system', content: COMPACT_SYSTEM },
         { role: 'user', content: buildCompactInput(memory.value, summary.value, batchText) },
@@ -1077,8 +1112,10 @@ async function agentImagePrompt(history: UiMessage[], signal: AbortSignal): Prom
       'NOT as brand-new unrelated images. Keep the language of any on-image text as the user specified. ' +
       'Output ONLY the final prompt text — no preamble, no quotes, no explanation.',
   }
+  const agentModel = resolvePromptAgentModel(models.value, selectedModel.value)
+  if (!agentModel) return buildImagePrompt(history)
   try {
-    const rewritten = (await completeChat({ model: PROMPT_AGENT_MODEL, messages: [system, ...convo] }, signal)).trim()
+    const rewritten = (await completeChat({ model: agentModel, messages: [system, ...convo] }, signal)).trim()
     return rewritten || buildImagePrompt(history)
   } catch {
     return buildImagePrompt(history)
@@ -1154,7 +1191,10 @@ async function runTextTurn(
         let results: ChatSource[] = []
         if (tc.name === 'web_search' && query.trim()) {
           try {
-            results = await chatSearch(query, SEARCH_MAX_RESULTS)
+            const rawResults = await chatSearch(selectedModel.value, query, SEARCH_MAX_RESULTS)
+            results = rawResults
+              .map(normalizeStoredSource)
+              .filter((source): source is ChatSource => source !== null)
           } catch {
             /* 搜索不可用/失败：让模型无搜索继续作答 */
           }
@@ -1202,7 +1242,12 @@ async function runAssistant() {
       assistant.imageRefs = await saveServerImages(currentId.value, imgs)
       if (!imgs.length) assistant.content = t('chat.noImage')
     } else {
-      await runTextTurn(assistant, buildTextMessages(history), signal, canWebSearch.value && webSearchOn.value)
+      await runTextTurn(
+        assistant,
+        buildTextMessages(history, canAttachImages.value),
+        signal,
+        canWebSearch.value && webSearchOn.value,
+      )
     }
   } catch (err) {
     if ((err as Error).name !== 'AbortError') errorMsg.value = friendlyError(err as Error)
@@ -1246,6 +1291,8 @@ function stop() {
 }
 
 watch(selectedModel, (model) => {
+  if (!canWebSearch.value) webSearchOn.value = false
+  if (!model) return
   const meta = currentMeta()
   if (meta && meta.model !== model) {
     meta.model = model
@@ -1255,13 +1302,16 @@ watch(selectedModel, (model) => {
 })
 
 onMounted(async () => {
-  getChatCapabilities()
-    .then((caps) => {
-      webSearchAvailable.value = caps.web_search
-    })
-    .catch(() => {
-      webSearchAvailable.value = false
-    })
+  await Promise.all([
+    loadModelOptions(),
+    getChatCapabilities()
+      .then((caps) => {
+        webSearchAvailable.value = caps.web_search
+      })
+      .catch(() => {
+        webSearchAvailable.value = false
+      }),
+  ])
   await loadSessions()
 })
 </script>

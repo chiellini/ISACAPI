@@ -72,6 +72,38 @@ func (r *apiKeyRepository) Create(ctx context.Context, key *service.APIKey) erro
 	return translatePersistenceError(err, nil, service.ErrAPIKeyExists)
 }
 
+// CreateInternalChatKey is deliberately separate from the generic Ent create
+// path. Migration 222 requires the database-only is_internal marker for every
+// active reserved name, so an old application instance or ordinary API caller
+// cannot manufacture a credential that the built-in Chat bridge will reuse.
+func (r *apiKeyRepository) CreateInternalChatKey(ctx context.Context, key *service.APIKey) error {
+	if r.sql == nil {
+		return errors.New("internal chat key SQL executor is not configured")
+	}
+	if key == nil || key.GroupID == nil || *key.GroupID <= 0 {
+		return errors.New("internal chat key requires a group")
+	}
+	rows, err := r.sql.QueryContext(ctx, `
+		INSERT INTO api_keys (user_id, key, name, group_id, status, is_internal, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, TRUE, NOW(), NOW())
+		RETURNING id, created_at, updated_at
+	`, key.UserID, key.Key, key.Name, *key.GroupID, key.Status)
+	if err != nil {
+		return translatePersistenceError(err, nil, service.ErrAPIKeyExists)
+	}
+	defer func() { _ = rows.Close() }()
+	if !rows.Next() {
+		if err := rows.Err(); err != nil {
+			return translatePersistenceError(err, nil, service.ErrAPIKeyExists)
+		}
+		return errors.New("internal chat key insert returned no row")
+	}
+	if err := rows.Scan(&key.ID, &key.CreatedAt, &key.UpdatedAt); err != nil {
+		return fmt.Errorf("scan internal chat key insert: %w", err)
+	}
+	return rows.Err()
+}
+
 func (r *apiKeyRepository) GetByID(ctx context.Context, id int64) (*service.APIKey, error) {
 	m, err := r.activeQuery().
 		Where(apikey.IDEQ(id)).
@@ -234,8 +266,12 @@ func (r *apiKeyRepository) GetByKeyForAuth(ctx context.Context, key string) (*se
 }
 
 func (r *apiKeyRepository) FindInternalChatKey(ctx context.Context, userID int64) (*service.APIKey, error) {
+	return r.FindInternalChatKeyByName(ctx, userID, service.InternalChatKeyName)
+}
+
+func (r *apiKeyRepository) FindInternalChatKeyByName(ctx context.Context, userID int64, name string) (*service.APIKey, error) {
 	m, err := r.activeQuery().
-		Where(apikey.UserIDEQ(userID), apikey.NameEQ(service.InternalChatKeyName)).
+		Where(apikey.UserIDEQ(userID), apikey.NameEQ(name)).
 		WithGroup().
 		Only(ctx)
 	if err != nil {
@@ -438,7 +474,10 @@ func (r *apiKeyRepository) deleteWithTombstone(ctx context.Context, exec *dbent.
 }
 
 func (r *apiKeyRepository) apiKeyListByUserIDQuery(userID int64, filters service.APIKeyListFilters) *dbent.APIKeyQuery {
-	q := r.activeQuery().Where(apikey.UserIDEQ(userID))
+	q := r.activeQuery().Where(
+		apikey.UserIDEQ(userID),
+		apikey.Not(apikey.NameHasPrefix(service.InternalChatKeyName)),
+	)
 
 	if filters.Search != "" {
 		q = q.Where(apikey.Or(
@@ -625,7 +664,10 @@ func (r *apiKeyRepository) ExistsByKey(ctx context.Context, key string) (bool, e
 }
 
 func (r *apiKeyRepository) ListByGroupID(ctx context.Context, groupID int64, params pagination.PaginationParams) ([]service.APIKey, *pagination.PaginationResult, error) {
-	q := r.activeQuery().Where(apikey.GroupIDEQ(groupID))
+	q := r.activeQuery().Where(
+		apikey.GroupIDEQ(groupID),
+		apikey.Not(apikey.NameHasPrefix(service.InternalChatKeyName)),
+	)
 
 	total, err := q.Count(ctx)
 	if err != nil {
@@ -691,7 +733,7 @@ func apiKeyListOrder(params pagination.PaginationParams) []func(*entsql.Selector
 
 // SearchAPIKeys searches API keys by user ID and/or keyword (name)
 func (r *apiKeyRepository) SearchAPIKeys(ctx context.Context, userID int64, keyword string, limit int) ([]service.APIKey, error) {
-	q := r.activeQuery()
+	q := r.activeQuery().Where(apikey.Not(apikey.NameHasPrefix(service.InternalChatKeyName)))
 	if userID > 0 {
 		q = q.Where(apikey.UserIDEQ(userID))
 	}

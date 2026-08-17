@@ -3,8 +3,11 @@ package securityaudit
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/netip"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -13,20 +16,22 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestNormalizeBaseURLAllowsAdministratorConfiguredDestinations(t *testing.T) {
+func TestNormalizeBaseURLUsesSecureDefaults(t *testing.T) {
+	t.Setenv(promptAuditAllowInsecureHTTPEnv, "")
+	t.Setenv(promptAuditAllowPrivateEndpointsEnv, "")
 	allowed := []string{
-		"https://guard.example.com", "https://guard.example.com/v1", "http://guard.example.com",
-		"http://127.0.0.1:8080", "http://10.0.0.8:8080", "https://172.16.0.5",
-		"http://169.254.169.254", "https://metadata.google.internal", "https://192.0.2.1",
-		"http://internal-admin.local", "http://guard.local:8080",
+		"https://guard.example.com", "https://guard.example.com/v1", "https://guard.example.com/audit",
 	}
 	for _, raw := range allowed {
 		_, err := NormalizeBaseURL(raw)
 		require.NoError(t, err, raw)
 	}
 	blocked := []string{
-		"ftp://guard.example.com", "https://user:pass@guard.example.com",
+		"http://guard.example.com", "ftp://guard.example.com", "https://user:pass@guard.example.com",
 		"https://guard.example.com?q=secret", "https://guard.example.com/#fragment",
+		"https://127.0.0.1:8080", "https://[::1]", "https://10.0.0.8:8080", "https://172.16.0.5",
+		"https://169.254.169.254", "https://168.63.129.16", "https://100.100.100.200", "https://metadata.google.internal",
+		"https://localhost", "https://guard.local:8080",
 	}
 	for _, raw := range blocked {
 		_, err := NormalizeBaseURL(raw)
@@ -37,16 +42,68 @@ func TestNormalizeBaseURLAllowsAdministratorConfiguredDestinations(t *testing.T)
 	require.Equal(t, "https://guard.example.com/v1/chat/completions", url)
 }
 
-func TestHTTPClientUsesDirectStandardDialer(t *testing.T) {
+func TestNormalizeBaseURLAllowsExplicitPrivateHTTPOptIn(t *testing.T) {
+	allowLocalPromptAuditEndpoint(t)
+	allowed := []string{
+		"http://127.0.0.1:8080", "http://10.0.0.8:8080", "https://172.16.0.5",
+		"http://internal-admin.local", "http://guard.local:8080",
+	}
+	for _, raw := range allowed {
+		_, err := NormalizeBaseURL(raw)
+		require.NoError(t, err, raw)
+	}
+	for _, raw := range []string{"http://169.254.169.254", "https://168.63.129.16", "https://100.100.100.200", "https://metadata.google.internal"} {
+		_, err := NormalizeBaseURL(raw)
+		require.Error(t, err, raw)
+	}
+}
+
+func TestHTTPClientUsesPinnedSecureDialer(t *testing.T) {
 	client, err := NewSecureHTTPClient(ActiveEndpoint{BaseURL: "https://guard.example.com", TimeoutMS: 1000})
 	require.NoError(t, err)
 	transport, ok := client.Transport.(*http.Transport)
 	require.True(t, ok)
 	require.Nil(t, transport.Proxy)
 	require.NotNil(t, transport.DialContext)
+	require.NotNil(t, client.CheckRedirect)
+}
+
+func TestPromptAuditSecureDialerRejectsMixedDNSAnswersBeforeDial(t *testing.T) {
+	var dialCalls atomic.Int64
+	dialer := &promptAuditSecureDialer{
+		resolver: staticPromptAuditResolver{addresses: []netip.Addr{
+			netip.MustParseAddr("93.184.216.34"),
+			netip.MustParseAddr("10.0.0.8"),
+		}},
+		dialContext: func(context.Context, string, string) (net.Conn, error) {
+			dialCalls.Add(1)
+			return nil, errors.New("unexpected dial")
+		},
+	}
+
+	_, err := dialer.DialContext(context.Background(), "tcp", "guard.example.com:443")
+	require.Error(t, err)
+	require.Zero(t, dialCalls.Load())
+}
+
+func TestPromptAuditSecureDialerPinsValidatedDNSAddress(t *testing.T) {
+	stop := errors.New("stop after recording dial")
+	var dialed string
+	dialer := &promptAuditSecureDialer{
+		resolver: staticPromptAuditResolver{addresses: []netip.Addr{netip.MustParseAddr("93.184.216.34")}},
+		dialContext: func(_ context.Context, _ string, address string) (net.Conn, error) {
+			dialed = address
+			return nil, stop
+		},
+	}
+
+	_, err := dialer.DialContext(context.Background(), "tcp", "guard.example.com:443")
+	require.ErrorIs(t, err, stop)
+	require.Equal(t, "93.184.216.34:443", dialed)
 }
 
 func TestOpenAICompatibleScannerRequestContract(t *testing.T) {
+	allowLocalPromptAuditEndpoint(t)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, "/v1/chat/completions", r.URL.Path)
 		require.Equal(t, "Bearer token", r.Header.Get("Authorization"))
@@ -66,25 +123,51 @@ func TestOpenAICompatibleScannerRequestContract(t *testing.T) {
 	require.Equal(t, EventPass, result.Decision)
 }
 
-func TestOpenAICompatibleScannerFollowsRedirectAndRejectsOversize(t *testing.T) {
+func TestOpenAICompatibleScannerAllowsSameOriginRedirect(t *testing.T) {
+	allowLocalPromptAuditEndpoint(t)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v1/chat/completions" {
+			http.Redirect(w, r, "/guard-result", http.StatusTemporaryRedirect)
+			return
+		}
+		_, _ = w.Write([]byte(`{"choices":[{"message":{"content":"Safety: Safe\nCategories: None"}}]}`))
+	}))
+	defer server.Close()
+	result, err := NewOpenAICompatibleScanner().Scan(context.Background(), ActiveEndpoint{ID: "redirect", BaseURL: server.URL, Model: DefaultGuardModel, TimeoutMS: 1000}, "hello", AllScannerIDs)
+	require.NoError(t, err)
+	require.Equal(t, EventPass, result.Decision)
+}
+
+func TestOpenAICompatibleScannerRejectsCrossOriginRedirect(t *testing.T) {
+	allowLocalPromptAuditEndpoint(t)
+	var targetCalls atomic.Int64
 	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		targetCalls.Add(1)
 		_, _ = w.Write([]byte(`{"choices":[{"message":{"content":"Safety: Safe\nCategories: None"}}]}`))
 	}))
 	defer target.Close()
-	redirect := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { http.Redirect(w, r, target.URL, http.StatusFound) }))
+	redirect := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, target.URL, http.StatusTemporaryRedirect)
+	}))
 	defer redirect.Close()
-	result, err := NewOpenAICompatibleScanner().Scan(context.Background(), ActiveEndpoint{ID: "redirect", BaseURL: redirect.URL, Model: DefaultGuardModel, TimeoutMS: 1000}, "hello", AllScannerIDs)
-	require.NoError(t, err)
-	require.Equal(t, EventPass, result.Decision)
+
+	_, err := NewOpenAICompatibleScanner().Scan(context.Background(), ActiveEndpoint{ID: "redirect", BaseURL: redirect.URL, Model: DefaultGuardModel, TimeoutMS: 1000}, "hello", AllScannerIDs)
+	require.Error(t, err)
+	require.Zero(t, targetCalls.Load())
+}
+
+func TestOpenAICompatibleScannerRejectsOversizeResponse(t *testing.T) {
+	allowLocalPromptAuditEndpoint(t)
 	oversize := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte(strings.Repeat("x", int(maxGuardResponseBytes)+1)))
 	}))
 	defer oversize.Close()
-	_, err = NewOpenAICompatibleScanner().Scan(context.Background(), ActiveEndpoint{ID: "large", BaseURL: oversize.URL, Model: DefaultGuardModel, TimeoutMS: 1000}, "hello", AllScannerIDs)
+	_, err := NewOpenAICompatibleScanner().Scan(context.Background(), ActiveEndpoint{ID: "large", BaseURL: oversize.URL, Model: DefaultGuardModel, TimeoutMS: 1000}, "hello", AllScannerIDs)
 	require.Error(t, err)
 }
 
 func TestOpenAICompatibleScannerClassifiesHTTPConnectionAndTimeoutFailures(t *testing.T) {
+	allowLocalPromptAuditEndpoint(t)
 	tests := []struct {
 		name      string
 		status    int
@@ -133,6 +216,7 @@ func TestOpenAICompatibleScannerClassifiesHTTPConnectionAndTimeoutFailures(t *te
 }
 
 func TestPromptAuditProbeModelsFallbackAndResponseSafety(t *testing.T) {
+	allowLocalPromptAuditEndpoint(t)
 	t.Run("models contains configured model", func(t *testing.T) {
 		var chatCalls atomic.Int64
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -233,4 +317,19 @@ func probeEndpoint(baseURL, token string) UpdateEndpoint {
 		ID: "probe-one", Name: "Probe One", Protocol: "openai_compatible", BaseURL: baseURL,
 		Model: DefaultGuardModel, Token: token, TimeoutMS: 1000, InputLimit: 1024, Enabled: true,
 	}
+}
+
+func allowLocalPromptAuditEndpoint(t *testing.T) {
+	t.Helper()
+	t.Setenv(promptAuditAllowInsecureHTTPEnv, "true")
+	t.Setenv(promptAuditAllowPrivateEndpointsEnv, "true")
+}
+
+type staticPromptAuditResolver struct {
+	addresses []netip.Addr
+	err       error
+}
+
+func (r staticPromptAuditResolver) LookupNetIP(context.Context, string, string) ([]netip.Addr, error) {
+	return r.addresses, r.err
 }

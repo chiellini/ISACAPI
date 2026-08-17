@@ -22,6 +22,7 @@
           v-if="avatarPreviewUrl"
           data-testid="profile-avatar-preview"
           :src="avatarPreviewUrl"
+          referrerpolicy="no-referrer"
           :alt="displayName"
           class="h-full w-full object-cover"
         >
@@ -86,6 +87,7 @@ import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
 import type { User } from '@/types'
 import { extractApiErrorMessage } from '@/utils/apiError'
+import { sanitizeImageUrl } from '@/utils/url'
 
 const props = withDefaults(defineProps<{
   user: User | null
@@ -106,7 +108,10 @@ const avatarSaving = ref(false)
 
 const displayName = computed(() => props.user?.username?.trim() || props.user?.email?.trim() || t('profile.user'))
 const avatarInitial = computed(() => displayName.value.charAt(0).toUpperCase() || 'U')
-const avatarPreviewUrl = computed(() => avatarDraft.value.trim() || props.user?.avatar_url?.trim() || '')
+const avatarPreviewUrl = computed(() => sanitizeImageUrl(
+  avatarDraft.value || props.user?.avatar_url || '',
+  { allowRelative: true, allowDataUrl: true },
+))
 
 watch(
   () => props.user?.avatar_url,

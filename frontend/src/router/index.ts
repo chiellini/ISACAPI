@@ -688,6 +688,17 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/admin/chat-policy',
+    name: 'AdminChatPolicy',
+    component: () => import('@/views/admin/ChatPolicyView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: true,
+      requiresSuperAdmin: true,
+      title: 'Chat Model Policy'
+    }
+  },
+  {
     path: '/admin/risk-control',
     name: 'AdminRiskControl',
     component: () => import('@/views/admin/RiskControlView.vue'),
@@ -707,6 +718,7 @@ const routes: RouteRecordRaw[] = [
     meta: {
       requiresAuth: true,
       requiresAdmin: true,
+      requiresSuperAdmin: true,
       title: 'Prompt Audit',
       titleKey: 'admin.promptAudit.title',
       descriptionKey: 'admin.promptAudit.description',

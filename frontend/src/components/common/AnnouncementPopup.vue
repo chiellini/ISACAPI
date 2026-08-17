@@ -90,10 +90,9 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { marked } from 'marked'
-import DOMPurify from 'dompurify'
 import { useAnnouncementStore } from '@/stores/announcements'
 import { formatRelativeWithDateTime } from '@/utils/format'
+import { renderSafeMarkdown } from '@/utils/safeMarkdown'
 import type { Announcement, UserAnnouncement } from '@/types'
 import '@/styles/announcement-markdown.css'
 
@@ -117,16 +116,9 @@ const displayedAnnouncement = computed(() => (
   props.preview ? props.announcement : announcementStore.currentPopup
 ))
 
-marked.setOptions({
-  breaks: true,
-  gfm: true,
-})
-
 const renderedContent = computed(() => {
   const content = displayedAnnouncement.value?.content
-  if (!content) return ''
-  const html = marked.parse(content) as string
-  return DOMPurify.sanitize(html)
+  return renderSafeMarkdown(content || '')
 })
 
 function handleDismiss() {

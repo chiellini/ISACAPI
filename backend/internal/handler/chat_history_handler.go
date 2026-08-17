@@ -36,6 +36,7 @@ type chatImageUploadRequest struct {
 }
 
 type chatSearchRequest struct {
+	Model      string `json:"model"`
 	Query      string `json:"query"`
 	MaxResults int    `json:"max_results"`
 }
@@ -219,7 +220,18 @@ func (h *ChatHistoryHandler) Search(c *gin.Context) {
 		response.BadRequest(c, "Invalid request: "+err.Error())
 		return
 	}
-	results, err := h.svc.SearchWeb(c.Request.Context(), req.Query, req.MaxResults)
+	h.SearchValidated(c, req.Query, req.MaxResults)
+}
+
+// SearchValidated executes a request already decoded by the built-in Chat
+// route's strict policy gate. Keeping the decoded values avoids retaining and
+// parsing a second copy of an attacker-controlled request body.
+func (h *ChatHistoryHandler) SearchValidated(c *gin.Context, query string, maxResults int) {
+	if _, ok := middleware2.GetAuthSubjectFromContext(c); !ok {
+		response.Unauthorized(c, "User not authenticated")
+		return
+	}
+	results, err := h.svc.SearchWeb(c.Request.Context(), query, maxResults)
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return

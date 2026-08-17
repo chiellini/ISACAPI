@@ -9,12 +9,13 @@ const here = dirname(fileURLToPath(import.meta.url))
 const read = (path: string) => readFileSync(resolve(here, path), 'utf8')
 
 describe('Prompt Audit integration surface', () => {
-  it('registers an admin and risk-control guarded route', () => {
+  it('registers a super-admin and risk-control guarded route', () => {
     const router = read('../../../router/index.ts')
     expect(router).toContain("path: '/admin/prompt-audit'")
     const route = router.slice(router.indexOf("path: '/admin/prompt-audit'"), router.indexOf("path: '/admin/usage'"))
     expect(route).toContain('requiresAuth: true')
     expect(route).toContain('requiresAdmin: true')
+    expect(route).toContain('requiresSuperAdmin: true')
     expect(route).toContain('requiresRiskControl: true')
   })
 
@@ -24,6 +25,8 @@ describe('Prompt Audit integration surface', () => {
     expect(group).toContain('expandOnly: true')
     expect(group).toContain("path: '/admin/risk-control'")
     expect(group).toContain("path: '/admin/prompt-audit'")
+    const promptAuditItem = group.split('\n').find((line) => line.includes("path: '/admin/prompt-audit'"))
+    expect(promptAuditItem).toContain('featureFlag: flagSuperAdmin')
   })
 
   it('keeps Prompt Audit locale trees symmetric and all operational controls named', () => {

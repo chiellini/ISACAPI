@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 set -euo pipefail
+umask 077
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ENV_FILE="${SUB2API_ENV_FILE:-${SCRIPT_DIR}/.env}"
@@ -71,6 +72,7 @@ Destroy options:
 
 Environment:
   SUB2API_ENV_FILE      Path to the deployment env file (default: deploy/.env)
+  IMAGE_TAG             Exact published application version required by init
 EOF
 }
 
@@ -332,8 +334,15 @@ generate_secret() {
     openssl rand -hex 32
 }
 
+validate_image_tag() {
+    local image_tag=$1
+
+    [[ "${image_tag}" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][A-Za-z0-9][A-Za-z0-9._-]*)?$ ]] || \
+        die "IMAGE_TAG must be an exact published version such as 0.1.174; floating tags such as latest are not allowed: ${image_tag:-<empty>}"
+}
+
 cmd_init() {
-    local env_dir temp_file postgres_secret jwt_secret totp_secret
+    local env_dir temp_file image_tag postgres_secret jwt_secret totp_secret admin_secret
 
     require_command openssl
 
@@ -341,10 +350,13 @@ cmd_init() {
         die "Environment file already exists: ${ENV_FILE}"
     fi
 
+    image_tag="${IMAGE_TAG:-}"
+    validate_image_tag "${image_tag}"
     postgres_secret="$(generate_secret)" || die "Failed to generate PostgreSQL password."
     jwt_secret="$(generate_secret)" || die "Failed to generate JWT secret."
     totp_secret="$(generate_secret)" || die "Failed to generate TOTP encryption key."
-    [[ -n "${postgres_secret}" && -n "${jwt_secret}" && -n "${totp_secret}" ]] || \
+    admin_secret="$(generate_secret)" || die "Failed to generate administrator password."
+    [[ -n "${postgres_secret}" && -n "${jwt_secret}" && -n "${totp_secret}" && -n "${admin_secret}" ]] || \
         die "Secret generation returned an empty value."
 
     env_dir="$(dirname "${ENV_FILE}")"
@@ -355,9 +367,11 @@ cmd_init() {
     replace_env_value POSTGRES_PASSWORD "${postgres_secret}" "${temp_file}"
     replace_env_value JWT_SECRET "${jwt_secret}" "${temp_file}"
     replace_env_value TOTP_ENCRYPTION_KEY "${totp_secret}" "${temp_file}"
+    replace_env_value ADMIN_PASSWORD "${admin_secret}" "${temp_file}"
+    replace_env_value IMAGE_TAG "${image_tag}" "${temp_file}"
     mv "${temp_file}" "${ENV_FILE}"
 
-    info "Created ${ENV_FILE} with generated secrets."
+    info "Created ${ENV_FILE} with an exact image version and generated secrets."
     info "Review the file, then run: SUB2API_ENV_FILE='${ENV_FILE}' ${SCRIPT_DIR}/apple-container.sh up"
 }
 
@@ -400,10 +414,20 @@ validate_env_file_security() {
 prepare_environment() {
     validate_env_file_security
 
-    APP_IMAGE="$(read_env_value APPLE_CONTAINER_SUB2API_IMAGE weishaw/sub2api:latest)"
+    local image_repository image_tag app_image_override
+    image_repository="$(read_env_value IMAGE_REPOSITORY ghcr.io/chiellini/sub2api)"
+    image_tag="$(read_env_value IMAGE_TAG)"
+    app_image_override="$(read_env_value APPLE_CONTAINER_SUB2API_IMAGE)"
+    if [[ -n "${app_image_override}" ]]; then
+        APP_IMAGE="${app_image_override}"
+    else
+        [[ -n "${image_repository}" ]] || die "IMAGE_REPOSITORY must not be empty."
+        validate_image_tag "${image_tag}"
+        APP_IMAGE="${image_repository}:${image_tag}"
+    fi
     POSTGRES_IMAGE="$(read_env_value APPLE_CONTAINER_POSTGRES_IMAGE postgres:18-alpine)"
     REDIS_IMAGE="$(read_env_value APPLE_CONTAINER_REDIS_IMAGE redis:8-alpine)"
-    BIND_HOST="$(read_env_value BIND_HOST 0.0.0.0)"
+    BIND_HOST="$(read_env_value BIND_HOST 127.0.0.1)"
     HOST_PORT="$(read_env_value SERVER_PORT 8080)"
     POSTGRES_USER="$(read_env_value POSTGRES_USER sub2api)"
     POSTGRES_PASSWORD="$(read_env_value POSTGRES_PASSWORD)"

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/websearch"
@@ -147,9 +148,14 @@ var ErrChatSearchUnavailable = infraerrors.ServiceUnavailable("CHAT_SEARCH_UNAVA
 // ErrChatSearchEmptyQuery 表示搜索查询为空。
 var ErrChatSearchEmptyQuery = infraerrors.BadRequest("CHAT_SEARCH_EMPTY_QUERY", "search query is required")
 
+// ErrChatSearchQueryTooLong protects both the external search quota and memory
+// use from oversized tool arguments or direct API calls.
+var ErrChatSearchQueryTooLong = infraerrors.BadRequest("CHAT_SEARCH_QUERY_TOO_LONG", "search query exceeds 2000 characters")
+
 const (
 	chatSearchDefaultMaxResults = 5
 	chatSearchMaxResults        = 8
+	chatSearchMaxQueryRunes     = 2000
 )
 
 // SearchWeb 通过平台已配置的联网搜索提供方（Brave/Tavily，与网关搜索复用同一配额）执行一次搜索。
@@ -158,6 +164,9 @@ func (s *ChatHistoryService) SearchWeb(ctx context.Context, query string, maxRes
 	query = strings.TrimSpace(query)
 	if query == "" {
 		return nil, ErrChatSearchEmptyQuery
+	}
+	if utf8.RuneCountInString(query) > chatSearchMaxQueryRunes {
+		return nil, ErrChatSearchQueryTooLong
 	}
 	mgr := getWebSearchManager()
 	if mgr == nil {

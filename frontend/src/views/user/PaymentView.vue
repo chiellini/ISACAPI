@@ -283,9 +283,9 @@
         </template>
         <div v-if="(checkout.help_text || checkout.help_image_url) && paymentPhase === 'select' && !selectedPlan" class="card p-4">
           <div class="flex flex-col items-center gap-3">
-            <img v-if="checkout.help_image_url" :src="checkout.help_image_url" alt=""
+            <img v-if="safeHelpImageUrl" :src="safeHelpImageUrl" alt=""
               class="h-40 max-w-full cursor-pointer rounded-lg object-contain transition-opacity hover:opacity-80"
-              @click="previewImage = checkout.help_image_url" />
+              @click="previewImage = safeHelpImageUrl" />
             <p v-if="checkout.help_text" class="text-center text-sm text-gray-500 dark:text-gray-400">{{ checkout.help_text }}</p>
           </div>
         </div>
@@ -337,7 +337,13 @@ import ModelPriceComparison from '@/components/common/ModelPriceComparison.vue'
 import AmountInput from '@/components/payment/AmountInput.vue'
 import PaymentBrandSupport from '@/components/payment/PaymentBrandSupport.vue'
 import PaymentMethodSelector from '@/components/payment/PaymentMethodSelector.vue'
-import { METHOD_ORDER, getPaymentPopupFeatures, isBuiltInAlipayMethod, isBuiltInWxpayMethod } from '@/components/payment/providerConfig'
+import {
+  METHOD_ORDER,
+  isBuiltInAlipayMethod,
+  isBuiltInWxpayMethod,
+  openPaymentPopup,
+  sanitizePaymentNavigationUrl,
+} from '@/components/payment/providerConfig'
 import alipayIcon from '@/assets/icons/alipay.svg'
 import wxpayIcon from '@/assets/icons/wxpay.svg'
 import {
@@ -364,6 +370,7 @@ import {
   PUBLIC_RECHARGE_USD_PER_CNY,
   formatCompactNumber,
 } from '@/utils/pricing'
+import { sanitizeUrl } from '@/utils/url'
 
 const i18n = useI18n()
 const { t } = i18n
@@ -523,9 +530,9 @@ function buildWechatOAuthAuthorizeUrl(
   authorizeUrl: string,
   context: { paymentType: string; orderType: OrderType; planId?: number; orderAmount: number },
 ): string {
-  const normalizedUrl = authorizeUrl.trim()
+  const normalizedUrl = sanitizePaymentNavigationUrl(authorizeUrl)
   if (!normalizedUrl || typeof window === 'undefined') {
-    return normalizedUrl
+    return ''
   }
 
   try {
@@ -584,6 +591,10 @@ const checkout = ref<CheckoutInfoResponse>({
   methods: {}, global_min: 0, global_max: 0,
   plans: [], balance_disabled: false, balance_recharge_multiplier: PUBLIC_RECHARGE_USD_PER_CNY, subscription_usd_to_cny_rate: 0, recharge_fee_rate: 0, help_text: '', help_image_url: '', stripe_publishable_key: '',
 })
+const safeHelpImageUrl = computed(() => sanitizeUrl(checkout.value.help_image_url || '', {
+  allowRelative: true,
+  allowDataUrl: true,
+}))
 
 const tabs = computed(() => {
   const result: { key: 'recharge' | 'subscription'; label: string }[] = []
@@ -896,10 +907,17 @@ async function createOrder(orderAmount: number, orderType: OrderType, planId?: n
     }
 
     const result = await paymentStore.createOrder(payload) as CreateOrderResult & { resume_token?: string }
-    const openWindow = (url: string) => {
-      const win = window.open(url, 'paymentPopup', getPaymentPopupFeatures())
+    const navigateToPayment = (value: string) => {
+      const url = sanitizePaymentNavigationUrl(value)
+      if (!url) throw new Error('UNSAFE_PAYMENT_URL')
+      window.location.href = url
+    }
+    const openWindow = (value: string) => {
+      const url = sanitizePaymentNavigationUrl(value)
+      if (!url) throw new Error('UNSAFE_PAYMENT_URL')
+      const win = openPaymentPopup(url)
       if (!win || win.closed) {
-        window.location.href = url
+        navigateToPayment(url)
       }
     }
     const visibleMethod = normalizeVisibleMethod(requestType) || requestType
@@ -942,12 +960,12 @@ async function createOrder(orderAmount: number, orderType: OrderType, planId?: n
     })
 
     if (decision.kind === 'wechat_oauth' && decision.oauth?.authorize_url) {
-      window.location.href = buildWechatOAuthAuthorizeUrl(decision.oauth.authorize_url, {
+      navigateToPayment(buildWechatOAuthAuthorizeUrl(decision.oauth.authorize_url, {
         paymentType: visibleMethod,
         orderType,
         planId,
         orderAmount,
-      })
+      }))
       return
     }
 
@@ -965,11 +983,11 @@ async function createOrder(orderAmount: number, orderType: OrderType, planId?: n
       return
     }
     if (decision.kind === 'stripe_route') {
-      window.location.href = decision.paymentState.payUrl
+      navigateToPayment(decision.paymentState.payUrl)
       return
     }
     if (decision.kind === 'airwallex_route') {
-      window.location.href = decision.paymentState.payUrl
+      navigateToPayment(decision.paymentState.payUrl)
       return
     }
     if (decision.kind === 'wechat_jsapi' && decision.jsapi) {
@@ -1017,7 +1035,7 @@ async function createOrder(orderAmount: number, orderType: OrderType, planId?: n
     }
     if (decision.kind === 'redirect_waiting' && decision.paymentState.payUrl) {
       if (isMobileDevice()) {
-        window.location.href = decision.paymentState.payUrl
+        navigateToPayment(decision.paymentState.payUrl)
         return
       }
       openWindow(decision.paymentState.payUrl)

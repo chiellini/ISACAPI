@@ -35,6 +35,7 @@ import {
   readPaymentRecoverySnapshot,
   type PaymentRecoverySnapshot,
 } from '@/components/payment/paymentFlow'
+import { sanitizePaymentNavigationUrl } from '@/components/payment/providerConfig'
 
 const { t, locale } = useI18n()
 const route = useRoute()
@@ -121,7 +122,11 @@ onMounted(async () => {
     const redirectResult = result.payments.redirectToCheckout(checkoutOptions)
 
     if (typeof redirectResult === 'string' && redirectResult) {
-      window.location.assign(redirectResult)
+      const redirectUrl = sanitizePaymentNavigationUrl(redirectResult)
+      if (!redirectUrl) {
+        throw new Error(t('payment.airwallexLoadFailed'))
+      }
+      window.location.assign(redirectUrl)
     }
   } catch (err: unknown) {
     loading.value = false

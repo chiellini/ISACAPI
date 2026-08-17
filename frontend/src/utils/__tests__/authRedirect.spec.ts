@@ -15,8 +15,10 @@ describe('sanitizeAuthRedirect', () => {
     '',
     'research-group',
     '//example.com/path',
+    '/\\example.com/path',
     'https://example.com/path',
-    '/safe\r\nLocation: https://example.com'
+    '/safe\r\nLocation: https://example.com',
+    '/safe\u0000suffix'
   ])('falls back for an unsafe target: %s', (target) => {
     expect(sanitizeAuthRedirect(target)).toBe('/dashboard')
   })

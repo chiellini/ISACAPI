@@ -121,7 +121,7 @@ func promptAuditUpdateRequest(version int64, workerCount int, token string) Upda
 		Strategy: "priority", WorkerCount: workerCount, QueueCapacity: 64, Scanners: []string{"pii", "jailbreak"},
 		AllGroups: true, Endpoints: []UpdateEndpoint{{
 			ID: "guard-one", Name: "Guard One", Protocol: "openai_compatible",
-			BaseURL: "http://127.0.0.1:18080", Model: "", Token: token,
+			BaseURL: "https://guard.example.com", Model: "", Token: token,
 			TimeoutMS: 1000, InputLimit: 1024, Enabled: true,
 		}},
 	}

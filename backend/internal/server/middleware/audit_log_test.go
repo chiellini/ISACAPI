@@ -146,6 +146,13 @@ func TestPromptAuditMutationAuditRoutesHaveStableActionsAndOmitBodies(t *testing
 	}
 }
 
+func TestChatPolicyTrustedInstructionsAreOmittedFromAuditBody(t *testing.T) {
+	const route = "PUT /api/v1/admin/settings/chat-policy"
+	require.Contains(t, auditBodyOmittedRoutes, route)
+	require.Equal(t, "admin.chat_policy.update", auditActionOverrides[route])
+	require.Equal(t, "admin.chat_policy.read", auditSensitiveReads["GET /api/v1/admin/settings/chat-policy"])
+}
+
 func TestPasskeyLoginAuditUsesCanonicalLoginActionAndOmitsCredentialBody(t *testing.T) {
 	route := "POST /api/v1/auth/passkey/login/finish"
 	require.Equal(t, service.AuditActionLogin, auditActionOverrides[route])

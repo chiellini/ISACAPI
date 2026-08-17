@@ -132,6 +132,7 @@ func RegisterAdminRoutes(
 
 func registerPromptAuditRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 	promptAudit := admin.Group("/prompt-audit")
+	promptAudit.Use(middleware.RequireSuperAdmin())
 	{
 		promptAudit.GET("/config", h.Admin.PromptAudit.GetConfig)
 		promptAudit.PUT("/config", h.Admin.PromptAudit.UpdateConfig)
@@ -354,10 +355,10 @@ func registerGroupRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		groups.GET("/live-capability", h.Admin.Group.GetLiveCapability)
 		groups.GET("/:id/models-list-candidates", h.Admin.Group.GetModelsListCandidates)
 		groups.GET("/:id/composite-routes", h.Admin.Group.ListCompositeRoutes)
-		groups.POST("/:id/composite-routes", h.Admin.Group.CreateCompositeRoute)
+		writes.POST("/:id/composite-routes", h.Admin.Group.CreateCompositeRoute)
 		groups.POST("/:id/composite-routes/preview", h.Admin.Group.PreviewCompositeRoute)
-		groups.PUT("/:id/composite-routes/:route_id", h.Admin.Group.UpdateCompositeRoute)
-		groups.DELETE("/:id/composite-routes/:route_id", h.Admin.Group.DeleteCompositeRoute)
+		writes.PUT("/:id/composite-routes/:route_id", h.Admin.Group.UpdateCompositeRoute)
+		writes.DELETE("/:id/composite-routes/:route_id", h.Admin.Group.DeleteCompositeRoute)
 		groups.GET("/:id", h.Admin.Group.GetByID)
 		writes.POST("", h.Admin.Group.Create)
 		writes.POST("/:id/duplicate", h.Admin.Group.Duplicate)
@@ -623,6 +624,9 @@ func registerSettingsRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		writes.PUT("/web-search-emulation", h.Admin.Setting.UpdateWebSearchEmulationConfig)
 		writes.POST("/web-search-emulation/test", h.Admin.Setting.TestWebSearchEmulation)
 		writes.POST("/web-search-emulation/reset-usage", h.Admin.Setting.ResetWebSearchUsage)
+		// Built-in chat model aliases, trusted prompts, and instruction skills.
+		writes.GET("/chat-policy", h.Admin.Setting.GetChatPolicy)
+		writes.PUT("/chat-policy", h.Admin.Setting.UpdateChatPolicy)
 	}
 }
 

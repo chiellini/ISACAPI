@@ -81,7 +81,12 @@ import { usePaymentStore } from '@/stores/payment'
 import { useAppStore } from '@/stores'
 import { paymentAPI } from '@/api/payment'
 import { extractI18nErrorMessage } from '@/utils/apiError'
-import { getPaymentPopupFeatures, isBuiltInAlipayMethod, isBuiltInWxpayMethod } from '@/components/payment/providerConfig'
+import {
+  isBuiltInAlipayMethod,
+  isBuiltInWxpayMethod,
+  openPaymentPopup,
+  sanitizePaymentNavigationUrl,
+} from '@/components/payment/providerConfig'
 import type { PaymentOrder } from '@/types/payment'
 import { currencySymbol } from '@/components/payment/currency'
 import QRCode from 'qrcode'
@@ -159,8 +164,9 @@ function getLogoForType(): string | null {
 
 
 function reopenPopup() {
-  if (props.payUrl) {
-    window.open(props.payUrl, 'paymentPopup', getPaymentPopupFeatures())
+  const payUrl = sanitizePaymentNavigationUrl(props.payUrl || '')
+  if (payUrl) {
+    openPaymentPopup(payUrl)
   }
 }
 

@@ -42,4 +42,13 @@ describe('OAuth captcha start API', () => {
       params: { mode: 'open', redirect: '/billing?plan=pro' }
     })).toBe('/api/v1/auth/oauth/wechat/start?mode=open&redirect=%2Fbilling%3Fplan%3Dpro')
   })
+
+  it('rejects a non-web authorization URL returned by the backend', async () => {
+    post.mockResolvedValue({ data: { authorize_url: 'javascript:alert(document.domain)' } })
+
+    await expect(startOAuthLogin({
+      provider: 'github',
+      params: { redirect: '/dashboard' }
+    }, { turnstile_token: 'proof' })).rejects.toThrow('Invalid OAuth authorization URL')
+  })
 })

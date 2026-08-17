@@ -9,13 +9,39 @@ type SanitizeOptions = {
   allowDataUrl?: boolean
 }
 
+export function hasUnsafeUrlPathCharacters(value: string): boolean {
+  if (value.includes('\\')) return true
+  for (const character of value) {
+    const codePoint = character.codePointAt(0) ?? 0
+    if (codePoint <= 0x1f || codePoint === 0x7f) return true
+  }
+  return false
+}
+
+const SAFE_RASTER_DATA_IMAGE = /^data:image\/(?:avif|bmp|gif|jpeg|png|webp);base64,[a-z\d+/=\s]+$/i
+
+export function sanitizeImageUrl(value: string, options: { allowRelative?: boolean; allowDataUrl?: boolean } = {}): string {
+  const source = value.trim()
+  if (!source) return ''
+  if (source.toLowerCase().startsWith('data:')) {
+    return options.allowDataUrl && SAFE_RASTER_DATA_IMAGE.test(source) ? source : ''
+  }
+  return sanitizeUrl(source, { allowRelative: options.allowRelative })
+}
+
 export function sanitizeUrl(value: string, options: SanitizeOptions = {}): string {
   const trimmed = value.trim()
   if (!trimmed) {
     return ''
   }
 
-  if (options.allowRelative && trimmed.startsWith('/') && !trimmed.startsWith('//')) {
+  if (options.allowRelative && trimmed.startsWith('/')) {
+    // Browsers treat backslashes as slashes for special URLs. Values such as
+    // `/\\attacker.example` can therefore become cross-origin even though they
+    // do not start with `//` at the string level.
+    if (/^\/[\\/]/.test(trimmed) || hasUnsafeUrlPathCharacters(trimmed)) {
+      return ''
+    }
     return trimmed
   }
 

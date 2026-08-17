@@ -59,6 +59,8 @@ const latestAPIKeyIPIndexMigration = "174_add_usage_logs_api_key_latest_ip_index
 const latestAPIKeyIPIndex = "idx_usage_logs_api_key_latest_ip"
 const usageLogsUpstreamModelMismatchIndexMigration = "195_add_usage_log_upstream_model_mismatch_index_notx.sql"
 const usageLogsUpstreamModelMismatchIndex = "idx_usage_logs_upstream_model_mismatch_created_at"
+const internalChatAPIKeyUniqueIndexMigration = "223_internal_chat_api_key_unique_index_notx.sql"
+const internalChatAPIKeyUniqueIndex = "api_keys_internal_chat_name_unique_active"
 
 type migrationChecksumCompatibilityRule struct {
 	fileChecksum       string
@@ -223,7 +225,11 @@ func applyMigrationsFS(ctx context.Context, db *sql.DB, fsys fs.FS) error {
 			return fmt.Errorf("check migration %s: %w", name, rowErr)
 		}
 
-		nonTx, err := validateMigrationExecutionMode(name, content)
+		// Historical migrations may contain goose Up/Down directives even though
+		// this project uses its own runner. Execute only the Up section, while the
+		// checksum above intentionally remains based on the complete source file.
+		executionSQL := migrationSQLForExecution(content)
+		nonTx, err := validateMigrationExecutionMode(name, executionSQL)
 		if err != nil {
 			return fmt.Errorf("validate migration %s: %w", name, err)
 		}
@@ -235,7 +241,7 @@ func applyMigrationsFS(ctx context.Context, db *sql.DB, fsys fs.FS) error {
 
 			// *_notx.sql：用于 CREATE/DROP INDEX CONCURRENTLY 场景，必须非事务执行。
 			// 逐条语句执行，避免将多条 CONCURRENTLY 语句放入同一个隐式事务块。
-			statements := splitSQLStatements(content)
+			statements := splitSQLStatements(executionSQL)
 			for i, stmt := range statements {
 				trimmed := strings.TrimSpace(stmt)
 				if trimmed == "" {
@@ -261,7 +267,7 @@ func applyMigrationsFS(ctx context.Context, db *sql.DB, fsys fs.FS) error {
 		}
 
 		// 执行迁移 SQL
-		if _, err := tx.ExecContext(ctx, content); err != nil {
+		if _, err := tx.ExecContext(ctx, executionSQL); err != nil {
 			_ = tx.Rollback()
 			return fmt.Errorf("apply migration %s: %w", name, err)
 		}
@@ -282,6 +288,34 @@ func applyMigrationsFS(ctx context.Context, db *sql.DB, fsys fs.FS) error {
 	return nil
 }
 
+// migrationSQLForExecution returns the forward section of a goose-formatted
+// migration. Unmarked migrations retain the existing full-file behavior.
+// Directives are recognized only when they occupy a complete comment line, so
+// directive-like text inside SQL strings is left untouched.
+func migrationSQLForExecution(content string) string {
+	lines := strings.Split(strings.ReplaceAll(content, "\r\n", "\n"), "\n")
+	upStart := -1
+	for i, line := range lines {
+		directive := strings.ToLower(strings.TrimSpace(line))
+		if directive == "-- +goose up" {
+			upStart = i + 1
+			break
+		}
+	}
+	if upStart < 0 {
+		return content
+	}
+
+	downStart := len(lines)
+	for i := upStart; i < len(lines); i++ {
+		if strings.ToLower(strings.TrimSpace(lines[i])) == "-- +goose down" {
+			downStart = i
+			break
+		}
+	}
+	return strings.TrimSpace(strings.Join(lines[upStart:downStart], "\n"))
+}
+
 type migrationConnection interface {
 	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
 	QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error)
@@ -299,6 +333,8 @@ func prepareNonTransactionalMigration(ctx context.Context, db migrationConnectio
 		return dropInvalidIndexIfPresent(ctx, db, latestAPIKeyIPIndex)
 	case usageLogsUpstreamModelMismatchIndexMigration:
 		return dropInvalidIndexIfPresent(ctx, db, usageLogsUpstreamModelMismatchIndex)
+	case internalChatAPIKeyUniqueIndexMigration:
+		return dropInvalidIndexIfPresent(ctx, db, internalChatAPIKeyUniqueIndex)
 	default:
 		return nil
 	}

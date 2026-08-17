@@ -119,32 +119,36 @@ type JWTConfig struct {
 }
 
 const (
-	adminBootstrapReasonEmptyDatabase          = "empty_database"
-	adminBootstrapReasonAdminExists            = "admin_exists"
-	adminBootstrapReasonUsersExistWithoutAdmin = "users_exist_without_admin"
+	adminBootstrapReasonEmptyDatabase           = "empty_database"
+	adminBootstrapReasonAdminExists             = "admin_exists"
+	adminBootstrapReasonConfiguredAdminMismatch = "configured_admin_mismatch"
 )
 
 type adminBootstrapDecision struct {
 	shouldCreate bool
+	canProceed   bool
 	reason       string
 }
 
-func decideAdminBootstrap(totalUsers, adminUsers int64) adminBootstrapDecision {
-	if adminUsers > 0 {
+func decideAdminBootstrap(totalUsers, configuredAdminMatches int64) adminBootstrapDecision {
+	if totalUsers == 0 && configuredAdminMatches == 0 {
+		return adminBootstrapDecision{
+			shouldCreate: true,
+			canProceed:   true,
+			reason:       adminBootstrapReasonEmptyDatabase,
+		}
+	}
+	if totalUsers > 0 && configuredAdminMatches == 1 {
 		return adminBootstrapDecision{
 			shouldCreate: false,
+			canProceed:   true,
 			reason:       adminBootstrapReasonAdminExists,
 		}
 	}
-	if totalUsers > 0 {
-		return adminBootstrapDecision{
-			shouldCreate: false,
-			reason:       adminBootstrapReasonUsersExistWithoutAdmin,
-		}
-	}
 	return adminBootstrapDecision{
-		shouldCreate: true,
-		reason:       adminBootstrapReasonEmptyDatabase,
+		shouldCreate: false,
+		canProceed:   false,
+		reason:       adminBootstrapReasonConfiguredAdminMismatch,
 	}
 }
 
@@ -302,6 +306,9 @@ func Install(cfg *SetupConfig) error {
 	if !NeedsSetup() {
 		return fmt.Errorf("system is already installed, re-installation is not allowed")
 	}
+	if err := validateSetupCredentials(cfg); err != nil {
+		return err
+	}
 
 	// Generate JWT secret if not provided
 	if cfg.JWT.Secret == "" {
@@ -341,7 +348,58 @@ func Install(cfg *SetupConfig) error {
 	if err := createInstallLock(); err != nil {
 		return fmt.Errorf("failed to create install lock: %w", err)
 	}
+	if err := removeBootstrapToken(); err != nil {
+		logger.LegacyPrintf("setup", "warning: failed to remove spent setup bootstrap token: %v", err)
+	}
 
+	return nil
+}
+
+func validateSetupCredentials(cfg *SetupConfig) error {
+	if cfg == nil {
+		return fmt.Errorf("setup configuration is required")
+	}
+	if !validateHostname(strings.TrimSpace(cfg.Database.Host)) {
+		return fmt.Errorf("invalid database hostname")
+	}
+	if !validatePort(cfg.Database.Port) {
+		return fmt.Errorf("invalid database port")
+	}
+	if !validateUsername(strings.TrimSpace(cfg.Database.User)) {
+		return fmt.Errorf("invalid database username")
+	}
+	if !validateDBName(strings.TrimSpace(cfg.Database.DBName)) {
+		return fmt.Errorf("invalid database name")
+	}
+	if !validateSSLMode(strings.TrimSpace(cfg.Database.SSLMode)) {
+		return fmt.Errorf("invalid database ssl mode")
+	}
+	if !validateHostname(strings.TrimSpace(cfg.Redis.Host)) {
+		return fmt.Errorf("invalid redis hostname")
+	}
+	if !validatePort(cfg.Redis.Port) {
+		return fmt.Errorf("invalid redis port")
+	}
+	if cfg.Redis.DB < 0 || cfg.Redis.DB > 15 {
+		return fmt.Errorf("invalid redis database number")
+	}
+	if len(cfg.Redis.Username) > 128 {
+		return fmt.Errorf("invalid redis username")
+	}
+	if !validateEmail(strings.TrimSpace(cfg.Admin.Email)) {
+		return fmt.Errorf("invalid admin email")
+	}
+	// An automatically generated administrator credential must never be written
+	// to process/container logs. Interactive and automated setup both provide it.
+	if err := validatePassword(cfg.Admin.Password); err != nil {
+		return fmt.Errorf("invalid admin password: %w", err)
+	}
+	if cfg.Server.Host != "" && !validateHostname(strings.TrimSpace(cfg.Server.Host)) {
+		return fmt.Errorf("invalid server hostname")
+	}
+	if cfg.Server.Port != 0 && !validatePort(cfg.Server.Port) {
+		return fmt.Errorf("invalid server port")
+	}
 	return nil
 }
 
@@ -402,32 +460,50 @@ func createAdminUser(cfg *SetupConfig) (bool, string, error) {
 	// 使用超时上下文避免安装流程因数据库异常而长时间阻塞。
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
+	return createAdminUserWithDB(ctx, db, cfg)
+}
 
-	var totalUsers int64
-	if err := db.QueryRowContext(ctx, "SELECT COUNT(1) FROM users").Scan(&totalUsers); err != nil {
+// The total deliberately includes deleted rows: any historical user data means
+// this is not a brand-new database and setup must not silently claim ownership.
+const configuredAdminStateQuery = `SELECT
+	COUNT(1),
+	COUNT(1) FILTER (
+		WHERE LOWER(TRIM(email)) = $1
+		  AND role IN ($2, $3)
+		  AND status = $4
+		  AND deleted_at IS NULL
+	)
+FROM users`
+
+func createAdminUserWithDB(ctx context.Context, db *sql.DB, cfg *SetupConfig) (bool, string, error) {
+	// Email identity throughout the authentication path is case-insensitive and
+	// whitespace-trimmed. Recovery must match that same canonical identity, not
+	// merely the presence of an unrelated administrator.
+	configuredEmail := strings.ToLower(strings.TrimSpace(cfg.Admin.Email))
+	var totalUsers, configuredAdminMatches int64
+	if err := db.QueryRowContext(
+		ctx,
+		configuredAdminStateQuery,
+		configuredEmail,
+		service.RoleAdmin,
+		service.RoleAdminProvider,
+		service.StatusActive,
+	).Scan(&totalUsers, &configuredAdminMatches); err != nil {
 		return false, "", err
 	}
-	var adminUsers int64
-	if err := db.QueryRowContext(ctx, "SELECT COUNT(1) FROM users WHERE role IN ($1, $2)", service.RoleAdmin, service.RoleAdminProvider).Scan(&adminUsers); err != nil {
-		return false, "", err
+	decision := decideAdminBootstrap(totalUsers, configuredAdminMatches)
+	if !decision.canProceed {
+		return false, decision.reason, fmt.Errorf(
+			"existing database does not contain exactly one active, non-deleted administrator matching configured email %q",
+			strings.TrimSpace(cfg.Admin.Email),
+		)
 	}
-	decision := decideAdminBootstrap(totalUsers, adminUsers)
 	if !decision.shouldCreate {
 		return false, decision.reason, nil
 	}
 
-	if strings.TrimSpace(cfg.Admin.Password) == "" {
-		password, genErr := generateSecret(16)
-		if genErr != nil {
-			return false, "", fmt.Errorf("failed to generate admin password: %w", genErr)
-		}
-		cfg.Admin.Password = password
-		fmt.Printf("Generated admin password (one-time): %s\n", cfg.Admin.Password)
-		fmt.Println("IMPORTANT: Save this password! It will not be shown again.")
-	}
-
 	admin := &service.User{
-		Email:       cfg.Admin.Email,
+		Email:       strings.TrimSpace(cfg.Admin.Email),
 		Role:        service.RoleAdmin,
 		Status:      service.StatusActive,
 		Balance:     0,
@@ -440,7 +516,7 @@ func createAdminUser(cfg *SetupConfig) (bool, string, error) {
 		return false, "", err
 	}
 
-	_, err = db.ExecContext(
+	_, err := db.ExecContext(
 		ctx,
 		`INSERT INTO users (email, password_hash, role, balance, concurrency, status, created_at, updated_at)
 		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
@@ -466,7 +542,8 @@ func writeConfigFile(cfg *SetupConfig) error {
 		tz = "Asia/Shanghai"
 	}
 
-	// Prepare config for YAML (exclude sensitive data and admin config)
+	// Persist the administrator identity so binary/web installs can recognize
+	// the super-admin after restart, but never persist the bootstrap password.
 	yamlConfig := struct {
 		Server   ServerConfig   `yaml:"server"`
 		Database DatabaseConfig `yaml:"database"`
@@ -476,6 +553,7 @@ func writeConfigFile(cfg *SetupConfig) error {
 			ExpireHour int    `yaml:"expire_hour"`
 		} `yaml:"jwt"`
 		Default struct {
+			AdminEmail      string  `yaml:"admin_email"`
 			UserConcurrency int     `yaml:"user_concurrency"`
 			UserBalance     float64 `yaml:"user_balance"`
 			APIKeyPrefix    string  `yaml:"api_key_prefix"`
@@ -498,11 +576,13 @@ func writeConfigFile(cfg *SetupConfig) error {
 			ExpireHour: cfg.JWT.ExpireHour,
 		},
 		Default: struct {
+			AdminEmail      string  `yaml:"admin_email"`
 			UserConcurrency int     `yaml:"user_concurrency"`
 			UserBalance     float64 `yaml:"user_balance"`
 			APIKeyPrefix    string  `yaml:"api_key_prefix"`
 			RateMultiplier  float64 `yaml:"rate_multiplier"`
 		}{
+			AdminEmail:      strings.TrimSpace(cfg.Admin.Email),
 			UserConcurrency: defaultUserConcurrency,
 			UserBalance:     0,
 			APIKeyPrefix:    "sk-",
@@ -608,6 +688,9 @@ func AutoSetupFromEnv() error {
 		Timezone:                tz,
 		MigrationTimeoutSeconds: getEnvIntOrDefault("SETUP_MIGRATION_TIMEOUT_SECONDS", 0),
 	}
+	if err := validateSetupCredentials(cfg); err != nil {
+		return err
+	}
 
 	// Generate JWT secret if not provided
 	if cfg.JWT.Secret == "" {
@@ -651,9 +734,7 @@ func AutoSetupFromEnv() error {
 	} else {
 		switch reason {
 		case adminBootstrapReasonAdminExists:
-			logger.LegacyPrintf("setup", "%s", "Admin user already exists, skipping admin bootstrap")
-		case adminBootstrapReasonUsersExistWithoutAdmin:
-			logger.LegacyPrintf("setup", "%s", "Database already has user data; skipping auto admin bootstrap to avoid password overwrite")
+			logger.LegacyPrintf("setup", "%s", "Configured active admin already exists, skipping admin bootstrap")
 		default:
 			logger.LegacyPrintf("setup", "%s", "Admin bootstrap skipped")
 		}
@@ -671,6 +752,9 @@ func AutoSetupFromEnv() error {
 		return fmt.Errorf("failed to create install lock: %w", err)
 	}
 	logger.LegacyPrintf("setup", "%s", "Installation lock created")
+	if err := removeBootstrapToken(); err != nil {
+		logger.LegacyPrintf("setup", "warning: failed to remove spent setup bootstrap token: %v", err)
+	}
 
 	logger.LegacyPrintf("setup", "%s", "Auto setup completed successfully!")
 	return nil

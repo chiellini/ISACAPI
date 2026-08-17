@@ -1,12 +1,18 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   PAYMENT_CURRENCY_OPTIONS,
   PROVIDER_CONFIG_FIELDS,
   isBuiltInAlipayMethod,
   isBuiltInWxpayMethod,
+  openPaymentPopup,
   parseEasyPayCustomMethods,
+  sanitizePaymentNavigationUrl,
   serializeEasyPayCustomMethods,
 } from '@/components/payment/providerConfig'
+
+afterEach(() => {
+  vi.restoreAllMocks()
+})
 
 function findField(providerKey: string, key: string) {
   const fields = PROVIDER_CONFIG_FIELDS[providerKey] || []
@@ -91,5 +97,42 @@ describe('built-in payment method helpers', () => {
     expect(isBuiltInWxpayMethod('wxpay')).toBe(true)
     expect(isBuiltInWxpayMethod('wxpay_direct')).toBe(true)
     expect(isBuiltInWxpayMethod('card_wxpay')).toBe(false)
+  })
+})
+
+describe('payment navigation security', () => {
+  it('accepts only HTTP(S) and same-site relative payment URLs', () => {
+    expect(sanitizePaymentNavigationUrl('/payment/stripe?order_id=1')).toBe('/payment/stripe?order_id=1')
+    expect(sanitizePaymentNavigationUrl('https://pay.example.com/session/1')).toBe('https://pay.example.com/session/1')
+    expect(sanitizePaymentNavigationUrl('javascript:alert(1)')).toBe('')
+    expect(sanitizePaymentNavigationUrl('data:text/html,<script>alert(1)</script>')).toBe('')
+    expect(sanitizePaymentNavigationUrl('//attacker.example/session')).toBe('')
+    expect(sanitizePaymentNavigationUrl('/\\attacker.example/session')).toBe('')
+  })
+
+  it('does not open an invalid payment URL', () => {
+    const open = vi.spyOn(window, 'open').mockReturnValue(null)
+
+    expect(openPaymentPopup('javascript:alert(1)')).toBeNull()
+    expect(open).not.toHaveBeenCalled()
+  })
+
+  it('detaches a cross-origin payment popup from its opener', () => {
+    const replace = vi.fn()
+    const popup = { opener: window, close: vi.fn(), location: { replace } } as unknown as Window
+    vi.spyOn(window, 'open').mockReturnValue(popup)
+
+    expect(openPaymentPopup('https://pay.example.com/session/1')).toBe(popup)
+    expect(popup.opener).toBeNull()
+    expect(replace).toHaveBeenCalledWith('https://pay.example.com/session/1')
+  })
+
+  it('retains the opener for same-origin Stripe messaging routes', () => {
+    const opener = window
+    const popup = { opener, close: vi.fn() } as unknown as Window
+    vi.spyOn(window, 'open').mockReturnValue(popup)
+
+    expect(openPaymentPopup('/payment/stripe-popup?order_id=1')).toBe(popup)
+    expect(popup.opener).toBe(opener)
   })
 })

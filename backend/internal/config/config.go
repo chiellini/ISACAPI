@@ -805,6 +805,10 @@ type URLAllowlistConfig struct {
 	PricingHosts      []string `mapstructure:"pricing_hosts"`
 	CRSHosts          []string `mapstructure:"crs_hosts"`
 	AllowPrivateHosts bool     `mapstructure:"allow_private_hosts"`
+	// TrustUpstreamProxy permits account-level HTTP/SOCKS proxies even though
+	// the application cannot resolve and pin the final destination IP itself.
+	// Scheme, hostname allowlist, and redirect policy remain enforced.
+	TrustUpstreamProxy bool `mapstructure:"trust_upstream_proxy"`
 	// 关闭 URL 白名单校验时，是否允许 http URL（默认只允许 https）
 	AllowInsecureHTTP bool `mapstructure:"allow_insecure_http"`
 }
@@ -2034,32 +2038,46 @@ func setDefaults() {
 	viper.SetDefault("webauthn.rp_origins", []string{})
 
 	// Security
-	viper.SetDefault("security.url_allowlist.enabled", false)
+	viper.SetDefault("security.url_allowlist.enabled", true)
 	viper.SetDefault("security.url_allowlist.upstream_hosts", []string{
 		"api.openai.com",
+		"chatgpt.com",
 		"api.anthropic.com",
+		"api.x.ai",
+		"*.api.x.ai",
+		"vidgen.x.ai",
+		"cli-chat-proxy.grok.com",
 		"api.kimi.com",
 		"api.moonshot.ai",
 		"api.moonshot.cn",
 		"open.bigmodel.cn",
 		"api.minimaxi.com",
+		"api.minimax.io",
+		"api.deepseek.com",
 		"generativelanguage.googleapis.com",
 		"cloudcode-pa.googleapis.com",
+		"daily-cloudcode-pa.sandbox.googleapis.com",
+		"aiplatform.googleapis.com",
+		"*.aiplatform.googleapis.com",
+		"ollama.com",
+		"www.ollama.com",
 		"*.openai.azure.com",
+		"bedrock-runtime.*.amazonaws.com",
 	})
 	viper.SetDefault("security.url_allowlist.pricing_hosts", []string{
 		"raw.githubusercontent.com",
 	})
 	viper.SetDefault("security.url_allowlist.crs_hosts", []string{})
-	viper.SetDefault("security.url_allowlist.allow_private_hosts", true)
-	viper.SetDefault("security.url_allowlist.allow_insecure_http", true)
+	viper.SetDefault("security.url_allowlist.allow_private_hosts", false)
+	viper.SetDefault("security.url_allowlist.trust_upstream_proxy", false)
+	viper.SetDefault("security.url_allowlist.allow_insecure_http", false)
 	viper.SetDefault("security.response_headers.enabled", true)
 	viper.SetDefault("security.response_headers.additional_allowed", []string{})
 	viper.SetDefault("security.response_headers.force_remove", []string{})
 	viper.SetDefault("security.csp.enabled", true)
 	viper.SetDefault("security.csp.policy", DefaultCSPPolicy)
 	viper.SetDefault("security.proxy_probe.insecure_skip_verify", false)
-	viper.SetDefault("security.trust_forwarded_ip_for_api_key_acl", true)
+	viper.SetDefault("security.trust_forwarded_ip_for_api_key_acl", false)
 
 	// Security - disable direct fallback on proxy error
 	viper.SetDefault("security.proxy_fallback.allow_direct_on_error", false)

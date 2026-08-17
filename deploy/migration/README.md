@@ -101,7 +101,7 @@ cd <部署目录>/deploy        # 例如 ~/sub2api/deploy
 sudo bash migration/backup-old-server.sh
 ```
 产物：`~/sub2api-migration-<时间戳>.tar.gz`。
-脚本同时把当前镜像 digest 记入包内 `image-digests.txt`（`weishaw/sub2api:latest` 在新机可能拉到更新版本，出问题可按 digest 回退）。
+脚本同时把当前镜像 digest 记入包内 `image-digests.txt`，用于验证新机的显式 `IMAGE_TAG` 对应相同制品，出问题可按 digest 回退。
 
 若要推迟迁移/回滚，旧机直接重启即可：`docker compose -f <compose文件> up -d`
 

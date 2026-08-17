@@ -62,6 +62,7 @@
                 <input v-model="adoptAvatar" type="checkbox" class="mt-1 h-4 w-4" />
                 <img
                   :src="suggestedAvatarUrl"
+                  referrerpolicy="no-referrer"
                   :alt="t('auth.oauthFlow.avatarAlt', { providerName })"
                   class="h-10 w-10 rounded-full border border-gray-200 object-cover dark:border-dark-600"
                 />
@@ -269,6 +270,7 @@ import {
   loadOAuthAffiliateCode,
   oauthAffiliatePayload
 } from '@/utils/oauthAffiliate'
+import { sanitizeImageUrl } from '@/utils/url'
 
 const route = useRoute()
 const router = useRouter()
@@ -437,7 +439,10 @@ function applyAdoptionSuggestionState(completion: {
 }) {
   adoptionRequired.value = completion.adoption_required === true
   suggestedDisplayName.value = completion.suggested_display_name || ''
-  suggestedAvatarUrl.value = completion.suggested_avatar_url || ''
+  suggestedAvatarUrl.value = sanitizeImageUrl(completion.suggested_avatar_url || '', {
+    allowRelative: true,
+    allowDataUrl: true,
+  })
 
   if (!suggestedDisplayName.value) {
     adoptDisplayName.value = false

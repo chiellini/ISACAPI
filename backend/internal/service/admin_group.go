@@ -1071,6 +1071,9 @@ func (s *adminServiceImpl) AdminUpdateAPIKeyGroupID(ctx context.Context, keyID i
 	if err != nil {
 		return nil, err
 	}
+	if isInternalChatKeyName(apiKey.Name) {
+		return nil, ErrReservedAPIKeyName
+	}
 
 	if groupID == nil {
 		// nil 表示不修改，直接返回
@@ -1174,6 +1177,9 @@ func (s *adminServiceImpl) AdminResetAPIKeyRateLimitUsage(ctx context.Context, k
 	apiKey, err := s.apiKeyRepo.GetByID(ctx, keyID)
 	if err != nil {
 		return nil, err
+	}
+	if isInternalChatKeyName(apiKey.Name) {
+		return nil, ErrReservedAPIKeyName
 	}
 	apiKey.Usage5h = 0
 	apiKey.Usage1d = 0

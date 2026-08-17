@@ -35,6 +35,7 @@ import riskControlAPI from './riskControl'
 import conversationsAPI from './conversations'
 import adminComplianceAPI from './compliance'
 import auditAPI from './audit'
+import chatPolicyAPI from './chatPolicy'
 
 /**
  * Unified admin API object for convenient access
@@ -71,7 +72,8 @@ export const adminAPI = {
   riskControl: riskControlAPI,
   conversations: conversationsAPI,
   compliance: adminComplianceAPI,
-  audit: auditAPI
+  audit: auditAPI,
+  chatPolicy: chatPolicyAPI
 }
 
 export {
@@ -106,7 +108,8 @@ export {
   riskControlAPI,
   conversationsAPI,
   adminComplianceAPI,
-  auditAPI
+  auditAPI,
+  chatPolicyAPI
 }
 
 export default adminAPI
@@ -118,3 +121,4 @@ export type { ErrorPassthroughRule, CreateRuleRequest, UpdateRuleRequest } from 
 export type { BackupAgentHealth, DataManagementConfig } from './dataManagement'
 export type { TLSFingerprintProfile, CreateProfileRequest, UpdateProfileRequest } from './tlsFingerprintProfile'
 export type { ContentModerationConfig, ContentModerationLog, ModerationMode } from './riskControl'
+export type { ChatPolicy, ChatProfile, ChatSkill, ChatProvider, ChatCapabilities } from './chatPolicy'

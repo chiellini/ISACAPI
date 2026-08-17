@@ -102,12 +102,15 @@ Nginx 默认会丢弃名称中含下划线的请求头（如 `session_id`），�
 #### 安装步骤
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/chiellini/ISACAPI/main/deploy/install.sh | sudo bash
+# 将 X.Y.Z 替换为已审核的发布版本。
+ISACAPI_VERSION=X.Y.Z
+curl -fsSL "https://raw.githubusercontent.com/chiellini/ISACAPI/v${ISACAPI_VERSION}/deploy/install.sh" \
+  | sudo bash -s -- install --version "v${ISACAPI_VERSION}"
 ```
 
 脚本会自动：
 1. 检测系统架构
-2. 下载最新版本
+2. 下载明确指定的版本
 3. 安装二进制文件到 `/opt/sub2api`
 4. 创建 systemd 服务
 5. 配置系统用户和权限
@@ -121,8 +124,12 @@ sudo systemctl start sub2api
 # 2. 设置开机自启
 sudo systemctl enable sub2api
 
-# 3. 在浏览器中打开设置向导
-# http://你的服务器IP:8080
+# 3. 在工作站建立 SSH 隧道（设置向导默认仅监听回环地址）
+ssh -N -L 8080:127.0.0.1:8080 <user>@<server>
+# 然后在本机打开 http://127.0.0.1:8080
+
+# 在服务器读取一次性令牌并粘贴到设置向导
+sudo cat /opt/sub2api/.setup-token
 ```
 
 设置向导将引导你完成：
@@ -152,7 +159,7 @@ sudo journalctl -u sub2api -f
 sudo systemctl restart sub2api
 
 # 卸载
-curl -sSL https://raw.githubusercontent.com/chiellini/ISACAPI/main/deploy/install.sh | sudo bash -s -- uninstall -y
+curl -fsSL https://raw.githubusercontent.com/chiellini/ISACAPI/vX.Y.Z/deploy/install.sh | sudo bash -s -- uninstall -y
 ```
 
 ---
@@ -174,8 +181,11 @@ curl -sSL https://raw.githubusercontent.com/chiellini/ISACAPI/main/deploy/instal
 # 创建部署目录
 mkdir -p sub2api-deploy && cd sub2api-deploy
 
-# 下载并运行部署准备脚本
-curl -sSL https://raw.githubusercontent.com/chiellini/ISACAPI/main/deploy/docker-deploy.sh | bash
+# 将部署文件和容器镜像锁定到同一发布版本
+# 将 X.Y.Z 替换为已审核的发布版本。
+ISACAPI_VERSION=X.Y.Z
+curl -fsSL "https://raw.githubusercontent.com/chiellini/ISACAPI/v${ISACAPI_VERSION}/deploy/docker-deploy.sh" \
+  | IMAGE_TAG="${ISACAPI_VERSION}" bash
 
 # 启动服务
 docker compose up -d
@@ -186,10 +196,11 @@ docker compose logs -f sub2api
 
 **脚本功能：**
 - 下载 `docker-compose.local.yml`（本地保存为 `docker-compose.yml`）和 `.env.example`
-- 自动生成安全凭证（JWT_SECRET、TOTP_ENCRYPTION_KEY、POSTGRES_PASSWORD）
+- 自动生成安全凭证（JWT_SECRET、TOTP_ENCRYPTION_KEY、POSTGRES_PASSWORD、ADMIN_PASSWORD）
 - 创建 `.env` 文件并填充自动生成的密钥
 - 创建数据目录（使用本地目录，便于备份和迁移）
-- 显示生成的凭证供你记录
+- 生成的凭证仅写入权限为 `0600` 的 `.env`，不在终端打印密钥值
+- 再次运行时先备份现有 `.env` 与 Compose 文件，保留全部凭证，只更新明确选择的 `IMAGE_TAG`
 
 #### 手动部署
 
@@ -214,13 +225,17 @@ nano .env
 # PostgreSQL 密码（必需）
 POSTGRES_PASSWORD=your_secure_password_here
 
+# 固定且已审核的应用版本（首次启动前必须设置，不可使用 latest）
+IMAGE_REPOSITORY=ghcr.io/chiellini/sub2api
+IMAGE_TAG=X.Y.Z
+
 # JWT 密钥（推荐 - 重启后保持用户登录状态）
 JWT_SECRET=your_jwt_secret_here
 
 # TOTP 加密密钥（推荐 - 重启后保留双因素认证）
 TOTP_ENCRYPTION_KEY=your_totp_key_here
 
-# 可选：管理员账号
+# 首次启动前必须设置：管理员账号
 ADMIN_EMAIL=admin@example.com
 ADMIN_PASSWORD=your_admin_password
 
@@ -237,6 +252,9 @@ openssl rand -hex 32
 openssl rand -hex 32
 
 # 生成 POSTGRES_PASSWORD
+openssl rand -hex 32
+
+# 生成首次登录使用的 ADMIN_PASSWORD
 openssl rand -hex 32
 ```
 
@@ -281,20 +299,29 @@ docker compose -f docker-compose.local.yml logs -f sub2api
 
 #### 访问
 
-在浏览器中打开 `http://你的服务器IP:8080`
+生产模板默认绑定 `127.0.0.1`。远程访问时，在工作站运行
+`ssh -N -L 8080:127.0.0.1:8080 <user>@<server>`，然后打开
+`http://127.0.0.1:8080`。只有在受信任 TLS 反向代理/防火墙保护后才绑定 `0.0.0.0`。
 
-如果管理员密码是自动生成的，在日志中查找：
+一键部署会把管理员密码仅写入权限为 `0600` 的 `.env`。在服务器本机读取，并在首次登录后轮换：
 ```bash
-docker compose -f docker-compose.local.yml logs sub2api | grep "admin password"
+grep '^ADMIN_PASSWORD=' .env
 ```
 
 #### 升级
 
 ```bash
-# 拉取最新镜像并重建容器
+# 重新运行对应的已审核部署脚本；脚本创建私有的
+# .isacapi-deploy-backup-* 目录，且不会轮换现有密钥。
+ISACAPI_VERSION=X.Y.Z
+curl -fsSL "https://raw.githubusercontent.com/chiellini/ISACAPI/v${ISACAPI_VERSION}/deploy/docker-deploy.sh" \
+  | DEPLOY_OVERWRITE=1 IMAGE_TAG="${ISACAPI_VERSION}" bash
 docker compose -f docker-compose.local.yml pull
 docker compose -f docker-compose.local.yml up -d
 ```
+
+现有部署若丢失 `.env`，切勿重新生成。请先从备份恢复原文件；其中的凭证与数据库、
+登录会话及已加密的 TOTP 数据绑定。
 
 #### 轻松迁移（本地目录版）
 
@@ -339,9 +366,9 @@ rm -rf data/ postgres_data/ redis_data/
 Apple 芯片 Mac 在 macOS 26 上可使用 Apple `container` 1.1.0 或更高版本运行完整的 Sub2API、PostgreSQL 和 Redis：
 
 ```bash
-git clone https://github.com/Wei-Shaw/sub2api.git
-cd sub2api/deploy
-./apple-container.sh init
+git clone https://github.com/chiellini/ISACAPI.git
+cd ISACAPI/deploy
+IMAGE_TAG=X.Y.Z ./apple-container.sh init
 ./apple-container.sh up
 ./apple-container.sh status
 ```
@@ -471,19 +498,26 @@ gateway:
 
 **⚠️ 安全警告：HTTP URL 配置**
 
-当 `security.url_allowlist.enabled=false` 时，系统仅执行最小 URL 校验，且**默认允许 HTTP URL**（开发友好模式，Docker Compose 部署的默认值一致）。生产环境建议显式收紧为仅允许 HTTPS：
+生产部署模板默认开启 URL 白名单、禁止私网主机并仅允许 HTTPS。
+只应在单独的本地开发 override 中放宽这些限制，并先审核目标地址：
 
 ```yaml
 security:
   url_allowlist:
-    enabled: false                # 禁用白名单检查
-    allow_insecure_http: false    # 仅允许 HTTPS（生产环境推荐）
+    enabled: true
+    allow_private_hosts: false
+    allow_insecure_http: false
 ```
+
+自定义上游不会被自动信任：必须将精确主机名（或审核后的 `*.example.com`
+后缀）显式追加到 `security.url_allowlist.upstream_hosts`。私网或本地上游还必须设置
+`allow_private_hosts: true`，且只能在可信网络中启用。
 
 **或通过环境变量：**
 
 ```bash
-SECURITY_URL_ALLOWLIST_ENABLED=false
+SECURITY_URL_ALLOWLIST_ENABLED=true
+SECURITY_URL_ALLOWLIST_ALLOW_PRIVATE_HOSTS=false
 SECURITY_URL_ALLOWLIST_ALLOW_INSECURE_HTTP=false
 ```
 
