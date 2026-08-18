@@ -4,6 +4,11 @@
 适用场景：换机器、换 AWS 账号、换云厂商。新机反向代理与 TLS 准备好后，
 DNS 在 Cloudflare 等第三方时通常只需切换 A/AAAA 记录。
 
+当前这台生产服务器的 Compose、数据挂载、端口、Nginx、请求体/超时和 TLS
+基线已记录在 [`CURRENT_SERVER.md`](CURRENT_SERVER.md)。迁移前先复核该文件；
+其中明确区分了线上实际的 `50M / 900s / 75s` 和仓库推荐模板的
+`256m / 3600s / 3600s`，不得混淆。
+
 ## 推荐：一键 rsync 迁移
 
 `rsync-migrate.sh` 会自动完成：本地/远端预检、传输当前精确 Docker 镜像、
@@ -51,7 +56,8 @@ SSH 用户需为 root 或拥有无需交互密码的 sudo。默认目标目录�
 流量指向新机。否则目标验活失败并回启旧机时，新机期间的写入不会自动反向迁回。
 
 脚本迁移整个项目，但排除 `.cache`、`.git` 和 `node_modules`；这些都不是
-运行数据。`.env`、`data`、`postgres_data`、`redis_data` 会完整迁移。
+运行数据。`.env`、`data`（含权限为 `0600` 的 `data/config.yaml`）、
+`postgres_data`、`redis_data` 会完整迁移。
 
 > 当前部署使用 `docker-compose.local.yml` + `docker-compose.build.yml` 和本地
 > `sub2api:local` 镜像。新脚本会把实际运行的镜像一并传走，避免新机误用
@@ -84,7 +90,8 @@ rsync 脚本。
 
 ### 1. 准备新机
 - 规格 ≥ 旧机，磁盘 ≥ 数据量 × 2；安全组放行 80/443（SSH 22 限自己 IP）
-- 在切 DNS 前安装并配置 Nginx/Caddy/Tunnel/LB 和 TLS 证书；应用本身只暴露 8080
+- 按 [`CURRENT_SERVER.md`](CURRENT_SERVER.md) 恢复 Nginx、请求体/超时、
+  TLS 和自动续期；应用宿主机虽绑定 8080，但安全组不得向公网开放
 - 安装 Docker + Compose plugin：
   ```bash
   # Amazon Linux 2023
@@ -118,16 +125,19 @@ sudo bash restore-new-server.sh ~/sub2api-migration-<时间戳>.tar.gz /home/ec2
 第二个参数是目标父目录（默认 `/home/isacai/ISACAPI`，按需指定）。
 脚本启动后轮询 `http://localhost:8080/health`，最多等 150 秒，就绪时打印 `[OK]`。
 
-### 5. 切 DNS
-先确认新机的 Nginx/Caddy/Tunnel/LB 能通过正式域名和 HTTPS 访问，再把
-Cloudflare 的 A/AAAA 记录改为新机公网 IP，并保持所需的代理/TLS 模式。
+### 5. 恢复宿主机入口并切 DNS
+`rsync-migrate.sh` 不迁移 `/etc/nginx`、`/etc/letsencrypt`、systemd 定时任务、
+安全组或 DNS。按 [`CURRENT_SERVER.md`](CURRENT_SERVER.md) 安装并验证 Nginx、
+证书和 Certbot 自动续期；先用新机 IP/本地 Host 映射验证，再把 Cloudflare 等
+DNS 服务商的 A/AAAA 记录改为新机公网 IP，并保持所需的代理/TLS 模式。
 
 ### 6. 验证清单
 1. `docker compose ps` 三个容器全部 healthy
-2. 用**旧密码**登录管理后台——能登录说明 `.env` 里的 `JWT_SECRET` 带对了
-3. 「账号管理」确认上游账号状态正常
-4. 用现有 API key 发一条测试请求，在请求日志里看到成功记录
-5. 确认新机出站能连上游（Anthropic 等）：个别 IP 段可能被上游风控，若全部 403/超时需换 EIP 或配代理
+2. `sudo nginx -t`、正式域名 `/health` 和 `sudo certbot renew --dry-run` 全部成功
+3. 用**旧密码**登录管理后台——能登录说明 `.env` 里的 `JWT_SECRET` 带对了
+4. 「账号管理」确认上游账号状态正常
+5. 用现有 API key 发一条测试请求，在请求日志里看到成功记录
+6. 确认新机出站能连上游（Anthropic 等）：个别 IP 段可能被上游风控，若全部 403/超时需换 EIP 或配代理
 
 ### 7. 收尾
 旧机保留观察 1–2 天。新机尚未产生写入时，可先停新机再启动旧机；新机
@@ -137,9 +147,9 @@ Cloudflare 的 A/AAAA 记录改为新机公网 IP，并保持所需的代理/TLS
 
 - **必须 sudo**：`postgres_data` 归容器内用户所有且权限为 700，非 root 读不了。脚本已内置检查。
 - **禁止在容器运行中拷贝 `postgres_data`**：数据文件与 WAL 不一致会导致库损坏。备份脚本第一步 `compose down` 就是为此。
-- **`.env` 必须原样带走**（脚本已包含）：`JWT_SECRET` 影响现有登录会话；`TOTP_ENCRYPTION_KEY` 还用于 2FA、监控/API 密钥、备份和支付相关密文；对话归档加密密钥丢失后，历史加密内容无法解密。
+- **`.env` 和 `data/config.yaml` 必须原样带走**（脚本已包含）：`JWT_SECRET` 影响现有登录会话；`TOTP_ENCRYPTION_KEY` 还用于 2FA、监控/API 密钥、备份和支付相关密文；对话归档加密密钥丢失后，历史加密内容无法解密。
 - **Postgres 镜像大版本必须一致**（当前 `postgres:18-alpine`）：大版本不同会拒绝加载旧 PGDATA。
-- **HTTPS 终结**：compose 内应用只监听 8080。当前机器的 Nginx 配置和 Let's Encrypt 证书位于项目目录之外，不在迁移包中；必须在新机另行迁移或重建。
+- **HTTPS 终结**：当前机器的 Nginx 配置和 Let's Encrypt 证书位于项目目录之外，不在迁移包中；按 `CURRENT_SERVER.md` 在新机迁移或重建。
 - **外部守护进程**：若另行启用了 `datamanagementd`，还需单独迁移其 `/var/lib/sub2api/datamanagement/`；当前机器未启用该组件。
 - **Elastic IP 不能跨账号转移**，新 IP 不可避免，靠 DNS 切换。
 - Redis 数据（缓存、sticky session、调度状态等）已包含在迁移中，不应主动丢弃。

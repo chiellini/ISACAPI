@@ -94,7 +94,8 @@ SSH / 目标选项：
 
 脚本会迁移项目文件、PostgreSQL、Redis、data、.env，并传输当前实际
 运行的三个 Docker 镜像。不会迁移 /etc/nginx、/etc/letsencrypt、DNS、
-安全组、EIP 或宿主机定时任务。
+安全组、EIP 或宿主机定时任务；这些项目按
+deploy/migration/CURRENT_SERVER.md 在新机恢复。
 EOF
 }
 
@@ -1008,7 +1009,7 @@ ok "迁移完成；新机服务 healthy，旧机服务保持停止"
 printf '\n'
 printf '新机项目目录: %s\n' "$DEST_DIR"
 printf '下一步：\n'
-printf '  1. 单独配置 Nginx/Certbot；本脚本未迁移 /etc/nginx 和 /etc/letsencrypt。\n'
+printf '  1. 按 deploy/migration/CURRENT_SERVER.md 恢复 Nginx、TLS 和 Certbot 续期。\n'
 printf '  2. 通过新机反向代理做业务验证，再切 DNS。\n'
 printf '  3. 不要同时启动旧机，避免两套数据库分叉。\n'
 printf '  4. 新机产生写入后若要回滚，必须先停新机并反向迁移最新数据。\n'
