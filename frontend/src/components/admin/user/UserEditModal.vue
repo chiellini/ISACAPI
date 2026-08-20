@@ -31,12 +31,12 @@
       </div>
       <div>
         <label class="input-label">{{ t('admin.users.form.roleLabel') }}</label>
-        <select v-if="canEditRoles" v-model="form.role" class="input">
-          <option value="user">{{ t('admin.users.roles.user') }}</option>
-          <option value="provider">{{ t('admin.users.roles.provider') }}</option>
-          <option value="admin">{{ t('admin.users.roles.admin') }}</option>
-          <option value="admin_provider">{{ t('admin.users.roles.admin_provider') }}</option>
-        </select>
+        <Select
+          v-if="canEditRoles"
+          v-model="form.role"
+          :options="roleOptions"
+          :searchable="false"
+        />
         <input v-else :value="t('admin.users.roles.' + form.role)" type="text" class="input" disabled />
       </div>
       <div>
@@ -84,6 +84,7 @@ import { useClipboard } from '@/composables/useClipboard'
 import { adminAPI } from '@/api/admin'
 import type { AdminUser, UserAttributeValuesMap, UserRole } from '@/types'
 import BaseDialog from '@/components/common/BaseDialog.vue'
+import Select from '@/components/common/Select.vue'
 import UserAttributeForm from '@/components/user/UserAttributeForm.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { useStepUp, isStepUpBlocked, isStepUpCancelled, stepUpBlockReason } from '@/composables/useStepUp'
@@ -94,6 +95,12 @@ const emit = defineEmits(['close', 'success'])
 const { t } = useI18n(); const appStore = useAppStore(); const authStore = useAuthStore(); const { copyToClipboard } = useClipboard()
 
 const submitting = ref(false); const passwordCopied = ref(false)
+const roleOptions = computed(() => [
+  { value: 'user', label: t('admin.users.roles.user') },
+  { value: 'provider', label: t('admin.users.roles.provider') },
+  { value: 'admin', label: t('admin.users.roles.admin') },
+  { value: 'admin_provider', label: t('admin.users.roles.admin_provider') }
+])
 const form = reactive({ email: '', password: '', username: '', notes: '', role: 'user' as UserRole, concurrency: 1, rpm_limit: 0, customAttributes: {} as UserAttributeValuesMap })
 const canEditRoles = computed(() => authStore.isSuperAdmin)
 
