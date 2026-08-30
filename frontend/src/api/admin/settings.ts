@@ -727,6 +727,7 @@ export interface SystemSettings {
   model_plaza_enabled: boolean;
   model_plaza_require_auth: boolean;
   model_plaza_description: string;
+  plugin_management_enabled: boolean;
 
   // Public status page switch (no-auth, provider/model aggregated)
   public_status_enabled: boolean;
@@ -1029,6 +1030,7 @@ export interface UpdateSettingsRequest {
   model_plaza_enabled?: boolean;
   model_plaza_require_auth?: boolean;
   model_plaza_description?: string;
+  plugin_management_enabled?: boolean;
 
   // Public status page switch (no-auth, provider/model aggregated)
   public_status_enabled?: boolean;

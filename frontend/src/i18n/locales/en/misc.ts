@@ -394,7 +394,7 @@ export default {
     rechargePricingTitle: 'Top-up and internal pricing',
     rechargePricingRate: 'Current top-up: 1 CNY credits {usd} USD balance. Credited balance = payment amount × {usd}.',
     rechargePricingTokenFormula: 'Token balance follows the benchmark USD price and active group rate; effective CNY = USD balance price ÷ the credited top-up rate.',
-    rechargeRatePreview: '1 CNY credits {usd} USD balance. This credit = payment amount × {usd}',
+    rechargeRatePreview: 'Current rate: 1 {currency} = {usd} USD',
     refundReason: 'Refund Reason',
     refundReasonPlaceholder: 'Please describe your refund reason',
     stripeLoadFailed: 'Failed to load payment component. Please refresh and try again.',
