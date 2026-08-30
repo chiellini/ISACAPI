@@ -418,7 +418,7 @@ export default {
     rechargePricingTitle: '充值与内部计价说明',
     rechargePricingRate: '当前充值：1 元到账 {usd} USD 余额，到账余额 = 充值金额 × {usd}。',
     rechargePricingTokenFormula: 'Token 余额按官网美元基准价与实际分组倍率扣费；人民币实付 = 美元余额价 ÷ 当前充值到账倍率。',
-    rechargeRatePreview: '充值 1 元到账 {usd} USD 余额，本次到账 = 支付金额 × {usd}',
+    rechargeRatePreview: '当前倍率：1 {currency} = {usd} USD',
     refundReason: '退款原因',
     refundReasonPlaceholder: '请描述您的退款原因',
     stripeLoadFailed: '支付组件加载失败，请刷新页面重试',

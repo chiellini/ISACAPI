@@ -8,6 +8,7 @@ import conversations from './conversations'
 import affiliateAdditions from './affiliates'
 import audit from './audit'
 import promptAudit from './promptAudit'
+import plugins from './plugins'
 
 export default {
   ...overview,
@@ -20,4 +21,5 @@ export default {
   affiliates: { ...overview.affiliates, ...affiliateAdditions },
   ...audit,
   ...promptAudit,
+  ...plugins,
 }

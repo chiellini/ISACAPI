@@ -237,6 +237,7 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		SettingKeyModelPlazaEnabled,
 		SettingKeyModelPlazaRequireAuth,
 		SettingKeyPublicStatusEnabled,
+		SettingKeyPluginManagementEnabled,
 		SettingKeyAffiliateEnabled,
 		SettingKeyRiskControlEnabled,
 		SettingKeyAllowUserViewErrorRequests,
@@ -363,8 +364,9 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 
 		AvailableChannelsEnabled: settings[SettingKeyAvailableChannelsEnabled] == "true",
 
-		ModelPlazaEnabled:     settings[SettingKeyModelPlazaEnabled] == "true",
-		ModelPlazaRequireAuth: settings[SettingKeyModelPlazaRequireAuth] == "true",
+		ModelPlazaEnabled:       settings[SettingKeyModelPlazaEnabled] == "true",
+		ModelPlazaRequireAuth:   settings[SettingKeyModelPlazaRequireAuth] == "true",
+		PluginManagementEnabled: settings[SettingKeyPluginManagementEnabled] == "true",
 
 		PublicStatusEnabled: settings[SettingKeyPublicStatusEnabled] == "true",
 
@@ -636,17 +638,18 @@ type PublicSettingsInjectionPayload struct {
 	ChannelMonitorDefaultIntervalSeconds int    `json:"channel_monitor_default_interval_seconds"`
 	// ChannelMonitorHideThroughput is public so the user UI can hide RPM/TPM
 	// without waiting for API redaction alone (defense in depth).
-		ChannelMonitorHideThroughput bool `json:"channel_monitor_hide_throughput"`
-		// ChannelMonitorShowQuota gates the user-facing quota/balance display on
-		// monitors; fail-closed (absent/false = hidden). Admin UI always shows it.
-		ChannelMonitorShowQuota      bool `json:"channel_monitor_show_quota"`
-		AvailableChannelsEnabled     bool `json:"available_channels_enabled"`
-		ModelPlazaEnabled            bool `json:"model_plaza_enabled"`
-		ModelPlazaRequireAuth        bool `json:"model_plaza_require_auth"`
-		PublicStatusEnabled          bool `json:"public_status_enabled"`
-		AffiliateEnabled             bool `json:"affiliate_enabled"`
-		RiskControlEnabled           bool `json:"risk_control_enabled"`
-		AllowUserViewErrorRequests   bool `json:"allow_user_view_error_requests"`
+	ChannelMonitorHideThroughput bool `json:"channel_monitor_hide_throughput"`
+	// ChannelMonitorShowQuota gates the user-facing quota/balance display on
+	// monitors; fail-closed (absent/false = hidden). Admin UI always shows it.
+	ChannelMonitorShowQuota    bool `json:"channel_monitor_show_quota"`
+	AvailableChannelsEnabled   bool `json:"available_channels_enabled"`
+	ModelPlazaEnabled          bool `json:"model_plaza_enabled"`
+	ModelPlazaRequireAuth      bool `json:"model_plaza_require_auth"`
+	PluginManagementEnabled    bool `json:"plugin_management_enabled"`
+	PublicStatusEnabled        bool `json:"public_status_enabled"`
+	AffiliateEnabled           bool `json:"affiliate_enabled"`
+	RiskControlEnabled         bool `json:"risk_control_enabled"`
+	AllowUserViewErrorRequests bool `json:"allow_user_view_error_requests"`
 }
 
 // GetPublicSettingsForInjection returns public settings in a format suitable for HTML injection.
@@ -726,6 +729,7 @@ func (s *SettingService) GetPublicSettingsForInjection(ctx context.Context) (any
 		ModelPlazaEnabled:                    settings.ModelPlazaEnabled,
 		ModelPlazaRequireAuth:                settings.ModelPlazaRequireAuth,
 		PublicStatusEnabled:                  settings.PublicStatusEnabled,
+		PluginManagementEnabled:              settings.PluginManagementEnabled,
 		AffiliateEnabled:                     settings.AffiliateEnabled,
 		RiskControlEnabled:                   settings.RiskControlEnabled,
 		AllowUserViewErrorRequests:           settings.AllowUserViewErrorRequests,
