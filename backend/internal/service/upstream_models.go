@@ -406,7 +406,8 @@ func (s *AccountTestService) buildOpenAIOAuthUpstreamModelsRequest(ctx context.C
 		return nil, newUpstreamModelSyncConfigError("No OpenAI access token is available", nil)
 	}
 
-	modelsURL := chatgptCodexModelsURL + "?client_version=" + url.QueryEscape(openAICodexProbeVersion)
+	identity := resolveCodexOutboundIdentity(credentialAccount.GetOpenAIUserAgent())
+	modelsURL := chatgptCodexModelsURL + "?client_version=" + url.QueryEscape(identity.version)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, modelsURL, nil)
 	if err != nil {
 		return nil, newUpstreamModelSyncConfigError("Invalid OpenAI Codex model list URL", err)
@@ -414,9 +415,9 @@ func (s *AccountTestService) buildOpenAIOAuthUpstreamModelsRequest(ctx context.C
 	req = req.WithContext(WithHTTPUpstreamProfile(req.Context(), HTTPUpstreamProfileOpenAI))
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Authorization", "Bearer "+accessToken)
-	req.Header.Set("Originator", "codex_cli_rs")
-	req.Header.Set("Version", openAICodexProbeVersion)
-	req.Header.Set("User-Agent", codexCLIUserAgent)
+	req.Header.Set("Originator", identity.originator)
+	req.Header.Set("Version", identity.version)
+	req.Header.Set("User-Agent", identity.userAgent)
 	setOpenAIChatGPTAccountHeaders(req.Header, credentialAccount)
 	credentialAccount.ApplyHeaderOverrides(req.Header)
 	return req, nil
