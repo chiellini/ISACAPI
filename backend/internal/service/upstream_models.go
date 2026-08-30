@@ -1081,7 +1081,6 @@ type upstreamModelEntry struct {
 	ModelID      string          `json:"modelId"`
 	ModelIDSnake string          `json:"model_id"`
 	Name         string          `json:"name"`
-	Slug         string          `json:"slug"`
 	Meta         json.RawMessage `json:"_meta"`
 }
 
