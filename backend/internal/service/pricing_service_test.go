@@ -476,6 +476,11 @@ func TestGetModelPricing_OpenAICompactAliasUsesStaticFallback(t *testing.T) {
 	require.InDelta(t, 5e-6, got.InputCostPerToken, 1e-12)
 	require.InDelta(t, 3e-5, got.OutputCostPerToken, 1e-12)
 	require.InDelta(t, 0.5e-6, got.CacheReadInputTokenCost, 1e-12)
+	require.InDelta(t, 12.5e-6, got.InputCostPerTokenPriority, 1e-12)
+	require.InDelta(t, 75e-6, got.OutputCostPerTokenPriority, 1e-12)
+	require.InDelta(t, 12.5e-6, got.CacheCreationInputTokenCostPriority, 1e-12)
+	require.InDelta(t, 1.25e-6, got.CacheReadInputTokenCostPriority, 1e-12)
+	require.Zero(t, got.LongContextInputTokenThreshold)
 }
 
 func TestGetModelPricing_GPT55ProUsesOwnStaticFallback(t *testing.T) {
@@ -486,6 +491,9 @@ func TestGetModelPricing_GPT55ProUsesOwnStaticFallback(t *testing.T) {
 	require.InDelta(t, 30e-6, got.InputCostPerToken, 1e-12)
 	require.InDelta(t, 180e-6, got.OutputCostPerToken, 1e-12)
 	require.InDelta(t, 3e-6, got.CacheReadInputTokenCost, 1e-12)
+	require.Zero(t, got.InputCostPerTokenPriority)
+	require.Zero(t, got.OutputCostPerTokenPriority)
+	require.Zero(t, got.LongContextInputTokenThreshold)
 }
 
 func TestPricingService_Gemini36FlashThinkingTiersUseBasePricing(t *testing.T) {
