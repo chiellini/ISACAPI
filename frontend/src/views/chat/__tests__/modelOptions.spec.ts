@@ -12,6 +12,7 @@ import {
 describe('chat model options', () => {
   it('discovers model options before loading or creating a chat session', () => {
     expect(chatViewSource).toContain('createChatModelOptions(await listModels())')
+    expect(chatViewSource).toContain('errorMsg.value = friendlyError(error as Error)')
     expect(chatViewSource).toContain('modelOptionsLoading.value = false')
     expect(chatViewSource.indexOf('loadModelOptions(),')).toBeLessThan(
       chatViewSource.indexOf('await loadSessions()'),

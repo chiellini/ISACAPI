@@ -413,9 +413,9 @@ async function loadModelOptions(): Promise<void> {
     const discovered = createChatModelOptions(await listModels())
     if (!discovered.length) throw new Error('No chat models are available')
     models.value = discovered
-  } catch {
+  } catch (error) {
     models.value = []
-    errorMsg.value = '无法加载可用模型，请稍后刷新重试。'
+    errorMsg.value = friendlyError(error as Error)
   } finally {
     selectedModel.value = resolveAvailableModel(models.value, selectedModel.value)
     modelOptionsLoading.value = false
