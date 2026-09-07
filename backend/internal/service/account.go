@@ -1730,6 +1730,12 @@ func (a *Account) GetOpenAIUserAgent() string {
 	if !a.IsOpenAI() {
 		return ""
 	}
+	// The Hermes toggle is deliberately resolved before the legacy arbitrary
+	// credential-level user_agent.  This keeps the product setting deterministic
+	// while preserving the existing custom-UA behavior when the toggle is off.
+	if a.IsHermesUserAgentEnabled() {
+		return HermesUserAgentValue
+	}
 	return a.GetCredential("user_agent")
 }
 

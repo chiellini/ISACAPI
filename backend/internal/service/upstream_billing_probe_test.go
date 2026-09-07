@@ -284,6 +284,7 @@ func TestUpstreamBillingProbeSuccessPersistsSanitizedSnapshot(t *testing.T) {
 		Extra: map[string]any{
 			UpstreamBillingProbeEnabledExtraKey:    true,
 			UpstreamBillingRateSyncEnabledExtraKey: true,
+			HermesUserAgentExtraKey:                true,
 		},
 		RateMultiplier: &initialRate,
 	}
@@ -333,6 +334,7 @@ func TestUpstreamBillingProbeSuccessPersistsSanitizedSnapshot(t *testing.T) {
 	require.Equal(t, "https://upstream.example/v1/sub2api/billing", upstream.lastReq.URL.String())
 	require.Equal(t, http.MethodGet, upstream.lastReq.Method)
 	require.Equal(t, "Bearer sk-sensitive", upstream.lastReq.Header.Get("Authorization"))
+	require.Equal(t, HermesUserAgentValue, upstream.lastReq.Header.Get("User-Agent"))
 	require.True(t, HTTPUpstreamRedirectsDisabled(upstream.lastReq.Context()))
 
 	persisted := decodeUpstreamBillingProbeSnapshot(account.Extra)

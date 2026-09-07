@@ -672,6 +672,10 @@ func (s *UpstreamBillingProbeService) probeLoadedAccount(ctx context.Context, ac
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Authorization", "Bearer "+apiKey)
 	account.ApplyHeaderOverrides(req.Header)
+	// The billing probe is an independent OpenAI API-key request. Apply the
+	// account-scoped Hermes identity after arbitrary overrides so it is subject
+	// to the same WAF compatibility behavior as inference traffic.
+	account.ApplyHermesUserAgent(req.Header)
 	var tlsProfile *tlsfingerprint.Profile
 	if s.accountTestService.tlsFPProfileService != nil {
 		tlsProfile = s.accountTestService.tlsFPProfileService.ResolveTLSProfile(account)

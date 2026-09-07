@@ -80,13 +80,14 @@ type openAIWSAcquireRequest struct {
 }
 
 type openAIWSHandshakeCompatibilityKey struct {
-	betaFeatures        string
-	codexInstallationID string
-	sessionIDHyphen     string
-	sessionIDUnderscore string
-	threadID            string
-	clientRequestID     string
-	codexWindowID       string
+	betaFeatures           string
+	hermesUserAgentEnabled bool
+	codexInstallationID    string
+	sessionIDHyphen        string
+	sessionIDUnderscore    string
+	threadID               string
+	clientRequestID        string
+	codexWindowID          string
 }
 
 type openAIWSConnLease struct {
@@ -2034,7 +2035,8 @@ func normalizeOpenAIWSBetaFeatures(headers http.Header) string {
 
 func normalizeOpenAIWSHandshakeCompatibility(account *Account, headers http.Header) openAIWSHandshakeCompatibilityKey {
 	key := openAIWSHandshakeCompatibilityKey{
-		betaFeatures: normalizeOpenAIWSBetaFeatures(headers),
+		betaFeatures:            normalizeOpenAIWSBetaFeatures(headers),
+		hermesUserAgentEnabled: account != nil && account.IsHermesUserAgentEnabled(),
 	}
 	mode := activeCodexFingerprintMode(account)
 	if mode == codexFingerprintOff {

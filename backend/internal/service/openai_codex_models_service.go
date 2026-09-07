@@ -1654,6 +1654,12 @@ func (s *OpenAIGatewayService) FetchCodexModelsManifest(ctx context.Context, acc
 		headerVersion = identity.version
 	}
 	headers.Set("Version", headerVersion)
+	// API-key Codex model manifests use the custom upstream transport below
+	// rather than the normal gateway boundary. Apply Hermes here after all
+	// identity/header construction; OAuth manifests remain untouched.
+	if useAPIKeyUpstream {
+		credAccount.ApplyHermesUserAgent(headers)
+	}
 
 	proxyURL := ""
 	if account.ProxyID != nil && account.Proxy != nil {
@@ -1805,6 +1811,9 @@ func (s *OpenAIGatewayService) fetchCodexModelsManifestUpstream(ctx context.Cont
 		return nil, infraerrors.Newf(http.StatusInternalServerError, "OPENAI_CODEX_MODELS_REQUEST_FAILED", "create codex models request: %v", err)
 	}
 	req.Header = request.headers.Clone()
+	if request.useAPIKeyUpstream && request.credentialAccount != nil {
+		request.credentialAccount.ApplyHermesUserAgent(req.Header)
+	}
 	if ifNoneMatch = strings.TrimSpace(ifNoneMatch); ifNoneMatch != "" {
 		req.Header.Set("If-None-Match", ifNoneMatch)
 	}

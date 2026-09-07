@@ -9,6 +9,13 @@ func (s *OpenAIGatewayService) SetPluginManager(manager *PluginManager) {
 // doOpenAIUpstream 只在 OpenAI OAuth 能力绑定已启用时把真实请求交给插件。
 // 插件返回标准 http.Response，响应解析、错误映射、SSE 和计费仍由现有核心链处理。
 func (s *OpenAIGatewayService) doOpenAIUpstream(request *http.Request, proxyURL string, account *Account) (*http.Response, error) {
+	// Apply account-scoped compatibility headers at the final shared boundary.
+	// This runs after every OpenAI request builder has assembled its headers and
+	// before either the plugin or the regular transport observes the request.
+	// ApplyHermesUserAgent is a no-op for OAuth/Codex and all non-OpenAI accounts.
+	if request != nil && account != nil {
+		account.ApplyHermesUserAgent(request.Header)
+	}
 	if s.pluginManager != nil {
 		response, handled, err := s.pluginManager.RoundTripOpenAIOAuth(request.Context(), request, proxyURL, account)
 		if handled {
@@ -26,6 +33,12 @@ func (s *AccountTestService) doOpenAIAccountTestUpstream(
 	account *Account,
 	useTLSFallback bool,
 ) (*http.Response, error) {
+	// Keep the explicit account-test requests consistent with the real OpenAI
+	// gateway.  This only changes API-key model tests; token refresh/auth flows do
+	// not call this helper.
+	if request != nil && account != nil {
+		account.ApplyHermesUserAgent(request.Header)
+	}
 	if s.pluginManager != nil {
 		response, handled, err := s.pluginManager.RoundTripOpenAIOAuth(request.Context(), request, proxyURL, account)
 		if handled {

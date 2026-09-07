@@ -193,6 +193,7 @@ func (s *OpenAIGatewayService) buildNativeAnthropicUpstreamRequest(
 
 	// 账号级请求头覆写（最终生效，覆盖上面所有来源的同名头）
 	account.ApplyHeaderOverrides(req.Header)
+	account.ApplyHermesUserAgent(req.Header)
 
 	return req, body, nil
 }

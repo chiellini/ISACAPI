@@ -1020,6 +1020,7 @@ func (s *AccountTestService) buildOpenAIUpstreamModelsRequest(ctx context.Contex
 	req.Header.Set("Authorization", "Bearer "+apiKey)
 	// 账号级请求头覆写：模型列表探测与真实转发保持一致的最终头
 	account.ApplyHeaderOverrides(req.Header)
+	account.ApplyHermesUserAgent(req.Header)
 	return req, nil
 }
 
@@ -1184,6 +1185,12 @@ func (s *AccountTestService) fetchAntigravityOAuthUpstreamModels(ctx context.Con
 }
 
 func (s *AccountTestService) doUpstreamModelsRequest(req *http.Request, proxyURL string, account *Account) (*http.Response, error) {
+	// Model-list probes use a separate transport from normal inference. Apply
+	// the same API-key-only compatibility identity at this final boundary so
+	// every OpenAI model discovery request follows the account toggle.
+	if req != nil && account != nil {
+		account.ApplyHermesUserAgent(req.Header)
+	}
 	if s.tlsFPProfileService == nil {
 		return s.httpUpstream.DoWithTLS(req, proxyURL, account.ID, account.Concurrency, nil)
 	}

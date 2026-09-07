@@ -369,6 +369,20 @@ describe('CreateAccountModal OpenAI long-context billing', () => {
     )
   })
 
+  it('shows the Hermes User-Agent toggle only for OpenAI API Key accounts', async () => {
+    const wrapper = mountModal()
+    await selectButtonByText(wrapper, 'OpenAI')
+
+    expect(wrapper.find('[data-testid="create-openai-hermes-user-agent-toggle"]').exists()).toBe(
+      false
+    )
+
+    await selectButtonByText(wrapper, 'API Key')
+    expect(wrapper.find('[data-testid="create-openai-hermes-user-agent-toggle"]').exists()).toBe(
+      true
+    )
+  })
+
   it('enables upstream billing probes by default for new OpenAI API key accounts', async () => {
     await submitApiKeyAccount('openai')
 
@@ -495,6 +509,29 @@ describe('CreateAccountModal OpenAI long-context billing', () => {
 
     expect(createAccountMock).toHaveBeenCalledTimes(1)
     expect(createAccountMock.mock.calls[0]?.[0]?.extra?.openai_long_context_billing_enabled).toBe(true)
+  })
+
+  it('persists the Hermes User-Agent setting for OpenAI API Key accounts', async () => {
+    const wrapper = mountModal()
+    await selectButtonByText(wrapper, 'OpenAI')
+    await selectButtonByText(wrapper, 'API Key')
+    await wrapper.get('[data-testid="create-openai-hermes-user-agent-toggle"]').trigger('click')
+    await wrapper.get('form#create-account-form input[type="text"]').setValue('Hermes account')
+    await wrapper.get('form#create-account-form input[type="password"]').setValue('test-api-key')
+    await wrapper.get('form#create-account-form').trigger('submit.prevent')
+    await flushPromises()
+
+    expect(createAccountMock).toHaveBeenCalledTimes(1)
+    expect(createAccountMock.mock.calls[0]?.[0]?.extra?.hermes_user_agent_enabled).toBe(true)
+  })
+
+  it('leaves the Hermes User-Agent setting disabled by default', async () => {
+    await submitApiKeyAccount('openai')
+
+    expect(createAccountMock).toHaveBeenCalledTimes(1)
+    expect(createAccountMock.mock.calls[0]?.[0]?.extra).not.toHaveProperty(
+      'hermes_user_agent_enabled'
+    )
   })
 
   it('omits the OpenAI setting for non-OpenAI account creation', async () => {

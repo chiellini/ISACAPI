@@ -623,6 +623,41 @@ func TestOpenAIWSConnPool_AcquireReusesOnlyMatchingBetaFeatures(t *testing.T) {
 	require.Equal(t, 2, dialer.DialCount())
 }
 
+func TestOpenAIWSConnPool_AcquireRehandshakesWhenHermesUserAgentSwitchChanges(t *testing.T) {
+	cfg := &config.Config{}
+	cfg.Gateway.OpenAIWS.MaxConnsPerAccount = 2
+	cfg.Gateway.OpenAIWS.MinIdlePerAccount = 0
+	cfg.Gateway.OpenAIWS.MaxIdlePerAccount = 2
+
+	pool := newOpenAIWSConnPool(cfg)
+	dialer := &openAIWSCountingDialer{}
+	pool.setClientDialerForTest(dialer)
+
+	account := &Account{
+		ID:       129,
+		Platform: PlatformOpenAI,
+		Type:     AccountTypeAPIKey,
+	}
+	request := openAIWSAcquireRequest{
+		Account: account,
+		WSURL:   "wss://example.com/v1/responses",
+	}
+
+	first, err := pool.Acquire(context.Background(), request)
+	require.NoError(t, err)
+	firstConnID := first.ConnID()
+	first.Release()
+
+	account.Extra = map[string]any{HermesUserAgentExtraKey: true}
+	second, err := pool.Acquire(context.Background(), request)
+	require.NoError(t, err)
+	require.False(t, second.Reused())
+	require.NotEqual(t, firstConnID, second.ConnID())
+	second.Release()
+
+	require.Equal(t, 2, dialer.DialCount())
+}
+
 func activeCodexFingerprintPoolAccountForTest(id int64) *Account {
 	return &Account{
 		ID:       id,

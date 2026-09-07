@@ -180,6 +180,10 @@ func (s *AccountTestService) ProbeOpenAIAPIKeyResponsesSupport(ctx context.Conte
 
 	// 账号级请求头覆写：能力探测与真实转发保持一致的最终头
 	account.ApplyHeaderOverrides(req.Header)
+	// Keep the capability probe's identity aligned with the eventual model
+	// request.  The method is guarded to OpenAI API-key accounts and therefore
+	// cannot alter OAuth/Codex authentication traffic.
+	account.ApplyHermesUserAgent(req.Header)
 
 	proxyURL := ""
 	if account.ProxyID != nil && account.Proxy != nil {

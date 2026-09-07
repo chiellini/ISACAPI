@@ -633,6 +633,57 @@ describe('EditAccountModal', () => {
     expect(updateAccountMock.mock.calls[0]?.[1]?.extra?.openai_long_context_billing_enabled).toBe(false)
   })
 
+  it('loads and submits the Hermes User-Agent setting for OpenAI API Key accounts', async () => {
+    const account = buildAccount()
+    account.extra = {
+      hermes_user_agent_enabled: true
+    }
+    updateAccountMock.mockReset()
+    checkMixedChannelRiskMock.mockReset()
+    checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
+    updateAccountMock.mockResolvedValue(account)
+
+    const wrapper = mountModal(account)
+    const toggle = wrapper.get('[data-testid="edit-openai-hermes-user-agent-toggle"]')
+    expect(toggle.attributes('aria-checked')).toBe('true')
+
+    await toggle.trigger('click')
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+
+    expect(updateAccountMock).toHaveBeenCalledTimes(1)
+    expect(updateAccountMock.mock.calls[0]?.[1]?.extra).not.toHaveProperty(
+      'hermes_user_agent_enabled'
+    )
+  })
+
+  it('enables the Hermes User-Agent setting for an existing OpenAI API Key account', async () => {
+    const account = buildAccount()
+    updateAccountMock.mockReset().mockResolvedValue(account)
+    checkMixedChannelRiskMock.mockReset().mockResolvedValue({ has_risk: false })
+
+    const wrapper = mountModal(account)
+    const toggle = wrapper.get('[data-testid="edit-openai-hermes-user-agent-toggle"]')
+    expect(toggle.attributes('aria-checked')).toBe('false')
+
+    await toggle.trigger('click')
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+
+    expect(updateAccountMock).toHaveBeenCalledTimes(1)
+    expect(updateAccountMock.mock.calls[0]?.[1]?.extra?.hermes_user_agent_enabled).toBe(true)
+  })
+
+  it('hides the Hermes User-Agent setting for OpenAI OAuth accounts', async () => {
+    const account = buildAccount()
+    account.type = 'oauth'
+    account.extra = { hermes_user_agent_enabled: true }
+
+    const wrapper = mountModal(account)
+
+    expect(wrapper.find('[data-testid="edit-openai-hermes-user-agent-toggle"]').exists()).toBe(
+      false
+    )
+  })
+
   it('loads and clears the OAuth-only Codex namespace flatten toggle', async () => {
     const account = buildAccount()
     account.type = 'oauth'
