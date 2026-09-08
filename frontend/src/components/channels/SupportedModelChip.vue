@@ -170,7 +170,7 @@
                     <template v-if="iv.tier_label">{{ iv.tier_label }}</template>
                     <template v-else>{{ formatRange(iv.min_tokens, iv.max_tokens) }}</template>
                   </span>
-                  <span>{{ formatInterval(iv, model.pricing.billing_mode) }}</span>
+                  <span>{{ formatInterval(iv, model.pricing) }}</span>
                 </div>
               </div>
             </div>
@@ -185,16 +185,15 @@
 import { computed, nextTick, onBeforeUnmount, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import PricingRow from './PricingRow.vue'
-import { formatInternalTokenPrice, formatScaled } from '@/utils/pricing'
+import { formatInternalTokenPrice, formatScaled, resolveIntervalPrices } from '@/utils/pricing'
 import {
   BILLING_MODE_TOKEN,
   BILLING_MODE_PER_REQUEST,
-  BILLING_MODE_IMAGE,
-  type BillingMode
+  BILLING_MODE_IMAGE
 } from '@/constants/channel'
 // 复用 api/channels.ts 的用户侧最小形态 DTO。
 // admin 侧 ChannelModelPricing 字段更多，但结构上是用户 DTO 的超集，admin 视图传入可直接通过结构化子类型检查。
-import type { UserPricingInterval, UserSupportedModel } from '@/api/channels'
+import type { UserPricingInterval, UserSupportedModel, UserSupportedModelPricing } from '@/api/channels'
 import PlatformIcon from '@/components/common/PlatformIcon.vue'
 import type { GroupPlatform } from '@/types'
 import { platformBadgeClass, platformBorderClass, platformBadgeLightClass } from '@/utils/platformColors'
@@ -263,12 +262,13 @@ function formatRange(min: number, max: number | null): string {
   return `(${min}, ${maxLabel}]`
 }
 
-function formatInterval(iv: UserPricingInterval, mode: BillingMode): string {
-  if (mode === BILLING_MODE_PER_REQUEST || mode === BILLING_MODE_IMAGE) {
+function formatInterval(iv: UserPricingInterval, pricing: UserSupportedModelPricing): string {
+  if (pricing.billing_mode === BILLING_MODE_PER_REQUEST || pricing.billing_mode === BILLING_MODE_IMAGE) {
     return formatScaled(iv.per_request_price, 1)
   }
-  const input = formatInternalTokenPrice(iv.input_price, perMillionScale)
-  const output = formatInternalTokenPrice(iv.output_price, perMillionScale)
+  const resolved = resolveIntervalPrices(iv, pricing)
+  const input = formatInternalTokenPrice(resolved.input_price, perMillionScale)
+  const output = formatInternalTokenPrice(resolved.output_price, perMillionScale)
   return `${input} / ${output}`
 }
 

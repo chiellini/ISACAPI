@@ -23,7 +23,6 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/pkg/ip"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/openai"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/timezone"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/xai"
 	"github.com/Wei-Shaw/sub2api/internal/securityaudit"
@@ -51,7 +50,6 @@ type GatewayHandler struct {
 	usageRecordWorkerPool     *service.UsageRecordWorkerPool
 	errorPassthroughService   *service.ErrorPassthroughService
 	contentModerationService  *service.ContentModerationService
-	captureSink               service.CaptureSink
 	securityAuditCoordinator  *securityaudit.Coordinator
 	concurrencyHelper         *ConcurrencyHelper
 	userMsgQueueHelper        *UserMsgQueueHelper
@@ -76,7 +74,6 @@ func NewGatewayHandler(
 	errorPassthroughService *service.ErrorPassthroughService,
 	contentModerationService *service.ContentModerationService,
 	userMsgQueueService *service.UserMessageQueueService,
-	captureSink service.CaptureSink,
 	cfg *config.Config,
 	settingService *service.SettingService,
 ) *GatewayHandler {
@@ -111,7 +108,6 @@ func NewGatewayHandler(
 		usageRecordWorkerPool:     usageRecordWorkerPool,
 		errorPassthroughService:   errorPassthroughService,
 		contentModerationService:  contentModerationService,
-		captureSink:               captureSink,
 		concurrencyHelper:         NewConcurrencyHelper(concurrencyService, SSEPingFormatClaude, pingInterval),
 		userMsgQueueHelper:        umqHelper,
 		maxAccountSwitches:        maxAccountSwitches,
@@ -257,7 +253,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 	}
 
 	// 2. 【新增】Wait后二次检查余额/订阅
-	if err := checkAndAttachBillingDecision(c, h.billingCacheService, apiKey.User, apiKey, apiKey.Group, subscription, service.QuotaPlatform(c.Request.Context(), apiKey)); err != nil {
+	if err := h.billingCacheService.CheckBillingEligibility(c.Request.Context(), apiKey.User, apiKey, apiKey.Group, subscription, service.QuotaPlatform(c.Request.Context(), apiKey)); err != nil {
 		reqLog.Info("gateway.billing_eligibility_check_failed", zap.Error(err))
 		status, code, message, retryAfter := billingErrorDetails(err)
 		if retryAfter > 0 {
@@ -477,7 +473,6 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 				requestCtx = service.WithAccountSwitchCount(requestCtx, fs.SwitchCount, h.metadataBridgeEnabled())
 			}
 			// 记录 Forward 前已写入字节数，Forward 后若增加则说明 SSE 内容已发，禁止 failover
-			service.ResetOpsUpstreamErrorAttemptContext(c)
 			writerSizeBeforeForward := c.Writer.Size()
 			if account.Platform == service.PlatformAntigravity {
 				result, err = h.antigravityGatewayService.ForwardGemini(
@@ -500,10 +495,6 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 			if err != nil {
 				var failoverErr *service.UpstreamFailoverError
 				if errors.As(err, &failoverErr) {
-					// An explicit provider policy refusal is security-relevant even if
-					// a later account attempt succeeds. Persist it at the first point
-					// where the original structured response is still available.
-					recordUpstreamPolicyBlock(c, h.contentModerationService, account.Platform, failoverErr.StatusCode, string(failoverErr.ResponseBody))
 					// 流式内容已写入客户端，无法撤销，禁止 failover 以防止流拼接腐化
 					if c.Writer.Size() != writerSizeBeforeForward {
 						h.handleFailoverExhausted(c, failoverErr, service.PlatformGemini, true)
@@ -521,10 +512,6 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 						return
 					}
 				}
-				// Some provider adapters write the final upstream refusal directly
-				// and return a regular error. This is a terminal path, so bridge the
-				// bounded structured policy payload before returning to the client.
-				recordUpstreamPolicyBlockFromOpsContext(c, h.contentModerationService, account.Platform)
 				upstreamErrorAlreadyCommunicated := gatewayForwardErrorAlreadyCommunicated(c, writerSizeBeforeForward, err)
 				wroteFallback := false
 				if !upstreamErrorAlreadyCommunicated {
@@ -617,7 +604,6 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 					).Error("gateway.record_usage_failed", zap.Error(err))
 				}
 			})
-			h.captureAnthropicMessagesConversation(c, body, result, apiKey, subject.UserID, account)
 			return
 		}
 	}
@@ -904,7 +890,6 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 				requestCtx = service.WithForceCacheBilling(requestCtx)
 			}
 			// 记录 Forward 前已写入字节数，Forward 后若增加则说明 SSE 内容已发，禁止 failover
-			service.ResetOpsUpstreamErrorAttemptContext(c)
 			writerSizeBeforeForward := c.Writer.Size()
 			if account.Platform == service.PlatformAntigravity && account.Type != service.AccountTypeAPIKey {
 				result, err = h.antigravityGatewayService.Forward(requestCtx, c, account, attemptBody, hasBoundSession)
@@ -1018,7 +1003,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 							return
 						}
 						fallbackAPIKey := cloneAPIKeyWithGroup(apiKey, fallbackGroup)
-						if err := checkAndAttachBillingDecision(c, h.billingCacheService, fallbackAPIKey.User, fallbackAPIKey, fallbackGroup, nil, service.PlatformFromAPIKey(fallbackAPIKey)); err != nil {
+						if err := h.billingCacheService.CheckBillingEligibility(c.Request.Context(), fallbackAPIKey.User, fallbackAPIKey, fallbackGroup, nil, service.PlatformFromAPIKey(fallbackAPIKey)); err != nil {
 							status, code, message, retryAfter := billingErrorDetails(err)
 							if retryAfter > 0 {
 								c.Header("Retry-After", strconv.Itoa(retryAfter))
@@ -1045,9 +1030,6 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 				}
 				var failoverErr *service.UpstreamFailoverError
 				if errors.As(err, &failoverErr) {
-					// Record the provider policy refusal before failover mutates the
-					// terminal error. The audit helper de-duplicates per request.
-					recordUpstreamPolicyBlock(c, h.contentModerationService, account.Platform, failoverErr.StatusCode, string(failoverErr.ResponseBody))
 					// 流式内容已写入客户端，无法撤销，禁止 failover 以防止流拼接腐化
 					if c.Writer.Size() != writerSizeBeforeForward {
 						h.handleFailoverExhausted(c, failoverErr, account.Platform, true)
@@ -1068,9 +1050,6 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 						return
 					}
 				}
-				// Some provider adapters write the final upstream refusal directly
-				// and return a regular error instead of UpstreamFailoverError.
-				recordUpstreamPolicyBlockFromOpsContext(c, h.contentModerationService, account.Platform)
 				upstreamErrorAlreadyCommunicated := gatewayForwardErrorAlreadyCommunicated(c, writerSizeBeforeForward, err)
 				wroteFallback := false
 				if !upstreamErrorAlreadyCommunicated {
@@ -1127,7 +1106,6 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 			}
 
 			submitForwardUsage(result)
-			h.captureAnthropicMessagesConversation(c, attemptParsedReq.Body.Bytes(), result, currentAPIKey, subject.UserID, account)
 			// 转发成功，会话槽保持既有空闲超时语义
 			upstreamServedSession = true
 			return
@@ -1156,11 +1134,20 @@ func (h *GatewayHandler) Models(c *gin.Context) {
 		platform = forcedPlatform
 	}
 
+	if platform == service.PlatformOpenAI && apiKey != nil && apiKey.Group != nil &&
+		apiKey.Group.Platform == service.PlatformOpenAI && apiKey.Group.CodexModelsManifestConfig.Enabled {
+		h.pinnedOpenAIModels(c, apiKey.Group)
+		return
+	}
+
 	if platform == service.PlatformComposite {
 		availableModels := h.compositeAvailableModels(c.Request.Context(), groupID)
-		if apiKey != nil && apiKey.Group != nil && apiKey.Group.CustomModelsListEnabled() {
-			availableModels = filterModelsByCustomList(availableModels, defaultModelIDsForPlatform(service.PlatformComposite), apiKey.Group.ModelsListConfig.Models)
-			writeCustomModelsList(c, service.PlatformComposite, availableModels)
+		if apiKey != nil && apiKey.Group != nil && apiKey.Group.ModelAllowlistEnabled() {
+			source := availableModels
+			if len(source) == 0 {
+				source = defaultModelIDsForPlatform(service.PlatformComposite)
+			}
+			writeAllowlistedModelsList(c, service.PlatformComposite, apiKey.Group.ModelAllowlist.FilterForListing(source))
 			return
 		}
 		if len(availableModels) > 0 {
@@ -1173,37 +1160,22 @@ func (h *GatewayHandler) Models(c *gin.Context) {
 
 	// Get available models from account configurations for the selected group platform.
 	availableModels := h.gatewayService.GetAvailableModels(c.Request.Context(), groupID, platform)
-	if apiKey != nil && apiKey.Group != nil && apiKey.Group.CustomModelsListEnabled() {
-		// 自定义模型列表是管理员精选的白名单，不强行注入别名（如需暴露别名请显式加入列表）。
-		fallbackModels := defaultModelIDsForPlatform(platform)
-		availableModels = filterModelsByCustomList(customModelsListSource(platform, availableModels, fallbackModels), fallbackModels, apiKey.Group.ModelsListConfig.Models)
-		writeCustomModelsList(c, platform, availableModels)
+	if apiKey != nil && apiKey.Group != nil && apiKey.Group.ModelAllowlistEnabled() {
+		source := modelListingSource(platform, availableModels, defaultModelIDsForPlatform(platform))
+		writeAllowlistedModelsList(c, platform, apiKey.Group.ModelAllowlist.FilterForListing(source))
 		return
 	}
 
 	if len(availableModels) > 0 {
-		availableModels = service.AppendModelAliasNames(platform, availableModels)
 		writeModelsList(c, platform, availableModels)
 		return
 	}
 
 	// Fallback to default models
 	if platform == service.PlatformOpenAI {
-		// 拷贝后追加别名，避免污染包级 DefaultModels 切片。
-		data := append([]openai.Model(nil), openai.DefaultModels...)
-		for _, alias := range service.ModelAliasNamesForPlatform(platform) {
-			data = append(data, openai.Model{
-				ID:          alias,
-				Object:      "model",
-				Created:     1704067200,
-				OwnedBy:     "openai",
-				Type:        "model",
-				DisplayName: alias,
-			})
-		}
 		c.JSON(http.StatusOK, gin.H{
 			"object": "list",
-			"data":   data,
+			"data":   openai.DefaultModels,
 		})
 		return
 	}
@@ -1224,67 +1196,6 @@ func (h *GatewayHandler) Models(c *gin.Context) {
 		"object": "list",
 		"data":   claude.DefaultModels,
 	})
-}
-
-// GroupModels 返回指定分组对外支持的模型名列表（用户态，JWT 鉴权）。
-// 用于「API 页面」展示「该组 API 支持的模型」。仅允许查询当前用户可绑定的分组。
-// GET /api/v1/groups/:id/models
-func (h *GatewayHandler) GroupModels(c *gin.Context) {
-	subject, ok := middleware2.GetAuthSubjectFromContext(c)
-	if !ok {
-		response.Unauthorized(c, "User not authenticated")
-		return
-	}
-	groupID, err := strconv.ParseInt(strings.TrimSpace(c.Param("id")), 10, 64)
-	if err != nil || groupID <= 0 {
-		response.BadRequest(c, "invalid group id")
-		return
-	}
-
-	groups, err := h.apiKeyService.GetAvailableGroups(c.Request.Context(), subject.UserID)
-	if err != nil {
-		response.ErrorFrom(c, err)
-		return
-	}
-	var target *service.Group
-	for i := range groups {
-		if groups[i].ID == groupID {
-			target = &groups[i]
-			break
-		}
-	}
-	if target == nil {
-		response.Forbidden(c, "group not available")
-		return
-	}
-
-	models := h.resolveGroupModelNames(c.Request.Context(), target)
-	response.Success(c, gin.H{
-		"group_id": target.ID,
-		"platform": target.Platform,
-		"models":   models,
-	})
-}
-
-// resolveGroupModelNames 计算分组对外暴露的模型名列表，与 Models(/v1/models) 的口径保持一致：
-// 自定义白名单优先；否则账号映射模型（含别名）；都没有则平台默认模型（含别名）。
-func (h *GatewayHandler) resolveGroupModelNames(ctx context.Context, group *service.Group) []string {
-	var groupID *int64
-	platform := ""
-	if group != nil {
-		groupID = &group.ID
-		platform = group.Platform
-	}
-
-	available := h.gatewayService.GetAvailableModels(ctx, groupID, platform)
-	if group != nil && group.CustomModelsListEnabled() {
-		return filterModelsByCustomList(available, defaultModelIDsForPlatform(platform), group.ModelsListConfig.Models)
-	}
-	if len(available) > 0 {
-		return service.AppendModelAliasNames(platform, available)
-	}
-	return service.AppendModelAliasNames(platform, defaultModelIDsForPlatform(platform))
-
 }
 
 // CodexModels returns the effective group model list using the manifest shape
@@ -1336,8 +1247,12 @@ func (h *GatewayHandler) codexModelIDsForGroup(ctx context.Context, group *servi
 	if platform == service.PlatformComposite {
 		availableModels := h.compositeAvailableModels(ctx, groupID)
 		fallbackModels := defaultCodexModelIDsForPlatform(service.PlatformComposite)
-		if group.CustomModelsListEnabled() {
-			return filterModelsByCustomList(availableModels, fallbackModels, group.ModelsListConfig.Models)
+		if group.ModelAllowlistEnabled() {
+			source := availableModels
+			if len(source) == 0 {
+				source = fallbackModels
+			}
+			return group.ModelAllowlist.FilterForListing(source)
 		}
 		if len(availableModels) > 0 {
 			return availableModels
@@ -1347,12 +1262,8 @@ func (h *GatewayHandler) codexModelIDsForGroup(ctx context.Context, group *servi
 
 	availableModels := h.gatewayService.GetAvailableModels(ctx, groupID, platform)
 	fallbackModels := defaultCodexModelIDsForPlatform(platform)
-	if group.CustomModelsListEnabled() {
-		return filterModelsByCustomList(
-			customModelsListSource(platform, availableModels, fallbackModels),
-			fallbackModels,
-			group.ModelsListConfig.Models,
-		)
+	if group.ModelAllowlistEnabled() {
+		return group.ModelAllowlist.FilterForListing(modelListingSource(platform, availableModels, fallbackModels))
 	}
 	if len(availableModels) > 0 {
 		return availableModels
@@ -1392,6 +1303,10 @@ func (h *GatewayHandler) compositeAvailableModels(ctx context.Context, groupID *
 }
 
 func writeModelsList(c *gin.Context, platform string, modelIDs []string) {
+	if platform == service.PlatformOpenAI {
+		writeOpenAIModelsList(c, modelIDs)
+		return
+	}
 	if platform == service.PlatformGrok {
 		writeGrokModelsList(c, modelIDs)
 		return
@@ -1411,7 +1326,7 @@ func writeModelsList(c *gin.Context, platform string, modelIDs []string) {
 	})
 }
 
-func writeCustomModelsList(c *gin.Context, platform string, modelIDs []string) {
+func writeAllowlistedModelsList(c *gin.Context, platform string, modelIDs []string) {
 	if platform == service.PlatformOpenAI {
 		writeOpenAIModelsList(c, modelIDs)
 		return
@@ -1509,70 +1424,17 @@ func writeOpenAIModelsList(c *gin.Context, modelIDs []string) {
 	})
 }
 
-func customModelsListSource(platform string, availableModels, fallbackModels []string) []string {
-	if platform == service.PlatformAnthropic && len(availableModels) > 0 {
+// modelListingSource 汇总模型列表过滤的候选来源：账号映射键（availableModels）
+// 与平台默认列表（fallbackModels）。账号映射为空时回落默认列表；Anthropic
+// 平台两者取并集，其余平台以账号映射键为准。
+func modelListingSource(platform string, availableModels, fallbackModels []string) []string {
+	if len(availableModels) == 0 {
+		return fallbackModels
+	}
+	if platform == service.PlatformAnthropic {
 		return mergeModelIDs(availableModels, fallbackModels)
 	}
 	return availableModels
-}
-
-func filterModelsByCustomList(availableModels, fallbackModels, selectedModels []string) []string {
-	if len(selectedModels) == 0 {
-		return availableModels
-	}
-	source := availableModels
-	if len(source) == 0 {
-		source = fallbackModels
-	}
-	if len(source) == 0 {
-		return nil
-	}
-
-	allowed := make([]string, 0, len(source))
-	for _, model := range source {
-		model = strings.TrimSpace(model)
-		if model != "" {
-			allowed = append(allowed, model)
-		}
-	}
-
-	seen := make(map[string]struct{}, len(selectedModels))
-	filtered := make([]string, 0, len(selectedModels))
-	for _, model := range selectedModels {
-		model = strings.TrimSpace(model)
-		if model == "" {
-			continue
-		}
-		if !customModelsListAllowsModel(allowed, model) {
-			continue
-		}
-		if _, ok := seen[model]; ok {
-			continue
-		}
-		seen[model] = struct{}{}
-		filtered = append(filtered, model)
-	}
-	return filtered
-}
-
-func customModelsListAllowsModel(availablePatterns []string, model string) bool {
-	for _, pattern := range availablePatterns {
-		if pattern == model {
-			return true
-		}
-		if strings.HasSuffix(pattern, "*") && strings.HasPrefix(model, strings.TrimSuffix(pattern, "*")) {
-			return true
-		}
-	}
-	normalizedClaudeModel := claude.NormalizeModelID(strings.TrimSuffix(model, "-thinking"))
-	if normalizedClaudeModel != model {
-		for _, pattern := range availablePatterns {
-			if pattern == normalizedClaudeModel {
-				return true
-			}
-		}
-	}
-	return false
 }
 
 func defaultCodexModelIDsForPlatform(platform string) []string {
@@ -1648,10 +1510,21 @@ func mergeModelIDs(primary, secondary []string) []string {
 
 // AntigravityModels 返回 Antigravity 支持的全部模型
 // GET /antigravity/models
+// 分组级模型白名单开启时按白名单过滤。
 func (h *GatewayHandler) AntigravityModels(c *gin.Context) {
+	models := antigravity.DefaultModels()
+	if apiKey, ok := middleware2.GetAPIKeyFromContext(c); ok && apiKey != nil && apiKey.Group != nil && apiKey.Group.ModelAllowlistEnabled() {
+		filtered := make([]antigravity.ClaudeModel, 0, len(models))
+		for _, model := range models {
+			if apiKey.Group.ModelAllowlist.Allows(model.ID) {
+				filtered = append(filtered, model)
+			}
+		}
+		models = filtered
+	}
 	c.JSON(http.StatusOK, gin.H{
 		"object": "list",
-		"data":   antigravity.DefaultModels(),
+		"data":   models,
 	})
 }
 
@@ -2004,7 +1877,6 @@ func (h *GatewayHandler) handleConcurrencyError(c *gin.Context, err error, slotT
 func (h *GatewayHandler) handleFailoverExhausted(c *gin.Context, failoverErr *service.UpstreamFailoverError, platform string, streamStarted bool) {
 	statusCode := failoverErr.StatusCode
 	responseBody := failoverErr.ResponseBody
-	recordUpstreamPolicyBlock(c, h.contentModerationService, platform, statusCode, string(responseBody))
 	if service.IsOpenAISilentRefusalErrorBody(responseBody) {
 		service.SetOpsUpstreamError(c, statusCode, service.OpenAISilentRefusalClientMessage(), "")
 		h.handleStreamingAwareError(c, http.StatusBadGateway, "upstream_error", service.OpenAISilentRefusalClientMessage(), streamStarted)
@@ -2223,7 +2095,7 @@ func (h *GatewayHandler) CountTokens(c *gin.Context) {
 		return
 	}
 
-	subject, ok := middleware2.GetAuthSubjectFromContext(c)
+	_, ok = middleware2.GetAuthSubjectFromContext(c)
 	if !ok {
 		h.errorResponse(c, http.StatusInternalServerError, "api_error", "User context not found")
 		return
@@ -2281,16 +2153,13 @@ func (h *GatewayHandler) CountTokens(c *gin.Context) {
 
 	setOpsRequestContext(c, parsedReq.Model, parsedReq.Stream)
 	setOpsEndpointContext(c, "", int16(service.RequestTypeFromLegacy(parsedReq.Stream, false)))
-	c.Set(securityAuditInputContextKey, buildContentModerationInput(
-		c, apiKey, subject, service.ContentModerationProtocolAnthropicMessages, parsedReq.Model, body,
-	))
 
 	// 获取订阅信息（可能为nil）
 	subscription, _ := middleware2.GetSubscriptionFromContext(c)
 
 	// 校验 billing eligibility（订阅/余额）
 	// 【注意】不计算并发，但需要校验订阅/余额
-	if err := checkAndAttachBillingDecision(c, h.billingCacheService, apiKey.User, apiKey, apiKey.Group, subscription, service.QuotaPlatform(c.Request.Context(), apiKey)); err != nil {
+	if err := h.billingCacheService.CheckBillingEligibility(c.Request.Context(), apiKey.User, apiKey, apiKey.Group, subscription, service.QuotaPlatform(c.Request.Context(), apiKey)); err != nil {
 		status, code, message, retryAfter := billingErrorDetails(err)
 		if retryAfter > 0 {
 			c.Header("Retry-After", strconv.Itoa(retryAfter))
@@ -2321,9 +2190,7 @@ func (h *GatewayHandler) CountTokens(c *gin.Context) {
 	setOpsSelectedAccount(c, account.ID, account.Platform)
 
 	// 转发请求（不记录使用量）
-	service.ResetOpsUpstreamErrorAttemptContext(c)
 	if err := h.gatewayService.ForwardCountTokens(c.Request.Context(), c, account, parsedReq); err != nil {
-		recordUpstreamPolicyBlockFromOpsContext(c, h.contentModerationService, account.Platform)
 		reqLog.Error("gateway.count_tokens_forward_failed", zap.Int64("account_id", account.ID), zap.Error(err))
 		// 错误响应已在 ForwardCountTokens 中处理
 		// 上游未服务该会话，立即释放选号时注册的会话槽（客户端可能已断开，用独立 ctx）
@@ -2581,9 +2448,6 @@ func billingErrorDetails(err error) (status int, code, message string, retryAfte
 			msg = "Billing service temporarily unavailable. Please retry later."
 		}
 		return http.StatusServiceUnavailable, "billing_service_error", msg, 0
-	}
-	if errors.Is(err, service.ErrResearchGroupAndPersonalBalanceInsufficient) {
-		return pkgerrors.Code(err), pkgerrors.Reason(err), pkgerrors.Message(err), 0
 	}
 	if errors.Is(err, service.ErrAPIKeyRateLimit5hExceeded) {
 		msg := pkgerrors.Message(err)
