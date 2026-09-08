@@ -15,7 +15,7 @@ vi.mock('@/api/tokenRefresh', () => ({
   refreshAuthTokens,
 }))
 
-import { completeChat, generateImage, listModels } from '@/api/chat'
+import { completeChat, generateImage, listModels, streamChatCompletion } from '@/api/chat'
 
 describe('chat api', () => {
   const fetchMock = vi.fn()
@@ -156,6 +156,62 @@ describe('chat api', () => {
     const requestBody = JSON.parse(String(fetchMock.mock.calls[0][1].body))
     expect(requestBody.stream).toBe(true)
     expect(requestBody.messages).toEqual([{ role: 'user', content: 'hi' }])
+  })
+
+  it('completeChat accumulates streamed reasoning_content fallback text', async () => {
+    localStorage.setItem('auth_token', 'jwt-token')
+    fetchMock.mockResolvedValue(new Response(
+      [
+        'data: {"choices":[{"delta":{"reasoning_content":"analysis "}}]}',
+        'data: {"choices":[{"delta":{"content":"finally done"}}]}',
+        'data: [DONE]',
+      ].join('\n'),
+      { status: 200, headers: { 'Content-Type': 'text/event-stream' } },
+    ))
+
+    const text = await completeChat({
+      model: 'gpt-5.5',
+      messages: [{ role: 'user', content: 'hi' }],
+    })
+
+    expect(text).toBe('analysis finally done')
+  })
+
+  it('completeChat parses SSE output even when the final event has no trailing newline', async () => {
+    localStorage.setItem('auth_token', 'jwt-token')
+    fetchMock.mockResolvedValue(new Response(
+      'data: {"choices":[{"delta":{"content":"ok"}]}'
+        + '\ndata: [DONE]',
+      { status: 200, headers: { 'Content-Type': 'text/event-stream' } },
+    ))
+
+    const text = await completeChat({
+      model: 'gpt-5.5',
+      messages: [{ role: 'user', content: 'hi' }],
+    })
+
+    expect(text).toBe('ok')
+  })
+
+  it('streamChatCompletion uses reasoning fallback text in stream parsing', async () => {
+    localStorage.setItem('auth_token', 'jwt-token')
+    const deltas: string[] = []
+    fetchMock.mockResolvedValue(new Response(
+      [
+        'data: {"choices":[{"delta":{"reasoning_content":"first"}}]}',
+        'data: {"choices":[{"delta":{"content":" answer"}}]}',
+        'data: [DONE]',
+      ].join('\n'),
+      { status: 200, headers: { 'Content-Type': 'text/event-stream' } },
+    ))
+
+    const result = await streamChatCompletion(
+      { model: 'gpt-5.5', messages: [{ role: 'user', content: 'hi' }] },
+      { onDelta: (delta) => deltas.push(delta) },
+    )
+
+    expect(result.content).toBe('first answer')
+    expect(deltas.join('')).toBe('first answer')
   })
 
   it('refreshes an expired token and retries a native streaming request once', async () => {

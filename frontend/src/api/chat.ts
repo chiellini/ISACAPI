@@ -216,6 +216,39 @@ function parseSSEEvent(raw: string): { eventName: string; data: string } | null 
   return { eventName, data: dataLines.join('\n') }
 }
 
+function extractChatDeltaTextFromChoice(choice: UnknownRecord | null | undefined): string {
+  if (!choice) return ''
+  const delta = asRecord(choice.delta)
+  if (!delta) return ''
+  if (typeof delta.content === 'string' && delta.content !== '') return delta.content
+  if (typeof delta.reasoning_content === 'string' && delta.reasoning_content !== '') return delta.reasoning_content
+  if (typeof delta.reasoning === 'string' && delta.reasoning !== '') return delta.reasoning
+  return ''
+}
+
+function consumeChatStreamLine(
+  raw: string,
+  onDelta: (deltaText: string) => void,
+): boolean {
+  const event = parseSSEEvent(raw)
+  if (!event) return false
+
+  const dataLines = event.data.split('\n')
+  for (const rawPayload of dataLines) {
+    const payload = rawPayload.trim()
+    if (!payload) continue
+    if (payload === '[DONE]') return true
+    try {
+      const json = JSON.parse(payload)
+      const deltaText = extractChatDeltaTextFromChoice(asRecord(json?.choices?.[0]) as UnknownRecord | undefined)
+      if (deltaText) onDelta(deltaText)
+    } catch {
+      // Ignore heartbeat/comments.
+    }
+  }
+  return false
+}
+
 function nextSSEBoundary(buffer: string): { index: number; length: number } | null {
   const crlf = buffer.indexOf('\r\n\r\n')
   const lf = buffer.indexOf('\n\n')
@@ -429,7 +462,7 @@ export async function listModels(): Promise<ChatModelDescriptor[]> {
 
 /**
  * 发起流式对话。逐行解析 `data: {...}` / `data: [DONE]`，
- * 把 choices[0].delta.content 增量回调给调用方。
+ * 把 choices[0].delta.content / reasoning_text 增量回调给调用方。
  */
 export async function streamChat(
   body: { model: string; messages: ChatMessage[] },
@@ -462,25 +495,18 @@ export async function streamChat(
       buffer += decoder.decode(value, { stream: true })
 
       // SSE 事件以空行分隔；逐行取出 data: 负载。
-      let nl: number
-      while ((nl = buffer.indexOf('\n')) >= 0) {
-        const line = buffer.slice(0, nl).trim()
-        buffer = buffer.slice(nl + 1)
-        if (!line.startsWith('data:')) continue
-        const payload = line.slice(5).trim()
-        if (payload === '' ) continue
-        if (payload === '[DONE]') {
+      let boundary: { index: number; length: number } | null
+      while ((boundary = nextSSEBoundary(buffer))) {
+        const raw = buffer.slice(0, boundary.index)
+        buffer = buffer.slice(boundary.index + boundary.length)
+        if (consumeChatStreamLine(raw, (deltaText) => onDelta(deltaText))) {
           onDone()
           return
         }
-        try {
-          const json = JSON.parse(payload)
-          const delta: string = json?.choices?.[0]?.delta?.content ?? ''
-          if (delta) onDelta(delta)
-        } catch {
-          // 忽略非 JSON 行（注释/心跳）
-        }
       }
+    }
+    if (buffer.trim()) {
+      consumeChatStreamLine(buffer, (deltaText) => onDelta(deltaText))
     }
     onDone()
   } catch (err) {
@@ -559,27 +585,43 @@ export async function streamChatCompletion(
   const toolAcc: Record<number, StreamToolCall> = {}
 
   const consume = (payload: string): CompletionResult | null => {
-    if (payload === '[DONE]') return finalizeCompletion(content, toolAcc, finishReason)
-    try {
-      const json = JSON.parse(payload)
-      const choice = json?.choices?.[0]
-      const delta = choice?.delta
-      if (delta?.content) {
-        content += delta.content
-        handlers.onDelta?.(delta.content)
-      }
-      if (Array.isArray(delta?.tool_calls)) {
-        for (const tc of delta.tool_calls) {
-          const idx = typeof tc?.index === 'number' ? tc.index : 0
-          const acc = toolAcc[idx] ?? (toolAcc[idx] = { id: '', name: '', arguments: '' })
-          if (tc?.id) acc.id = tc.id
-          if (tc?.function?.name) acc.name = tc.function.name
-          if (typeof tc?.function?.arguments === 'string') acc.arguments += tc.function.arguments
+    const event = parseSSEEvent(payload)
+    let lines: string[] = []
+    if (event) {
+      lines = event.data.split('\n')
+    } else {
+      lines = payload.split('\n').map((line) => {
+        const trimmed = line.trim()
+        return trimmed.startsWith('data:') ? trimmed.slice(5).trim() : trimmed
+      })
+    }
+
+    for (const rawLine of lines) {
+      const line = rawLine.trim()
+      if (!line) continue
+      if (line === '[DONE]') return finalizeCompletion(content, toolAcc, finishReason)
+      try {
+        const json = JSON.parse(line)
+        const choice = asRecord(json?.choices?.[0])
+        const deltaText = extractChatDeltaTextFromChoice(choice as UnknownRecord | undefined)
+        if (deltaText) {
+          content += deltaText
+          handlers.onDelta?.(deltaText)
         }
+        const delta = choice?.delta
+        if (Array.isArray(delta?.tool_calls)) {
+          for (const tc of delta.tool_calls) {
+            const idx = typeof tc?.index === 'number' ? tc.index : 0
+            const acc = toolAcc[idx] ?? (toolAcc[idx] = { id: '', name: '', arguments: '' })
+            if (tc?.id) acc.id = tc.id
+            if (tc?.function?.name) acc.name = tc.function.name
+            if (typeof tc?.function?.arguments === 'string') acc.arguments += tc.function.arguments
+          }
+        }
+        if (choice?.finish_reason) finishReason = choice.finish_reason
+      } catch {
+        // 忽略非 JSON 行（注释/心跳）
       }
-      if (choice?.finish_reason) finishReason = choice.finish_reason
-    } catch {
-      // 忽略非 JSON 行（注释/心跳）
     }
     return null
   }
@@ -589,16 +631,17 @@ export async function streamChatCompletion(
       const { done, value } = await reader.read()
       if (done) break
       buffer += decoder.decode(value, { stream: true })
-      let nl: number
-      while ((nl = buffer.indexOf('\n')) >= 0) {
-        const line = buffer.slice(0, nl).trim()
-        buffer = buffer.slice(nl + 1)
-        if (!line.startsWith('data:')) continue
-        const payload = line.slice(5).trim()
-        if (!payload) continue
-        const result = consume(payload)
+      let boundary: { index: number; length: number } | null
+      while ((boundary = nextSSEBoundary(buffer))) {
+        const raw = buffer.slice(0, boundary.index)
+        buffer = buffer.slice(boundary.index + boundary.length)
+        const result = consume(raw)
         if (result) return result
       }
+    }
+    if (buffer.trim()) {
+      const result = consume(buffer)
+      if (result) return result
     }
   } catch (err) {
     if ((err as Error).name === 'AbortError') return finalizeCompletion(content, toolAcc, finishReason)
