@@ -556,6 +556,12 @@ func TestAccountGetModelMapping_AntigravityEnsuresGeminiDefaultPassthroughs(t *t
 	if mapping["gemini-3.1-pro-low"] != "gemini-3.1-pro-low" {
 		t.Fatalf("expected gemini-3.1-pro-low passthrough to be auto-filled, got: %q", mapping["gemini-3.1-pro-low"])
 	}
+	if mapping["gemini-3.7-flash-high"] != "gemini-3.7-flash-high" {
+		t.Fatalf("expected gemini-3.7-flash-high passthrough to be auto-filled, got: %q", mapping["gemini-3.7-flash-high"])
+	}
+	if mapping["gemini-3.8-flash-medium"] != "gemini-3.8-flash-medium" {
+		t.Fatalf("expected gemini-3.8-flash-medium passthrough to be auto-filled, got: %q", mapping["gemini-3.8-flash-medium"])
+	}
 }
 
 func TestAccountGetModelMapping_GoogleOneUsesConservativeDefaults(t *testing.T) {

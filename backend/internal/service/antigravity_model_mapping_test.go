@@ -157,6 +157,18 @@ func TestAntigravityGatewayService_GetMappedModel(t *testing.T) {
 			accountMapping: nil,
 			expected:       "gemini-3-flash",
 		},
+		{
+			name:           "默认映射透传 - gemini-3.7-flash-high",
+			requestedModel: "gemini-3.7-flash-high",
+			accountMapping: nil,
+			expected:       "gemini-3.7-flash-high",
+		},
+		{
+			name:           "默认映射透传 - gemini-3.8-flash-low",
+			requestedModel: "gemini-3.8-flash-low",
+			accountMapping: nil,
+			expected:       "gemini-3.8-flash-low",
+		},
 
 		// 4. 未在默认映射中的模型返回空字符串（不支持）
 		{
