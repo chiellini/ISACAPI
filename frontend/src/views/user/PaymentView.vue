@@ -286,7 +286,7 @@
             <img v-if="safeHelpImageUrl" :src="safeHelpImageUrl" alt=""
               class="h-40 max-w-full cursor-pointer rounded-lg object-contain transition-opacity hover:opacity-80"
               @click="previewImage = safeHelpImageUrl" />
-            <p v-if="checkout.help_text" class="text-center text-sm text-gray-500 dark:text-gray-400">{{ checkout.help_text }}</p>
+            <div v-if="checkout.help_text" class="markdown-body w-full overflow-x-auto break-words" v-html="renderedHelpText"></div>
           </div>
         </div>
       </template>
@@ -322,6 +322,9 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { marked } from 'marked'
+import DOMPurify from 'dompurify'
+import '@/styles/announcement-markdown.css'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { usePaymentStore } from '@/stores/payment'
@@ -595,6 +598,10 @@ const safeHelpImageUrl = computed(() => sanitizeUrl(checkout.value.help_image_ur
   allowRelative: true,
   allowDataUrl: true,
 }))
+
+const renderedHelpText = computed(() => DOMPurify.sanitize(
+  marked.parse(checkout.value.help_text || '', { async: false, gfm: true, breaks: false }),
+))
 
 const tabs = computed(() => {
   const result: { key: 'recharge' | 'subscription'; label: string }[] = []

@@ -330,6 +330,10 @@ func (s *AffiliateService) BindInviterByCode(ctx context.Context, userID int64, 
 	return nil
 }
 
+func (s *AffiliateService) AccrueInviteRebate(ctx context.Context, inviteeUserID int64, baseRechargeAmount float64) (float64, error) {
+	return s.AccrueInviteRebateForOrder(ctx, inviteeUserID, baseRechargeAmount, nil)
+}
+
 func (s *AffiliateService) AccrueInviteRebateForOrder(ctx context.Context, inviteeUserID int64, baseRechargeAmount float64, sourceOrderID *int64) (float64, error) {
 	if s == nil || s.repo == nil {
 		return 0, nil

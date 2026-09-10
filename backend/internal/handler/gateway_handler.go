@@ -23,6 +23,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/pkg/ip"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/openai"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/timezone"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/xai"
 	"github.com/Wei-Shaw/sub2api/internal/securityaudit"
@@ -57,6 +58,7 @@ type GatewayHandler struct {
 	maxAccountSwitchesGemini  int
 	cfg                       *config.Config
 	settingService            *service.SettingService
+	captureSink               service.CaptureSink
 }
 
 // NewGatewayHandler creates a new GatewayHandler
@@ -74,6 +76,7 @@ func NewGatewayHandler(
 	errorPassthroughService *service.ErrorPassthroughService,
 	contentModerationService *service.ContentModerationService,
 	userMsgQueueService *service.UserMessageQueueService,
+	captureSink service.CaptureSink,
 	cfg *config.Config,
 	settingService *service.SettingService,
 ) *GatewayHandler {
@@ -114,6 +117,7 @@ func NewGatewayHandler(
 		maxAccountSwitchesGemini:  maxAccountSwitchesGemini,
 		cfg:                       cfg,
 		settingService:            settingService,
+		captureSink:               captureSink,
 	}
 }
 
@@ -253,7 +257,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 	}
 
 	// 2. 【新增】Wait后二次检查余额/订阅
-	if err := h.billingCacheService.CheckBillingEligibility(c.Request.Context(), apiKey.User, apiKey, apiKey.Group, subscription, service.QuotaPlatform(c.Request.Context(), apiKey)); err != nil {
+	if err := checkAndAttachBillingDecision(c, h.billingCacheService, apiKey.User, apiKey, apiKey.Group, subscription, service.QuotaPlatform(c.Request.Context(), apiKey)); err != nil {
 		reqLog.Info("gateway.billing_eligibility_check_failed", zap.Error(err))
 		status, code, message, retryAfter := billingErrorDetails(err)
 		if retryAfter > 0 {
@@ -1003,7 +1007,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 							return
 						}
 						fallbackAPIKey := cloneAPIKeyWithGroup(apiKey, fallbackGroup)
-						if err := h.billingCacheService.CheckBillingEligibility(c.Request.Context(), fallbackAPIKey.User, fallbackAPIKey, fallbackGroup, nil, service.PlatformFromAPIKey(fallbackAPIKey)); err != nil {
+						if err := checkAndAttachBillingDecision(c, h.billingCacheService, fallbackAPIKey.User, fallbackAPIKey, fallbackGroup, nil, service.PlatformFromAPIKey(fallbackAPIKey)); err != nil {
 							status, code, message, retryAfter := billingErrorDetails(err)
 							if retryAfter > 0 {
 								c.Header("Retry-After", strconv.Itoa(retryAfter))
@@ -1198,6 +1202,88 @@ func (h *GatewayHandler) Models(c *gin.Context) {
 	})
 }
 
+// GroupModels 返回指定分组对外支持的模型名列表（用户态，JWT 鉴权）。
+// 用于 API 页面展示该组支持的模型。仅允许查询当前用户可绑定的分组。
+// GET /api/v1/groups/:id/models
+func (h *GatewayHandler) GroupModels(c *gin.Context) {
+	subject, ok := middleware2.GetAuthSubjectFromContext(c)
+	if !ok {
+		response.Unauthorized(c, "User not authenticated")
+		return
+	}
+	groupID, err := strconv.ParseInt(strings.TrimSpace(c.Param("id")), 10, 64)
+	if err != nil || groupID <= 0 {
+		response.BadRequest(c, "invalid group id")
+		return
+	}
+	if h.apiKeyService == nil {
+		response.ErrorFrom(c, fmt.Errorf("api key service unavailable"))
+		return
+	}
+
+	groups, err := h.apiKeyService.GetAvailableGroups(c.Request.Context(), subject.UserID)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	var target *service.Group
+	for i := range groups {
+		if groups[i].ID == groupID {
+			target = &groups[i]
+			break
+		}
+	}
+	if target == nil {
+		response.Forbidden(c, "group not available")
+		return
+	}
+
+	models := h.resolveGroupModelNames(c.Request.Context(), target)
+	response.Success(c, gin.H{
+		"group_id": target.ID,
+		"platform": target.Platform,
+		"models":   models,
+	})
+}
+
+// resolveGroupModelNames 计算分组对外暴露的模型名列表，与 Models(/v1/models) 的口径保持一致。
+func (h *GatewayHandler) resolveGroupModelNames(ctx context.Context, group *service.Group) []string {
+	var groupID *int64
+	platform := ""
+	if group != nil {
+		groupID = &group.ID
+		platform = group.Platform
+	}
+
+	if platform == service.PlatformComposite {
+		available := h.compositeAvailableModels(ctx, groupID)
+		if group != nil && group.ModelAllowlistEnabled() {
+			source := available
+			if len(source) == 0 {
+				source = defaultModelIDsForPlatform(service.PlatformComposite)
+			}
+			return group.ModelAllowlist.FilterForListing(source)
+		}
+		if len(available) > 0 {
+			return available
+		}
+		return defaultModelIDsForPlatform(service.PlatformComposite)
+	}
+
+	available := []string{}
+	if h.gatewayService != nil {
+		available = h.gatewayService.GetAvailableModels(ctx, groupID, platform)
+	}
+	if group != nil && group.ModelAllowlistEnabled() {
+		source := modelListingSource(platform, available, defaultModelIDsForPlatform(platform))
+		return group.ModelAllowlist.FilterForListing(source)
+	}
+	if len(available) > 0 {
+		return service.AppendModelAliasNames(platform, available)
+	}
+	return service.AppendModelAliasNames(platform, defaultModelIDsForPlatform(platform))
+}
+
 // CodexModels returns the effective group model list using the manifest shape
 // expected by Codex custom providers. Official OpenAI groups continue to use
 // OpenAIGatewayHandler.CodexModels so their live upstream metadata is preserved.
@@ -1278,7 +1364,7 @@ func (h *GatewayHandler) compositeAvailableModels(ctx context.Context, groupID *
 	seen := make(map[string]struct{})
 	models := make([]string, 0)
 	schedulablePlatforms := h.gatewayService.GetSchedulablePlatforms(ctx, groupID)
-	for _, platform := range []string{service.PlatformAnthropic, service.PlatformGemini, service.PlatformOpenAI, service.PlatformAntigravity, service.PlatformGrok, service.PlatformKimi, service.PlatformZhipu, service.PlatformDeepseek} {
+	for _, platform := range []string{service.PlatformAnthropic, service.PlatformGemini, service.PlatformOpenAI, service.PlatformAntigravity, service.PlatformGrok, service.PlatformKimi, service.PlatformZhipu, service.PlatformDeepseek, service.PlatformMiniMax} {
 		platformModels := h.gatewayService.GetAvailableModels(ctx, groupID, platform)
 		if len(platformModels) == 0 {
 			// CN 供应商没有静态默认模型列表（defaultModelIDsForPlatform 的
@@ -1441,6 +1527,8 @@ func defaultCodexModelIDsForPlatform(platform string) []string {
 	switch platform {
 	case service.PlatformDeepseek:
 		return []string{"deepseek-v4-pro", "deepseek-v4-flash"}
+	case service.PlatformMiniMax:
+		return []string{"MiniMax-M3", "MiniMax-M2.7", "MiniMax-M2.5"}
 	default:
 		return defaultModelIDsForPlatform(platform)
 	}
@@ -1470,7 +1558,7 @@ func defaultModelIDsForPlatform(platform string) []string {
 	case service.PlatformComposite:
 		ids := make([]string, 0)
 		seen := make(map[string]struct{})
-		for _, concretePlatform := range []string{service.PlatformAnthropic, service.PlatformGemini, service.PlatformOpenAI, service.PlatformAntigravity, service.PlatformGrok, service.PlatformKimi, service.PlatformZhipu, service.PlatformDeepseek} {
+		for _, concretePlatform := range []string{service.PlatformAnthropic, service.PlatformGemini, service.PlatformOpenAI, service.PlatformAntigravity, service.PlatformGrok, service.PlatformKimi, service.PlatformZhipu, service.PlatformDeepseek, service.PlatformMiniMax} {
 			for _, id := range defaultModelIDsForPlatform(concretePlatform) {
 				if _, ok := seen[id]; ok {
 					continue
@@ -2159,7 +2247,7 @@ func (h *GatewayHandler) CountTokens(c *gin.Context) {
 
 	// 校验 billing eligibility（订阅/余额）
 	// 【注意】不计算并发，但需要校验订阅/余额
-	if err := h.billingCacheService.CheckBillingEligibility(c.Request.Context(), apiKey.User, apiKey, apiKey.Group, subscription, service.QuotaPlatform(c.Request.Context(), apiKey)); err != nil {
+	if err := checkAndAttachBillingDecision(c, h.billingCacheService, apiKey.User, apiKey, apiKey.Group, subscription, service.QuotaPlatform(c.Request.Context(), apiKey)); err != nil {
 		status, code, message, retryAfter := billingErrorDetails(err)
 		if retryAfter > 0 {
 			c.Header("Retry-After", strconv.Itoa(retryAfter))

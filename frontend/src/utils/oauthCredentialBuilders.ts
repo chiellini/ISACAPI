@@ -82,7 +82,8 @@ export function buildAntigravityOAuthCredentials(
     token_type: tokenInfo.token_type,
     expires_at: normalizeExpiresAt(tokenInfo.expires_at),
     project_id: tokenInfo.project_id,
-    email: tokenInfo.email
+    email: tokenInfo.email,
+    ...(tokenInfo.plan_type ? { plan_type: tokenInfo.plan_type } : {})
   }
 }
 
