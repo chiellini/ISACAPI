@@ -54,6 +54,9 @@ func TestNewAPIRequestWithURL_普通请求(t *testing.T) {
 	if ua := req.Header.Get("User-Agent"); ua != GetUserAgent() {
 		t.Errorf("User-Agent 不匹配: got %s, want %s", ua, GetUserAgent())
 	}
+	if got := req.Header.Get("X-Goog-Api-Client"); got != "" {
+		t.Errorf("默认不应发送 X-Goog-Api-Client: got %s", got)
+	}
 }
 
 func TestNewAPIRequestWithURL_流式请求(t *testing.T) {
@@ -1855,5 +1858,21 @@ func TestExtractProjectIDFromOnboardResponse(t *testing.T) {
 				t.Fatalf("extractProjectIDFromOnboardResponse() = %q, want %q", got, tc.want)
 			}
 		})
+	}
+}
+
+func TestNewAPIRequestWithURL_DesktopHeaders(t *testing.T) {
+	SetDesktopClientHeadersResolver(func(context.Context) bool { return true })
+	t.Cleanup(func() { SetDesktopClientHeadersResolver(nil) })
+
+	req, err := NewAPIRequestWithURL(context.Background(), "https://example.com", "streamGenerateContent", "tok", []byte(`{}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := req.Header.Get("X-Goog-Api-Client"); got != DesktopXGoogAPIClient {
+		t.Fatalf("X-Goog-Api-Client = %q, want %q", got, DesktopXGoogAPIClient)
+	}
+	if !strings.Contains(req.Header.Get("User-Agent"), DesktopNodeJSAPIClient) {
+		t.Fatalf("User-Agent missing desktop client suffix: %q", req.Header.Get("User-Agent"))
 	}
 }

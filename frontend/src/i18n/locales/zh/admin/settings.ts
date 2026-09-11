@@ -61,6 +61,13 @@ export default {
           enabled: '显示插件管理菜单',
           enabledHint: '关闭后仅隐藏侧边栏菜单；已加载或正在运行的插件不会因此停止。',
         },
+        publicStatus: {
+          title: '公开状态页',
+          description: '对外提供无需登录的服务状态页，展示各供应商与模型可用性。默认关闭。',
+          previewLink: '打开公开状态页',
+          enabled: '启用公开状态页',
+          enabledHint: '关闭后 /status 入口隐藏，公开接口会返回未启用。',
+        },
         riskControl: {
           title: '风控中心',
           description: '启用内容审计菜单和全端点请求审核入口。默认关闭。',
@@ -511,6 +518,9 @@ export default {
         antigravityUserAgentVersion: 'Antigravity UA 版本',
         antigravityUserAgentVersionPlaceholder: '1.23.2',
         antigravityUserAgentVersionHint: '留空时使用 ANTIGRAVITY_USER_AGENT_VERSION 或内置默认值 1.23.2；填写后后台设置优先。',
+        antigravityDesktopClientHeaders: 'Antigravity 桌面客户端完整头',
+        antigravityDesktopClientHeadersHint:
+          '关闭时上游只发 Content-Type、Authorization 和精简 UA（antigravity/<版本> windows/amd64）。开启后按桌面客户端 1.104.0 实测补齐：UA 变为 antigravity/<版本> <os>/<arch> google-api-nodejs-client/10.3.0，并增加 x-goog-api-client: gl-node/22.18.0。这只改变客户端识别字段，不改变 OAuth 身份或配额。',
         openaiCodexUserAgent: 'OpenAI Codex UA',
         openaiCodexUserAgentPlaceholder: 'codex-tui/0.146.1 (Ubuntu 22.4.0; x86_64) WindowsTerminal (codex-tui; 0.146.1)',
         openaiCodexUserAgentHint: '出站统一使用的完整 Codex User-Agent，用于自定义 OS / 架构 / 终端指纹。留空则按下方版本号拼出标准 codex-tui 形态（推荐）。填写后首段和尾部的版本号仍会被下方版本号同步覆盖，避免这条 UA 停在填写时的旧版本——上游在容量紧张时按客户端身份分优先级降载，陈旧或非官方形态的身份会被优先丢弃并回 server_is_overloaded。',

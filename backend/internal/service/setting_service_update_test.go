@@ -563,6 +563,17 @@ func TestSettingService_UpdateSettings_AntigravityUserAgentVersion(t *testing.T)
 	require.Equal(t, "1.23.2", repo.updates[SettingKeyAntigravityUserAgentVersion])
 }
 
+func TestSettingService_UpdateSettings_AntigravityDesktopClientHeaders(t *testing.T) {
+	repo := &settingUpdateRepoStub{}
+	svc := NewSettingService(repo, &config.Config{})
+
+	err := svc.UpdateSettings(context.Background(), &SystemSettings{
+		AntigravityDesktopClientHeaders: true,
+	})
+	require.NoError(t, err)
+	require.Equal(t, "true", repo.updates[SettingKeyAntigravityDesktopClientHeaders])
+}
+
 func TestSettingService_InitializeDefaultSettingsPersistsConfiguredForwardedClientIPHeaders(t *testing.T) {
 	repo := &forwardedIPMigrationRepoStub{values: map[string]string{}}
 	cfg := &config.Config{}
@@ -846,6 +857,24 @@ func TestSettingService_GetAntigravityUserAgentVersion_Precedence(t *testing.T) 
 		svc := NewSettingService(&settingAntigravityUARepoStub{values: map[string]string{}}, &config.Config{})
 
 		require.Equal(t, antigravity.GetDefaultUserAgentVersion(), svc.GetAntigravityUserAgentVersion(context.Background()))
+	})
+}
+
+func TestSettingService_GetAntigravityDesktopClientHeadersEnabled(t *testing.T) {
+	t.Run("后台设置开启", func(t *testing.T) {
+		svc := NewSettingService(&settingAntigravityUARepoStub{values: map[string]string{
+			SettingKeyAntigravityDesktopClientHeaders: "true",
+		}}, &config.Config{})
+
+		require.True(t, svc.GetAntigravityDesktopClientHeadersEnabled(context.Background()))
+	})
+
+	t.Run("空值回退默认关闭", func(t *testing.T) {
+		svc := NewSettingService(&settingAntigravityUARepoStub{values: map[string]string{
+			SettingKeyAntigravityDesktopClientHeaders: "",
+		}}, &config.Config{})
+
+		require.Equal(t, antigravity.GetDefaultDesktopClientHeadersEnabled(), svc.GetAntigravityDesktopClientHeadersEnabled(context.Background()))
 	})
 }
 

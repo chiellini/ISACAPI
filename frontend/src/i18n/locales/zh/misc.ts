@@ -1,5 +1,23 @@
 export default {
 
+  publicStatus: {
+    title: '服务状态',
+    updatedAt: '更新于 {time}',
+    empty: '当前暂无状态信息。',
+    loadError: '服务状态加载失败，请稍后重试。',
+    windowHint: '可用性基于最近 7 天的网关流量统计。',
+    status: {
+      operational: '正常',
+      degraded: '降级',
+      down: '不可用',
+    },
+    overall: {
+      operational: '全部系统运行正常',
+      degraded: '部分系统出现降级',
+      down: '服务中断',
+    },
+  },
+
   // Subscription Progress (Header component)
   subscriptionProgress: {
     title: '我的订阅',

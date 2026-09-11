@@ -61,6 +61,13 @@ export default {
           enabled: 'Show Plugin Management',
           enabledHint: 'Turning this off only hides the sidebar entry; loaded or running plugins are not stopped.',
         },
+        publicStatus: {
+          title: 'Public Status Page',
+          description: 'Publish a no-login status page with provider and model availability. Disabled by default.',
+          previewLink: 'Open public status page',
+          enabled: 'Enable public status page',
+          enabledHint: 'When off, /status is hidden and the public API reports the page as disabled.',
+        },
         riskControl: {
           title: 'Risk Control',
           description: 'Enable the content moderation menu and gateway audit entry point. Disabled by default.',
@@ -518,6 +525,9 @@ export default {
         antigravityUserAgentVersion: 'Antigravity UA Version',
         antigravityUserAgentVersionPlaceholder: '1.23.2',
         antigravityUserAgentVersionHint: 'Leave empty to use ANTIGRAVITY_USER_AGENT_VERSION or the built-in default 1.23.2; when set, the admin setting takes precedence.',
+        antigravityDesktopClientHeaders: 'Antigravity desktop client headers',
+        antigravityDesktopClientHeadersHint:
+          'When off, upstream requests send only Content-Type, Authorization, and the compact UA (antigravity/<version> windows/amd64). When on, match Antigravity desktop 1.104.0: UA becomes antigravity/<version> <os>/<arch> google-api-nodejs-client/10.3.0 and x-goog-api-client: gl-node/22.18.0 is added. This only changes client identification, not OAuth identity or quota.',
         openaiCodexUserAgent: 'OpenAI Codex UA',
         openaiCodexUserAgentPlaceholder: 'codex-tui/0.146.1 (Ubuntu 22.4.0; x86_64) WindowsTerminal (codex-tui; 0.146.1)',
         openaiCodexUserAgentHint: 'The full Codex User-Agent used for all outbound requests, for customizing the OS / arch / terminal fingerprint. Leave empty to build the standard codex-tui identity from the version below (recommended). If set, both the leading and trailing version declarations are synchronized to the version below, so the UA never stays pinned to the release entered here — under capacity pressure the upstream sheds load by client identity and drops stale or non-official identities first with server_is_overloaded.',

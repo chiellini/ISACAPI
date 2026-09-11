@@ -1,5 +1,23 @@
 export default {
 
+  publicStatus: {
+    title: 'Service Status',
+    updatedAt: 'Updated {time}',
+    empty: 'Status information is currently unavailable.',
+    loadError: 'Failed to load service status. Please try again later.',
+    windowHint: 'Availability is calculated from the last 7 days of gateway traffic.',
+    status: {
+      operational: 'Operational',
+      degraded: 'Degraded',
+      down: 'Down',
+    },
+    overall: {
+      operational: 'All systems operational',
+      degraded: 'Some systems are degraded',
+      down: 'Service disruption',
+    },
+  },
+
   // Subscription Progress (Header component)
   subscriptionProgress: {
     title: 'My Subscriptions',

@@ -1318,6 +1318,7 @@ export default {
             'AI Studio quotas are per-model (Pro/Flash are limited independently). If billing is enabled, choose Pay-as-you-go.',
           googleOne: {
             free: 'Google One Free',
+            plus: 'Google One AI Plus',
             pro: 'Google One Pro',
             ultra: 'Google One Ultra'
           },
@@ -1402,6 +1403,7 @@ export default {
             googleOne: {
               channel: 'Google One OAuth (Individuals / Code Assist for Individuals)',
               limitsFree: 'Shared pool: 1000 RPD / 60 RPM',
+              limitsPlus: 'Shared pool: 1500 RPD / 60 RPM',
               limitsPro: 'Shared pool: 1500 RPD / 120 RPM',
               limitsUltra: 'Shared pool: 2000 RPD / 120 RPM'
             },

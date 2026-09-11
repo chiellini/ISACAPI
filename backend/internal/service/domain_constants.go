@@ -670,6 +670,9 @@ const (
 	SettingKeyRewriteMessageCacheControl = "rewrite_message_cache_control"
 	// SettingKeyAntigravityUserAgentVersion Antigravity 上游 User-Agent 版本号（空值使用环境变量/默认值）
 	SettingKeyAntigravityUserAgentVersion = "antigravity_user_agent_version"
+	// SettingKeyAntigravityDesktopClientHeaders 是否发出 Antigravity 桌面客户端完整识别头
+	//（UA 含 google-api-nodejs-client 以及 x-goog-api-client）。默认关闭。
+	SettingKeyAntigravityDesktopClientHeaders = "antigravity_desktop_client_headers"
 	// SettingKeyOpenAICodexUserAgent OpenAI Codex 完整 User-Agent（空值使用内置默认）
 	// 当客户端 UA 被识别为浏览器（Chrome/Firefox/Safari/Edge 等）时，转发给 OpenAI 上游前会替换为此值，
 	// 用于避免 Cloudflare 对浏览器型 UA 的质询拦截。

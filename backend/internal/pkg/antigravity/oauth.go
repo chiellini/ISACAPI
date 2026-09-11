@@ -11,6 +11,8 @@ import (
 	"net/url"
 	"os"
 	"regexp"
+	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -33,8 +35,18 @@ const (
 	// AntigravityUserAgentVersionEnv 是 Antigravity User-Agent 版本号的环境变量名。
 	AntigravityUserAgentVersionEnv = "ANTIGRAVITY_USER_AGENT_VERSION"
 
+	// AntigravityDesktopClientHeadersEnv 控制是否发出桌面客户端完整识别头。
+	// 后台设置 antigravity_desktop_client_headers 优先；未配置时回退到此环境变量。
+	AntigravityDesktopClientHeadersEnv = "ANTIGRAVITY_DESKTOP_CLIENT_HEADERS"
+
 	// DefaultUserAgentVersion 是未通过环境变量或后台设置覆盖时使用的默认版本号。
 	DefaultUserAgentVersion = "2.9.1"
+
+	// DesktopNodeJSAPIClient 是 Antigravity 1.104.0 桌面客户端 UA 中的 Gaxios/Node SDK 标识。
+	DesktopNodeJSAPIClient = "google-api-nodejs-client/10.3.0"
+
+	// DesktopXGoogAPIClient 是 Antigravity 1.104.0 实测的 x-goog-api-client。
+	DesktopXGoogAPIClient = "gl-node/22.18.0"
 
 	// 固定的 redirect_uri（用户需手动复制 code）
 	RedirectURI = "http://localhost:8085/callback"
@@ -62,11 +74,18 @@ var userAgentVersionPattern = regexp.MustCompile(`^\d+\.\d+\.\d+$`)
 // UserAgentVersionResolver 提供运行时 User-Agent 版本号覆盖能力。
 type UserAgentVersionResolver func(ctx context.Context) string
 
+// DesktopClientHeadersResolver 提供运行时“桌面客户端完整头”开关。
+type DesktopClientHeadersResolver func(ctx context.Context) bool
+
 var (
 	// defaultUserAgentVersion 可通过环境变量 ANTIGRAVITY_USER_AGENT_VERSION 配置。
 	defaultUserAgentVersion  = DefaultUserAgentVersion
 	userAgentVersionMu       sync.RWMutex
 	userAgentVersionResolver UserAgentVersionResolver
+
+	defaultDesktopClientHeadersEnabled = false
+	desktopClientHeadersMu             sync.RWMutex
+	desktopClientHeadersResolver       DesktopClientHeadersResolver
 )
 
 // defaultClientSecret 可通过环境变量 ANTIGRAVITY_OAUTH_CLIENT_SECRET 配置
@@ -77,9 +96,30 @@ func init() {
 	if version := NormalizeUserAgentVersion(os.Getenv(AntigravityUserAgentVersionEnv)); version != "" {
 		defaultUserAgentVersion = version
 	}
+	if enabled, ok := parseDesktopClientHeadersEnv(os.Getenv(AntigravityDesktopClientHeadersEnv)); ok {
+		defaultDesktopClientHeadersEnabled = enabled
+	}
 	// 从环境变量读取 client_secret，未设置则使用默认值
 	if secret := os.Getenv(AntigravityOAuthClientSecretEnv); secret != "" {
 		defaultClientSecret = secret
+	}
+}
+
+func parseDesktopClientHeadersEnv(value string) (enabled bool, ok bool) {
+	value = strings.TrimSpace(strings.ToLower(value))
+	if value == "" {
+		return false, false
+	}
+	if parsed, err := strconv.ParseBool(value); err == nil {
+		return parsed, true
+	}
+	switch value {
+	case "1", "yes", "on":
+		return true, true
+	case "0", "no", "off":
+		return false, true
+	default:
+		return false, false
 	}
 }
 
@@ -120,22 +160,88 @@ func GetUserAgentVersionForContext(ctx context.Context) string {
 	return defaultUserAgentVersion
 }
 
-// BuildUserAgent 使用指定版本号构造 User-Agent；版本为空或非法时回退默认值。
+// BuildUserAgent 使用指定版本号构造精简 User-Agent；版本为空或非法时回退默认值。
 func BuildUserAgent(version string) string {
+	return buildUserAgent(version, false)
+}
+
+func buildUserAgent(version string, desktop bool) string {
 	if normalized := NormalizeUserAgentVersion(version); normalized != "" {
-		return fmt.Sprintf("antigravity/%s windows/amd64", normalized)
+		version = normalized
+	} else {
+		version = defaultUserAgentVersion
 	}
-	return fmt.Sprintf("antigravity/%s windows/amd64", defaultUserAgentVersion)
+	if desktop {
+		return fmt.Sprintf("antigravity/%s %s %s", version, desktopPlatformToken(), DesktopNodeJSAPIClient)
+	}
+	return fmt.Sprintf("antigravity/%s windows/amd64", version)
+}
+
+func desktopPlatformToken() string {
+	osName := runtime.GOOS
+	switch osName {
+	case "linux", "windows", "darwin":
+	default:
+		osName = "linux"
+	}
+	arch := runtime.GOARCH
+	switch arch {
+	case "amd64", "arm64":
+	default:
+		arch = "amd64"
+	}
+	return osName + "/" + arch
+}
+
+// SetDesktopClientHeadersResolver 设置是否发出桌面客户端完整识别头。
+func SetDesktopClientHeadersResolver(resolver DesktopClientHeadersResolver) {
+	desktopClientHeadersMu.Lock()
+	defer desktopClientHeadersMu.Unlock()
+	desktopClientHeadersResolver = resolver
+}
+
+// GetDefaultDesktopClientHeadersEnabled 返回环境变量/内置默认开关。
+func GetDefaultDesktopClientHeadersEnabled() bool {
+	return defaultDesktopClientHeadersEnabled
+}
+
+// DesktopClientHeadersEnabled 返回当前请求是否应发出桌面客户端完整头。
+func DesktopClientHeadersEnabled(ctx context.Context) bool {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	desktopClientHeadersMu.RLock()
+	resolver := desktopClientHeadersResolver
+	desktopClientHeadersMu.RUnlock()
+	if resolver != nil {
+		return resolver(ctx)
+	}
+	return defaultDesktopClientHeadersEnabled
 }
 
 // GetUserAgentForContext 返回当前请求应使用的 User-Agent。
 func GetUserAgentForContext(ctx context.Context) string {
-	return BuildUserAgent(GetUserAgentVersionForContext(ctx))
+	return buildUserAgent(GetUserAgentVersionForContext(ctx), DesktopClientHeadersEnabled(ctx))
 }
 
 // GetUserAgent 返回当前配置的 User-Agent。
 func GetUserAgent() string {
 	return GetUserAgentForContext(context.Background())
+}
+
+// ApplyJSONAPIHeaders 写入 Antigravity JSON API 出站头。
+// 默认仅 Content-Type / Authorization / User-Agent；开启桌面完整头时追加 x-goog-api-client，
+// 并把 UA 补成桌面客户端形态。
+func ApplyJSONAPIHeaders(req *http.Request, ctx context.Context, accessToken string) {
+	if req == nil {
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("User-Agent", GetUserAgentForContext(ctx))
+	if DesktopClientHeadersEnabled(ctx) {
+		req.Header.Set("X-Goog-Api-Client", DesktopXGoogAPIClient)
+	}
 }
 
 func getClientSecret() (string, error) {

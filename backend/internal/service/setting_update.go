@@ -479,6 +479,7 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 	updates[SettingKeyRewriteMessageCacheControl] = strconv.FormatBool(settings.RewriteMessageCacheControl)
 	updates[SettingKeyEnableClientDatelineNormalization] = strconv.FormatBool(settings.EnableClientDatelineNormalization)
 	updates[SettingKeyAntigravityUserAgentVersion] = antigravity.NormalizeUserAgentVersion(settings.AntigravityUserAgentVersion)
+	updates[SettingKeyAntigravityDesktopClientHeaders] = strconv.FormatBool(settings.AntigravityDesktopClientHeaders)
 	updates[SettingKeyOpenAICodexUserAgent] = strings.TrimSpace(settings.OpenAICodexUserAgent)
 	updates[SettingKeyOpenAICodexClientVersion] = NormalizeCodexClientVersion(settings.OpenAICodexClientVersion)
 	updates[SettingKeyOpenAICodexVersionAutoSyncEnabled] = strconv.FormatBool(settings.OpenAICodexVersionAutoSyncEnabled)
@@ -723,6 +724,11 @@ func (s *SettingService) refreshCachedSettings(settings *SystemSettings) {
 	s.antigravityUAVersionCache.Store(&cachedAntigravityUserAgentVersion{
 		version:   antigravityUserAgentVersion,
 		expiresAt: time.Now().Add(antigravityUserAgentVersionCacheTTL).UnixNano(),
+	})
+	s.antigravityDesktopHeadersSF.Forget("antigravity_desktop_client_headers")
+	s.antigravityDesktopHeadersCache.Store(&cachedAntigravityDesktopClientHeaders{
+		enabled:   settings.AntigravityDesktopClientHeaders,
+		expiresAt: time.Now().Add(antigravityDesktopClientHeadersCacheTTL).UnixNano(),
 	})
 	s.openAICodexUASF.Forget("openai_codex_user_agent")
 	codexUA := strings.TrimSpace(settings.OpenAICodexUserAgent)

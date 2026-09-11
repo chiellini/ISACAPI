@@ -1379,6 +1379,7 @@ export default {
             'AI Studio 的配额是按模型分别限流（Pro/Flash 独立）。若已绑卡（按量付费），请选 Pay-as-you-go。',
           googleOne: {
             free: 'Google One Free',
+            plus: 'Google One AI Plus',
             pro: 'Google One Pro',
             ultra: 'Google One Ultra'
           },
@@ -1462,6 +1463,7 @@ export default {
             googleOne: {
               channel: 'Google One OAuth（个人版 / Code Assist for Individuals）',
               limitsFree: '共享池：1000 RPD / 60 RPM（不分模型）',
+              limitsPlus: '共享池：1500 RPD / 60 RPM（不分模型）',
               limitsPro: '共享池：1500 RPD / 120 RPM（不分模型）',
               limitsUltra: '共享池：2000 RPD / 120 RPM（不分模型）'
             },

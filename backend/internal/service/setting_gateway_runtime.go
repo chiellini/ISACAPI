@@ -96,6 +96,15 @@ const antigravityUserAgentVersionCacheTTL = 60 * time.Second
 const antigravityUserAgentVersionErrorTTL = 5 * time.Second
 const antigravityUserAgentVersionDBTimeout = 5 * time.Second
 
+type cachedAntigravityDesktopClientHeaders struct {
+	enabled   bool
+	expiresAt int64
+}
+
+const antigravityDesktopClientHeadersCacheTTL = 60 * time.Second
+const antigravityDesktopClientHeadersErrorTTL = 5 * time.Second
+const antigravityDesktopClientHeadersDBTimeout = 5 * time.Second
+
 // DefaultOpenAICodexUserAgent 是 OpenAI Codex 默认 User-Agent，用于规避浏览器 UA 的质询。
 // 默认采用 codex-tui 身份，版本段随 codexCLIVersion 一起更新。
 const DefaultOpenAICodexUserAgent = codexCLIUserAgent
@@ -257,6 +266,55 @@ func (s *SettingService) GetAntigravityUserAgentVersion(ctx context.Context) str
 	})
 	if version, ok := result.(string); ok && version != "" {
 		return version
+	}
+	return fallback
+}
+
+// GetAntigravityDesktopClientHeadersEnabled 返回是否发出桌面客户端完整识别头。
+// 后台设置优先；为空、缺失时回退到 ANTIGRAVITY_DESKTOP_CLIENT_HEADERS / 内置默认值（关闭）。
+func (s *SettingService) GetAntigravityDesktopClientHeadersEnabled(ctx context.Context) bool {
+	fallback := antigravity.GetDefaultDesktopClientHeadersEnabled()
+	if s == nil || s.settingRepo == nil {
+		return fallback
+	}
+	if cached, ok := s.antigravityDesktopHeadersCache.Load().(*cachedAntigravityDesktopClientHeaders); ok && cached != nil {
+		if time.Now().UnixNano() < cached.expiresAt {
+			return cached.enabled
+		}
+	}
+
+	result, _, _ := s.antigravityDesktopHeadersSF.Do("antigravity_desktop_client_headers", func() (any, error) {
+		if cached, ok := s.antigravityDesktopHeadersCache.Load().(*cachedAntigravityDesktopClientHeaders); ok && cached != nil {
+			if time.Now().UnixNano() < cached.expiresAt {
+				return cached.enabled, nil
+			}
+		}
+		if ctx == nil {
+			ctx = context.Background()
+		}
+		dbCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), antigravityDesktopClientHeadersDBTimeout)
+		defer cancel()
+		value, err := s.settingRepo.GetValue(dbCtx, SettingKeyAntigravityDesktopClientHeaders)
+		if err != nil && !errors.Is(err, ErrSettingNotFound) {
+			slog.Warn("failed to get antigravity desktop client headers setting", "error", err)
+			s.antigravityDesktopHeadersCache.Store(&cachedAntigravityDesktopClientHeaders{
+				enabled:   fallback,
+				expiresAt: time.Now().Add(antigravityDesktopClientHeadersErrorTTL).UnixNano(),
+			})
+			return fallback, nil
+		}
+		enabled := fallback
+		if strings.TrimSpace(value) != "" {
+			enabled = value == "true"
+		}
+		s.antigravityDesktopHeadersCache.Store(&cachedAntigravityDesktopClientHeaders{
+			enabled:   enabled,
+			expiresAt: time.Now().Add(antigravityDesktopClientHeadersCacheTTL).UnixNano(),
+		})
+		return enabled, nil
+	})
+	if enabled, ok := result.(bool); ok {
+		return enabled
 	}
 	return fallback
 }

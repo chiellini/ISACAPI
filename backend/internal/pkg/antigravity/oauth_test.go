@@ -3,9 +3,11 @@
 package antigravity
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
+	"net/http"
 	"net/url"
 	"os"
 	"strings"
@@ -717,5 +719,66 @@ func TestScopes_包含必要范围(t *testing.T) {
 		if !strings.Contains(Scopes, scope) {
 			t.Errorf("Scopes 缺少 %s", scope)
 		}
+	}
+}
+
+func TestParseDesktopClientHeadersEnv(t *testing.T) {
+	cases := []struct {
+		in      string
+		enabled bool
+		ok      bool
+	}{
+		{"", false, false},
+		{"true", true, true},
+		{"FALSE", false, true},
+		{"1", true, true},
+		{"yes", true, true},
+		{"off", false, true},
+		{"maybe", false, false},
+	}
+	for _, tc := range cases {
+		enabled, ok := parseDesktopClientHeadersEnv(tc.in)
+		if enabled != tc.enabled || ok != tc.ok {
+			t.Fatalf("parseDesktopClientHeadersEnv(%q) = (%v, %v), want (%v, %v)", tc.in, enabled, ok, tc.enabled, tc.ok)
+		}
+	}
+}
+
+func TestApplyJSONAPIHeaders_DesktopMode(t *testing.T) {
+	SetDesktopClientHeadersResolver(func(context.Context) bool { return true })
+	t.Cleanup(func() { SetDesktopClientHeadersResolver(nil) })
+
+	req, err := http.NewRequest(http.MethodPost, "https://example.com", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ApplyJSONAPIHeaders(req, context.Background(), "tok")
+
+	wantUA := "antigravity/" + GetDefaultUserAgentVersion() + " " + desktopPlatformToken() + " " + DesktopNodeJSAPIClient
+	if got := req.Header.Get("User-Agent"); got != wantUA {
+		t.Fatalf("User-Agent = %q, want %q", got, wantUA)
+	}
+	if got := req.Header.Get("X-Goog-Api-Client"); got != DesktopXGoogAPIClient {
+		t.Fatalf("X-Goog-Api-Client = %q, want %q", got, DesktopXGoogAPIClient)
+	}
+	if got := req.Header.Get("Authorization"); got != "Bearer tok" {
+		t.Fatalf("Authorization = %q", got)
+	}
+}
+
+func TestApplyJSONAPIHeaders_CompactModeOmitsGoogAPIClient(t *testing.T) {
+	SetDesktopClientHeadersResolver(func(context.Context) bool { return false })
+	t.Cleanup(func() { SetDesktopClientHeadersResolver(nil) })
+
+	req, err := http.NewRequest(http.MethodPost, "https://example.com", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ApplyJSONAPIHeaders(req, context.Background(), "tok")
+	if got := req.Header.Get("X-Goog-Api-Client"); got != "" {
+		t.Fatalf("compact mode should omit X-Goog-Api-Client, got %q", got)
+	}
+	if got := req.Header.Get("User-Agent"); got != "antigravity/"+GetDefaultUserAgentVersion()+" windows/amd64" {
+		t.Fatalf("User-Agent = %q", got)
 	}
 }

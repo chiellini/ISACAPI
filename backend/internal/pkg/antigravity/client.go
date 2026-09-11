@@ -44,12 +44,18 @@ func NewAPIRequestWithURL(ctx context.Context, baseURL, action, accessToken stri
 		return nil, err
 	}
 
-	// 基础 Headers（与 Antigravity-Manager 保持一致，只设置这 3 个）
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+accessToken)
-	req.Header.Set("User-Agent", GetUserAgentForContext(ctx))
+	ApplyJSONAPIHeaders(req, ctx, accessToken)
 
 	return req, nil
+}
+
+func applyPrivacyAPIHeaders(req *http.Request, ctx context.Context, accessToken string) {
+	ApplyJSONAPIHeaders(req, ctx, accessToken)
+	req.Header.Set("Accept", "*/*")
+	if !DesktopClientHeadersEnabled(ctx) {
+		req.Header.Set("X-Goog-Api-Client", "gl-node/22.21.1")
+	}
+	req.Host = "daily-cloudcode-pa.googleapis.com"
 }
 
 // NewAPIRequest 使用默认 URL 创建 Antigravity API 请求（v1internal 端点）
@@ -459,9 +465,7 @@ func (c *Client) LoadCodeAssist(ctx context.Context, accessToken string) (*LoadC
 			lastErr = fmt.Errorf("创建请求失败: %w", err)
 			continue
 		}
-		req.Header.Set("Authorization", "Bearer "+accessToken)
-		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("User-Agent", GetUserAgentForContext(ctx))
+		ApplyJSONAPIHeaders(req, ctx, accessToken)
 
 		resp, err := servertiming.Do(c.httpClient, req)
 		if err != nil {
@@ -538,9 +542,7 @@ func (c *Client) OnboardUser(ctx context.Context, accessToken, tierID string) (s
 				lastErr = fmt.Errorf("创建请求失败: %w", err)
 				break
 			}
-			req.Header.Set("Authorization", "Bearer "+accessToken)
-			req.Header.Set("Content-Type", "application/json")
-			req.Header.Set("User-Agent", GetUserAgentForContext(ctx))
+			ApplyJSONAPIHeaders(req, ctx, accessToken)
 
 			resp, err := servertiming.Do(c.httpClient, req)
 			if err != nil {
@@ -680,9 +682,7 @@ func (c *Client) FetchAvailableModels(ctx context.Context, accessToken, projectI
 			lastErr = fmt.Errorf("创建请求失败: %w", err)
 			continue
 		}
-		req.Header.Set("Authorization", "Bearer "+accessToken)
-		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("User-Agent", GetUserAgentForContext(ctx))
+		ApplyJSONAPIHeaders(req, ctx, accessToken)
 
 		resp, err := servertiming.Do(fetchClient, req)
 		if err != nil {
@@ -836,12 +836,7 @@ func (c *Client) SetUserSettings(ctx context.Context, accessToken string) (*SetU
 	if err != nil {
 		return nil, fmt.Errorf("创建请求失败: %w", err)
 	}
-	req.Header.Set("Authorization", "Bearer "+accessToken)
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "*/*")
-	req.Header.Set("User-Agent", GetUserAgentForContext(ctx))
-	req.Header.Set("X-Goog-Api-Client", "gl-node/22.21.1")
-	req.Host = "daily-cloudcode-pa.googleapis.com"
+	applyPrivacyAPIHeaders(req, ctx, accessToken)
 
 	resp, err := servertiming.Do(c.httpClient, req)
 	if err != nil {
@@ -879,12 +874,7 @@ func (c *Client) FetchUserInfo(ctx context.Context, accessToken, projectID strin
 	if err != nil {
 		return nil, fmt.Errorf("创建请求失败: %w", err)
 	}
-	req.Header.Set("Authorization", "Bearer "+accessToken)
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "*/*")
-	req.Header.Set("User-Agent", GetUserAgentForContext(ctx))
-	req.Header.Set("X-Goog-Api-Client", "gl-node/22.21.1")
-	req.Host = "daily-cloudcode-pa.googleapis.com"
+	applyPrivacyAPIHeaders(req, ctx, accessToken)
 
 	resp, err := servertiming.Do(c.httpClient, req)
 	if err != nil {
