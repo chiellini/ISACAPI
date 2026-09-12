@@ -188,7 +188,17 @@ const emit = defineEmits<{
 const { t } = useI18n()
 const appStore = useAppStore()
 
-const platforms: AccountPlatform[] = ['anthropic', 'openai', 'gemini', 'antigravity', 'grok', 'kimi', 'zhipu', 'deepseek']
+const platforms: AccountPlatform[] = [
+  'anthropic',
+  'openai',
+  'gemini',
+  'antigravity',
+  'grok',
+  'kimi',
+  'zhipu',
+  'deepseek',
+  'minimax',
+]
 const typesByPlatform: Record<AccountPlatform, AccountType[]> = {
   anthropic: ['oauth', 'setup-token', 'apikey', 'bedrock', 'service_account'],
   openai: ['oauth', 'apikey', 'upstream'],
@@ -198,6 +208,7 @@ const typesByPlatform: Record<AccountPlatform, AccountType[]> = {
   kimi: ['apikey', 'upstream'],
   zhipu: ['apikey', 'upstream'],
   deepseek: ['apikey', 'upstream'],
+  minimax: ['apikey', 'upstream'],
 }
 
 const form = reactive({
@@ -248,6 +259,7 @@ const platformLabel = (platform: AccountPlatform) => {
   if (platform === 'kimi') return 'Kimi'
   if (platform === 'zhipu') return 'Zhipu'
   if (platform === 'deepseek') return 'DeepSeek'
+  if (platform === 'minimax') return 'MiniMax'
   return 'Gemini'
 }
 

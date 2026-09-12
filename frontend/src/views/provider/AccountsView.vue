@@ -127,7 +127,17 @@ import type { Column } from '@/components/common/types'
 
 const { t } = useI18n()
 const appStore = useAppStore()
-const platforms: AccountPlatform[] = ['anthropic', 'openai', 'gemini', 'antigravity', 'grok']
+const platforms: AccountPlatform[] = [
+  'anthropic',
+  'openai',
+  'gemini',
+  'antigravity',
+  'grok',
+  'kimi',
+  'zhipu',
+  'deepseek',
+  'minimax',
+]
 const accounts = ref<Account[]>([])
 const groups = ref<ProviderGroupSummary[]>([])
 const loading = ref(false)
@@ -210,4 +220,3 @@ const statusClass = (status: Account['status']) => [
 
 onMounted(() => { void Promise.all([load(), loadGroups()]) })
 </script>
-

@@ -608,17 +608,23 @@ export async function streamChatCompletion(
           content += deltaText
           handlers.onDelta?.(deltaText)
         }
-        const delta = choice?.delta
-        if (Array.isArray(delta?.tool_calls)) {
-          for (const tc of delta.tool_calls) {
-            const idx = typeof tc?.index === 'number' ? tc.index : 0
+        const delta = asRecord(choice?.delta)
+        const toolCalls = delta?.tool_calls
+        if (Array.isArray(toolCalls)) {
+          for (const rawToolCall of toolCalls) {
+            const tc = asRecord(rawToolCall)
+            if (!tc) continue
+            const fn = asRecord(tc.function)
+            const idx = typeof tc.index === 'number' ? tc.index : 0
             const acc = toolAcc[idx] ?? (toolAcc[idx] = { id: '', name: '', arguments: '' })
-            if (tc?.id) acc.id = tc.id
-            if (tc?.function?.name) acc.name = tc.function.name
-            if (typeof tc?.function?.arguments === 'string') acc.arguments += tc.function.arguments
+            if (typeof tc.id === 'string' && tc.id) acc.id = tc.id
+            if (typeof fn?.name === 'string' && fn.name) acc.name = fn.name
+            if (typeof fn?.arguments === 'string') acc.arguments += fn.arguments
           }
         }
-        if (choice?.finish_reason) finishReason = choice.finish_reason
+        if (typeof choice?.finish_reason === 'string' && choice.finish_reason) {
+          finishReason = choice.finish_reason
+        }
       } catch {
         // 忽略非 JSON 行（注释/心跳）
       }
