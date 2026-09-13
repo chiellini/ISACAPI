@@ -721,7 +721,7 @@ func (s *OpenAIGatewayService) buildUpstreamRequestOpenAIPassthrough(
 
 	// 账号级请求头覆写（仅 openai api_key 账号启用时生效；OAuth 路径 no-op）
 	account.ApplyHeaderOverrides(req.Header)
-	applyOpenCodeSessionHeader(c, account, targetURL, req.Header)
+	applyOpenCodeSessionHeader(c, account, targetURL, req.Header, body)
 	// Keep Hermes UA authoritative over arbitrary header overrides for API-key
 	// accounts; OAuth/Codex accounts are guarded no-op by the helper.
 	account.ApplyHermesUserAgent(req.Header)
