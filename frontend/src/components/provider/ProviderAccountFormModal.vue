@@ -198,6 +198,7 @@ const platforms: AccountPlatform[] = [
   'zhipu',
   'deepseek',
   'minimax',
+  'opencode_go',
 ]
 const typesByPlatform: Record<AccountPlatform, AccountType[]> = {
   anthropic: ['oauth', 'setup-token', 'apikey', 'bedrock', 'service_account'],
@@ -209,6 +210,7 @@ const typesByPlatform: Record<AccountPlatform, AccountType[]> = {
   zhipu: ['apikey', 'upstream'],
   deepseek: ['apikey', 'upstream'],
   minimax: ['apikey', 'upstream'],
+  opencode_go: ['apikey', 'upstream'],
 }
 
 const form = reactive({
