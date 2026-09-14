@@ -94,6 +94,9 @@ func RegisterAdminRoutes(
 		// 使用记录管理
 		registerUsageRoutes(admin, h)
 
+		// 会话归档
+		registerConversationRoutes(admin, h)
+
 		// 用户属性管理
 		registerUserAttributeRoutes(admin, h)
 
@@ -131,6 +134,14 @@ func RegisterAdminRoutes(
 		// 操作审计日志
 		registerAuditLogRoutes(admin, h, stepUpAuth)
 	}
+}
+
+func registerConversationRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
+	admin.GET("/conversations", h.Admin.Conversation.ListSessions)
+	admin.GET("/conversations/:id", h.Admin.Conversation.GetSession)
+	admin.GET("/conversations/:id/export", h.Admin.Conversation.ExportSession)
+	admin.DELETE("/conversations/:id", h.Admin.Conversation.DeleteSession)
+	admin.GET("/conversation-exports", h.Admin.Conversation.ExportAll)
 }
 
 func registerPromptAuditRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
