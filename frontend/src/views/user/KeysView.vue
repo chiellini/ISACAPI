@@ -1090,7 +1090,7 @@
         <p class="text-sm text-gray-600 dark:text-gray-400">
           {{ t('keys.ccsClientSelect.description') }}
         </p>
-        <div v-if="pendingCcsRow?.group?.platform === 'openai'">
+        <div v-if="pendingCcsRow && ccsSpecialTarget !== 'antigravity'">
           <label for="ccs-import-model" class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
             {{ t('keys.ccsClientSelect.model') }}
           </label>
@@ -1101,31 +1101,64 @@
             type="text"
             class="input w-full"
             :placeholder="OPENAI_CC_SWITCH_CODEX_MODEL"
+            list="ccs-model-suggestions"
+            @input="ccsModelInputDirty = true"
             aria-describedby="ccs-import-model-hint"
           />
+          <datalist id="ccs-model-suggestions">
+            <option v-for="model in ccsModelSuggestions" :key="model" :value="model" />
+          </datalist>
           <p id="ccs-import-model-hint" class="mt-1 text-xs text-gray-500 dark:text-gray-400">
             {{ t('keys.ccsClientSelect.modelHint') }}
           </p>
         </div>
-        <div class="grid gap-3 sm:grid-cols-2">
+        <div v-if="!ccsSpecialTarget" class="grid gap-3 sm:grid-cols-2">
           <button
             v-for="option in ccsClientOptions"
             :key="option.id"
             :data-testid="`ccs-client-${option.id}`"
-            :disabled="isCcsClientDisabled(option.id)"
             @click="handleCcsClientSelect(option.id)"
-            class="flex flex-col items-center gap-2 rounded-xl border-2 border-gray-200 p-4 transition-all hover:border-primary-500 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-dark-600 dark:hover:border-primary-500 dark:hover:bg-primary-900/20"
+            class="flex flex-col items-center gap-2 rounded-xl border-2 border-gray-200 p-4 transition-all hover:border-primary-500 hover:bg-primary-50 dark:border-dark-600 dark:hover:border-primary-500 dark:hover:bg-primary-900/20"
           >
             <Icon :name="option.icon" size="xl" class="text-gray-600 dark:text-gray-400" />
             <span class="font-medium text-gray-900 dark:text-white">{{
               t(`keys.ccsClientSelect.${option.id === 'claude' ? 'claudeCode' : option.id}`)
             }}</span>
             <span class="text-xs text-gray-500 dark:text-gray-400">{{
-              isCcsClientDisabled(option.id)
-                ? t('keys.ccsClientSelect.claudeCodeUnavailable')
-                : t(`keys.ccsClientSelect.${option.id === 'claude' ? 'claudeCode' : option.id}Desc`)
+              t(`keys.ccsClientSelect.${option.id === 'claude' ? 'claudeCode' : option.id}Desc`)
             }}</span>
           </button>
+        </div>
+        <div v-if="ccsSpecialTarget === 'antigravity'" data-testid="ccs-antigravity-notice" class="space-y-3">
+          <p class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm leading-5 text-amber-800 dark:border-amber-900/50 dark:bg-amber-900/20 dark:text-amber-200">
+            {{ t('keys.ccsClientSelect.antigravityUnavailable') }}
+          </p>
+          <button data-testid="ccs-client-back" @click="ccsSpecialTarget = null" class="btn btn-secondary">
+            {{ t('keys.ccsClientSelect.backToClients') }}
+          </button>
+        </div>
+        <div v-if="ccsSpecialTarget === 'pi'" data-testid="ccs-pi-config" class="space-y-3">
+          <p class="text-sm text-gray-600 dark:text-gray-400">
+            {{ t('keys.ccsClientSelect.piHint') }}
+          </p>
+          <textarea
+            :value="ccsPiConfigJson"
+            :readonly="true"
+            rows="12"
+            class="input w-full font-mono text-xs"
+            aria-label="Pi models.json"
+          />
+          <div class="flex flex-wrap justify-end gap-2">
+            <button data-testid="ccs-pi-copy" @click="copyPiConfig" class="btn btn-secondary">
+              {{ t('keys.ccsClientSelect.piCopy') }}
+            </button>
+            <button data-testid="ccs-pi-download" @click="downloadPiConfig" class="btn btn-primary">
+              {{ t('keys.ccsClientSelect.piDownload') }}
+            </button>
+            <button data-testid="ccs-client-back" @click="ccsSpecialTarget = null" class="btn btn-secondary">
+              {{ t('keys.ccsClientSelect.backToClients') }}
+            </button>
+          </div>
         </div>
       </div>
       <template #footer>
@@ -1332,8 +1365,9 @@
 </template>
 
 <script setup lang="ts">
-	import { ref, reactive, computed, watch, onMounted, onUnmounted, type ComponentPublicInstance } from 'vue'
-	import { useI18n } from 'vue-i18n'
+import { ref, reactive, computed, watch, onMounted, onUnmounted, type ComponentPublicInstance } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { saveAs } from 'file-saver'
 	import { useAppStore } from '@/stores/app'
 	import { useOnboardingStore } from '@/stores/onboarding'
 	import { useClipboard } from '@/composables/useClipboard'
@@ -1367,10 +1401,12 @@ import { KEY_GROUP_PROVIDERS, KEY_GROUP_PROVIDER_ICONS, getKeyGroupProvider, typ
 import {
   CC_SWITCH_DOWNLOAD_LINKS,
   OPENAI_CC_SWITCH_CODEX_MODEL,
+  buildPiProviderConfig,
   buildCcSwitchImportDeeplink,
   getCcSwitchProtocolFallbackDelayMs,
   openCcSwitchDeeplink,
-  type CcSwitchClientType
+  type CcSwitchClientType,
+  type CcSwitchExportTarget
 } from '@/utils/ccswitchImport'
 
 const showCcsAppleHint = getCcSwitchProtocolFallbackDelayMs() > 1800
@@ -1544,6 +1580,10 @@ const showCcsClientSelect = ref(false)
 const showColumnDropdown = ref(false)
 const pendingCcsRow = ref<ApiKey | null>(null)
 const ccsImportModel = ref(OPENAI_CC_SWITCH_CODEX_MODEL)
+const ccsModelSuggestions = ref<string[]>([])
+const ccsModelInputDirty = ref(false)
+const ccsModelRequestId = ref(0)
+const ccsSpecialTarget = ref<'pi' | 'antigravity' | null>(null)
 const selectedKey = ref<ApiKey | null>(null)
 const copiedKeyId = ref<number | null>(null)
 const groupSelectorKeyId = ref<number | null>(null)
@@ -2150,36 +2190,75 @@ const resetRateLimitUsage = async () => {
 
 const importToCcswitch = (row: ApiKey) => {
   pendingCcsRow.value = row
-  ccsImportModel.value = OPENAI_CC_SWITCH_CODEX_MODEL
+  ccsSpecialTarget.value = null
+  ccsModelSuggestions.value = []
+  ccsModelInputDirty.value = false
+  ccsImportModel.value = ''
   showCcsClientSelect.value = true
+
+  const groupId = row.group_id || row.group?.id
+  const requestId = ++ccsModelRequestId.value
+  if (!groupId || typeof userGroupsAPI.getModels !== 'function') return
+  userGroupsAPI.getModels(groupId)
+    .then((info) => {
+      if (requestId !== ccsModelRequestId.value || !pendingCcsRow.value || !showCcsClientSelect.value) return
+      const models = Array.isArray(info?.models)
+        ? info.models
+          .filter((model): model is string => typeof model === 'string')
+          .map((model) => model.trim())
+          .filter((model) => model.length > 0)
+        : []
+      ccsModelSuggestions.value = [...new Set(models)]
+      if (!ccsModelInputDirty.value && ccsModelSuggestions.value.length > 0) {
+        ccsImportModel.value = ccsModelSuggestions.value.includes(OPENAI_CC_SWITCH_CODEX_MODEL)
+          ? OPENAI_CC_SWITCH_CODEX_MODEL
+          : ccsModelSuggestions.value[0]
+      }
+    })
+    .catch(() => {
+      // Model discovery is advisory. The user can still enter a model manually.
+    })
 }
 
-const ccsClientOptionDefinitions: Array<{ id: CcSwitchClientType; icon: 'terminal' | 'sparkles' }> = [
+const ccsClientOptionDefinitions: Array<{ id: CcSwitchExportTarget; icon: 'terminal' | 'sparkles' }> = [
   { id: 'codex', icon: 'terminal' },
   { id: 'claude', icon: 'terminal' },
+  { id: 'antigravity', icon: 'sparkles' },
   { id: 'openclaw', icon: 'terminal' },
   { id: 'hermes', icon: 'terminal' },
   { id: 'opencode', icon: 'terminal' },
+  { id: 'pi', icon: 'terminal' },
   { id: 'gemini', icon: 'sparkles' },
   { id: 'grokbuild', icon: 'terminal' }
 ]
 
 const ccsClientOptions = computed(() => {
-  const platform = pendingCcsRow.value?.group?.platform || 'anthropic'
-  const allowedByPlatform: Record<string, CcSwitchClientType[]> = {
-    openai: ['codex', 'claude', 'openclaw', 'hermes', 'opencode'],
-    antigravity: ['claude', 'gemini'],
-    gemini: ['gemini'],
-    grok: ['grokbuild']
-  }
-  const allowed = allowedByPlatform[platform] || ['claude']
-  return ccsClientOptionDefinitions.filter((option) => allowed.includes(option.id))
+  return ccsClientOptionDefinitions
 })
 
-const isCcsClientDisabled = (clientType: CcSwitchClientType) =>
-  clientType === 'claude'
-  && pendingCcsRow.value?.group?.platform === 'openai'
-  && !pendingCcsRow.value.group.allow_messages_dispatch
+const ccsPiConfigJson = computed(() => {
+  if (ccsSpecialTarget.value !== 'pi' || !pendingCcsRow.value || !ccsImportModel.value.trim()) return ''
+  try {
+    return JSON.stringify(buildPiProviderConfig({
+      baseUrl: publicSettings.value?.api_base_url || window.location.origin,
+      platform: pendingCcsRow.value.group?.platform,
+      providerName: publicSettings.value?.site_name || 'sub2api',
+      apiKey: pendingCcsRow.value.key,
+      model: ccsImportModel.value
+    }), null, 2)
+  } catch {
+    return ''
+  }
+})
+
+const copyPiConfig = async () => {
+  if (ccsPiConfigJson.value) await clipboardCopy(ccsPiConfigJson.value, t('keys.ccsClientSelect.piCopied'))
+}
+
+const downloadPiConfig = () => {
+  if (!ccsPiConfigJson.value) return
+  saveAs(new Blob([`${ccsPiConfigJson.value}\n`], { type: 'application/json;charset=utf-8' }), 'models.json')
+}
 
 const executeCcsImport = (row: ApiKey, clientType: CcSwitchClientType) => {
   const baseUrl = publicSettings.value?.api_base_url || window.location.origin
@@ -2212,7 +2291,7 @@ const executeCcsImport = (row: ApiKey, clientType: CcSwitchClientType) => {
     clientType,
     providerName,
     apiKey: row.key,
-    model: platform === 'openai' ? ccsImportModel.value.trim() : undefined,
+    model: ccsImportModel.value.trim() || undefined,
     usageScript
   })
 
@@ -2255,8 +2334,19 @@ const executeCcsImport = (row: ApiKey, clientType: CcSwitchClientType) => {
   }
 }
 
-const handleCcsClientSelect = (clientType: CcSwitchClientType) => {
-  if (isCcsClientDisabled(clientType)) return
+const handleCcsClientSelect = (clientType: CcSwitchExportTarget) => {
+  if (clientType === 'antigravity') {
+    ccsSpecialTarget.value = 'antigravity'
+    return
+  }
+  if (clientType === 'pi') {
+    if (!ccsImportModel.value.trim()) {
+      appStore.showError(t('keys.ccsClientSelect.modelRequired'))
+      return
+    }
+    ccsSpecialTarget.value = 'pi'
+    return
+  }
   if (pendingCcsRow.value?.group?.platform === 'openai' && !ccsImportModel.value.trim()) {
     appStore.showError(t('keys.ccsClientSelect.modelRequired'))
     return
@@ -2271,6 +2361,8 @@ const handleCcsClientSelect = (clientType: CcSwitchClientType) => {
 const closeCcsClientSelect = () => {
   showCcsClientSelect.value = false
   pendingCcsRow.value = null
+  ccsSpecialTarget.value = null
+  ccsModelRequestId.value += 1
 }
 
 // Fallback shown when the ccswitch:// protocol handler didn't launch (CC-Switch

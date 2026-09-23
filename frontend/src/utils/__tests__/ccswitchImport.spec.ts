@@ -3,6 +3,7 @@ import {
   CC_SWITCH_DOWNLOAD_LINKS,
   GROK_CC_SWITCH_MODEL,
   OPENAI_CC_SWITCH_CODEX_MODEL,
+  buildPiProviderConfig,
   buildCcSwitchImportDeeplink,
   getCcSwitchProtocolFallbackDelayMs,
   isAppleLikePlatform,
@@ -193,6 +194,22 @@ describe('ccswitchImport utils', () => {
   })
 
   it.each([
+    { clientType: 'codex' as const, app: 'codex' },
+    { clientType: 'openclaw' as const, app: 'openclaw' },
+    { clientType: 'hermes' as const, app: 'hermes' },
+    { clientType: 'opencode' as const, app: 'opencode' },
+    { clientType: 'grokbuild' as const, app: 'grokbuild' }
+  ])('uses the standard /v1 route for Antigravity source to $app', ({ clientType, app }) => {
+    const params = paramsFromDeeplink(buildCcSwitchImportDeeplink({
+      ...baseInput,
+      platform: 'antigravity',
+      clientType
+    }))
+    expect(params.get('app')).toBe(app)
+    expect(params.get('endpoint')).toBe(`${baseInput.baseUrl}/v1`)
+  })
+
+  it.each([
     { platform: 'openai' as const, clientType: 'claude' as const, endpoint: 'https://api.example.com/gateway' },
     { platform: 'anthropic' as const, clientType: 'claude' as const, endpoint: 'https://api.example.com/gateway' },
     { platform: 'gemini' as const, clientType: 'gemini' as const, endpoint: 'https://api.example.com/gateway' },
@@ -207,5 +224,37 @@ describe('ccswitchImport utils', () => {
     }))
 
     expect(params.get('endpoint')).toBe(endpoint)
+  })
+
+  it('builds a stable Pi models.json provider with a root /v1 endpoint', () => {
+    expect(buildPiProviderConfig({
+      ...baseInput,
+      baseUrl: 'https://api.example.com/gateway/v1///',
+      platform: 'openai',
+      model: ' team-coding-model '
+    })).toEqual({
+      providers: {
+        isacapi: {
+          baseUrl: 'https://api.example.com/gateway/v1',
+          api: 'openai-completions',
+          apiKey: 'sk-test',
+          models: [{ id: 'team-coding-model', name: 'team-coding-model' }]
+        }
+      }
+    })
+  })
+
+  it('rejects an empty Pi model instead of emitting an unusable config', () => {
+    expect(() => buildPiProviderConfig({
+      ...baseInput,
+      model: '  '
+    })).toThrow('Pi model is required')
+  })
+
+  it.each(['pi', 'antigravity'])('rejects unsupported %s provider deeplinks', (clientType) => {
+    expect(() => buildCcSwitchImportDeeplink({
+      ...baseInput,
+      clientType: clientType as never
+    })).toThrow(`CC Switch does not support ${clientType} provider deeplinks`)
   })
 })

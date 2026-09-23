@@ -15,12 +15,14 @@ const {
   getDashboardApiKeysUsage,
   getAvailableGroups,
   getUserGroupRates,
+  getModels,
   showError,
   showSuccess,
   copyToClipboard,
   isCurrentStep,
   nextStep,
   openCcSwitchDeeplink,
+  saveAsMock,
 } = vi.hoisted(() => ({
   listKeys: vi.fn(),
   updateKey: vi.fn(),
@@ -28,12 +30,14 @@ const {
   getDashboardApiKeysUsage: vi.fn(),
   getAvailableGroups: vi.fn(),
   getUserGroupRates: vi.fn(),
+  getModels: vi.fn(),
   showError: vi.fn(),
   showSuccess: vi.fn(),
   copyToClipboard: vi.fn(),
   isCurrentStep: vi.fn(),
   nextStep: vi.fn(),
   openCcSwitchDeeplink: vi.fn(),
+  saveAsMock: vi.fn(),
 }))
 
 const messages: Record<string, string> = {
@@ -86,8 +90,11 @@ vi.mock('@/api', () => ({
   userGroupsAPI: {
     getAvailable: getAvailableGroups,
     getUserGroupRates,
+    getModels,
   },
 }))
+
+vi.mock('file-saver', () => ({ saveAs: saveAsMock }))
 
 vi.mock('@/stores/app', () => ({
   useAppStore: () => ({
@@ -277,6 +284,15 @@ const getButtonByText = (wrapper: VueWrapper, text: string) => {
   return button
 }
 
+function readBlobAsText(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result))
+    reader.onerror = () => reject(reader.error)
+    reader.readAsText(blob)
+  })
+}
+
 describe('user KeysView column settings', () => {
   beforeEach(() => {
     localStorage.clear()
@@ -288,12 +304,14 @@ describe('user KeysView column settings', () => {
     getDashboardApiKeysUsage.mockReset()
     getAvailableGroups.mockReset()
     getUserGroupRates.mockReset()
+    getModels.mockReset()
     showError.mockReset()
     showSuccess.mockReset()
     copyToClipboard.mockReset()
     isCurrentStep.mockReset()
     nextStep.mockReset()
     openCcSwitchDeeplink.mockReset()
+    saveAsMock.mockReset()
 
     listKeys.mockResolvedValue({
       items: [createApiKey()],
@@ -306,102 +324,213 @@ describe('user KeysView column settings', () => {
     getDashboardApiKeysUsage.mockResolvedValue({ stats: {} })
     getAvailableGroups.mockResolvedValue([])
     getUserGroupRates.mockResolvedValue({})
+    getModels.mockResolvedValue({
+      group_id: 1,
+      platform: 'openai',
+      models: [OPENAI_CC_SWITCH_CODEX_MODEL],
+    })
     isCurrentStep.mockReturnValue(false)
   })
 
-  it.each([
-    ['codex', 'Codex'],
-    ['claude', 'Claude Code'],
-    ['openclaw', 'OpenClaw'],
-    ['hermes', 'Hermes'],
-    ['opencode', 'OpenCode'],
-  ])('asks for an OpenAI export target and launches the selected %s provider', async (target, label) => {
-    const key: ApiKey = {
-      ...createApiKey(),
-      group_id: 42,
-      group: { id: 42, name: 'OpenAI', platform: 'openai', allow_messages_dispatch: true } as ApiKey['group'],
-    }
+  const ccsPlatforms = [
+    'anthropic', 'openai', 'gemini', 'antigravity', 'grok', 'kimi', 'zhipu',
+    'deepseek', 'minimax', 'opencode_go', 'composite',
+  ] as const
+  const ccsTargets = ['codex', 'claude', 'antigravity', 'openclaw', 'hermes', 'opencode', 'pi', 'gemini', 'grokbuild'] as const
+  const deeplinkTargets = ['codex', 'claude', 'openclaw', 'hermes', 'opencode', 'gemini', 'grokbuild'] as const
+
+  const ccsKey = (platform: typeof ccsPlatforms[number], groupId = 42): ApiKey => ({
+    ...createApiKey(),
+    group_id: groupId,
+    group: { id: groupId, name: `${platform} group`, platform, allow_messages_dispatch: false } as ApiKey['group'],
+  })
+
+  const mountCcsView = async (key: ApiKey) => {
     listKeys.mockResolvedValueOnce({ items: [key], total: 1, page: 1, page_size: 20, pages: 1 })
-    getPublicSettings.mockResolvedValue({ api_base_url: 'https://api.example.com/', site_name: '中文站点' })
-    const wrapper = await mountView()
+    return mountView()
+  }
+
+  const openCcsDialog = async (wrapper: VueWrapper) => {
+    await getButtonByText(wrapper, 'keys.importToCcSwitch').trigger('click')
+    await flushPromises()
+    await nextTick()
+  }
+
+  it.each(ccsPlatforms)('shows the same nine enabled CC-Switch targets for %s groups', async (platform) => {
+    const wrapper = await mountCcsView(ccsKey(platform))
+    try {
+      await openCcsDialog(wrapper)
+      expect(wrapper.findAll('[data-testid^="ccs-client-"]').map((button) => button.attributes('data-testid')))
+        .toEqual(ccsTargets.map((target) => `ccs-client-${target}`))
+      for (const button of wrapper.findAll('[data-testid^="ccs-client-"]')) {
+        expect((button.element as HTMLButtonElement).disabled).toBe(false)
+      }
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  it.each(deeplinkTargets)('launches %s with the selected model for every group platform', async (target) => {
     vi.useFakeTimers()
     try {
-      await getButtonByText(wrapper, 'keys.importToCcSwitch').trigger('click')
-      const options = wrapper.findAll('[data-testid^="ccs-client-"]')
-      expect(options.map((option) => option.get('span.font-medium').text()))
-        .toEqual(['Codex', 'Claude Code', 'OpenClaw', 'Hermes', 'OpenCode'])
-      expect(openCcSwitchDeeplink).not.toHaveBeenCalled()
-      const modelInput = wrapper.get<HTMLInputElement>('[data-testid="ccs-model-input"]')
-      expect(modelInput.element.value).toBe(OPENAI_CC_SWITCH_CODEX_MODEL)
-      await modelInput.setValue('  team-coding-model  ')
-
-      const selected = wrapper.get(`[data-testid="ccs-client-${target}"]`)
-      expect(selected.get('span.font-medium').text()).toBe(label)
-      expect(selected.text()).toContain(`Import as ${label} configuration`)
-      await selected.trigger('click')
-      expect(openCcSwitchDeeplink).toHaveBeenCalledOnce()
-      const link = new URL(openCcSwitchDeeplink.mock.calls[0][0])
-      expect(link.searchParams.get('app')).toBe(target)
-      expect(link.searchParams.get('name')).toBe('中文站点')
-      expect(link.searchParams.get('apiKey')).toBe(key.key)
-      expect(link.searchParams.get('enabled')).toBe('true')
-      expect(link.searchParams.get('model')).toBe('team-coding-model')
-      expect(link.searchParams.get('endpoint')).toBe(
-        target === 'claude' ? 'https://api.example.com' : 'https://api.example.com/v1'
-      )
-      expect(atob(link.searchParams.get('usageScript') || '')).toContain('https://api.example.com/v1/usage')
-      expect(wrapper.find('[data-testid^="ccs-client-"]').exists()).toBe(false)
+      for (const [index, platform] of ccsPlatforms.entries()) {
+        const model = `${platform}-model`
+        getModels.mockResolvedValueOnce({ group_id: 42, platform, models: [model] })
+        const platformWrapper = await mountCcsView(ccsKey(platform))
+        await openCcsDialog(platformWrapper)
+        expect(platformWrapper.get<HTMLInputElement>('[data-testid="ccs-model-input"]').element.value).toBe(model)
+        await platformWrapper.get(`[data-testid="ccs-client-${target}"]`).trigger('click')
+        expect(openCcSwitchDeeplink).toHaveBeenNthCalledWith(index + 1, expect.stringContaining('ccswitch://v1/import'))
+        const link = new URL(openCcSwitchDeeplink.mock.calls[index][0])
+        expect(link.searchParams.get('app')).toBe(target)
+        expect(link.searchParams.get('model')).toBe(model)
+        expect(link.searchParams.get('apiKey')).toBe('sk-test-key')
+        window.dispatchEvent(new Event('blur'))
+        vi.advanceTimersByTime(6000)
+        platformWrapper.unmount()
+      }
     } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('uses the OpenAI Codex model when available and the first model for other groups', async () => {
+    const wrapper = await mountCcsView(ccsKey('openai'))
+    try {
+      getModels.mockResolvedValueOnce({ group_id: 42, platform: 'openai', models: ['other-model', OPENAI_CC_SWITCH_CODEX_MODEL] })
+      await openCcsDialog(wrapper)
+      expect(wrapper.get<HTMLInputElement>('[data-testid="ccs-model-input"]').element.value)
+        .toBe(OPENAI_CC_SWITCH_CODEX_MODEL)
+      expect(wrapper.findAll('#ccs-model-suggestions option').map((option) => option.attributes('value')))
+        .toEqual(['other-model', OPENAI_CC_SWITCH_CODEX_MODEL])
+    } finally {
+      wrapper.unmount()
+    }
+
+    const otherWrapper = await mountCcsView(ccsKey('anthropic'))
+    try {
+      getModels.mockResolvedValueOnce({ group_id: 42, platform: 'anthropic', models: ['first-model', 'second-model'] })
+      await openCcsDialog(otherWrapper)
+      expect(otherWrapper.get<HTMLInputElement>('[data-testid="ccs-model-input"]').element.value).toBe('first-model')
+      expect(otherWrapper.findAll('#ccs-model-suggestions option').map((option) => option.attributes('value')))
+        .toEqual(['first-model', 'second-model'])
+    } finally {
+      otherWrapper.unmount()
+    }
+  })
+
+  it('leaves manual model input untouched when the group model request resolves', async () => {
+    let resolveModels!: (value: unknown) => void
+    getModels.mockReturnValueOnce(new Promise((resolve) => { resolveModels = resolve }))
+    const wrapper = await mountCcsView(ccsKey('openai'))
+    try {
+      await openCcsDialog(wrapper)
+      const input = wrapper.get<HTMLInputElement>('[data-testid="ccs-model-input"]')
+      expect(input.element.value).toBe('')
+      await input.setValue('manual-model')
+      resolveModels({ group_id: 42, platform: 'openai', models: ['server-model'] })
+      await flushPromises()
+      expect(input.element.value).toBe('manual-model')
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  it('allows manual model entry when model discovery fails', async () => {
+    getModels.mockRejectedValueOnce(new Error('model discovery unavailable'))
+    const wrapper = await mountCcsView(ccsKey('anthropic'))
+    vi.useFakeTimers()
+    try {
+      await openCcsDialog(wrapper)
+      const input = wrapper.get<HTMLInputElement>('[data-testid="ccs-model-input"]')
+      expect(input.element.value).toBe('')
+      await input.setValue('manual-fallback-model')
+      await wrapper.get('[data-testid="ccs-client-codex"]').trigger('click')
+      expect(openCcSwitchDeeplink).toHaveBeenCalledOnce()
+      expect(new URL(openCcSwitchDeeplink.mock.calls[0][0]).searchParams.get('model'))
+        .toBe('manual-fallback-model')
       window.dispatchEvent(new Event('blur'))
       vi.advanceTimersByTime(6000)
+    } finally {
       vi.useRealTimers()
       wrapper.unmount()
     }
   })
 
-  it('keeps all five OpenAI targets visible and explains disabled Claude Code forwarding', async () => {
-    const key: ApiKey = {
-      ...createApiKey(),
-      group_id: 42,
-      group: { id: 42, name: 'OpenAI', platform: 'openai', allow_messages_dispatch: false } as ApiKey['group'],
-    }
-    listKeys.mockResolvedValueOnce({ items: [key], total: 1, page: 1, page_size: 20, pages: 1 })
-    const wrapper = await mountView()
+  it('offers Antigravity as an explicit unsupported notice without a deeplink', async () => {
+    const wrapper = await mountCcsView(ccsKey('openai'))
     try {
-      await getButtonByText(wrapper, 'keys.importToCcSwitch').trigger('click')
-      expect(wrapper.findAll('[data-testid^="ccs-client-"]')).toHaveLength(5)
-      const claude = wrapper.get<HTMLButtonElement>('[data-testid="ccs-client-claude"]')
-      expect(claude.element.disabled).toBe(true)
-      expect(claude.text()).toContain('Claude Code')
-      expect(claude.text()).toContain(enDashboard.keys.ccsClientSelect.claudeCodeUnavailable)
-      await claude.trigger('click')
+      await openCcsDialog(wrapper)
+      await wrapper.get('[data-testid="ccs-model-input"]').setValue('')
+      await wrapper.get('[data-testid="ccs-client-antigravity"]').trigger('click')
+      expect(wrapper.get('[data-testid="ccs-antigravity-notice"]').exists()).toBe(true)
       expect(openCcSwitchDeeplink).not.toHaveBeenCalled()
-      expect(wrapper.get<HTMLButtonElement>('[data-testid="ccs-client-codex"]').element.disabled).toBe(false)
-      expect(wrapper.find('[data-testid="ccs-client-claude"]').exists()).toBe(true)
+      await wrapper.get('[data-testid="ccs-client-back"]').trigger('click')
+      expect(wrapper.find('[data-testid="ccs-client-codex"]').exists()).toBe(true)
     } finally {
       wrapper.unmount()
     }
   })
 
-  it('requires a model before exporting an OpenAI key and resets it when reopening', async () => {
-    const key: ApiKey = {
-      ...createApiKey(),
-      group_id: 42,
-      group: { id: 42, name: 'OpenAI', platform: 'openai', allow_messages_dispatch: true } as ApiKey['group'],
-    }
-    listKeys.mockResolvedValueOnce({ items: [key], total: 1, page: 1, page_size: 20, pages: 1 })
-    const wrapper = await mountView()
+  it('exports a Pi models.json fallback and tracks the selected model', async () => {
+    getModels.mockResolvedValueOnce({ group_id: 42, platform: 'openai', models: ['pi-model'] })
+    const wrapper = await mountCcsView(ccsKey('openai'))
     try {
-      await getButtonByText(wrapper, 'keys.importToCcSwitch').trigger('click')
-      await wrapper.get('[data-testid="ccs-model-input"]').setValue('   ')
-      await wrapper.get('[data-testid="ccs-client-codex"]').trigger('click')
-      expect(openCcSwitchDeeplink).not.toHaveBeenCalled()
+      await openCcsDialog(wrapper)
+      const input = wrapper.get<HTMLInputElement>('[data-testid="ccs-model-input"]')
+      await input.setValue('')
+      await wrapper.get('[data-testid="ccs-client-pi"]').trigger('click')
+      expect(wrapper.find('[data-testid="ccs-pi-config"]').exists()).toBe(false)
       expect(showError).toHaveBeenCalledWith(enDashboard.keys.ccsClientSelect.modelRequired)
-      expect(wrapper.find('[data-testid="ccs-model-input"]').exists()).toBe(true)
+
+      await input.setValue('pi-manual-model')
+      await wrapper.get('[data-testid="ccs-client-pi"]').trigger('click')
+      expect(wrapper.find('[data-testid="ccs-pi-config"]').exists()).toBe(true)
+      const config = wrapper.get<HTMLTextAreaElement>('textarea[aria-label="Pi models.json"]')
+      expect(config.element.readOnly).toBe(true)
+      const parsed = JSON.parse(config.element.value)
+      expect(parsed.providers).toBeDefined()
+      expect(JSON.stringify(parsed)).toContain('pi-manual-model')
+      await input.setValue('pi-updated-model')
+      await nextTick()
+      const updated = JSON.parse(config.element.value)
+      expect(updated.providers.isacapi).toMatchObject({
+        api: 'openai-completions',
+        apiKey: 'sk-test-key',
+        models: [{ id: 'pi-updated-model', name: 'pi-updated-model' }],
+      })
+      expect(openCcSwitchDeeplink).not.toHaveBeenCalled()
+
+      await wrapper.get('[data-testid="ccs-pi-copy"]').trigger('click')
+      expect(copyToClipboard.mock.calls[0]?.[0]).toBe(config.element.value)
+      await wrapper.get('[data-testid="ccs-pi-download"]').trigger('click')
+      expect(saveAsMock).toHaveBeenCalledWith(expect.any(Blob), 'models.json')
+      expect(JSON.parse(await readBlobAsText(saveAsMock.mock.calls[0][0] as Blob))).toEqual(updated)
+      await wrapper.get('[data-testid="ccs-client-back"]').trigger('click')
+      expect(wrapper.get('[data-testid="ccs-client-pi"]').exists()).toBe(true)
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  it('ignores a stale model response after closing and reopening the chooser', async () => {
+    let resolveFirst!: (value: unknown) => void
+    let resolveSecond!: (value: unknown) => void
+    getModels
+      .mockReturnValueOnce(new Promise((resolve) => { resolveFirst = resolve }))
+      .mockReturnValueOnce(new Promise((resolve) => { resolveSecond = resolve }))
+    const wrapper = await mountCcsView(ccsKey('openai'))
+    try {
+      await openCcsDialog(wrapper)
+      expect(wrapper.get<HTMLInputElement>('[data-testid="ccs-model-input"]').element.value).toBe('')
       await wrapper.get('[data-test="close-dialog"]').trigger('click')
-      await getButtonByText(wrapper, 'keys.importToCcSwitch').trigger('click')
-      expect(wrapper.get<HTMLInputElement>('[data-testid="ccs-model-input"]').element.value)
-        .toBe(OPENAI_CC_SWITCH_CODEX_MODEL)
+      await openCcsDialog(wrapper)
+      resolveSecond({ group_id: 42, platform: 'openai', models: ['fresh-model'] })
+      await flushPromises()
+      expect(wrapper.get<HTMLInputElement>('[data-testid="ccs-model-input"]').element.value).toBe('fresh-model')
+      resolveFirst({ group_id: 42, platform: 'openai', models: ['stale-model'] })
+      await flushPromises()
+      expect(wrapper.get<HTMLInputElement>('[data-testid="ccs-model-input"]').element.value).toBe('fresh-model')
     } finally {
       wrapper.unmount()
     }

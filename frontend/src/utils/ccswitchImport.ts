@@ -23,6 +23,10 @@ export type CcSwitchClientType =
   | 'openclaw'
   | 'hermes'
   | 'opencode'
+
+/** Every export destination offered by the UI. Pi and Antigravity use native
+ * configuration files or source-specific routes rather than provider deeplinks. */
+export type CcSwitchExportTarget = CcSwitchClientType | 'pi' | 'antigravity'
 export type CcSwitchNavigatorSnapshot = Pick<Navigator, 'platform' | 'userAgent' | 'maxTouchPoints'>
 
 export interface CcSwitchImportConfig {
@@ -41,7 +45,35 @@ export interface CcSwitchImportDeeplinkInput {
   usageScript: string
 }
 
+export interface PiProviderConfigInput {
+  baseUrl: string
+  platform?: GroupPlatform | null
+  providerName: string
+  apiKey: string
+  model: string
+}
+
+export interface PiProviderModel {
+  id: string
+  name: string
+}
+
+export interface PiProvider {
+  baseUrl: string
+  api: 'openai-completions'
+  apiKey: string
+  models: PiProviderModel[]
+}
+
+export interface PiModelsConfig {
+  providers: Record<'isacapi', PiProvider>
+}
+
 function resolveCcSwitchAppType(clientType: CcSwitchClientType): string {
+  const target = clientType as string
+  if (target === 'pi' || target === 'antigravity') {
+    throw new Error(`CC Switch does not support ${target} provider deeplinks`)
+  }
   return clientType
 }
 
@@ -77,6 +109,10 @@ function resolveTargetEndpoint(baseUrl: string, clientType: CcSwitchClientType):
   return isOpenAICompatibleTarget(clientType) ? withV1Endpoint(normalizedBaseUrl) : normalizedBaseUrl
 }
 
+function isAntigravityNativeTarget(clientType: CcSwitchClientType): boolean {
+  return clientType === 'claude' || clientType === 'gemini'
+}
+
 function resolveTargetModel(
   platform: GroupPlatform | undefined | null,
   clientType: CcSwitchClientType
@@ -95,7 +131,9 @@ export function resolveCcSwitchImportConfig(
     case 'antigravity':
       return {
         app: resolveCcSwitchAppType(clientType),
-        endpoint: `${normalizeBaseUrl(baseUrl)}/antigravity`
+        endpoint: isAntigravityNativeTarget(clientType)
+          ? `${normalizeBaseUrl(baseUrl)}/antigravity`
+          : resolveTargetEndpoint(baseUrl, clientType)
       }
     case 'openai':
       return {
@@ -123,6 +161,27 @@ export function resolveCcSwitchImportConfig(
         app: resolveCcSwitchAppType(clientType),
         endpoint: resolveTargetEndpoint(baseUrl, clientType)
       }
+  }
+}
+
+/** Build Pi's native models.json provider fragment for an OpenAI-compatible API.
+ * Pi provider IDs are user-facing configuration keys, so keep the generated ID
+ * stable and opaque rather than deriving it from the editable display name. */
+export function buildPiProviderConfig(input: PiProviderConfigInput): PiModelsConfig {
+  const baseUrl = withV1Endpoint(input.baseUrl)
+  const model = input.model.trim()
+  if (!model) {
+    throw new Error('Pi model is required')
+  }
+  return {
+    providers: {
+      isacapi: {
+        baseUrl,
+        api: 'openai-completions',
+        apiKey: input.apiKey,
+        models: [{ id: model, name: model }]
+      }
+    }
   }
 }
 
