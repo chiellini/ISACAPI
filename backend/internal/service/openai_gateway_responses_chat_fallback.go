@@ -30,6 +30,9 @@ func (s *OpenAIGatewayService) forwardResponsesViaRawChatCompletions(
 	body []byte,
 ) (*OpenAIForwardResult, error) {
 	startTime := time.Now()
+	if s.conversationCaptureEnabled() {
+		SetOpenAICapturedResponse(c, OpenAICapturedResponse{})
+	}
 
 	var responsesReq apicompat.ResponsesRequest
 	if err := json.Unmarshal(body, &responsesReq); err != nil {
@@ -153,6 +156,11 @@ func (s *OpenAIGatewayService) bufferChatCompletionsAsResponses(
 	}
 	responsesResp := apicompat.ChatCompletionsResponseToResponses(ccResp, originalModel, customTools, functionTools, toolSearch, namespaceTools)
 	s.cacheReasoningItemsFromOutput(responsesResp.Output)
+	if s.conversationCaptureEnabled() {
+		if responseBody, err := json.Marshal(responsesResp); err == nil {
+			captureOpenAIResponseFromJSON(c, responseBody)
+		}
+	}
 
 	if s.responseHeaderFilter != nil {
 		responseheaders.WriteFilteredHeaders(c.Writer.Header(), resp.Header, s.responseHeaderFilter)
@@ -190,6 +198,11 @@ func (s *OpenAIGatewayService) streamChatCompletionsAsResponses(
 ) (*OpenAIForwardResult, error) {
 	requestID := resp.Header.Get("x-request-id")
 	writeStreamHeaders := s.newStreamHeaderWriter(c, resp.Header)
+	var responseCapture *openAIResponseAccumulator
+	if s.conversationCaptureEnabled() {
+		responseCapture = newOpenAIResponseAccumulator()
+		SetOpenAICapturedResponseAccumulator(c, responseCapture)
+	}
 
 	state := apicompat.NewChatCompletionsToResponsesStreamState(originalModel)
 	state.CustomTools = customTools
@@ -199,6 +212,14 @@ func (s *OpenAIGatewayService) streamChatCompletionsAsResponses(
 	clientDisconnected := false
 
 	writeEvents := func(events []apicompat.ResponsesStreamEvent) {
+		// Keep the archive complete while the upstream is drained after a client disconnect.
+		if responseCapture != nil {
+			for _, event := range events {
+				if payload, err := json.Marshal(event); err == nil {
+					responseCapture.observeSSE(payload)
+				}
+			}
+		}
 		if clientDisconnected || len(events) == 0 {
 			return
 		}

@@ -1,6 +1,11 @@
 package service
 
-import "testing"
+import (
+	"net/http/httptest"
+	"testing"
+
+	"github.com/gin-gonic/gin"
+)
 
 func TestOpenAIResponseAccumulator_Deltas(t *testing.T) {
 	acc := newOpenAIResponseAccumulator()
@@ -28,6 +33,35 @@ func TestOpenAIResponseAccumulator_TerminalOutputFallback(t *testing.T) {
 	got := acc.result()
 	if got.Text != "final only" {
 		t.Fatalf("text = %q, want 'final only'", got.Text)
+	}
+}
+
+func TestOpenAIResponseAccumulator_EventHeaderAndJSONCapture(t *testing.T) {
+	acc := newOpenAIResponseAccumulator()
+	acc.observeSSEWithType([]byte(`{"delta":"captured from event header"}`), "response.output_text.delta")
+	acc.observeSSEWithType([]byte(`{"response":{"id":"resp_header","status":"completed"}}`), "response.completed")
+
+	got := acc.result()
+	if got.Text != "captured from event header" || got.ResponseID != "resp_header" {
+		t.Fatalf("header event capture = %+v", got)
+	}
+}
+
+func TestCaptureOpenAIResponseFromJSON_ReplacesPreviousAttempt(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	SetOpenAICapturedResponse(c, OpenAICapturedResponse{Text: "failed attempt"})
+
+	captureOpenAIResponseFromJSON(c, []byte(`{"id":"resp_ok","status":"completed","output":[{"type":"message","content":[{"type":"output_text","text":"final answer"}]}]}`))
+	got, ok := GetOpenAICapturedResponse(c)
+	if !ok || got.Text != "final answer" || got.ResponseID != "resp_ok" {
+		t.Fatalf("captured response = %+v, ok=%v", got, ok)
+	}
+
+	captureOpenAIResponseFromJSON(c, []byte(`{"id":"resp_empty","status":"completed","output":[]}`))
+	got, ok = GetOpenAICapturedResponse(c)
+	if !ok || got.Text != "" || got.ResponseID != "resp_empty" {
+		t.Fatalf("empty successful response did not replace prior attempt: %+v, ok=%v", got, ok)
 	}
 }
 

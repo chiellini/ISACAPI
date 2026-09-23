@@ -32,10 +32,14 @@ func newOpenAIResponseAccumulator() *openAIResponseAccumulator {
 }
 
 func (a *openAIResponseAccumulator) observeSSE(data []byte) {
+	a.observeSSEWithType(data, "")
+}
+
+func (a *openAIResponseAccumulator) observeSSEWithType(data []byte, eventType string) {
 	if a == nil || len(data) == 0 {
 		return
 	}
-	switch strings.TrimSpace(gjson.GetBytes(data, "type").String()) {
+	switch effectiveOpenAISSEEventType(data, eventType) {
 	case "response.output_text.delta":
 		if d := gjson.GetBytes(data, "delta").String(); d != "" {
 			_, _ = a.text.WriteString(d)
@@ -188,7 +192,18 @@ func captureOpenAIResponseFromJSON(c *gin.Context, body []byte) {
 	if len(ext.AssistantEvents) > 0 {
 		text = ext.AssistantEvents[0].Content
 	}
-	setCapturedAssistantText(c, text, ext.ResponseID, ext.FinishReason)
+	// Replace the previous attempt even when the successful response has no text.
+	SetOpenAICapturedResponse(c, OpenAICapturedResponse{
+		Text: text, ResponseID: ext.ResponseID, FinishReason: ext.FinishReason,
+	})
+}
+
+func captureOpenAIResponseFromSSE(c *gin.Context, body []byte) {
+	acc := newOpenAIResponseAccumulator()
+	forEachOpenAISSEFrame(string(body), func(eventType string, data []byte) {
+		acc.observeSSEWithType(data, eventType)
+	})
+	SetOpenAICapturedResponse(c, acc.result())
 }
 
 func captureOpenAIChatCompletionsResponseFromJSON(c *gin.Context, body []byte) {

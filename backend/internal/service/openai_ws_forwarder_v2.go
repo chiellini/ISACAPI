@@ -38,6 +38,11 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 	if s == nil || account == nil {
 		return nil, wrapOpenAIWSFallback("invalid_state", errors.New("service or account is nil"))
 	}
+	var responseCapture *openAIResponseAccumulator
+	if s.conversationCaptureEnabled() {
+		responseCapture = newOpenAIResponseAccumulator()
+		SetOpenAICapturedResponseAccumulator(c, responseCapture)
+	}
 	responseModelObserver := &upstreamResponseModelObserver{}
 
 	wsURL, err := s.buildOpenAIResponsesWSURL(account)
@@ -613,6 +618,7 @@ readLoop:
 		if eventType == "" {
 			continue
 		}
+		responseCapture.observeSSEWithType(message, eventType)
 		responseModelObserver.ObserveOpenAI(message, eventType)
 		eventCount++
 		if firstEventType == "" {
@@ -813,6 +819,9 @@ readLoop:
 		populateOpenAIUsageFromResponseJSON(finalResponse, usage)
 		if responseID == "" {
 			responseID = strings.TrimSpace(gjson.GetBytes(finalResponse, "id").String())
+		}
+		if s.conversationCaptureEnabled() {
+			captureOpenAIResponseFromJSON(c, finalResponse)
 		}
 
 		c.Data(http.StatusOK, "application/json", finalResponse)

@@ -42,6 +42,9 @@ func (s *OpenAIGatewayService) forwardResponsesViaNativeAnthropic(
 	defaultMappedModel string,
 ) (*OpenAIForwardResult, error) {
 	startTime := time.Now()
+	if s.conversationCaptureEnabled() {
+		SetOpenAICapturedResponse(c, OpenAICapturedResponse{})
+	}
 
 	// 1. Lower Codex client-side tools to function tools understood by Anthropic.
 	adaptedBody, clientToolMapping, err := adaptResponsesClientToolsForAnthropic(body)
@@ -280,6 +283,9 @@ func (s *OpenAIGatewayService) handleResponsesBufferedFromNativeAnthropic(
 		if err != nil {
 			return nil, fmt.Errorf("restore responses client tools: %w", err)
 		}
+		if s.conversationCaptureEnabled() {
+			captureOpenAIResponseFromJSON(c, respBytes)
+		}
 		c.Data(http.StatusOK, "application/json; charset=utf-8", respBytes)
 	} else {
 		c.JSON(http.StatusOK, responsesResp)
@@ -325,6 +331,11 @@ func (s *OpenAIGatewayService) handleResponsesStreamingFromNativeAnthropic(
 	state := apicompat.NewAnthropicEventToResponsesState()
 	state.Model = originalModel
 	clientToolRestorer := apicompat.NewResponsesClientToolStreamRestorer(clientToolMapping)
+	var responseCapture *openAIResponseAccumulator
+	if s.conversationCaptureEnabled() {
+		responseCapture = newOpenAIResponseAccumulator()
+		SetOpenAICapturedResponseAccumulator(c, responseCapture)
+	}
 
 	var usage ClaudeUsage
 	var firstTokenMs *int
@@ -455,6 +466,8 @@ func (s *OpenAIGatewayService) handleResponsesStreamingFromNativeAnthropic(
 			continue
 		}
 
+		// Observe upstream text even when the client has disconnected and only draining continues.
+		responseCapture.observeAnthropicSSE([]byte(payload))
 		processAnthropicEvent(&event)
 	}
 
