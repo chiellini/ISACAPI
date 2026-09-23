@@ -285,8 +285,12 @@ export default {
     ccsClientSelect: {
       title: 'Select Client',
       description: 'Please select the client type to import to CC-Switch:',
+      model: 'Model',
+      modelHint: 'Enter a model supported by this group. The selected client will use this model.',
+      modelRequired: 'Enter a model supported by this group.',
       claudeCode: 'Claude Code',
       claudeCodeDesc: 'Import as Claude Code configuration',
+      claudeCodeUnavailable: 'Ask an administrator to enable Claude Code compatibility (Messages forwarding) for this group.',
       codex: 'Codex',
       codexDesc: 'Import as Codex configuration',
       openclaw: 'OpenClaw',

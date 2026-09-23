@@ -750,7 +750,7 @@ async function loadCodexModelManifest() {
   codexModelManifestState.value = 'loading'
 
   try {
-    const result = await fetchCodexModelsManifest(props.baseUrl, props.apiKey, controller.signal)
+    const result = await fetchCodexModelsManifest(exportBases.value.apiBase, props.apiKey, controller.signal)
     if (requestID !== codexModelManifestRequestID) return
     codexModelManifestContent.value = result.content
     codexModelManifestModelCount.value = result.modelCount
@@ -807,26 +807,30 @@ const operator = (value: string) => wrapToken('text-slate-400', value)
 const string = (value: string) => wrapToken('text-amber-200', value)
 const comment = (value: string) => wrapToken('text-slate-500', value)
 
+// CLI SDKs append their API version; Codex and OpenCode expect it in baseURL.
+// Strip only trailing API versions so reverse-proxy subpaths remain intact.
+const exportBases = computed(() => {
+  const baseRoot = (props.baseUrl.trim() || window.location.origin)
+    .replace(/\/+$/, '')
+    .replace(/(?:\/v1(?:beta)?)+$/, '')
+  const antigravityRoot = baseRoot.endsWith('/antigravity')
+    ? baseRoot
+    : `${baseRoot}/antigravity`
+  return {
+    baseRoot,
+    apiBase: `${baseRoot}/v1`,
+    geminiBase: `${baseRoot}/v1beta`,
+    antigravityRoot,
+    antigravityBase: `${antigravityRoot}/v1`,
+    antigravityGeminiBase: `${antigravityRoot}/v1beta`
+  }
+})
+
 // Syntax highlighting helpers
 // Generate file configs based on platform and active tab
 const currentFiles = computed((): FileConfig[] => {
-  const baseUrl = props.baseUrl || window.location.origin
   const apiKey = props.apiKey
-  const baseRoot = baseUrl.replace(/\/v1\/?$/, '').replace(/\/+$/, '')
-  const ensureV1 = (value: string) => {
-    const trimmed = value.replace(/\/+$/, '')
-    return trimmed.endsWith('/v1') ? trimmed : `${trimmed}/v1`
-  }
-  const apiBase = ensureV1(baseRoot)
-  const antigravityBase = ensureV1(`${baseRoot}/antigravity`)
-  const antigravityGeminiBase = (() => {
-    const trimmed = `${baseRoot}/antigravity`.replace(/\/+$/, '')
-    return trimmed.endsWith('/v1beta') ? trimmed : `${trimmed}/v1beta`
-  })()
-  const geminiBase = (() => {
-    const trimmed = baseRoot.replace(/\/+$/, '')
-    return trimmed.endsWith('/v1beta') ? trimmed : `${trimmed}/v1beta`
-  })()
+  const { baseRoot, apiBase, geminiBase, antigravityRoot, antigravityBase, antigravityGeminiBase } = exportBases.value
 
   if (activeClientTab.value === 'opencode') {
     switch (props.platform) {
@@ -863,15 +867,15 @@ const currentFiles = computed((): FileConfig[] => {
       if (activeClientTab.value === 'codex') {
         return generateRoutedCodexFiles(apiBase, apiKey, 'gemini')
       }
-      return [generateGeminiCliContent(baseUrl, apiKey)]
+      return [generateGeminiCliContent(baseRoot, apiKey)]
     case 'antigravity':
       if (activeClientTab.value === 'codex') {
         return generateRoutedCodexFiles(apiBase, apiKey, 'antigravity')
       }
       if (activeClientTab.value === 'gemini') {
-        return [generateGeminiCliContent(`${baseUrl}/antigravity`, apiKey)]
+        return [generateGeminiCliContent(antigravityRoot, apiKey)]
       }
-      return generateAnthropicFiles(`${baseUrl}/antigravity`, apiKey)
+      return generateAnthropicFiles(antigravityRoot, apiKey)
     case 'grok':
       if (activeClientTab.value === 'claude') {
         return generateGrokClaudeFiles(baseRoot, apiKey)
@@ -899,7 +903,7 @@ const currentFiles = computed((): FileConfig[] => {
       if (activeClientTab.value === 'codex' && props.platform) {
         return generateRoutedCodexFiles(apiBase, apiKey, props.platform)
       }
-      return generateAnthropicFiles(baseUrl, apiKey)
+      return generateAnthropicFiles(baseRoot, apiKey)
   }
 })
 
@@ -936,26 +940,12 @@ const oneClickKind = computed<'claude' | 'codex' | 'gemini' | 'opencode' | null>
   }
 })
 
-function oneClickBases() {
-  const rawBase = props.baseUrl || window.location.origin
-  const baseRoot = rawBase.replace(/\/v1\/?$/, '').replace(/\/+$/, '')
-  const ensureV1 = (value: string) => {
-    const trimmed = value.replace(/\/+$/, '')
-    return trimmed.endsWith('/v1') ? trimmed : `${trimmed}/v1`
-  }
-  const ensureV1Beta = (value: string) => {
-    const trimmed = value.replace(/\/+$/, '')
-    return trimmed.endsWith('/v1beta') ? trimmed : `${trimmed}/v1beta`
-  }
-  return { rawBase, apiBase: ensureV1(baseRoot), geminiBase: ensureV1Beta(baseRoot) }
-}
-
 function buildOneClickFiles(): OneClickFile[] {
   const apiKey = props.apiKey
-  const { rawBase, apiBase, geminiBase } = oneClickBases()
+  const { baseRoot, antigravityRoot } = exportBases.value
   switch (oneClickKind.value) {
     case 'claude': {
-      const claudeBase = props.platform === 'antigravity' ? `${rawBase}/antigravity` : rawBase
+      const claudeBase = props.platform === 'antigravity' ? antigravityRoot : baseRoot
       const content = JSON.stringify(
         {
           env: {
@@ -971,39 +961,31 @@ function buildOneClickFiles(): OneClickFile[] {
       return [{ dir: '.claude', file: '.claude/settings.json', content }]
     }
     case 'codex': {
-      const ws = activeClientTab.value === 'codex-ws'
-      const files: OneClickFile[] = [
-        { dir: '.codex', file: '.codex/config.toml', content: buildCodexConfigToml(rawBase, ws, apiKey) }
-      ]
-      if (codexAuthMode.value === 'legacy') {
+      const config = currentFiles.value.find((file) => file.path.endsWith('config.toml'))
+      if (!config) return []
+      const files: OneClickFile[] = []
+      if (codexModelManifestState.value === 'ready' && codexModelManifestContent.value) {
+        files.push({ dir: '.codex', file: '.codex/codex-models.json', content: codexModelManifestContent.value })
+      }
+      files.push({ dir: '.codex', file: '.codex/config.toml', content: config.content })
+      if (props.platform === 'openai' && codexAuthMode.value === 'legacy') {
         files.push({ dir: '.codex', file: '.codex/auth.json', content: buildCodexAuthJson(apiKey) })
       }
       return files
     }
     case 'gemini': {
-      const geminiEnvBase = props.platform === 'antigravity' ? `${rawBase}/antigravity` : rawBase
+      const geminiEnvBase = props.platform === 'antigravity' ? antigravityRoot : baseRoot
       const content = `GOOGLE_GEMINI_BASE_URL=${geminiEnvBase}
 GEMINI_API_KEY=${apiKey}
 GEMINI_MODEL=gemini-2.0-flash`
       return [{ dir: '.gemini', file: '.gemini/.env', content }]
     }
     case 'opencode': {
-      let cfg: FileConfig
-      switch (props.platform) {
-        case 'gemini':
-          cfg = generateOpenCodeConfig('gemini', geminiBase, apiKey)
-          break
-        case 'openai':
-          cfg = generateOpenCodeConfig('openai', apiBase, apiKey)
-          break
-        case 'grok':
-          cfg = generateOpenCodeConfig('grok', apiBase, apiKey)
-          break
-        default:
-          cfg = generateOpenCodeConfig('anthropic', apiBase, apiKey)
-          break
-      }
-      return [{ dir: '.config/opencode', file: '.config/opencode/opencode.json', content: cfg.content }]
+      return currentFiles.value.map((cfg) => ({
+        dir: '.config/opencode',
+        file: '.config/opencode/opencode.json',
+        content: cfg.content
+      }))
     }
     default:
       return []
@@ -1012,10 +994,10 @@ GEMINI_MODEL=gemini-2.0-flash`
 
 function buildOneClickEnvVars(): OneClickEnvVars {
   const apiKey = props.apiKey
-  const { rawBase, apiBase, geminiBase } = oneClickBases()
+  const { baseRoot, apiBase, antigravityRoot } = exportBases.value
   switch (oneClickKind.value) {
     case 'claude': {
-      const claudeBase = props.platform === 'antigravity' ? `${rawBase}/antigravity` : rawBase
+      const claudeBase = props.platform === 'antigravity' ? antigravityRoot : baseRoot
       return {
         ANTHROPIC_BASE_URL: claudeBase,
         ANTHROPIC_AUTH_TOKEN: apiKey,
@@ -1024,13 +1006,16 @@ function buildOneClickEnvVars(): OneClickEnvVars {
       }
     }
     case 'codex':
+      if (props.platform !== 'openai') {
+        return { SUB2API_API_KEY: apiKey }
+      }
       return {
         OPENAI_API_KEY: apiKey,
         OPENAI_BASE_URL: apiBase,
         OPENAI_API_BASE: apiBase
       }
     case 'gemini': {
-      const geminiEnvBase = props.platform === 'antigravity' ? `${rawBase}/antigravity` : rawBase
+      const geminiEnvBase = props.platform === 'antigravity' ? antigravityRoot : baseRoot
       return {
         GOOGLE_GEMINI_BASE_URL: geminiEnvBase,
         GEMINI_API_KEY: apiKey,
@@ -1041,27 +1026,21 @@ function buildOneClickEnvVars(): OneClickEnvVars {
       switch (props.platform) {
         case 'gemini':
           return {
-            GOOGLE_GEMINI_BASE_URL: geminiBase,
+            GOOGLE_GEMINI_BASE_URL: baseRoot,
             GEMINI_API_KEY: apiKey,
             GEMINI_MODEL: 'gemini-2.0-flash'
           }
-        case 'openai':
+        case 'anthropic':
           return {
-            OPENAI_API_KEY: apiKey,
-            OPENAI_BASE_URL: apiBase,
-            OPENAI_API_BASE: apiBase
-          }
-        case 'grok':
-          return {
-            OPENAI_API_KEY: apiKey,
-            OPENAI_BASE_URL: apiBase,
-            OPENAI_API_BASE: apiBase
+            ANTHROPIC_BASE_URL: baseRoot,
+            ANTHROPIC_AUTH_TOKEN: apiKey,
+            ANTHROPIC_API_KEY: apiKey
           }
         default:
           return {
-            ANTHROPIC_BASE_URL: apiBase,
-            ANTHROPIC_AUTH_TOKEN: apiKey,
-            ANTHROPIC_API_KEY: apiKey
+            OPENAI_API_KEY: apiKey,
+            OPENAI_BASE_URL: apiBase,
+            OPENAI_API_BASE: apiBase
           }
       }
     default:
@@ -1260,6 +1239,7 @@ const oneClickScript = computed(() => {
   const lines: string[] = []
   const dirs = Array.from(new Set(files.map(f => f.dir)))
   const envVars = oneClickEnvVars.value
+  const includesCodexCatalog = files.some((file) => file.file === '.codex/codex-models.json')
 
   // Leading guidance comment — valid in both bash and PowerShell (#). Keeps the
   // script self-documenting, and if it's mis-pasted into an API-key field the
@@ -1273,8 +1253,14 @@ const oneClickScript = computed(() => {
     const EOF = 'SUB2API_EOF'
     for (const dir of dirs) lines.push(`mkdir -p "$HOME/${dir}"`)
     for (const f of files) {
+      const configureCatalog = includesCodexCatalog && f.file === '.codex/config.toml'
+      if (configureCatalog) {
+        // Expand only the path; keep the config and catalog in literal heredocs.
+        lines.push(String.raw`isacapi_catalog_path=$(printf '%s' "$HOME/.codex/codex-models.json" | sed 's/\\/\\\\/g; s/"/\\"/g')`)
+        lines.push(String.raw`printf 'model_catalog_json = "%s"\n' "$isacapi_catalog_path" > "$HOME/.codex/config.toml"`)
+      }
       // Quoted heredoc => content is written literally, no shell expansion.
-      lines.push(`cat > "$HOME/${f.file}" <<'${EOF}'`)
+      lines.push(`cat ${configureCatalog ? '>>' : '>'} "$HOME/${f.file}" <<'${EOF}'`)
       lines.push(f.content)
       lines.push(EOF)
     }
@@ -1291,9 +1277,26 @@ const oneClickScript = computed(() => {
   }
   for (const f of files) {
     const winPath = f.file.replace(/\//g, '\\')
-    lines.push("@'")
+    const isCodexFile = f.dir === '.codex'
+    const configureCatalog = includesCodexCatalog && f.file === '.codex/config.toml'
+    if (configureCatalog) {
+      lines.push(String.raw`$isacapiCatalogPath = (Join-Path $env:USERPROFILE '.codex\codex-models.json').Replace('\', '\\').Replace('"', '\"')`)
+      lines.push(`$isacapiCodexConfig = 'model_catalog_json = "' + $isacapiCatalogPath + '"' + [Environment]::NewLine + @'`)
+    } else if (isCodexFile) {
+      lines.push("$isacapiCodexFile = @'")
+    } else {
+      lines.push("@'")
+    }
     lines.push(f.content)
-    lines.push(`'@ | Set-Content -Path "$env:USERPROFILE\\${winPath}" -Encoding utf8`)
+    if (isCodexFile) {
+      lines.push("'@")
+      const contentVariable = configureCatalog ? '$isacapiCodexConfig' : '$isacapiCodexFile'
+      // Windows PowerShell 5.1's -Encoding utf8 adds a BOM, which JSON readers
+      // can reject. Explicit .NET UTF-8 encoding works in both 5.1 and 7.
+      lines.push(`[System.IO.File]::WriteAllText("$env:USERPROFILE\\${winPath}", ${contentVariable}, (New-Object System.Text.UTF8Encoding($false)))`)
+    } else {
+      lines.push(`'@ | Set-Content -Path "$env:USERPROFILE\\${winPath}" -Encoding utf8`)
+    }
   }
   appendPowerShellEnvSetup(lines, envVars)
   appendPowerShellVscodeSetup(lines, envVars)
@@ -1483,7 +1486,7 @@ model_provider = "OpenAI"
 model = "${model}"
 review_model = "${model}"
 ${reasoningEffortLine}disable_response_storage = true
-model_catalog_json = "${escapeTomlBasicString(codexModelCatalogPath.value)}"
+${optionalCodexCatalogConfig()}
 network_access = "enabled"
 windows_wsl_setup_acknowledged = true
 
@@ -1555,6 +1558,13 @@ function joinConfigPath(dir: string, file: string, windows: boolean): string {
 
 function escapeTomlBasicString(value: string): string {
   return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
+}
+
+function optionalCodexCatalogConfig(): string {
+  // A downloaded catalog is not necessarily saved on the client's filesystem.
+  // Manual configurations must remain usable when only config.toml is copied.
+  return `# Optional: save the downloaded catalog and set its absolute path before enabling.
+# model_catalog_json = "${escapeTomlBasicString(codexModelCatalogPath.value)}"`
 }
 
 function generateGrokFiles(baseUrl: string, apiKey: string): FileConfig[] {
@@ -1732,7 +1742,7 @@ function generateGrokCodexFiles(baseUrl: string, apiKey: string): FileConfig[] {
 
 model_provider = "sub2api"
 model = "${model}"
-model_catalog_json = "${escapeTomlBasicString(codexModelCatalogPath.value)}"
+${optionalCodexCatalogConfig()}
 # Optional:
 # review_model = "${model}"
 # model_reasoning_effort = "medium"
@@ -1813,7 +1823,7 @@ model_provider = "sub2api"
 model = "${model}"
 review_model = "${model}"
 disable_response_storage = true
-model_catalog_json = "${escapeTomlBasicString(codexModelCatalogPath.value)}"
+${optionalCodexCatalogConfig()}
 
 [model_providers.sub2api]
 name = "Sub2API ${label}"

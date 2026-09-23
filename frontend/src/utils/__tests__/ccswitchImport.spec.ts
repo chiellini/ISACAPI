@@ -161,6 +161,17 @@ describe('ccswitchImport utils', () => {
 
     expect(params.get('app')).toBe(app)
     expect(params.get('endpoint')).toBe(endpoint)
+    expect(params.get('model')).toBe(OPENAI_CC_SWITCH_CODEX_MODEL)
+  })
+
+  it('exports an explicitly selected model instead of the platform default', () => {
+    const params = paramsFromDeeplink(buildCcSwitchImportDeeplink({
+      ...baseInput,
+      platform: 'openai',
+      clientType: 'hermes',
+      model: ' team-coder '
+    }))
+    expect(params.get('model')).toBe('team-coder')
   })
 
   it.each([
@@ -179,5 +190,22 @@ describe('ccswitchImport utils', () => {
     expect(params.get('endpoint')).toBe(`${baseInput.baseUrl}/antigravity`)
     expect(params.get('enabled')).toBe('true')
     expect(params.has('model')).toBe(false)
+  })
+
+  it.each([
+    { platform: 'openai' as const, clientType: 'claude' as const, endpoint: 'https://api.example.com/gateway' },
+    { platform: 'anthropic' as const, clientType: 'claude' as const, endpoint: 'https://api.example.com/gateway' },
+    { platform: 'gemini' as const, clientType: 'gemini' as const, endpoint: 'https://api.example.com/gateway' },
+    { platform: 'antigravity' as const, clientType: 'claude' as const, endpoint: 'https://api.example.com/gateway/antigravity' },
+    { platform: 'antigravity' as const, clientType: 'gemini' as const, endpoint: 'https://api.example.com/gateway/antigravity' }
+  ])('removes the API version before exporting $platform to $clientType', ({ platform, clientType, endpoint }) => {
+    const params = paramsFromDeeplink(buildCcSwitchImportDeeplink({
+      ...baseInput,
+      baseUrl: 'https://api.example.com/gateway/v1///',
+      platform,
+      clientType
+    }))
+
+    expect(params.get('endpoint')).toBe(endpoint)
   })
 })

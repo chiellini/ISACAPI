@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import { nextTick } from 'vue'
+import type { GroupPlatform } from '@/types'
 
 const { copyToClipboardMock, saveAsMock } = vi.hoisted(() => ({
   copyToClipboardMock: vi.fn().mockResolvedValue(true),
@@ -656,6 +657,213 @@ describe('UseKeyModal', () => {
     Icon: { template: '<span />' }
   }
 
+  function mountEndpointExport(platform: GroupPlatform, baseUrl: string) {
+    return mount(UseKeyModal, {
+      props: { show: true, apiKey: 'sk-endpoint-test', baseUrl, platform, allowMessagesDispatch: true },
+      global: { stubs: oneClickStubs }
+    })
+  }
+
+  function installedUnixFile(script: string, path: string): string {
+    const marker = `cat > "$HOME/${path}" <<'SUB2API_EOF'\n`
+    expect(script).toContain(marker)
+    return script.split(marker)[1]!.split('\nSUB2API_EOF')[0]!
+  }
+
+  it.each([
+    ['https://example.com', 'https://example.com/v1'],
+    ['https://example.com/v1/', 'https://example.com/v1'],
+    ['https://example.com/gateway/team/', 'https://example.com/gateway/team/v1'],
+    ['https://example.com/gateway/team/v1///', 'https://example.com/gateway/team/v1'],
+    ['https://example.com/gateway/team/v1/v1/', 'https://example.com/gateway/team/v1'],
+    ['https://example.com/v1/tenant/v1', 'https://example.com/v1/tenant/v1']
+  ])('keeps Codex manual and one-click endpoints consistent for %s', async (baseUrl, expectedBase) => {
+    const wrapper = mountEndpointExport('openai', baseUrl)
+    for (const label of ['codexCli', 'codexCliWs']) {
+      const tab = wrapper.find('nav[aria-label="Client"]').findAll('button').find((button) =>
+        button.text().includes(`keys.useKeyModal.cliTabs.${label}`)
+      )!
+      await tab.trigger('click')
+      const blocks = wrapper.findAll('pre code').map((code) => code.text())
+      const script = blocks.find((content) => content.includes('cat > "$HOME/.codex/config.toml"'))!
+      const manualConfig = blocks.find((content) => content.startsWith('# ISACAPI Codex default model:'))!
+      const installedConfig = installedUnixFile(script, '.codex/config.toml')
+
+      expect(installedConfig).toBe(manualConfig)
+      expect(installedConfig).toContain(`base_url = "${expectedBase}"`)
+      expect(script).toContain(`export OPENAI_BASE_URL='${expectedBase}'`)
+      expect(script).toContain(`export OPENAI_API_BASE='${expectedBase}'`)
+    }
+    wrapper.unmount()
+  })
+
+  it.each(['anthropic', 'openai', 'kimi', 'grok', 'antigravity'] as const)(
+    'uses the site root in every Claude Code export for %s',
+    async (platform) => {
+      const wrapper = mountEndpointExport(platform, 'https://example.com/gateway/team/v1///')
+      const claudeTab = wrapper.find('nav[aria-label="Client"]').findAll('button').find((button) =>
+        button.text().includes('keys.useKeyModal.cliTabs.claudeCode')
+      )!
+      await claudeTab.trigger('click')
+      const expectedBase = `https://example.com/gateway/team${platform === 'antigravity' ? '/antigravity' : ''}`
+      const blocks = wrapper.findAll('pre code').map((code) => code.text())
+      const script = blocks.find((content) => content.includes('cat > "$HOME/.claude/settings.json"'))!
+      const installedSettings = JSON.parse(installedUnixFile(script, '.claude/settings.json'))
+      const manualSettings = JSON.parse(blocks.find((content) => content.includes('"$schema"'))!)
+
+      expect(installedSettings.env.ANTHROPIC_BASE_URL).toBe(expectedBase)
+      expect(manualSettings.env.ANTHROPIC_BASE_URL).toBe(expectedBase)
+      expect(blocks).toContainEqual(expect.stringContaining(`export ANTHROPIC_BASE_URL="${expectedBase}"`))
+      expect(script).toContain(`export ANTHROPIC_BASE_URL='${expectedBase}'`)
+
+      const windowsButton = wrapper.findAll('button').find((button) => button.text() === 'Windows')!
+      await windowsButton.trigger('click')
+      const windowsScript = wrapper.findAll('pre code').map((code) => code.text())
+        .find((content) => content.includes('Set-Content'))!
+      expect(windowsScript).toContain(`"ANTHROPIC_BASE_URL": "${expectedBase}"`)
+      expect(windowsScript).toContain(`$env:ANTHROPIC_BASE_URL='${expectedBase}'`)
+      wrapper.unmount()
+    }
+  )
+
+  it.each([
+    ['gemini', 'https://example.com/gateway/v1/', 'https://example.com/gateway'],
+    ['gemini', 'https://example.com/gateway/v1beta///', 'https://example.com/gateway'],
+    ['antigravity', 'https://example.com/gateway/v1/', 'https://example.com/gateway/antigravity'],
+    ['antigravity', 'https://example.com/gateway/antigravity/v1beta/', 'https://example.com/gateway/antigravity']
+  ] as const)('uses the same Gemini CLI root for %s at %s', async (platform, baseUrl, expectedBase) => {
+    const wrapper = mountEndpointExport(platform, baseUrl)
+    const geminiTab = wrapper.find('nav[aria-label="Client"]').findAll('button').find((button) =>
+      button.text().includes('keys.useKeyModal.cliTabs.geminiCli')
+    )!
+    await geminiTab.trigger('click')
+    const blocks = wrapper.findAll('pre code').map((code) => code.text())
+    const script = blocks.find((content) => content.includes('cat > "$HOME/.gemini/.env"'))!
+
+    expect(installedUnixFile(script, '.gemini/.env').split('\n')[0]).toBe(`GOOGLE_GEMINI_BASE_URL=${expectedBase}`)
+    expect(blocks).toContainEqual(expect.stringContaining(`export GOOGLE_GEMINI_BASE_URL="${expectedBase}"`))
+    expect(script).toContain(`export GOOGLE_GEMINI_BASE_URL='${expectedBase}'`)
+    wrapper.unmount()
+  })
+
+  it.each([
+    ['openai', 'openai', 'v1', 'OPENAI_BASE_URL'],
+    ['anthropic', 'anthropic', 'v1', 'ANTHROPIC_BASE_URL'],
+    ['gemini', 'gemini', 'v1beta', 'GOOGLE_GEMINI_BASE_URL'],
+    ['kimi', 'openai', 'v1', 'OPENAI_BASE_URL'],
+    ['grok', 'grok', 'v1', 'OPENAI_BASE_URL']
+  ] as const)('keeps the OpenCode file and SDK environment compatible for %s', async (platform, provider, version, envName) => {
+    const wrapper = mountEndpointExport(platform, 'https://example.com/gateway/v1beta/')
+    const opencodeTab = wrapper.find('nav[aria-label="Client"]').findAll('button').find((button) =>
+      button.text().includes('keys.useKeyModal.cliTabs.opencode')
+    )!
+    await opencodeTab.trigger('click')
+    const blocks = wrapper.findAll('pre code').map((code) => code.text())
+    const script = blocks.find((content) => content.includes('cat > "$HOME/.config/opencode/opencode.json"'))!
+    const installedConfig = installedUnixFile(script, '.config/opencode/opencode.json')
+    const manualConfig = blocks.find((content) => content.trim().startsWith('{') && content.includes('"provider"'))!
+
+    expect(installedConfig).toBe(manualConfig)
+    expect(JSON.parse(installedConfig).provider[provider].options.baseURL).toBe(`https://example.com/gateway/${version}`)
+    const envBase = envName === 'OPENAI_BASE_URL' ? 'https://example.com/gateway/v1' : 'https://example.com/gateway'
+    expect(script).toContain(`export ${envName}='${envBase}'`)
+    wrapper.unmount()
+  })
+
+  it.each(['openai', 'anthropic', 'gemini', 'antigravity', 'grok', 'kimi', 'composite'] as const)(
+    'does not require an undelivered model catalog in %s Codex exports',
+    async (platform) => {
+      const wrapper = mountEndpointExport(platform, 'https://example.com/gateway')
+      const codexTab = wrapper.find('nav[aria-label="Client"]').findAll('button').find((button) =>
+        button.text().includes('keys.useKeyModal.cliTabs.codexCli')
+      )!
+      await codexTab.trigger('click')
+
+      const blocks = wrapper.findAll('pre code').map((code) => code.text())
+      const configs = blocks.filter((content) => content.includes('model_provider = '))
+      expect(configs.length).toBeGreaterThan(0)
+      for (const config of configs) {
+        expect(config).not.toMatch(/^model_catalog_json\s*=/m)
+        expect(config).toContain('# model_catalog_json = "~/.codex/codex-models.json"')
+        expect(config).not.toContain('cat > "$HOME/.codex/codex-models.json"')
+      }
+      if (platform !== 'openai' && platform !== 'grok') {
+        const script = blocks.find((content) => content.includes('cat > "$HOME/.codex/config.toml"'))!
+        const installedConfig = installedUnixFile(script, '.codex/config.toml')
+        expect(installedConfig).toContain('model_provider = "sub2api"')
+        expect(installedConfig).toContain('env_key = "SUB2API_API_KEY"')
+        expect(script).toContain("export SUB2API_API_KEY='sk-endpoint-test'")
+        expect(script).not.toContain('cat > "$HOME/.codex/auth.json"')
+      }
+
+      const windowsTab = wrapper.find('nav[aria-label="Tabs"]').findAll('button').find((button) =>
+        button.text().trim() === 'Windows'
+      )!
+      await windowsTab.trigger('click')
+      const windowsConfig = wrapper.findAll('pre code').map((code) => code.text())
+        .find((content) => content.includes('model_provider = ') && !content.includes('mkdir -p'))!
+      expect(windowsConfig).not.toMatch(/^model_catalog_json\s*=/m)
+      expect(windowsConfig).toContain('# model_catalog_json = "%userprofile%\\\\.codex\\\\codex-models.json"')
+      wrapper.unmount()
+    }
+  )
+
+  it.each(['openai', 'composite'] as const)(
+    'bundles the fetched %s catalog before enabling it in one-click scripts',
+    async (platform) => {
+      const manifest = {
+        models: [{
+          slug: 'gpt-5.6-sol',
+          default_reasoning_level: 'high',
+          supported_reasoning_levels: [{ effort: 'high', description: 'High reasoning' }],
+          input_modalities: ['text', 'image'],
+          model_messages: { instructions_template: 'Keep the complete model descriptor.' }
+        }],
+        metadata: { source: 'routed-group' }
+      }
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => manifest
+      }))
+      const wrapper = mountEndpointExport(platform, 'https://example.com/gateway/v1')
+      const codexTab = wrapper.find('nav[aria-label="Client"]').findAll('button').find((button) =>
+        button.text().includes('keys.useKeyModal.cliTabs.codexCli')
+      )!
+      await codexTab.trigger('click')
+      await wrapper.get('[data-testid="codex-model-catalog-fetch"]').trigger('click')
+      await flushPromises()
+
+      const blocks = wrapper.findAll('pre code').map((code) => code.text())
+      const script = blocks.find((content) => content.includes('cat >> "$HOME/.codex/config.toml"'))!
+      expect(JSON.parse(installedUnixFile(script, '.codex/codex-models.json'))).toEqual(manifest)
+      expect(script).toContain('isacapi_catalog_path=$(printf \'%s\' "$HOME/.codex/codex-models.json"')
+      expect(script).toContain('printf \'model_catalog_json = "%s"\\n\' "$isacapi_catalog_path" > "$HOME/.codex/config.toml"')
+      expect(script.indexOf('cat > "$HOME/.codex/codex-models.json"'))
+        .toBeLessThan(script.indexOf('cat >> "$HOME/.codex/config.toml"'))
+      const manualConfig = blocks.find((content) => content.includes('model_provider = ') && !content.includes('mkdir -p'))!
+      expect(manualConfig).not.toMatch(/^model_catalog_json\s*=/m)
+
+      const windowsButton = wrapper.findAll('button').find((button) => button.text() === 'Windows')!
+      await windowsButton.trigger('click')
+      const windowsScript = wrapper.findAll('pre code').map((code) => code.text())
+        .find((content) => content.includes('$isacapiCodexConfig'))!
+      const catalogWrite = '\n\'@\n[System.IO.File]::WriteAllText("$env:USERPROFILE\\.codex\\codex-models.json"'
+      const catalogText = windowsScript.split(catalogWrite)[0]!.split("@'\n").pop()!
+      expect(JSON.parse(catalogText)).toEqual(manifest)
+      expect(windowsScript).toContain("Join-Path $env:USERPROFILE '.codex\\codex-models.json'")
+      expect(windowsScript).toContain("$isacapiCodexConfig = 'model_catalog_json = \"' + $isacapiCatalogPath")
+      expect(windowsScript).toContain('[System.IO.File]::WriteAllText("$env:USERPROFILE\\.codex\\config.toml", $isacapiCodexConfig, (New-Object System.Text.UTF8Encoding($false)))')
+      expect(windowsScript).toContain('[System.IO.File]::WriteAllText("$env:USERPROFILE\\.codex\\codex-models.json", $isacapiCodexFile, (New-Object System.Text.UTF8Encoding($false)))')
+      if (platform === 'openai') {
+        expect(windowsScript).toContain('[System.IO.File]::WriteAllText("$env:USERPROFILE\\.codex\\auth.json", $isacapiCodexFile, (New-Object System.Text.UTF8Encoding($false)))')
+      }
+      expect(windowsScript).not.toMatch(/Set-Content -Path "\$env:USERPROFILE\\\.codex\\/)
+      expect(windowsScript).not.toMatch(/^model_catalog_json\s*=\s*"[%~]/m)
+      wrapper.unmount()
+    }
+  )
+
   it('renders GPT-5.6 and GPT-6 Astra capabilities in OpenCode config', async () => {
     const wrapper = mount(UseKeyModal, {
       props: {
@@ -925,7 +1133,7 @@ describe('UseKeyModal', () => {
     const downloadedBlob = saveAsMock.mock.calls[0]?.[0] as Blob
     expect(JSON.parse(await readBlobAsText(downloadedBlob))).toEqual(manifest)
 
-    const windowsTab = wrapper.findAll('button').find((button) => button.text().trim() === 'Windows')
+    const windowsTab = wrapper.find('nav[aria-label="Tabs"]').findAll('button').find((button) => button.text().trim() === 'Windows')
     expect(windowsTab).toBeDefined()
     await windowsTab!.trigger('click')
     await nextTick()

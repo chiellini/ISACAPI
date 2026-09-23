@@ -290,8 +290,12 @@ export default {
     ccsClientSelect: {
       title: '选择客户端',
       description: '请选择您要导入到 CC-Switch 的客户端类型：',
+      model: '模型',
+      modelHint: '请填写此分组实际支持的模型，所选客户端将使用此模型。',
+      modelRequired: '请填写此分组实际支持的模型。',
       claudeCode: 'Claude Code',
       claudeCodeDesc: '导入为 Claude Code 配置',
+      claudeCodeUnavailable: '请管理员为此分组启用 Claude Code 兼容（Messages 转发）。',
       codex: 'Codex',
       codexDesc: '导入为 Codex 配置',
       openclaw: 'OpenClaw',

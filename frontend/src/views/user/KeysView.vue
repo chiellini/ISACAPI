@@ -1089,24 +1089,45 @@
       <div class="space-y-4">
         <p class="text-sm text-gray-600 dark:text-gray-400">
           {{ t('keys.ccsClientSelect.description') }}
-	        </p>
+        </p>
+        <div v-if="pendingCcsRow?.group?.platform === 'openai'">
+          <label for="ccs-import-model" class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+            {{ t('keys.ccsClientSelect.model') }}
+          </label>
+          <input
+            id="ccs-import-model"
+            v-model="ccsImportModel"
+            data-testid="ccs-model-input"
+            type="text"
+            class="input w-full"
+            :placeholder="OPENAI_CC_SWITCH_CODEX_MODEL"
+            aria-describedby="ccs-import-model-hint"
+          />
+          <p id="ccs-import-model-hint" class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            {{ t('keys.ccsClientSelect.modelHint') }}
+          </p>
+        </div>
         <div class="grid gap-3 sm:grid-cols-2">
           <button
             v-for="option in ccsClientOptions"
             :key="option.id"
+            :data-testid="`ccs-client-${option.id}`"
+            :disabled="isCcsClientDisabled(option.id)"
             @click="handleCcsClientSelect(option.id)"
-            class="flex flex-col items-center gap-2 rounded-xl border-2 border-gray-200 p-4 transition-all hover:border-primary-500 hover:bg-primary-50 dark:border-dark-600 dark:hover:border-primary-500 dark:hover:bg-primary-900/20"
+            class="flex flex-col items-center gap-2 rounded-xl border-2 border-gray-200 p-4 transition-all hover:border-primary-500 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-dark-600 dark:hover:border-primary-500 dark:hover:bg-primary-900/20"
           >
             <Icon :name="option.icon" size="xl" class="text-gray-600 dark:text-gray-400" />
             <span class="font-medium text-gray-900 dark:text-white">{{
-              t(`keys.ccsClientSelect.${option.id}`)
+              t(`keys.ccsClientSelect.${option.id === 'claude' ? 'claudeCode' : option.id}`)
             }}</span>
             <span class="text-xs text-gray-500 dark:text-gray-400">{{
-              t(`keys.ccsClientSelect.${option.id}Desc`)
+              isCcsClientDisabled(option.id)
+                ? t('keys.ccsClientSelect.claudeCodeUnavailable')
+                : t(`keys.ccsClientSelect.${option.id === 'claude' ? 'claudeCode' : option.id}Desc`)
             }}</span>
           </button>
         </div>
-	      </div>
+      </div>
       <template #footer>
         <div class="flex justify-end">
           <button @click="closeCcsClientSelect" class="btn btn-secondary">
@@ -1345,6 +1366,7 @@ import { platformBadgeLightClass } from '@/utils/platformColors'
 import { KEY_GROUP_PROVIDERS, KEY_GROUP_PROVIDER_ICONS, getKeyGroupProvider, type KeyGroupProvider } from '@/utils/keyGroupProviders'
 import {
   CC_SWITCH_DOWNLOAD_LINKS,
+  OPENAI_CC_SWITCH_CODEX_MODEL,
   buildCcSwitchImportDeeplink,
   getCcSwitchProtocolFallbackDelayMs,
   openCcSwitchDeeplink,
@@ -1521,6 +1543,7 @@ const showUseKeyModal = ref(false)
 const showCcsClientSelect = ref(false)
 const showColumnDropdown = ref(false)
 const pendingCcsRow = ref<ApiKey | null>(null)
+const ccsImportModel = ref(OPENAI_CC_SWITCH_CODEX_MODEL)
 const selectedKey = ref<ApiKey | null>(null)
 const copiedKeyId = ref<number | null>(null)
 const groupSelectorKeyId = ref<number | null>(null)
@@ -2127,6 +2150,7 @@ const resetRateLimitUsage = async () => {
 
 const importToCcswitch = (row: ApiKey) => {
   pendingCcsRow.value = row
+  ccsImportModel.value = OPENAI_CC_SWITCH_CODEX_MODEL
   showCcsClientSelect.value = true
 }
 
@@ -2151,6 +2175,11 @@ const ccsClientOptions = computed(() => {
   const allowed = allowedByPlatform[platform] || ['claude']
   return ccsClientOptionDefinitions.filter((option) => allowed.includes(option.id))
 })
+
+const isCcsClientDisabled = (clientType: CcSwitchClientType) =>
+  clientType === 'claude'
+  && pendingCcsRow.value?.group?.platform === 'openai'
+  && !pendingCcsRow.value.group.allow_messages_dispatch
 
 const executeCcsImport = (row: ApiKey, clientType: CcSwitchClientType) => {
   const baseUrl = publicSettings.value?.api_base_url || window.location.origin
@@ -2183,6 +2212,7 @@ const executeCcsImport = (row: ApiKey, clientType: CcSwitchClientType) => {
     clientType,
     providerName,
     apiKey: row.key,
+    model: platform === 'openai' ? ccsImportModel.value.trim() : undefined,
     usageScript
   })
 
@@ -2226,6 +2256,11 @@ const executeCcsImport = (row: ApiKey, clientType: CcSwitchClientType) => {
 }
 
 const handleCcsClientSelect = (clientType: CcSwitchClientType) => {
+  if (isCcsClientDisabled(clientType)) return
+  if (pendingCcsRow.value?.group?.platform === 'openai' && !ccsImportModel.value.trim()) {
+    appStore.showError(t('keys.ccsClientSelect.modelRequired'))
+    return
+  }
   if (pendingCcsRow.value) {
     executeCcsImport(pendingCcsRow.value, clientType)
   }

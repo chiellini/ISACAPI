@@ -4,6 +4,8 @@ import { nextTick } from 'vue'
 
 import type { ApiKey } from '@/types'
 import { keysAPI } from '@/api'
+import { OPENAI_CC_SWITCH_CODEX_MODEL } from '@/utils/ccswitchImport'
+import enDashboard from '@/i18n/locales/en/dashboard'
 import KeysView from '../KeysView.vue'
 
 const {
@@ -18,6 +20,7 @@ const {
   copyToClipboard,
   isCurrentStep,
   nextStep,
+  openCcSwitchDeeplink,
 } = vi.hoisted(() => ({
   listKeys: vi.fn(),
   updateKey: vi.fn(),
@@ -30,6 +33,7 @@ const {
   copyToClipboard: vi.fn(),
   isCurrentStep: vi.fn(),
   nextStep: vi.fn(),
+  openCcSwitchDeeplink: vi.fn(),
 }))
 
 const messages: Record<string, string> = {
@@ -56,7 +60,14 @@ const messages: Record<string, string> = {
   'keys.status.inactive': 'Inactive',
   'keys.status.quota_exhausted': 'Quota exhausted',
   'keys.usage': 'Usage',
+  ...Object.fromEntries(Object.entries(enDashboard.keys.ccsClientSelect)
+    .map(([key, value]) => [`keys.ccsClientSelect.${key}`, value])),
 }
+
+vi.mock('@/utils/ccswitchImport', async () => ({
+  ...await vi.importActual<typeof import('@/utils/ccswitchImport')>('@/utils/ccswitchImport'),
+  openCcSwitchDeeplink,
+}))
 
 vi.mock('@/api', () => ({
   keysAPI: {
@@ -282,6 +293,7 @@ describe('user KeysView column settings', () => {
     copyToClipboard.mockReset()
     isCurrentStep.mockReset()
     nextStep.mockReset()
+    openCcSwitchDeeplink.mockReset()
 
     listKeys.mockResolvedValue({
       items: [createApiKey()],
@@ -295,6 +307,104 @@ describe('user KeysView column settings', () => {
     getAvailableGroups.mockResolvedValue([])
     getUserGroupRates.mockResolvedValue({})
     isCurrentStep.mockReturnValue(false)
+  })
+
+  it.each([
+    ['codex', 'Codex'],
+    ['claude', 'Claude Code'],
+    ['openclaw', 'OpenClaw'],
+    ['hermes', 'Hermes'],
+    ['opencode', 'OpenCode'],
+  ])('asks for an OpenAI export target and launches the selected %s provider', async (target, label) => {
+    const key: ApiKey = {
+      ...createApiKey(),
+      group_id: 42,
+      group: { id: 42, name: 'OpenAI', platform: 'openai', allow_messages_dispatch: true } as ApiKey['group'],
+    }
+    listKeys.mockResolvedValueOnce({ items: [key], total: 1, page: 1, page_size: 20, pages: 1 })
+    getPublicSettings.mockResolvedValue({ api_base_url: 'https://api.example.com/', site_name: '中文站点' })
+    const wrapper = await mountView()
+    vi.useFakeTimers()
+    try {
+      await getButtonByText(wrapper, 'keys.importToCcSwitch').trigger('click')
+      const options = wrapper.findAll('[data-testid^="ccs-client-"]')
+      expect(options.map((option) => option.get('span.font-medium').text()))
+        .toEqual(['Codex', 'Claude Code', 'OpenClaw', 'Hermes', 'OpenCode'])
+      expect(openCcSwitchDeeplink).not.toHaveBeenCalled()
+      const modelInput = wrapper.get<HTMLInputElement>('[data-testid="ccs-model-input"]')
+      expect(modelInput.element.value).toBe(OPENAI_CC_SWITCH_CODEX_MODEL)
+      await modelInput.setValue('  team-coding-model  ')
+
+      const selected = wrapper.get(`[data-testid="ccs-client-${target}"]`)
+      expect(selected.get('span.font-medium').text()).toBe(label)
+      expect(selected.text()).toContain(`Import as ${label} configuration`)
+      await selected.trigger('click')
+      expect(openCcSwitchDeeplink).toHaveBeenCalledOnce()
+      const link = new URL(openCcSwitchDeeplink.mock.calls[0][0])
+      expect(link.searchParams.get('app')).toBe(target)
+      expect(link.searchParams.get('name')).toBe('中文站点')
+      expect(link.searchParams.get('apiKey')).toBe(key.key)
+      expect(link.searchParams.get('enabled')).toBe('true')
+      expect(link.searchParams.get('model')).toBe('team-coding-model')
+      expect(link.searchParams.get('endpoint')).toBe(
+        target === 'claude' ? 'https://api.example.com' : 'https://api.example.com/v1'
+      )
+      expect(atob(link.searchParams.get('usageScript') || '')).toContain('https://api.example.com/v1/usage')
+      expect(wrapper.find('[data-testid^="ccs-client-"]').exists()).toBe(false)
+    } finally {
+      window.dispatchEvent(new Event('blur'))
+      vi.advanceTimersByTime(6000)
+      vi.useRealTimers()
+      wrapper.unmount()
+    }
+  })
+
+  it('keeps all five OpenAI targets visible and explains disabled Claude Code forwarding', async () => {
+    const key: ApiKey = {
+      ...createApiKey(),
+      group_id: 42,
+      group: { id: 42, name: 'OpenAI', platform: 'openai', allow_messages_dispatch: false } as ApiKey['group'],
+    }
+    listKeys.mockResolvedValueOnce({ items: [key], total: 1, page: 1, page_size: 20, pages: 1 })
+    const wrapper = await mountView()
+    try {
+      await getButtonByText(wrapper, 'keys.importToCcSwitch').trigger('click')
+      expect(wrapper.findAll('[data-testid^="ccs-client-"]')).toHaveLength(5)
+      const claude = wrapper.get<HTMLButtonElement>('[data-testid="ccs-client-claude"]')
+      expect(claude.element.disabled).toBe(true)
+      expect(claude.text()).toContain('Claude Code')
+      expect(claude.text()).toContain(enDashboard.keys.ccsClientSelect.claudeCodeUnavailable)
+      await claude.trigger('click')
+      expect(openCcSwitchDeeplink).not.toHaveBeenCalled()
+      expect(wrapper.get<HTMLButtonElement>('[data-testid="ccs-client-codex"]').element.disabled).toBe(false)
+      expect(wrapper.find('[data-testid="ccs-client-claude"]').exists()).toBe(true)
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  it('requires a model before exporting an OpenAI key and resets it when reopening', async () => {
+    const key: ApiKey = {
+      ...createApiKey(),
+      group_id: 42,
+      group: { id: 42, name: 'OpenAI', platform: 'openai', allow_messages_dispatch: true } as ApiKey['group'],
+    }
+    listKeys.mockResolvedValueOnce({ items: [key], total: 1, page: 1, page_size: 20, pages: 1 })
+    const wrapper = await mountView()
+    try {
+      await getButtonByText(wrapper, 'keys.importToCcSwitch').trigger('click')
+      await wrapper.get('[data-testid="ccs-model-input"]').setValue('   ')
+      await wrapper.get('[data-testid="ccs-client-codex"]').trigger('click')
+      expect(openCcSwitchDeeplink).not.toHaveBeenCalled()
+      expect(showError).toHaveBeenCalledWith(enDashboard.keys.ccsClientSelect.modelRequired)
+      expect(wrapper.find('[data-testid="ccs-model-input"]').exists()).toBe(true)
+      await wrapper.get('[data-test="close-dialog"]').trigger('click')
+      await getButtonByText(wrapper, 'keys.importToCcSwitch').trigger('click')
+      expect(wrapper.get<HTMLInputElement>('[data-testid="ccs-model-input"]').element.value)
+        .toBe(OPENAI_CC_SWITCH_CODEX_MODEL)
+    } finally {
+      wrapper.unmount()
+    }
   })
 
   it.each([

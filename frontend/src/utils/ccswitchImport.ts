@@ -4,7 +4,7 @@ import { OPENAI_CODEX_DEFAULT_MODEL } from '@/constants/codex'
 export const OPENAI_CC_SWITCH_CODEX_MODEL = OPENAI_CODEX_DEFAULT_MODEL
 export const GROK_CC_SWITCH_MODEL = 'grok-4.5'
 
-const CC_SWITCH_LATEST_VERSION = 'v3.16.5'
+const CC_SWITCH_LATEST_VERSION = 'v3.20.4'
 const CC_SWITCH_RELEASE_BASE = `https://github.com/farion1231/cc-switch/releases/download/${CC_SWITCH_LATEST_VERSION}`
 
 export const CC_SWITCH_DOWNLOAD_LINKS = {
@@ -37,6 +37,7 @@ export interface CcSwitchImportDeeplinkInput {
   clientType: CcSwitchClientType
   providerName: string
   apiKey: string
+  model?: string
   usageScript: string
 }
 
@@ -54,7 +55,8 @@ function encodeBase64Utf8(value: string): string {
 }
 
 function normalizeBaseUrl(baseUrl: string): string {
-  return baseUrl.replace(/\/+$/, '')
+  // The site setting may already contain /v1. Client-specific paths are added below.
+  return baseUrl.trim().replace(/\/+$/, '').replace(/\/v1$/, '')
 }
 
 function withV1Endpoint(baseUrl: string): string {
@@ -79,7 +81,7 @@ function resolveTargetModel(
   platform: GroupPlatform | undefined | null,
   clientType: CcSwitchClientType
 ): string | undefined {
-  if (platform === 'openai' && clientType === 'codex') return OPENAI_CC_SWITCH_CODEX_MODEL
+  if (platform === 'openai') return OPENAI_CC_SWITCH_CODEX_MODEL
   if (platform === 'grok' && clientType === 'grokbuild') return GROK_CC_SWITCH_MODEL
   return undefined
 }
@@ -126,6 +128,7 @@ export function resolveCcSwitchImportConfig(
 
 export function buildCcSwitchImportDeeplink(input: CcSwitchImportDeeplinkInput): string {
   const config = resolveCcSwitchImportConfig(input.platform, input.clientType, input.baseUrl)
+  const model = input.model?.trim() || config.model
   const entries: [string, string][] = [
     ['resource', 'provider'],
     ['app', config.app],
@@ -140,8 +143,8 @@ export function buildCcSwitchImportDeeplink(input: CcSwitchImportDeeplinkInput):
     ['usageAutoInterval', '30']
   ]
 
-  if (config.model) {
-    entries.splice(2, 0, ['model', config.model])
+  if (model) {
+    entries.splice(2, 0, ['model', model])
   }
 
   return `ccswitch://v1/import?${new URLSearchParams(entries).toString()}`
