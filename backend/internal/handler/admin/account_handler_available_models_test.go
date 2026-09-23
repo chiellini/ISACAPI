@@ -42,10 +42,12 @@ type syncUpstreamHTTPUpstream struct {
 	responses []*http.Response
 	err       error
 	lastReq   *http.Request
+	requests  []*http.Request
 }
 
 func (u *syncUpstreamHTTPUpstream) Do(req *http.Request, proxyURL string, accountID int64, accountConcurrency int) (*http.Response, error) {
 	u.lastReq = req
+	u.requests = append(u.requests, req)
 	if u.err != nil {
 		return nil, u.err
 	}
@@ -496,10 +498,17 @@ func TestAccountHandlerSyncUpstreamModels_OpenAIOAuthUsesCodexModelsManifest(t *
 			},
 		},
 	}
-	upstream := &syncUpstreamHTTPUpstream{resp: &http.Response{
-		StatusCode: http.StatusOK,
-		Header:     http.Header{"Content-Type": []string{"application/json"}},
-		Body:       io.NopCloser(strings.NewReader(`{"models":[{"slug":"gpt-5.3-codex-spark"},{"slug":"gpt-5.5"},{"id":"gpt-image-2"}]}`)),
+	upstream := &syncUpstreamHTTPUpstream{responses: []*http.Response{
+		{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+			Body:       io.NopCloser(strings.NewReader(`{"models":[{"slug":"gpt-5.3-codex-spark"},{"slug":"gpt-5.5"},{"id":"gpt-image-2"}]}`)),
+		},
+		{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+			Body:       io.NopCloser(strings.NewReader(`{"openai":{"models":{"gpt-5.5":{"id":"gpt-5.5","name":"GPT-5.5","reasoning":false,"modalities":{"input":["text","image"]},"limit":{"context":100000}}}}}`)),
+		},
 	}}
 	router := setupSyncUpstreamModelsRouter(svc, upstream)
 
@@ -510,20 +519,24 @@ func TestAccountHandlerSyncUpstreamModels_OpenAIOAuthUsesCodexModelsManifest(t *
 	require.Equal(t, http.StatusOK, rec.Code)
 
 	var resp struct {
-		Data struct {
-			Models []string `json:"models"`
-		} `json:"data"`
+		Data service.UpstreamModelCatalog `json:"data"`
 	}
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
 	require.Equal(t, []string{"gpt-5.3-codex-spark", "gpt-5.5", "gpt-image-2"}, resp.Data.Models)
-	require.NotNil(t, upstream.lastReq)
-	require.Equal(t, "https://chatgpt.com/backend-api/codex/models", upstream.lastReq.URL.Scheme+"://"+upstream.lastReq.URL.Host+upstream.lastReq.URL.Path)
-	clientVersion := upstream.lastReq.URL.Query().Get("client_version")
+	require.EqualValues(t, 100000, resp.Data.Metadata["gpt-5.5"].ContextWindow)
+	require.Len(t, upstream.requests, 2)
+	manifestReq := upstream.requests[0]
+	require.Equal(t, "https://chatgpt.com/backend-api/codex/models", manifestReq.URL.Scheme+"://"+manifestReq.URL.Host+manifestReq.URL.Path)
+	clientVersion := manifestReq.URL.Query().Get("client_version")
 	require.NotEmpty(t, clientVersion)
 	require.Contains(t, service.DefaultOpenAICodexUserAgent, "/"+clientVersion)
-	require.Equal(t, "Bearer openai-oauth-token", upstream.lastReq.Header.Get("Authorization"))
-	require.Equal(t, "acc-123", upstream.lastReq.Header.Get("chatgpt-account-id"))
-	require.Equal(t, "codex_cli_rs", upstream.lastReq.Header.Get("Originator"))
+	require.Equal(t, "Bearer openai-oauth-token", manifestReq.Header.Get("Authorization"))
+	require.Equal(t, "acc-123", manifestReq.Header.Get("chatgpt-account-id"))
+	require.Equal(t, "codex-tui", manifestReq.Header.Get("Originator"))
+	registryReq := upstream.requests[1]
+	require.Equal(t, "https://models.dev/api.json", registryReq.URL.String())
+	require.Empty(t, registryReq.Header.Get("Authorization"))
+	require.Empty(t, registryReq.Header.Get("chatgpt-account-id"))
 }
 
 // Scenario: capability enrichment failure still returns the models discovered

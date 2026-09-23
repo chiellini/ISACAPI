@@ -1171,13 +1171,14 @@ func (h *GatewayHandler) Models(c *gin.Context) {
 	}
 
 	if len(availableModels) > 0 {
+		availableModels = service.AppendModelAliasNames(platform, availableModels)
 		writeModelsList(c, platform, availableModels)
 		return
 	}
 
 	// Fallback to default models
 	if platform == service.PlatformOpenAI {
-		writeModelsListResponse(c, openai.DefaultModels)
+		writeModelsList(c, platform, service.AppendModelAliasNames(platform, defaultModelIDsForPlatform(platform)))
 		return
 	}
 

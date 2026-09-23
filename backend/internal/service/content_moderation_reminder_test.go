@@ -46,68 +46,108 @@ func TestContentModerationCheck_ReminderKeywordModes(t *testing.T) {
 			"inside":   {"<system-reminder>今晚打老虎</system-reminder>"},
 		} {
 			for _, mode := range []string{ContentModerationKeywordModeKeywordOnly, ContentModerationKeywordModeAPIOnly, ContentModerationKeywordModeKeywordAndAPI} {
-				t.Run(protocol+"/"+name+"/"+mode, func(t *testing.T) {
-					body := reminderTestBody(t, protocol, texts)
-					semantic := ExtractContentModerationInput(protocol, body)
-					wantSemantic := ""
-					if name == "plain" || (name == "separate" && protocol != ContentModerationProtocolOpenAIImages) {
-						wantSemantic = "今晚打老虎"
-					}
-					require.Equal(t, wantSemantic, semantic.Text)
-					require.Contains(t, extractContentModerationKeywordText(protocol, body), "今晚打老虎")
-					var calls atomic.Int32
-					server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-						calls.Add(1)
-						var payload struct {
-							Input string `json:"input"`
+				verdicts := []string{"block", "allow", "error"}
+				if mode == ContentModerationKeywordModeAPIOnly {
+					verdicts = []string{"allow"}
+				}
+				for _, verdict := range verdicts {
+					t.Run(protocol+"/"+name+"/"+mode+"/"+verdict, func(t *testing.T) {
+						body := reminderTestBody(t, protocol, texts)
+						semantic := ExtractContentModerationInput(protocol, body)
+						wantSemantic := ""
+						if name == "plain" || (name == "separate" && protocol != ContentModerationProtocolOpenAIImages) {
+							wantSemantic = "今晚打老虎"
 						}
-						if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-							t.Error(err)
+						require.Equal(t, wantSemantic, semantic.Text)
+						keywordText := extractContentModerationKeywordText(protocol, body)
+						require.Contains(t, keywordText, "今晚打老虎")
+						wantAPIInput := keywordText
+						if mode == ContentModerationKeywordModeAPIOnly {
+							wantAPIInput = semantic.Text
 						}
-						if payload.Input != semantic.Text {
-							t.Errorf("semantic input changed: %q != %q", payload.Input, semantic.Text)
+						var calls atomic.Int32
+						server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+							calls.Add(1)
+							var payload struct {
+								Input string `json:"input"`
+							}
+							if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+								t.Error(err)
+							}
+							if payload.Input != wantAPIInput {
+								t.Errorf("audit input changed: %q != %q", payload.Input, wantAPIInput)
+							}
+							if verdict == "error" {
+								w.WriteHeader(http.StatusServiceUnavailable)
+								return
+							}
+							score := 0.1
+							if verdict == "block" {
+								score = 0.99
+							}
+							_ = json.NewEncoder(w).Encode(moderationAPIResponse{Results: []moderationAPIResult{{CategoryScores: map[string]float64{"illicit": score}}}})
+						}))
+						defer server.Close()
+						cfg := defaultContentModerationConfig()
+						cfg.Enabled = true
+						cfg.Mode = ContentModerationModePreBlock
+						cfg.KeywordBlockingMode = mode
+						// The fork requires two nearby terms and an affirmative API
+						// verdict, even when upstream's keyword-only mode is selected.
+						cfg.BlockedKeywords = []string{"今晚", "打老虎"}
+						cfg.BaseURL = server.URL
+						cfg.APIKeys = []string{"test"}
+						cfg.RecordNonHits = false
+						cfg.PreHashCheckEnabled = true
+						raw, err := json.Marshal(cfg)
+						require.NoError(t, err)
+						repo := &contentModerationTestRepo{}
+						cache := &contentModerationTestHashCache{}
+						if mode != ContentModerationKeywordModeAPIOnly {
+							cache.hashes = map[string]struct{}{semantic.Hash(): {}}
 						}
-						_ = json.NewEncoder(w).Encode(moderationAPIResponse{Results: []moderationAPIResult{{}}})
-					}))
-					defer server.Close()
-					cfg := defaultContentModerationConfig()
-					cfg.Enabled = true
-					cfg.Mode = ContentModerationModePreBlock
-					cfg.KeywordBlockingMode = mode
-					cfg.BlockedKeywords = []string{"今晚打老虎"}
-					cfg.BaseURL = server.URL
-					cfg.APIKeys = []string{"test"}
-					cfg.RecordNonHits = false
-					cfg.PreHashCheckEnabled = true
-					raw, err := json.Marshal(cfg)
-					require.NoError(t, err)
-					repo := &contentModerationTestRepo{}
-					cache := &contentModerationTestHashCache{}
-					if mode != ContentModerationKeywordModeAPIOnly {
-						cache.hashes = map[string]struct{}{semantic.Hash(): {}}
-					}
-					svc := NewContentModerationService(&contentModerationTestSettingRepo{values: map[string]string{SettingKeyRiskControlEnabled: "true", SettingKeyContentModerationConfig: string(raw)}}, repo, cache, nil, nil, nil, nil, nil)
-					decision, err := svc.Check(context.Background(), ContentModerationCheckInput{Protocol: protocol, Body: body})
-					require.NoError(t, err)
-					if mode == ContentModerationKeywordModeAPIOnly {
-						require.True(t, decision.Allowed)
-						want := int32(0)
-						if !semantic.IsEmpty() {
-							want = 1
+						svc := &ContentModerationService{
+							settingRepo: &contentModerationTestSettingRepo{values: map[string]string{SettingKeyRiskControlEnabled: "true", SettingKeyContentModerationConfig: string(raw)}},
+							repo:        repo, hashCache: cache, httpClient: server.Client(),
 						}
-						require.Equal(t, want, calls.Load())
-						require.Empty(t, repo.snapshotLogs())
-					} else {
-						require.Equal(t, ContentModerationActionKeywordBlock, decision.Action)
-						require.True(t, decision.Blocked)
-						require.Zero(t, calls.Load())
-						require.Empty(t, cache.snapshotChecked())
-						logs := requireContentModerationLogCount(t, repo, 1)
-						require.Equal(t, "今晚打老虎", logs[0].MatchedKeyword)
-						require.Contains(t, logs[0].InputExcerpt, "今晚打老虎")
-						require.Equal(t, int64(1), svc.asyncEnqueued.Load())
-					}
-				})
+						decision, err := svc.Check(context.Background(), ContentModerationCheckInput{Protocol: protocol, Body: body})
+						require.NoError(t, err)
+						if mode == ContentModerationKeywordModeAPIOnly {
+							require.True(t, decision.Allowed)
+							want := int32(0)
+							if !semantic.IsEmpty() {
+								want = 1
+							}
+							require.Equal(t, want, calls.Load())
+							require.Empty(t, repo.snapshotLogs())
+						} else {
+							require.Equal(t, verdict == "block", decision.Blocked)
+							require.Equal(t, verdict != "block", decision.Allowed)
+							require.Equal(t, int32(1), calls.Load())
+							require.Empty(t, cache.snapshotChecked())
+							require.Equal(t, int64(1), svc.preBlockChecked.Load())
+							require.Zero(t, svc.asyncEnqueued.Load())
+							if verdict == "allow" {
+								require.Equal(t, ContentModerationActionAllow, decision.Action)
+								require.Empty(t, repo.snapshotLogs())
+							} else {
+								logs := requireContentModerationLogCount(t, repo, 1)
+								require.Equal(t, "blocked_keywords (今晚+打老虎)", logs[0].MatchedKeyword)
+								require.Equal(t, keywordText, logs[0].InputExcerpt)
+								if verdict == "block" {
+									require.Equal(t, ContentModerationActionBlock, decision.Action)
+									require.Equal(t, ContentModerationActionBlock, logs[0].Action)
+									require.True(t, logs[0].Flagged)
+								} else {
+									require.Equal(t, ContentModerationActionAllow, decision.Action)
+									require.Equal(t, ContentModerationActionError, logs[0].Action)
+									require.False(t, logs[0].Flagged)
+									require.Contains(t, logs[0].Error, "503")
+								}
+							}
+						}
+					})
+				}
 			}
 		}
 	}
@@ -131,7 +171,7 @@ func TestExtractContentModerationKeywordText_Boundaries(t *testing.T) {
 }
 
 func TestContentModerationCheck_ReminderPolicyPreserved(t *testing.T) {
-	for _, name := range []string{"keyword_miss", "combined_miss", "observe", "off", "disabled", "group_scope", "model_scope", "no_api_key", "zero_sample"} {
+	for _, name := range []string{"keyword_miss", "single_keyword", "combined_miss", "observe", "off", "disabled", "group_scope", "model_scope", "no_api_key", "zero_sample"} {
 		t.Run(name, func(t *testing.T) {
 			var calls atomic.Int32
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -142,7 +182,11 @@ func TestContentModerationCheck_ReminderPolicyPreserved(t *testing.T) {
 				if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 					t.Error(err)
 				}
-				if payload.Input != "safe text" {
+				wantInput := "safe text"
+				if name == "zero_sample" {
+					wantInput = "<system-reminder>今晚打老虎</system-reminder> safe text"
+				}
+				if payload.Input != wantInput {
 					t.Errorf("unexpected semantic input: %q", payload.Input)
 				}
 				_ = json.NewEncoder(w).Encode(moderationAPIResponse{Results: []moderationAPIResult{{}}})
@@ -151,7 +195,7 @@ func TestContentModerationCheck_ReminderPolicyPreserved(t *testing.T) {
 			cfg := defaultContentModerationConfig()
 			cfg.Enabled = true
 			cfg.Mode = ContentModerationModePreBlock
-			cfg.BlockedKeywords = []string{"今晚打老虎"}
+			cfg.BlockedKeywords = []string{"今晚", "打老虎"}
 			cfg.KeywordBlockingMode = ContentModerationKeywordModeKeywordAndAPI
 			cfg.BaseURL = server.URL
 			cfg.APIKeys = []string{"test"}
@@ -161,6 +205,9 @@ func TestContentModerationCheck_ReminderPolicyPreserved(t *testing.T) {
 			case "keyword_miss":
 				cfg.KeywordBlockingMode = ContentModerationKeywordModeKeywordOnly
 				cfg.BlockedKeywords = []string{"absent"}
+			case "single_keyword":
+				cfg.KeywordBlockingMode = ContentModerationKeywordModeKeywordOnly
+				cfg.BlockedKeywords = []string{"今晚打老虎"}
 			case "combined_miss":
 				cfg.BlockedKeywords = []string{"absent"}
 			case "observe":
@@ -186,16 +233,20 @@ func TestContentModerationCheck_ReminderPolicyPreserved(t *testing.T) {
 			body := reminderTestBody(t, ContentModerationProtocolAnthropicMessages, []string{"<system-reminder>今晚打老虎</system-reminder>", "safe text"})
 			decision, err := svc.Check(context.Background(), ContentModerationCheckInput{Protocol: ContentModerationProtocolAnthropicMessages, Body: body})
 			require.NoError(t, err)
-			if name == "no_api_key" || name == "zero_sample" {
-				require.True(t, decision.Blocked)
-				requireContentModerationLogCount(t, repo, 1)
+			require.True(t, decision.Allowed)
+			require.False(t, decision.Blocked)
+			if name == "no_api_key" {
+				logs := requireContentModerationLogCount(t, repo, 1)
+				require.Equal(t, ContentModerationActionError, logs[0].Action)
+				require.Equal(t, "blocked_keywords (今晚+打老虎)", logs[0].MatchedKeyword)
+				require.Contains(t, logs[0].Error, "no moderation api key available")
 			} else {
-				require.True(t, decision.Allowed)
+				require.Empty(t, repo.snapshotLogs())
 			}
 			switch name {
 			case "observe":
 				require.Eventually(t, func() bool { return calls.Load() == 1 }, time.Second, time.Millisecond*10)
-			case "combined_miss":
+			case "combined_miss", "zero_sample":
 				require.Equal(t, int32(1), calls.Load())
 			default:
 				require.Zero(t, calls.Load())

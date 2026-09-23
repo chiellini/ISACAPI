@@ -1660,11 +1660,11 @@ func (h *AccountHandler) ApplyOAuthCredentials(c *gin.Context) {
 		return
 	}
 
-	// 重新授权只携带新 token，不带管理员手工配置的模型白名单 / 模型映射；
-	// 这些字段存在旧凭据里，若不显式继承会在重新授权后被覆盖丢失。
-	// （普通编辑走 Update，仍可通过省略来删除这些键，故此处单独处理。）
-	sanitizedCredentials := service.SanitizeStoredCredentials(existing.Platform, req.Credentials)
-	credentials := service.MergePreservingReauthConfig(existing.Credentials, sanitizedCredentials)
+	// Re-auth sends partial credentials. Preserve account metadata and configured
+	// model mappings, including compact mappings, unless a new value is supplied.
+	// Sanitize after merging so old SSO/password residue is removed as well.
+	credentials := service.MergeCredentials(existing.Credentials, req.Credentials)
+	credentials = service.SanitizeStoredCredentials(existing.Platform, credentials)
 
 	updatedAccount, err := h.adminService.UpdateAccount(ctx, accountID, &service.UpdateAccountInput{
 		Type:        req.Type,

@@ -258,17 +258,17 @@ func TestGatewayModels_UnmappedOpenAIAccountsSupplementMappedModels(t *testing.T
 		{
 			name:     "unmapped parent and Spark shadow retain defaults and aliases",
 			accounts: accounts,
-			want:     append(openai.DefaultModelIDs(), alias),
+			want:     append(openai.DefaultModelIDs(), alias, "isac-gpt-fast", "isac-gpt-best"),
 		},
 		{
 			name:     "unmapped API key account also contributes defaults",
 			accounts: append([]service.Account{{ID: 4, Platform: service.PlatformOpenAI, Type: service.AccountTypeAPIKey}}, accounts[1:]...),
-			want:     append(openai.DefaultModelIDs(), alias),
+			want:     append(openai.DefaultModelIDs(), alias, "isac-gpt-fast", "isac-gpt-best"),
 		},
 		{
 			name:     "unmapped accounts alone retain default response shape",
 			accounts: accounts[:1],
-			want:     openai.DefaultModelIDs(),
+			want:     append(openai.DefaultModelIDs(), "isac-gpt-fast", "isac-gpt-best"),
 		},
 		{
 			name:     "custom list can select defaults and aliases",
@@ -285,12 +285,12 @@ func TestGatewayModels_UnmappedOpenAIAccountsSupplementMappedModels(t *testing.T
 		{
 			name:     "mapped accounts alone do not gain defaults",
 			accounts: accounts[1:],
-			want:     []string{sparkModel, alias},
+			want:     []string{sparkModel, alias, "isac-gpt-fast", "isac-gpt-best"},
 		},
 		{
 			name:     "unmapped accounts from another platform do not add defaults",
 			accounts: append([]service.Account{{ID: 4, Platform: service.PlatformAnthropic}}, accounts[1:]...),
-			want:     []string{sparkModel, alias},
+			want:     []string{sparkModel, alias, "isac-gpt-fast", "isac-gpt-best"},
 		},
 	}
 	for _, tt := range tests {
@@ -687,6 +687,38 @@ func TestGatewayModels_CustomModelsListDisabledKeepsOriginalModels(t *testing.T)
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
 	// OpenAI 平台的虚拟模型别名（isac-gpt-*）追加在映射模型之后对外暴露。
 	require.Equal(t, []string{"gpt-5.4", "gpt-5.5", "isac-gpt-fast", "isac-gpt-best"}, modelIDsForTest(got.Data))
+}
+
+func TestGatewayModels_DefaultFallbackPreservesAliasesAndAllowlist(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	group := &service.Group{ID: 222, Platform: service.PlatformOpenAI}
+	h := newGatewayModelsHandlerForTest(&gatewayModelsAccountRepoStub{})
+
+	list := requestModelForTest(h, group, "", "")
+	require.Equal(t, http.StatusOK, list.Code)
+	var got gatewayModelsResponseForTest
+	require.NoError(t, json.Unmarshal(list.Body.Bytes(), &got))
+	ids := modelIDsForTest(got.Data)
+	for _, modelID := range openai.DefaultModelIDs() {
+		require.Contains(t, ids, modelID)
+	}
+	for _, alias := range []string{"isac-gpt-fast", "isac-gpt-best"} {
+		require.Contains(t, ids, alias)
+		retrieved := requestModelForTest(h, group, alias, "")
+		require.Equal(t, http.StatusOK, retrieved.Code)
+		var model gatewayModelItemForTest
+		require.NoError(t, json.Unmarshal(retrieved.Body.Bytes(), &model))
+		require.Equal(t, alias, model.ID)
+		require.Equal(t, "model", model.Object)
+		require.Equal(t, "openai", model.OwnedBy)
+	}
+
+	group.ModelAllowlist = service.GroupModelAllowlist{Enabled: true, Models: []string{"gpt-5.5"}}
+	filtered := requestModelForTest(h, group, "", "")
+	require.Equal(t, http.StatusOK, filtered.Code)
+	require.NoError(t, json.Unmarshal(filtered.Body.Bytes(), &got))
+	require.Equal(t, []string{"gpt-5.5"}, modelIDsForTest(got.Data))
+	require.Equal(t, http.StatusNotFound, requestModelForTest(h, group, "isac-gpt-fast", "").Code)
 }
 
 func TestGatewayModels_CustomModelsListFiltersAndOrdersMappedModels(t *testing.T) {

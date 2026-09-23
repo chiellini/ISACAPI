@@ -20,11 +20,13 @@ func NewContentModerationHandler(svc *service.ContentModerationService) *Content
 }
 
 type contentModerationConfigRequest struct {
-	APIFormat *string `json:"api_format"`
-	Enabled   *bool   `json:"enabled"`
-	Mode      *string `json:"mode"`
-	BaseURL   *string `json:"base_url"`
-	Model     *string `json:"model"`
+	Engine        *string                                               `json:"engine"`
+	EngineConfigs map[string]service.UpdateContentModerationEngineInput `json:"engine_configs"`
+	APIFormat     *string                                               `json:"api_format"`
+	Enabled       *bool                                                 `json:"enabled"`
+	Mode          *string                                               `json:"mode"`
+	BaseURL       *string                                               `json:"base_url"`
+	Model         *string                                               `json:"model"`
 	// 审计请求使用的代理服务器：null 不修改；0 清除（直连）；>0 指定代理。
 	ProxyID              *int64              `json:"proxy_id"`
 	APIKey               *string             `json:"api_key"`
@@ -64,14 +66,16 @@ type contentModerationConfigRequest struct {
 }
 
 type contentModerationAPIKeyTestRequest struct {
-	APIFormat string   `json:"api_format"`
-	APIKeys   []string `json:"api_keys"`
-	BaseURL   string   `json:"base_url"`
-	Model     string   `json:"model"`
-	TimeoutMS int      `json:"timeout_ms"`
-	ProxyID   *int64   `json:"proxy_id"`
-	Prompt    string   `json:"prompt"`
-	Images    []string `json:"images"`
+	Engine     string              `json:"engine"`
+	Thresholds *map[string]float64 `json:"thresholds"`
+	APIFormat  string              `json:"api_format"`
+	APIKeys    []string            `json:"api_keys"`
+	BaseURL    string              `json:"base_url"`
+	Model      string              `json:"model"`
+	TimeoutMS  int                 `json:"timeout_ms"`
+	ProxyID    *int64              `json:"proxy_id"`
+	Prompt     string              `json:"prompt"`
+	Images     []string            `json:"images"`
 }
 
 type contentModerationHashRequest struct {
@@ -94,6 +98,8 @@ func (h *ContentModerationHandler) UpdateConfig(c *gin.Context) {
 		return
 	}
 	cfg, err := h.service.UpdateConfig(c.Request.Context(), service.UpdateContentModerationConfigInput{
+		Engine:                         req.Engine,
+		EngineConfigs:                  req.EngineConfigs,
 		APIFormat:                      req.APIFormat,
 		Enabled:                        req.Enabled,
 		Mode:                           req.Mode,
@@ -147,14 +153,16 @@ func (h *ContentModerationHandler) TestAPIKeys(c *gin.Context) {
 		return
 	}
 	result, err := h.service.TestAPIKeys(c.Request.Context(), service.TestContentModerationAPIKeysInput{
-		APIFormat: req.APIFormat,
-		APIKeys:   req.APIKeys,
-		BaseURL:   req.BaseURL,
-		Model:     req.Model,
-		TimeoutMS: req.TimeoutMS,
-		ProxyID:   req.ProxyID,
-		Prompt:    req.Prompt,
-		Images:    req.Images,
+		Engine:     req.Engine,
+		Thresholds: req.Thresholds,
+		APIFormat:  req.APIFormat,
+		APIKeys:    req.APIKeys,
+		BaseURL:    req.BaseURL,
+		Model:      req.Model,
+		TimeoutMS:  req.TimeoutMS,
+		ProxyID:    req.ProxyID,
+		Prompt:     req.Prompt,
+		Images:     req.Images,
 	})
 	if err != nil {
 		response.ErrorFrom(c, err)
