@@ -225,7 +225,7 @@ export default {
     conversations: '会话归档',
     chat: '聊天',
     securityAudit: '安全审计',
-    contentModeration: '内容审核',
+    contentModeration: '内容审计',
     promptAudit: '提示词审计',
     auditLogs: '操作日志',
   },

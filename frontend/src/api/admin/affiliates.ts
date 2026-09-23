@@ -169,6 +169,24 @@ export interface SimpleUser {
   username: string
 }
 
+export interface WithdrawAffiliateQuotaRequest {
+  amount: number
+}
+
+export interface AffiliateWithdrawResult {
+  ledger_id: number
+  user_id: number
+  amount: number
+  available_quota_after: number
+  frozen_quota_after: number
+  history_quota_after: number
+}
+
+export interface AffiliateWithdrawResponse {
+  result: AffiliateWithdrawResult
+  replayed: boolean
+}
+
 export async function listUsers(
   params: ListAffiliateUsersParams = {},
 ): Promise<PaginatedResponse<AffiliateAdminEntry>> {
@@ -273,6 +291,22 @@ export async function getUserOverview(
     `/admin/affiliates/users/${userId}/overview`,
   )
   return data
+}
+
+export async function withdrawUserQuota(
+  userId: number,
+  payload: WithdrawAffiliateQuotaRequest,
+  idempotencyKey: string,
+): Promise<AffiliateWithdrawResponse> {
+  const response = await apiClient.post<AffiliateWithdrawResult>(
+    `/admin/affiliates/users/${userId}/withdraw`,
+    payload,
+    { headers: { 'Idempotency-Key': idempotencyKey } },
+  )
+  return {
+    result: response.data,
+    replayed: response.headers?.['x-idempotency-replayed'] === 'true',
+  }
 }
 
 export async function listAgents(
@@ -381,6 +415,7 @@ export const affiliatesAPI = {
   listRebateRecords,
   listTransferRecords,
   getUserOverview,
+  withdrawUserQuota,
   listAgents,
   updateAgentStatus,
   listWithdrawals,

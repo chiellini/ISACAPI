@@ -14,7 +14,15 @@ export const CC_SWITCH_DOWNLOAD_LINKS = {
   macos: `${CC_SWITCH_RELEASE_BASE}/CC-Switch-${CC_SWITCH_LATEST_VERSION}-macOS.dmg`
 } as const
 
-export type CcSwitchClientType = 'claude' | 'gemini'
+/** CC Switch provider targets accepted by its v1 deeplink importer. */
+export type CcSwitchClientType =
+  | 'claude'
+  | 'codex'
+  | 'gemini'
+  | 'grokbuild'
+  | 'openclaw'
+  | 'hermes'
+  | 'opencode'
 export type CcSwitchNavigatorSnapshot = Pick<Navigator, 'platform' | 'userAgent' | 'maxTouchPoints'>
 
 export interface CcSwitchImportConfig {
@@ -36,9 +44,44 @@ function resolveCcSwitchAppType(clientType: CcSwitchClientType): string {
   return clientType
 }
 
+function encodeBase64Utf8(value: string): string {
+  const bytes = new TextEncoder().encode(value)
+  let binary = ''
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte)
+  }
+  return btoa(binary)
+}
+
+function normalizeBaseUrl(baseUrl: string): string {
+  return baseUrl.replace(/\/+$/, '')
+}
+
 function withV1Endpoint(baseUrl: string): string {
-  const normalizedBaseUrl = baseUrl.replace(/\/+$/, '')
+  const normalizedBaseUrl = normalizeBaseUrl(baseUrl)
   return normalizedBaseUrl.endsWith('/v1') ? normalizedBaseUrl : `${normalizedBaseUrl}/v1`
+}
+
+function isOpenAICompatibleTarget(clientType: CcSwitchClientType): boolean {
+  return clientType === 'codex'
+    || clientType === 'grokbuild'
+    || clientType === 'openclaw'
+    || clientType === 'hermes'
+    || clientType === 'opencode'
+}
+
+function resolveTargetEndpoint(baseUrl: string, clientType: CcSwitchClientType): string {
+  const normalizedBaseUrl = normalizeBaseUrl(baseUrl)
+  return isOpenAICompatibleTarget(clientType) ? withV1Endpoint(normalizedBaseUrl) : normalizedBaseUrl
+}
+
+function resolveTargetModel(
+  platform: GroupPlatform | undefined | null,
+  clientType: CcSwitchClientType
+): string | undefined {
+  if (platform === 'openai' && clientType === 'codex') return OPENAI_CC_SWITCH_CODEX_MODEL
+  if (platform === 'grok' && clientType === 'grokbuild') return GROK_CC_SWITCH_MODEL
+  return undefined
 }
 
 export function resolveCcSwitchImportConfig(
@@ -50,29 +93,33 @@ export function resolveCcSwitchImportConfig(
     case 'antigravity':
       return {
         app: resolveCcSwitchAppType(clientType),
-        endpoint: `${baseUrl}/antigravity`
+        endpoint: `${normalizeBaseUrl(baseUrl)}/antigravity`
       }
     case 'openai':
       return {
-        app: 'codex',
-        endpoint: baseUrl,
-        model: OPENAI_CC_SWITCH_CODEX_MODEL
+        app: resolveCcSwitchAppType(clientType),
+        endpoint: resolveTargetEndpoint(baseUrl, clientType),
+        ...(resolveTargetModel(platform, clientType)
+          ? { model: resolveTargetModel(platform, clientType) }
+          : {})
       }
     case 'gemini':
       return {
-        app: 'gemini',
-        endpoint: baseUrl
+        app: resolveCcSwitchAppType(clientType),
+        endpoint: resolveTargetEndpoint(baseUrl, clientType)
       }
     case 'grok':
       return {
-        app: 'grokbuild',
-        endpoint: withV1Endpoint(baseUrl),
-        model: GROK_CC_SWITCH_MODEL
+        app: resolveCcSwitchAppType(clientType),
+        endpoint: resolveTargetEndpoint(baseUrl, clientType),
+        ...(resolveTargetModel(platform, clientType)
+          ? { model: resolveTargetModel(platform, clientType) }
+          : {})
       }
     default:
       return {
         app: resolveCcSwitchAppType(clientType),
-        endpoint: baseUrl
+        endpoint: resolveTargetEndpoint(baseUrl, clientType)
       }
   }
 }
@@ -89,7 +136,7 @@ export function buildCcSwitchImportDeeplink(input: CcSwitchImportDeeplinkInput):
     ['enabled', 'true'],
     ['configFormat', 'json'],
     ['usageEnabled', 'true'],
-    ['usageScript', btoa(input.usageScript)],
+    ['usageScript', encodeBase64Utf8(input.usageScript)],
     ['usageAutoInterval', '30']
   ]
 

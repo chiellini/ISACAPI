@@ -1079,7 +1079,7 @@
       @close="closeUseKeyModal"
     />
 
-    <!-- CCS Client Selection Dialog for Antigravity -->
+    <!-- CC-Switch target selection -->
     <BaseDialog
       :show="showCcsClientSelect"
       :title="t('keys.ccsClientSelect.title')"
@@ -1090,33 +1090,22 @@
         <p class="text-sm text-gray-600 dark:text-gray-400">
           {{ t('keys.ccsClientSelect.description') }}
 	        </p>
-	        <div class="grid gap-3 sm:grid-cols-2">
-	          <button
-	            @click="handleCcsClientSelect('claude')"
-	            class="flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-gray-200 dark:border-dark-600 hover:border-primary-500 dark:hover:border-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-all"
-	          >
-	            <Icon name="terminal" size="xl" class="text-gray-600 dark:text-gray-400" />
-	            <span class="font-medium text-gray-900 dark:text-white">{{
-	              t('keys.ccsClientSelect.claudeCode')
-	            }}</span>
-	            <span class="text-xs text-gray-500 dark:text-gray-400">{{
-	              t('keys.ccsClientSelect.claudeCodeDesc')
-	            }}</span>
-	          </button>
-	          <button
-	            v-if="showCcsClientType('gemini')"
-	            @click="handleCcsClientSelect('gemini')"
-	            class="flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-gray-200 dark:border-dark-600 hover:border-primary-500 dark:hover:border-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-all"
-	          >
-	            <Icon name="sparkles" size="xl" class="text-gray-600 dark:text-gray-400" />
-	            <span class="font-medium text-gray-900 dark:text-white">{{
-	              t('keys.ccsClientSelect.geminiCli')
-	            }}</span>
-	            <span class="text-xs text-gray-500 dark:text-gray-400">{{
-	              t('keys.ccsClientSelect.geminiCliDesc')
-	            }}</span>
-	          </button>
-	        </div>
+        <div class="grid gap-3 sm:grid-cols-2">
+          <button
+            v-for="option in ccsClientOptions"
+            :key="option.id"
+            @click="handleCcsClientSelect(option.id)"
+            class="flex flex-col items-center gap-2 rounded-xl border-2 border-gray-200 p-4 transition-all hover:border-primary-500 hover:bg-primary-50 dark:border-dark-600 dark:hover:border-primary-500 dark:hover:bg-primary-900/20"
+          >
+            <Icon :name="option.icon" size="xl" class="text-gray-600 dark:text-gray-400" />
+            <span class="font-medium text-gray-900 dark:text-white">{{
+              t(`keys.ccsClientSelect.${option.id}`)
+            }}</span>
+            <span class="text-xs text-gray-500 dark:text-gray-400">{{
+              t(`keys.ccsClientSelect.${option.id}Desc`)
+            }}</span>
+          </button>
+        </div>
 	      </div>
       <template #footer>
         <div class="flex justify-end">
@@ -2137,32 +2126,43 @@ const resetRateLimitUsage = async () => {
 }
 
 const importToCcswitch = (row: ApiKey) => {
-  const platform = row.group?.platform || 'anthropic'
-
-  if (platform === 'anthropic' || platform === 'antigravity') {
-    pendingCcsRow.value = row
-    showCcsClientSelect.value = true
-    return
-  }
-
-  executeCcsImport(row, platform === 'gemini' ? 'gemini' : 'claude')
+  pendingCcsRow.value = row
+  showCcsClientSelect.value = true
 }
 
-const ccsSelectableClients = computed<CcSwitchClientType[]>(() => {
-  const platform = pendingCcsRow.value?.group?.platform || 'anthropic'
-  if (platform === 'antigravity') return ['claude', 'gemini']
-  return ['claude']
-})
+const ccsClientOptionDefinitions: Array<{ id: CcSwitchClientType; icon: 'terminal' | 'sparkles' }> = [
+  { id: 'codex', icon: 'terminal' },
+  { id: 'claude', icon: 'terminal' },
+  { id: 'openclaw', icon: 'terminal' },
+  { id: 'hermes', icon: 'terminal' },
+  { id: 'opencode', icon: 'terminal' },
+  { id: 'gemini', icon: 'sparkles' },
+  { id: 'grokbuild', icon: 'terminal' }
+]
 
-const showCcsClientType = (clientType: CcSwitchClientType) => ccsSelectableClients.value.includes(clientType)
+const ccsClientOptions = computed(() => {
+  const platform = pendingCcsRow.value?.group?.platform || 'anthropic'
+  const allowedByPlatform: Record<string, CcSwitchClientType[]> = {
+    openai: ['codex', 'claude', 'openclaw', 'hermes', 'opencode'],
+    antigravity: ['claude', 'gemini'],
+    gemini: ['gemini'],
+    grok: ['grokbuild']
+  }
+  const allowed = allowedByPlatform[platform] || ['claude']
+  return ccsClientOptionDefinitions.filter((option) => allowed.includes(option.id))
+})
 
 const executeCcsImport = (row: ApiKey, clientType: CcSwitchClientType) => {
   const baseUrl = publicSettings.value?.api_base_url || window.location.origin
   const platform = row.group?.platform || 'anthropic'
+  const normalizedBaseUrl = baseUrl.replace(/\/+$/, '')
+  const usageUrl = normalizedBaseUrl.endsWith('/v1')
+    ? `${normalizedBaseUrl}/usage`
+    : `${normalizedBaseUrl}/v1/usage`
 
   const usageScript = `({
     request: {
-      url: "{{baseUrl}}/v1/usage",
+      url: "${usageUrl}",
       method: "GET",
       headers: { "Authorization": "Bearer {{apiKey}}" }
     },

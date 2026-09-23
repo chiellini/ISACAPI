@@ -67,7 +67,7 @@ describe('ccswitchImport utils', () => {
     baseUrl: 'https://api.example.com',
     providerName: 'ISACAPI',
     apiKey: 'sk-test',
-    usageScript: 'return true'
+    usageScript: 'return "使用额度"'
   }
 
   it('adds the Codex model parameter for OpenAI imports', () => {
@@ -75,16 +75,35 @@ describe('ccswitchImport utils', () => {
       buildCcSwitchImportDeeplink({
         ...baseInput,
         platform: 'openai',
-        clientType: 'claude'
+        clientType: 'codex'
       })
     )
 
     expect(params.get('resource')).toBe('provider')
     expect(params.get('app')).toBe('codex')
-    expect(params.get('endpoint')).toBe(baseInput.baseUrl)
+    expect(params.get('endpoint')).toBe(`${baseInput.baseUrl}/v1`)
     expect(params.get('model')).toBe(OPENAI_CC_SWITCH_CODEX_MODEL)
     expect(params.get('enabled')).toBe('true')
-    expect(atob(params.get('usageScript') || '')).toBe(baseInput.usageScript)
+    const bytes = Uint8Array.from(atob(params.get('usageScript') || ''), (char) => char.charCodeAt(0))
+    expect(new TextDecoder().decode(bytes)).toBe(baseInput.usageScript)
+  })
+
+  it.each([
+    'https://api.example.com',
+    'https://api.example.com/',
+    'https://api.example.com/v1',
+    'https://api.example.com/v1/'
+  ])('imports Codex with exactly one /v1 suffix for base URL %s', (baseUrl) => {
+    const params = paramsFromDeeplink(
+      buildCcSwitchImportDeeplink({
+        ...baseInput,
+        baseUrl,
+        platform: 'openai',
+        clientType: 'codex'
+      })
+    )
+
+    expect(params.get('endpoint')).toBe('https://api.example.com/v1')
   })
 
   it.each([
@@ -98,7 +117,7 @@ describe('ccswitchImport utils', () => {
         ...baseInput,
         baseUrl,
         platform: 'grok',
-        clientType: 'claude'
+        clientType: 'grokbuild'
       })
     )
 
@@ -123,6 +142,25 @@ describe('ccswitchImport utils', () => {
     expect(params.get('endpoint')).toBe(baseInput.baseUrl)
     expect(params.get('enabled')).toBe('true')
     expect(params.has('model')).toBe(false)
+  })
+
+  it.each([
+    { clientType: 'claude' as const, app: 'claude', endpoint: 'https://api.example.com' },
+    { clientType: 'codex' as const, app: 'codex', endpoint: 'https://api.example.com/v1' },
+    { clientType: 'openclaw' as const, app: 'openclaw', endpoint: 'https://api.example.com/v1' },
+    { clientType: 'hermes' as const, app: 'hermes', endpoint: 'https://api.example.com/v1' },
+    { clientType: 'opencode' as const, app: 'opencode', endpoint: 'https://api.example.com/v1' }
+  ])('lets OpenAI groups target $app', ({ clientType, app, endpoint }) => {
+    const params = paramsFromDeeplink(
+      buildCcSwitchImportDeeplink({
+        ...baseInput,
+        platform: 'openai',
+        clientType
+      })
+    )
+
+    expect(params.get('app')).toBe(app)
+    expect(params.get('endpoint')).toBe(endpoint)
   })
 
   it.each([
