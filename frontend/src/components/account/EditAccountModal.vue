@@ -3234,7 +3234,6 @@ import {
   splitModelMappingObject,
   isValidWildcardPattern
 } from '@/composables/useModelWhitelist'
-import { extractApiErrorMessage } from '@/utils/apiError'
 
 interface Props {
   show: boolean
