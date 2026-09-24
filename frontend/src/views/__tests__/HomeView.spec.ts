@@ -46,8 +46,7 @@ vi.mock('vue-i18n', async () => {
   return {
     ...actual,
     useI18n: () => ({
-      t: (key: string, params?: Record<string, unknown>) =>
-        key === 'home.pricing.rechargeValue' ? `${key}:${String(params?.usd ?? '')}` : key,
+      t: (key: string) => key,
       locale: { value: 'zh' },
     }),
   }
@@ -65,7 +64,6 @@ function mountHome(): VueWrapper {
         RouterLink: RouterLinkStub,
         LocaleSwitcher: true,
         ModelIcon: true,
-        ModelPriceComparison: true,
         Icon: true,
       },
     },
@@ -109,7 +107,7 @@ describe('HomeView public navigation', () => {
     })
   })
 
-  it('exposes pricing, authentication, and CC-Switch journeys to signed-out visitors', () => {
+  it('exposes the model plaza, authentication, and CC-Switch journeys to signed-out visitors', () => {
     const wrapper = mountHome()
     const routerDestinations = wrapper
       .findAllComponents(RouterLinkStub)
@@ -118,7 +116,9 @@ describe('HomeView public navigation', () => {
       .findAll('a[href]')
       .map((link) => link.attributes('href'))
 
-    expect(routerDestinations).toContain('/pricing')
+    expect(routerDestinations).toContain('/model-plaza')
+    expect(homeViewSource).not.toContain('to="/pricing"')
+    expect(homeViewSource).not.toContain('id="pricing-preview"')
     expect(routerDestinations).toContain('/login')
     expect(routerDestinations).toContain('/register')
     expect(routerDestinations).toContain('/cc-switch')
@@ -145,8 +145,7 @@ describe('HomeView public navigation', () => {
     const wrapper = mountHome()
 
     expect(wrapper.text()).toContain('1 : 5')
-    expect(wrapper.text()).toContain('home.pricing.rechargeValue:5')
-    expect(wrapper.getComponent({ name: 'ModelPriceComparison' }).props('usdPerCny')).toBe(5)
+    expect(wrapper.find('#pricing-preview').exists()).toBe(false)
 
     wrapper.unmount()
   })

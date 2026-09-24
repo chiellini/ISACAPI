@@ -119,7 +119,7 @@
         <div class="hidden items-center gap-1 lg:flex">
           <a href="#top" class="home-nav-link home-nav-link-active">{{ t('home.nav.home') }}</a>
           <router-link :to="dashboardPath" class="home-nav-link">{{ t('home.nav.dashboard') }}</router-link>
-          <router-link to="/pricing" class="home-nav-link">{{ t('home.nav.pricing') }}</router-link>
+          <router-link to="/model-plaza" class="home-nav-link">{{ t('nav.modelPlaza') }}</router-link>
           <a href="#teams" class="home-nav-link">{{ t('home.nav.teams') }}</a>
           <a href="#integrations" class="home-nav-link">{{ t('home.nav.integrations') }}</a>
           <a
@@ -212,7 +212,7 @@
           <div class="grid gap-1 sm:grid-cols-2">
             <a href="#top" class="home-mobile-link" @click="mobileMenuOpen = false">{{ t('home.nav.home') }}</a>
             <router-link :to="dashboardPath" class="home-mobile-link" @click="mobileMenuOpen = false">{{ t('home.nav.dashboard') }}</router-link>
-            <router-link to="/pricing" class="home-mobile-link" @click="mobileMenuOpen = false">{{ t('home.nav.pricing') }}</router-link>
+            <router-link to="/model-plaza" class="home-mobile-link" @click="mobileMenuOpen = false">{{ t('nav.modelPlaza') }}</router-link>
             <a href="#teams" class="home-mobile-link" @click="mobileMenuOpen = false">{{ t('home.nav.teams') }}</a>
             <a href="#integrations" class="home-mobile-link" @click="mobileMenuOpen = false">{{ t('home.nav.integrations') }}</a>
             <a
@@ -291,11 +291,11 @@
               </a>
               <router-link
                 v-else
-                to="/pricing"
+                to="/model-plaza"
                 class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white/80 px-6 py-3.5 text-sm font-semibold text-slate-700 shadow-sm transition-all hover:-translate-y-0.5 hover:border-slate-300 hover:bg-white sm:w-auto dark:border-dark-700 dark:bg-dark-900/80 dark:text-dark-200 dark:hover:border-dark-600"
               >
-                <Icon name="dollar" size="sm" />
-                {{ t('home.nav.pricing') }}
+                <Icon name="grid" size="sm" />
+                {{ t('nav.modelPlaza') }}
               </router-link>
             </div>
 
@@ -608,58 +608,6 @@
         </div>
       </section>
 
-      <section id="pricing-preview" class="scroll-mt-20 bg-white px-4 py-16 dark:bg-dark-950 md:px-6 md:py-20">
-        <div class="mx-auto max-w-7xl">
-          <div class="grid gap-6 lg:grid-cols-[0.95fr_1.05fr] lg:items-center">
-            <div>
-              <p class="text-xs font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-300">
-                {{ t('home.pricing.eyebrow') }}
-              </p>
-              <h2 class="mt-3 text-3xl font-bold tracking-tight text-slate-950 dark:text-white md:text-4xl">
-                {{ t('home.pricing.title') }}
-              </h2>
-              <p class="mt-3 max-w-2xl text-sm leading-6 text-slate-500 dark:text-dark-400">
-                {{ t('home.pricing.description') }}
-              </p>
-              <router-link
-                to="/pricing"
-                class="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-emerald-600 transition-colors hover:text-emerald-700 dark:text-emerald-300 dark:hover:text-emerald-200"
-              >
-                {{ t('home.pricing.fullPricingAction') }}
-                <Icon name="arrowRight" size="sm" />
-              </router-link>
-            </div>
-            <div class="grid gap-3 sm:grid-cols-2">
-              <div class="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 dark:border-emerald-900/60 dark:bg-emerald-950/20">
-                <div class="flex items-center gap-2 text-sm font-semibold text-emerald-800 dark:text-emerald-200">
-                  <Icon name="creditCard" size="sm" />
-                  {{ t('home.pricing.rechargeLabel') }}
-                </div>
-                <p class="mt-3 text-2xl font-bold text-slate-950 dark:text-white">
-                  {{ t('home.pricing.rechargeValue', { usd: formatCompactNumber(balanceRechargeMultiplier) }) }}
-                </p>
-                <p class="mt-2 text-xs leading-5 text-emerald-800/80 dark:text-emerald-200/80">
-                  {{ t('home.pricing.rechargeHint') }}
-                </p>
-              </div>
-              <div class="rounded-2xl border border-sky-200 bg-sky-50 p-5 dark:border-sky-900/60 dark:bg-sky-950/20">
-                <div class="flex items-center gap-2 text-sm font-semibold text-sky-800 dark:text-sky-200">
-                  <Icon name="calculator" size="sm" />
-                  {{ t('home.pricing.tokenLabel') }}
-                </div>
-                <p class="mt-3 text-2xl font-bold text-slate-950 dark:text-white">
-                  {{ t('home.pricing.tokenValue') }}
-                </p>
-                <p class="mt-2 text-xs leading-5 text-sky-800/80 dark:text-sky-200/80">
-                  {{ t('home.pricing.tokenHint') }}
-                </p>
-              </div>
-            </div>
-          </div>
-          <ModelPriceComparison :usd-per-cny="balanceRechargeMultiplier" class="mt-8" />
-        </div>
-      </section>
-
       <section class="border-y border-slate-200 bg-slate-50 px-4 py-16 dark:border-dark-800 dark:bg-dark-900/40 md:px-6 md:py-24">
         <div class="mx-auto max-w-7xl">
           <div class="mx-auto max-w-2xl text-center">
@@ -813,7 +761,6 @@ import DOMPurify from 'dompurify'
 import { useAuthStore, useAppStore } from '@/stores'
 import LocaleSwitcher from '@/components/common/LocaleSwitcher.vue'
 import ModelIcon from '@/components/common/ModelIcon.vue'
-import ModelPriceComparison from '@/components/common/ModelPriceComparison.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { FeatureFlags, isFeatureFlagEnabled } from '@/utils/featureFlags'
 import { CC_SWITCH_DOWNLOAD_LINKS } from '@/utils/ccswitchImport'

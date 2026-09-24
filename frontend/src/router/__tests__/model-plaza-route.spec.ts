@@ -8,4 +8,10 @@ describe('model plaza route wiring', () => {
     expect(routerSource).toContain("titleKey: 'modelPlaza.title'")
     expect(routerSource).toContain("if (to.path === '/model-plaza')")
   })
+
+  it('redirects the retired pricing page to the model plaza', () => {
+    expect(routerSource).toContain("path: '/pricing'")
+    expect(routerSource).toContain("redirect: '/model-plaza'")
+    expect(routerSource).not.toContain("component: () => import('@/views/public/PricingView.vue')")
+  })
 })
