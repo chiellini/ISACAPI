@@ -1399,8 +1399,9 @@ import PlatformIcon from '@/components/common/PlatformIcon.vue'
 import { platformBadgeLightClass } from '@/utils/platformColors'
 import { KEY_GROUP_PROVIDERS, KEY_GROUP_PROVIDER_ICONS, getKeyGroupProvider, type KeyGroupProvider } from '@/utils/keyGroupProviders'
 import {
-  CC_SWITCH_DOWNLOAD_LINKS,
+  CC_SWITCH_USAGE_SCRIPT,
   OPENAI_CC_SWITCH_CODEX_MODEL,
+  CC_SWITCH_DOWNLOAD_LINKS,
   buildPiProviderConfig,
   buildCcSwitchImportDeeplink,
   getCcSwitchProtocolFallbackDelayMs,
@@ -2268,22 +2269,7 @@ const executeCcsImport = (row: ApiKey, clientType: CcSwitchClientType) => {
     ? `${normalizedBaseUrl}/usage`
     : `${normalizedBaseUrl}/v1/usage`
 
-  const usageScript = `({
-    request: {
-      url: "${usageUrl}",
-      method: "GET",
-      headers: { "Authorization": "Bearer {{apiKey}}" }
-    },
-    extractor: function(response) {
-      const remaining = response?.remaining ?? response?.quota?.remaining ?? response?.balance;
-      const unit = response?.unit ?? response?.quota?.unit ?? "USD";
-      return {
-        isValid: response?.is_active ?? response?.isValid ?? true,
-        remaining,
-        unit
-      };
-    }
-  })`
+  const usageScript = CC_SWITCH_USAGE_SCRIPT
   const providerName = (publicSettings.value?.site_name || 'sub2api').trim() || 'sub2api'
   const deeplink = buildCcSwitchImportDeeplink({
     baseUrl,

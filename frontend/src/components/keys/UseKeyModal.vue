@@ -427,6 +427,10 @@ const codexModelCatalogPath = computed(() => {
   return joinConfigPath(configDir, 'codex-models.json', isWindows)
 })
 
+// Codex expands a leading ~/ on every platform but not %userprofile%, which it
+// resolves relative to the config directory, so config.toml always uses ~/.
+const CODEX_MODEL_CATALOG_CONFIG_PATH = '~/.codex/codex-models.json'
+
 const codexManifestContext = computed(() => {
   if (!showCodexModelCatalog.value) return ''
   return `${props.platform}|${props.baseUrl}|${props.apiKey}`
@@ -1486,7 +1490,7 @@ model_provider = "OpenAI"
 model = "${model}"
 review_model = "${model}"
 ${reasoningEffortLine}disable_response_storage = true
-${optionalCodexCatalogConfig()}
+model_catalog_json = "${CODEX_MODEL_CATALOG_CONFIG_PATH}"
 network_access = "enabled"
 windows_wsl_setup_acknowledged = true
 
@@ -1742,7 +1746,7 @@ function generateGrokCodexFiles(baseUrl: string, apiKey: string): FileConfig[] {
 
 model_provider = "sub2api"
 model = "${model}"
-${optionalCodexCatalogConfig()}
+model_catalog_json = "${CODEX_MODEL_CATALOG_CONFIG_PATH}"
 # Optional:
 # review_model = "${model}"
 # model_reasoning_effort = "medium"
@@ -1823,7 +1827,7 @@ model_provider = "sub2api"
 model = "${model}"
 review_model = "${model}"
 disable_response_storage = true
-${optionalCodexCatalogConfig()}
+model_catalog_json = "${CODEX_MODEL_CATALOG_CONFIG_PATH}"
 
 [model_providers.sub2api]
 name = "Sub2API ${label}"
@@ -1848,7 +1852,32 @@ supports_websockets = false`
 }
 
 function generateOpenAIWsFiles(baseUrl: string, apiKey: string): FileConfig[] {
-  return generateCodexFiles(baseUrl, apiKey, true)
+  const isWindows = activeTab.value === 'windows'
+  const configDir = isWindows ? '%userprofile%\\.codex' : '~/.codex'
+  const model = selectCodexCatalogModel('gpt-5.5')
+  const reasoningEffortLine = codexReasoningEffortTomlLine(model)
+
+  // config.toml content with WebSocket v2
+  const configContent = `model_provider = "OpenAI"
+model = "${model}"
+review_model = "${model}"
+${reasoningEffortLine}disable_response_storage = true
+model_catalog_json = "${CODEX_MODEL_CATALOG_CONFIG_PATH}"
+network_access = "enabled"
+windows_wsl_setup_acknowledged = true
+
+[model_providers.OpenAI]
+name = "OpenAI"
+base_url = "${baseUrl}"
+wire_api = "responses"
+supports_websockets = true
+${generateCodexProviderAuthConfig(apiKey)}
+
+[features]
+responses_websockets_v2 = true
+goals = true`
+
+  return buildOpenAICodexFileConfigs(configDir, configContent, apiKey)
 }
 
 function generateOpenCodeConfig(platform: string, baseUrl: string, apiKey: string, pathLabel?: string): FileConfig {

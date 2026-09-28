@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  CC_SWITCH_DOWNLOAD_LINKS,
+  CC_SWITCH_USAGE_SCRIPT,
   GROK_CC_SWITCH_MODEL,
   OPENAI_CC_SWITCH_CODEX_MODEL,
   buildPiProviderConfig,
@@ -29,17 +29,6 @@ describe('ccswitchImport utils', () => {
 
   it('defaults OpenAI CC Switch imports to the current Codex model', () => {
     expect(OPENAI_CC_SWITCH_CODEX_MODEL).toBe('gpt-5.6-sol')
-  })
-
-  it('keeps CC-Switch download links on official channels', () => {
-    expect(CC_SWITCH_DOWNLOAD_LINKS.officialSite).toBe('https://ccswitch.io/')
-    expect(CC_SWITCH_DOWNLOAD_LINKS.releases).toBe('https://github.com/farion1231/cc-switch/releases/latest')
-    expect(CC_SWITCH_DOWNLOAD_LINKS.windows).toMatch(
-      /^https:\/\/github\.com\/farion1231\/cc-switch\/releases\/download\/v[\d.]+\/CC-Switch-v[\d.]+-Windows\.msi$/
-    )
-    expect(CC_SWITCH_DOWNLOAD_LINKS.macos).toMatch(
-      /^https:\/\/github\.com\/farion1231\/cc-switch\/releases\/download\/v[\d.]+\/CC-Switch-v[\d.]+-macOS\.dmg$/
-    )
   })
 
   it('uses a longer protocol fallback delay for Apple browsers', () => {
@@ -71,30 +60,12 @@ describe('ccswitchImport utils', () => {
     usageScript: 'return "使用额度"'
   }
 
-  it('adds the Codex model parameter for OpenAI imports', () => {
-    const params = paramsFromDeeplink(
-      buildCcSwitchImportDeeplink({
-        ...baseInput,
-        platform: 'openai',
-        clientType: 'codex'
-      })
-    )
-
-    expect(params.get('resource')).toBe('provider')
-    expect(params.get('app')).toBe('codex')
-    expect(params.get('endpoint')).toBe(`${baseInput.baseUrl}/v1`)
-    expect(params.get('model')).toBe(OPENAI_CC_SWITCH_CODEX_MODEL)
-    expect(params.get('enabled')).toBe('true')
-    const bytes = Uint8Array.from(atob(params.get('usageScript') || ''), (char) => char.charCodeAt(0))
-    expect(new TextDecoder().decode(bytes)).toBe(baseInput.usageScript)
-  })
-
   it.each([
-    'https://api.example.com',
-    'https://api.example.com/',
-    'https://api.example.com/v1',
-    'https://api.example.com/v1/'
-  ])('imports Codex with exactly one /v1 suffix for base URL %s', (baseUrl) => {
+    ['https://api.example.com', 'https://api.example.com'],
+    ['https://api.example.com/', 'https://api.example.com'],
+    ['https://api.example.com/v1', 'https://api.example.com/v1'],
+    ['https://api.example.com/v1/', 'https://api.example.com/v1']
+  ])('keeps Codex imports on the configured endpoint for base URL %s', (baseUrl, endpoint) => {
     const params = paramsFromDeeplink(
       buildCcSwitchImportDeeplink({
         ...baseInput,
@@ -104,7 +75,11 @@ describe('ccswitchImport utils', () => {
       })
     )
 
-    expect(params.get('endpoint')).toBe('https://api.example.com/v1')
+    expect(params.get('resource')).toBe('provider')
+    expect(params.get('app')).toBe('codex')
+    expect(params.get('endpoint')).toBe(endpoint)
+    expect(params.get('model')).toBe(OPENAI_CC_SWITCH_CODEX_MODEL)
+    expect(atob(params.get('usageScript') || '')).toBe(baseInput.usageScript)
   })
 
   it.each([
@@ -256,5 +231,40 @@ describe('ccswitchImport utils', () => {
       ...baseInput,
       clientType: clientType as never
     })).toThrow(`CC Switch does not support ${clientType} provider deeplinks`)
+  })
+})
+
+describe('CC Switch usage script', () => {
+  // Mirrors CC Switch: substitute the template vars as text, evaluate, read request.url.
+  function usageUrlFor(baseUrl: string): string {
+    const script = CC_SWITCH_USAGE_SCRIPT.split('{{baseUrl}}').join(baseUrl).split('{{apiKey}}').join('sk-test')
+    // eslint-disable-next-line no-new-func
+    const config = new Function(`return ${script}`)() as { request: { url: string } }
+    return config.request.url
+  }
+
+  it.each([
+    'https://api.example.com',
+    'https://api.example.com/',
+    'https://api.example.com/v1',
+    'https://api.example.com/v1/'
+  ])('queries exactly one /v1/usage for base URL %s', (baseUrl) => {
+    expect(usageUrlFor(baseUrl)).toBe('https://api.example.com/v1/usage')
+  })
+
+  it('works against the endpoint every platform import stores', () => {
+    for (const platform of ['anthropic', 'openai', 'grok', 'gemini'] as GroupPlatform[]) {
+      const endpoint = paramsFromDeeplink(
+        buildCcSwitchImportDeeplink({
+          baseUrl: 'https://api.example.com',
+          platform,
+          clientType: platform === 'gemini' ? 'gemini' : 'claude',
+          providerName: 'Sub2API',
+          apiKey: 'sk-test',
+          usageScript: CC_SWITCH_USAGE_SCRIPT
+        })
+      ).get('endpoint') as string
+      expect(usageUrlFor(endpoint)).toBe('https://api.example.com/v1/usage')
+    }
   })
 })

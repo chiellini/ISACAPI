@@ -45,28 +45,43 @@ export interface CcSwitchImportDeeplinkInput {
   usageScript: string
 }
 
-export interface PiProviderConfigInput {
-  baseUrl: string
-  platform?: GroupPlatform | null
-  providerName: string
-  apiKey: string
-  model: string
+/**
+ * Balance query CC Switch runs against the imported provider. CC Switch fills
+ * `{{baseUrl}}` with the provider's base URL as stored — Codex and Grok imports
+ * carry a trailing `/v1` (see `withV1Endpoint`), Claude ones do not, and users
+ * may edit it either way afterwards — then evaluates the script, so the URL
+ * strips an existing `/v1` instead of blindly appending one (`/v1/v1/usage`
+ * is a 404 and CC Switch shows "query failed").
+ */
+export const CC_SWITCH_USAGE_SCRIPT = `({
+    request: {
+      url: "{{baseUrl}}".replace(/\\/+$/, "").replace(/\\/v1$/, "") + "/v1/usage",
+      method: "GET",
+      headers: { "Authorization": "Bearer {{apiKey}}" }
+    },
+    extractor: function(response) {
+      const remaining = response?.remaining ?? response?.quota?.remaining ?? response?.balance;
+      const unit = response?.unit ?? response?.quota?.unit ?? "USD";
+      return {
+        isValid: response?.is_active ?? response?.isValid ?? true,
+        remaining,
+        unit
+      };
+    }
+  })`
+
+function normalizeBaseUrl(baseUrl: string): string {
+  // The site setting may already contain /v1. Client-specific paths are added below.
+  return baseUrl.trim().replace(/\/+$/, '').replace(/\/v1$/, '')
 }
 
-export interface PiProviderModel {
-  id: string
-  name: string
+function withV1Endpoint(baseUrl: string): string {
+  const normalizedBaseUrl = normalizeBaseUrl(baseUrl)
+  return normalizedBaseUrl.endsWith('/v1') ? normalizedBaseUrl : `${normalizedBaseUrl}/v1`
 }
 
-export interface PiProvider {
-  baseUrl: string
-  api: 'openai-completions'
-  apiKey: string
-  models: PiProviderModel[]
-}
-
-export interface PiModelsConfig {
-  providers: Record<'isacapi', PiProvider>
+function withoutTrailingSlashes(baseUrl: string): string {
+  return baseUrl.replace(/\/+$/, '')
 }
 
 function resolveCcSwitchAppType(clientType: CcSwitchClientType): string {
@@ -84,16 +99,6 @@ function encodeBase64Utf8(value: string): string {
     binary += String.fromCharCode(byte)
   }
   return btoa(binary)
-}
-
-function normalizeBaseUrl(baseUrl: string): string {
-  // The site setting may already contain /v1. Client-specific paths are added below.
-  return baseUrl.trim().replace(/\/+$/, '').replace(/\/v1$/, '')
-}
-
-function withV1Endpoint(baseUrl: string): string {
-  const normalizedBaseUrl = normalizeBaseUrl(baseUrl)
-  return normalizedBaseUrl.endsWith('/v1') ? normalizedBaseUrl : `${normalizedBaseUrl}/v1`
 }
 
 function isOpenAICompatibleTarget(clientType: CcSwitchClientType): boolean {
@@ -137,11 +142,11 @@ export function resolveCcSwitchImportConfig(
       }
     case 'openai':
       return {
-        app: resolveCcSwitchAppType(clientType),
-        endpoint: resolveTargetEndpoint(baseUrl, clientType),
-        ...(resolveTargetModel(platform, clientType)
-          ? { model: resolveTargetModel(platform, clientType) }
-          : {})
+        app: 'codex',
+        // CC Switch's Codex provider appends the OpenAI-compatible path itself.
+        // Passing /v1 here can make the client request /v1/v1/....
+        endpoint: withoutTrailingSlashes(baseUrl),
+        model: OPENAI_CC_SWITCH_CODEX_MODEL
       }
     case 'gemini':
       return {
