@@ -2264,10 +2264,6 @@ const downloadPiConfig = () => {
 const executeCcsImport = (row: ApiKey, clientType: CcSwitchClientType) => {
   const baseUrl = publicSettings.value?.api_base_url || window.location.origin
   const platform = row.group?.platform || 'anthropic'
-  const normalizedBaseUrl = baseUrl.replace(/\/+$/, '')
-  const usageUrl = normalizedBaseUrl.endsWith('/v1')
-    ? `${normalizedBaseUrl}/usage`
-    : `${normalizedBaseUrl}/v1/usage`
 
   const usageScript = CC_SWITCH_USAGE_SCRIPT
   const providerName = (publicSettings.value?.site_name || 'sub2api').trim() || 'sub2api'

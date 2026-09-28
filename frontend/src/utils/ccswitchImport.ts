@@ -45,6 +45,30 @@ export interface CcSwitchImportDeeplinkInput {
   usageScript: string
 }
 
+export interface PiProviderConfigInput {
+  baseUrl: string
+  platform?: GroupPlatform | null
+  providerName: string
+  apiKey: string
+  model: string
+}
+
+export interface PiProviderModel {
+  id: string
+  name: string
+}
+
+export interface PiProvider {
+  baseUrl: string
+  api: 'openai-completions'
+  apiKey: string
+  models: PiProviderModel[]
+}
+
+export interface PiModelsConfig {
+  providers: Record<'isacapi', PiProvider>
+}
+
 /**
  * Balance query CC Switch runs against the imported provider. CC Switch fills
  * `{{baseUrl}}` with the provider's base URL as stored — Codex and Grok imports

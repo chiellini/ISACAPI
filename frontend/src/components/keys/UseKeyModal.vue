@@ -1564,13 +1564,6 @@ function escapeTomlBasicString(value: string): string {
   return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
 }
 
-function optionalCodexCatalogConfig(): string {
-  // A downloaded catalog is not necessarily saved on the client's filesystem.
-  // Manual configurations must remain usable when only config.toml is copied.
-  return `# Optional: save the downloaded catalog and set its absolute path before enabling.
-# model_catalog_json = "${escapeTomlBasicString(codexModelCatalogPath.value)}"`
-}
-
 function generateGrokFiles(baseUrl: string, apiKey: string): FileConfig[] {
   // Prefer unix/cmd/powershell when shell tabs are shown; fall back to windows tab.
   const shell = activeTab.value
