@@ -306,8 +306,10 @@ func TestPrepareUsageLogInsert_PersistsNativeCompactionV2WithoutChangingRequestT
 	prepared := prepareUsageLogInsert(log)
 
 	require.Len(t, prepared.args, len(usageLogInsertArgTypes))
-	require.Equal(t, "boolean", usageLogInsertArgTypes[len(usageLogInsertArgTypes)-2])
-	require.Equal(t, true, prepared.args[len(prepared.args)-2])
+	// fork 布局在 created_at 之后追加了 provider/科研组计费列，
+	// native_compaction_v2 固定在 0 基索引 60（见 usageLogInsertArgTypes 注释顺序）。
+	require.Equal(t, "boolean", usageLogInsertArgTypes[60])
+	require.Equal(t, true, prepared.args[60])
 	require.Equal(t, int16(service.RequestTypeStream), prepared.args[30])
 	require.Equal(t, service.RequestTypeStream, log.RequestType)
 	require.True(t, log.Stream)

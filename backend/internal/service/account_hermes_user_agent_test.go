@@ -43,29 +43,29 @@ func TestHermesUserAgentSwitchScopeAndLegacyUA(t *testing.T) {
 			wantUA:     HermesUserAgentValue,
 		},
 		{
-			name:       "disabled OpenAI API key preserves legacy UA",
-			account:    hermesTestAccount(AccountTypeAPIKey, PlatformOpenAI, false, "legacy-client/1.0"),
-			wantUA:     "legacy-client/1.0",
+			name:    "disabled OpenAI API key preserves legacy UA",
+			account: hermesTestAccount(AccountTypeAPIKey, PlatformOpenAI, false, "legacy-client/1.0"),
+			wantUA:  "legacy-client/1.0",
 		},
 		{
-			name:       "missing switch preserves legacy UA",
-			account:    hermesTestAccount(AccountTypeAPIKey, PlatformOpenAI, nil, "legacy-client/1.0"),
-			wantUA:     "legacy-client/1.0",
+			name:    "missing switch preserves legacy UA",
+			account: hermesTestAccount(AccountTypeAPIKey, PlatformOpenAI, nil, "legacy-client/1.0"),
+			wantUA:  "legacy-client/1.0",
 		},
 		{
-			name:       "malformed switch is disabled",
-			account:    hermesTestAccount(AccountTypeAPIKey, PlatformOpenAI, "true", "legacy-client/1.0"),
-			wantUA:     "legacy-client/1.0",
+			name:    "malformed switch is disabled",
+			account: hermesTestAccount(AccountTypeAPIKey, PlatformOpenAI, "true", "legacy-client/1.0"),
+			wantUA:  "legacy-client/1.0",
 		},
 		{
-			name:       "OpenAI OAuth is never eligible",
-			account:    hermesTestAccount(AccountTypeOAuth, PlatformOpenAI, true, "codex_cli_rs/0.1"),
-			wantUA:     "codex_cli_rs/0.1",
+			name:    "OpenAI OAuth is never eligible",
+			account: hermesTestAccount(AccountTypeOAuth, PlatformOpenAI, true, "codex_cli_rs/0.1"),
+			wantUA:  "codex_cli_rs/0.1",
 		},
 		{
-			name:       "non OpenAI API key is never eligible",
-			account:    hermesTestAccount(AccountTypeAPIKey, PlatformAnthropic, true, "claude/1.0"),
-			wantUA:     "",
+			name:    "non OpenAI API key is never eligible",
+			account: hermesTestAccount(AccountTypeAPIKey, PlatformAnthropic, true, "claude/1.0"),
+			wantUA:  "",
 		},
 	}
 
@@ -83,9 +83,9 @@ func TestHermesUserAgentSwitchScopeAndLegacyUA(t *testing.T) {
 func TestApplyHermesUserAgentRemovesCaseVariantsAndWinsOverLegacyHeaders(t *testing.T) {
 	account := hermesTestAccount(AccountTypeAPIKey, PlatformOpenAI, true, "legacy-client/1.0")
 	headers := http.Header{
-		"User-Agent": {"OpenAI/Python 1.0"},
-		"user-agent": {"openai-python-lowercase"},
-		"USER-AGENT": {"openai-python-uppercase"},
+		"User-Agent":  {"OpenAI/Python 1.0"},
+		"user-agent":  {"openai-python-lowercase"},
+		"USER-AGENT":  {"openai-python-uppercase"},
 		"X-Unrelated": {"preserved"},
 	}
 

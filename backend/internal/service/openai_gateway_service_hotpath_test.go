@@ -222,7 +222,9 @@ func TestOpenAIGatewayService_Forward_InjectsCodexSecurityBoundaryInstructionsWh
 
 	instructions := gjson.GetBytes(upstream.lastBody, "instructions").String()
 	require.Contains(t, instructions, "safe-boundary")
-	require.Contains(t, instructions, strings.TrimSpace(defaultCodexSynthInstructions("gpt-5")))
+	// API-key 账号按 upstream e21b849a9 有意跳过合成默认 Codex 提示词，
+	// 因此这里只断言模板注入本身生效。
+	require.Equal(t, "safe-boundary", instructions)
 }
 
 // #4417：/v1/responses 原生转发路径需将 Chat-Completions 风格的 max_tokens 归一化为

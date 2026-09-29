@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"net/http"
-	"net/http/httptest"
 	"sync"
 	"testing"
 	"time"
@@ -131,19 +129,11 @@ func (r *contentModerationRuntimeSettingRepo) blockNextMultiple(start chan<- str
 
 func runtimeCacheTestConfig(t *testing.T, keywords ...string) string {
 	t.Helper()
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_ = json.NewEncoder(w).Encode(moderationAPIResponse{Results: []moderationAPIResult{{
-			CategoryScores: map[string]float64{"illicit": 0.99},
-		}}})
-	}))
-	t.Cleanup(server.Close)
 	cfg := defaultContentModerationConfig()
 	cfg.Enabled = true
 	cfg.Mode = ContentModerationModePreBlock
 	cfg.KeywordBlockingMode = ContentModerationKeywordModeKeywordOnly
-	cfg.BaseURL = server.URL
-	cfg.APIKeys = []string{"sk-test"}
-	cfg.BlockedKeywords = append(append([]string(nil), keywords...), "risk-cache-marker")
+	cfg.BlockedKeywords = keywords
 	raw, err := json.Marshal(cfg)
 	require.NoError(t, err)
 	return string(raw)
@@ -161,7 +151,7 @@ func runtimeCacheTestInput(text string) ContentModerationCheckInput {
 	return ContentModerationCheckInput{
 		Protocol: ContentModerationProtocolOpenAIChat,
 		Model:    "risk-cache-test",
-		Body:     []byte(`{"messages":[{"role":"user","content":"` + text + ` risk-cache-marker"}]}`),
+		Body:     []byte(`{"messages":[{"role":"user","content":"` + text + `"}]}`),
 	}
 }
 
@@ -194,7 +184,7 @@ func TestContentModerationRuntimeSnapshotUpdateConfigIsImmediate(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, decision.Allowed)
 
-	keywords := []string{"new-keyword", "risk-cache-marker"}
+	keywords := []string{"new-keyword"}
 	_, err = svc.UpdateConfig(context.Background(), UpdateContentModerationConfigInput{
 		BlockedKeywords: &keywords,
 	})
@@ -244,7 +234,7 @@ func TestContentModerationRuntimeSnapshotUpdateWinsOverInitialLoad(t *testing.T)
 
 	updateDone := make(chan error, 1)
 	go func() {
-		keywords := []string{"new-keyword", "risk-cache-marker"}
+		keywords := []string{"new-keyword"}
 		_, updateErr := svc.UpdateConfig(context.Background(), UpdateContentModerationConfigInput{
 			BlockedKeywords: &keywords,
 		})
@@ -400,7 +390,7 @@ func TestContentModerationRuntimeSnapshotUpdateWinsOverInFlightRefresh(t *testin
 
 	updateDone := make(chan error, 1)
 	go func() {
-		keywords := []string{"new-keyword", "risk-cache-marker"}
+		keywords := []string{"new-keyword"}
 		_, updateErr := svc.UpdateConfig(context.Background(), UpdateContentModerationConfigInput{
 			BlockedKeywords: &keywords,
 		})

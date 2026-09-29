@@ -378,6 +378,7 @@ func (s *GatewayService) buildUpstreamRequestAnthropicAPIKeyPassthrough(
 			setHeaderRaw(req.Header, "anthropic-beta", finalBeta)
 		}
 	}
+	filterSonnet55ToolsetBetaHeader(req.Header, body, gjson.GetBytes(body, "model").String())
 
 	return req, body, nil
 }

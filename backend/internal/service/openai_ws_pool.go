@@ -2364,7 +2364,7 @@ func normalizeOpenAIWSBetaFeatures(headers http.Header) string {
 
 func normalizeOpenAIWSHandshakeCompatibility(account *Account, headers http.Header) openAIWSHandshakeCompatibilityKey {
 	key := openAIWSHandshakeCompatibilityKey{
-		betaFeatures:            normalizeOpenAIWSBetaFeatures(headers),
+		betaFeatures:           normalizeOpenAIWSBetaFeatures(headers),
 		hermesUserAgentEnabled: account != nil && account.IsHermesUserAgentEnabled(),
 	}
 	mode := activeCodexFingerprintMode(account)

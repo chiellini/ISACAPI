@@ -297,7 +297,7 @@ func TestGatewayModels_UnmappedOpenAIAccountsSupplementMappedModels(t *testing.T
 				Credentials: map[string]any{"model_mapping": map[string]any{"stale-model": "stale-model"}},
 				Extra:       map[string]any{"openai_passthrough": true},
 			}}, accounts[1:]...),
-			want: append(openai.DefaultModelIDs(), alias),
+			want: append(openai.DefaultModelIDs(), alias, "isac-gpt-fast", "isac-gpt-best"),
 		},
 		{
 			name:     "unmapped accounts from another platform do not add defaults",

@@ -149,12 +149,14 @@ func normalizeCodexUsedPercent(raw *float64) *float64 {
 		return nil
 	}
 	// x-codex-*-used-percent reports used%, while some official UI surfaces
-	// display the inverse remaining% value.
-	used := *raw
-	if used < 0 {
-		used = 0
+	// display the inverse remaining% value. Negative values clamp to 0, but the
+	// original pointer is returned unchanged otherwise: openAICanonicalQuotaWindows
+	// pairs reset times by pointer identity against the raw snapshot fields.
+	if *raw < 0 {
+		used := 0.0
+		return &used
 	}
-	return &used
+	return raw
 }
 
 // Normalize converts primary/secondary fields to canonical 5h/7d fields.

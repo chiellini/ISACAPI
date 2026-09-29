@@ -22,7 +22,6 @@ func NewContentModerationHandler(svc *service.ContentModerationService) *Content
 type contentModerationConfigRequest struct {
 	Engine        *string                                               `json:"engine"`
 	EngineConfigs map[string]service.UpdateContentModerationEngineInput `json:"engine_configs"`
-	APIFormat     *string                                               `json:"api_format"`
 	Enabled       *bool                                                 `json:"enabled"`
 	Mode          *string                                               `json:"mode"`
 	BaseURL       *string                                               `json:"base_url"`
@@ -50,25 +49,19 @@ type contentModerationConfigRequest struct {
 	ViolationWindowHours *int                `json:"violation_window_hours"`
 	// cyber_policy 命中是否排除出自动封号计数；前端 RiskControlView 已发送该字段，
 	// service.UpdateContentModerationConfigInput 已支持，此前 handler 层缺透传导致开关静默失效。
-	CyberPolicyExcludeFromBanCount *bool                                         `json:"cyber_policy_exclude_from_ban_count"`
-	RetryCount                     *int                                          `json:"retry_count"`
-	HitRetentionDays               *int                                          `json:"hit_retention_days"`
-	NonHitRetentionDays            *int                                          `json:"non_hit_retention_days"`
-	PreHashCheckEnabled            *bool                                         `json:"pre_hash_check_enabled"`
-	BlockedKeywords                *[]string                                     `json:"blocked_keywords"`
-	KeywordBlockingMode            *string                                       `json:"keyword_blocking_mode"`
-	PreBlockFailureMode            *string                                       `json:"pre_block_failure_mode"`
-	LocalSecurityRules             *[]service.ContentModerationLocalSecurityRule `json:"local_security_rules"`
-	LocalSecurityPolicy            *service.ContentModerationLocalSecurityPolicy `json:"local_security_policy"`
-	LocalSecurityWhitelistUserIDs  *[]int64                                      `json:"local_security_whitelist_user_ids"`
-	LocalSecurityWhitelistUsers    *[]string                                     `json:"local_security_whitelist_users"`
-	ModelFilter                    *service.ContentModerationModelFilter         `json:"model_filter"`
+	CyberPolicyExcludeFromBanCount *bool                                 `json:"cyber_policy_exclude_from_ban_count"`
+	RetryCount                     *int                                  `json:"retry_count"`
+	HitRetentionDays               *int                                  `json:"hit_retention_days"`
+	NonHitRetentionDays            *int                                  `json:"non_hit_retention_days"`
+	PreHashCheckEnabled            *bool                                 `json:"pre_hash_check_enabled"`
+	BlockedKeywords                *[]string                             `json:"blocked_keywords"`
+	KeywordBlockingMode            *string                               `json:"keyword_blocking_mode"`
+	ModelFilter                    *service.ContentModerationModelFilter `json:"model_filter"`
 }
 
 type contentModerationAPIKeyTestRequest struct {
 	Engine     string              `json:"engine"`
 	Thresholds *map[string]float64 `json:"thresholds"`
-	APIFormat  string              `json:"api_format"`
 	APIKeys    []string            `json:"api_keys"`
 	BaseURL    string              `json:"base_url"`
 	Model      string              `json:"model"`
@@ -98,9 +91,7 @@ func (h *ContentModerationHandler) UpdateConfig(c *gin.Context) {
 		return
 	}
 	cfg, err := h.service.UpdateConfig(c.Request.Context(), service.UpdateContentModerationConfigInput{
-		Engine:                         req.Engine,
-		EngineConfigs:                  req.EngineConfigs,
-		APIFormat:                      req.APIFormat,
+		Engine: req.Engine, EngineConfigs: req.EngineConfigs,
 		Enabled:                        req.Enabled,
 		Mode:                           req.Mode,
 		BaseURL:                        req.BaseURL,
@@ -132,11 +123,6 @@ func (h *ContentModerationHandler) UpdateConfig(c *gin.Context) {
 		PreHashCheckEnabled:            req.PreHashCheckEnabled,
 		BlockedKeywords:                req.BlockedKeywords,
 		KeywordBlockingMode:            req.KeywordBlockingMode,
-		PreBlockFailureMode:            req.PreBlockFailureMode,
-		LocalSecurityRules:             req.LocalSecurityRules,
-		LocalSecurityPolicy:            req.LocalSecurityPolicy,
-		LocalSecurityWhitelistUserIDs:  req.LocalSecurityWhitelistUserIDs,
-		LocalSecurityWhitelistUsers:    req.LocalSecurityWhitelistUsers,
 		ModelFilter:                    req.ModelFilter,
 	})
 	if err != nil {
@@ -153,16 +139,14 @@ func (h *ContentModerationHandler) TestAPIKeys(c *gin.Context) {
 		return
 	}
 	result, err := h.service.TestAPIKeys(c.Request.Context(), service.TestContentModerationAPIKeysInput{
-		Engine:     req.Engine,
-		Thresholds: req.Thresholds,
-		APIFormat:  req.APIFormat,
-		APIKeys:    req.APIKeys,
-		BaseURL:    req.BaseURL,
-		Model:      req.Model,
-		TimeoutMS:  req.TimeoutMS,
-		ProxyID:    req.ProxyID,
-		Prompt:     req.Prompt,
-		Images:     req.Images,
+		Engine: req.Engine, Thresholds: req.Thresholds,
+		APIKeys:   req.APIKeys,
+		BaseURL:   req.BaseURL,
+		Model:     req.Model,
+		TimeoutMS: req.TimeoutMS,
+		ProxyID:   req.ProxyID,
+		Prompt:    req.Prompt,
+		Images:    req.Images,
 	})
 	if err != nil {
 		response.ErrorFrom(c, err)

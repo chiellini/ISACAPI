@@ -777,7 +777,6 @@ func (h *GatewayHandler) handleGeminiFailoverExhausted(c *gin.Context, failoverE
 
 	statusCode := failoverErr.StatusCode
 	responseBody := failoverErr.ResponseBody
-	recordUpstreamPolicyBlock(c, h.contentModerationService, service.PlatformGemini, statusCode, string(responseBody))
 
 	// 先检查透传规则
 	if h.errorPassthroughService != nil && len(responseBody) > 0 {

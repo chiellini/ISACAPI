@@ -23,8 +23,8 @@ const (
 	// policy refusals. It is independent of LogUpstreamErrorBody so a structured
 	// policy code is not lost when general upstream-body logging is disabled.
 	OpsUpstreamPolicyPayloadKey = "ops_upstream_policy_payload"
-	OpsUpstreamErrorsKey       = "ops_upstream_errors"
-	OpsUpstreamModelKey        = "ops_upstream_model"
+	OpsUpstreamErrorsKey        = "ops_upstream_errors"
+	OpsUpstreamModelKey         = "ops_upstream_model"
 
 	// Optional stage latencies (milliseconds) for troubleshooting and alerting.
 	OpsAuthLatencyMsKey      = "ops_auth_latency_ms"
