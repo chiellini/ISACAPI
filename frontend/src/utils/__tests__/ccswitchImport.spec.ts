@@ -16,6 +16,13 @@ function paramsFromDeeplink(deeplink: string): URLSearchParams {
   return new URLSearchParams(query)
 }
 
+// atob 返回 Latin-1 binary string；usageScript 是 encodeBase64Utf8 的 UTF-8 字节。
+function decodeBase64Utf8(value: string): string {
+  const binary = atob(value)
+  const bytes = Uint8Array.from(binary, (ch) => ch.charCodeAt(0))
+  return new TextDecoder().decode(bytes)
+}
+
 describe('ccswitchImport utils', () => {
   it('accepts only the expected CC Switch import route', () => {
     expect(sanitizeCcSwitchDeeplink('ccswitch://v1/import?resource=provider')).toBe(
@@ -28,7 +35,7 @@ describe('ccswitchImport utils', () => {
   })
 
   it('defaults OpenAI CC Switch imports to the current Codex model', () => {
-    expect(OPENAI_CC_SWITCH_CODEX_MODEL).toBe('gpt-5.6-sol')
+    expect(OPENAI_CC_SWITCH_CODEX_MODEL).toBe('gpt-6-sol')
   })
 
   it('uses a longer protocol fallback delay for Apple browsers', () => {
@@ -79,7 +86,7 @@ describe('ccswitchImport utils', () => {
     expect(params.get('app')).toBe('codex')
     expect(params.get('endpoint')).toBe(endpoint)
     expect(params.get('model')).toBe(OPENAI_CC_SWITCH_CODEX_MODEL)
-    expect(atob(params.get('usageScript') || '')).toBe(baseInput.usageScript)
+    expect(decodeBase64Utf8(params.get('usageScript') || '')).toBe(baseInput.usageScript)
   })
 
   it.each([
@@ -120,23 +127,20 @@ describe('ccswitchImport utils', () => {
     expect(params.has('model')).toBe(false)
   })
 
-  it.each([
-    { clientType: 'claude' as const, app: 'claude', endpoint: 'https://api.example.com' },
-    { clientType: 'codex' as const, app: 'codex', endpoint: 'https://api.example.com/v1' },
-    { clientType: 'openclaw' as const, app: 'openclaw', endpoint: 'https://api.example.com/v1' },
-    { clientType: 'hermes' as const, app: 'hermes', endpoint: 'https://api.example.com/v1' },
-    { clientType: 'opencode' as const, app: 'opencode', endpoint: 'https://api.example.com/v1' }
-  ])('lets OpenAI groups target $app', ({ clientType, app, endpoint }) => {
+  it('exports OpenAI groups to the Codex app on the configured root endpoint', () => {
     const params = paramsFromDeeplink(
       buildCcSwitchImportDeeplink({
         ...baseInput,
         platform: 'openai',
-        clientType
+        clientType: 'codex'
       })
     )
 
-    expect(params.get('app')).toBe(app)
-    expect(params.get('endpoint')).toBe(endpoint)
+    // CC Switch's Codex provider appends the OpenAI-compatible path itself, so
+    // the export keeps the root endpoint (upstream #7549); other client types
+    // on OpenAI groups follow the same Codex provider export.
+    expect(params.get('app')).toBe('codex')
+    expect(params.get('endpoint')).toBe(baseInput.baseUrl)
     expect(params.get('model')).toBe(OPENAI_CC_SWITCH_CODEX_MODEL)
   })
 
@@ -185,7 +189,7 @@ describe('ccswitchImport utils', () => {
   })
 
   it.each([
-    { platform: 'openai' as const, clientType: 'claude' as const, endpoint: 'https://api.example.com/gateway' },
+    // openai 组不在此列：Codex 导出保留根端点（见上），路径中的 /v1 原样保留。
     { platform: 'anthropic' as const, clientType: 'claude' as const, endpoint: 'https://api.example.com/gateway' },
     { platform: 'gemini' as const, clientType: 'gemini' as const, endpoint: 'https://api.example.com/gateway' },
     { platform: 'antigravity' as const, clientType: 'claude' as const, endpoint: 'https://api.example.com/gateway/antigravity' },
