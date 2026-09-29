@@ -27,15 +27,27 @@ For product, storefront, documentation, and UI iconography, use the ISAC AI logo
 
 Place frontend tests beside the feature in `__tests__/` and name them `*.spec.ts`; Vitest runs in jsdom. The configured coverage thresholds are 80% globally for statements, branches, functions, and lines. Add or update tests for behavior changes, especially API compatibility, billing, authentication, migrations, and visible UI states.
 
-### WSL-Only Validation Policy
+### Linux and WSL Validation Policy
 
-Run all project tests, lint checks, type checks, and build validation inside WSL. Do not execute the Windows-host Go, Node.js, pnpm, Vitest, or build toolchains for repository validation. The canonical WSL repository path is `/mnt/g/Projects/ISACAPI`.
+On native Linux hosts, run project tests, lint checks, type checks, and build validation directly using the Linux toolchain or in Linux Docker containers. Use the current repository checkout path; the WSL-specific path below does not apply to native Linux.
 
-- Backend example: `wsl.exe -e bash -lc 'cd /mnt/g/Projects/ISACAPI/backend && go test ./...'`
-- Frontend example: `wsl.exe -e bash -lc 'cd /mnt/g/Projects/ISACAPI && pnpm --dir frontend run test:run'`
-- Targeted frontend example: `wsl.exe -e bash -lc 'cd /mnt/g/Projects/ISACAPI/frontend && ./node_modules/.bin/vitest run src/path/to/test.spec.ts'`
+On Windows hosts, run all repository validation inside WSL. Do not execute the Windows-host Go, Node.js, pnpm, Vitest, or build toolchains for repository validation. The canonical WSL repository path is `/mnt/g/Projects/ISACAPI`.
 
-Prefer one WSL invocation for related checks because WSL startup on Windows may be slow. Set command timeouts high enough for WSL startup and first-time compilation. Do not reinstall dependencies merely to run a test unless the user explicitly requests dependency installation.
+Native Linux examples (from the repository root):
+
+- Backend: `make -C backend test`
+- Frontend: `pnpm --dir frontend run test:run`
+- Frontend lint: `pnpm --dir frontend run lint:check`
+- Frontend build (includes type checking): `pnpm --dir frontend run build`
+- Full build: `make build`
+
+Windows/WSL examples:
+
+- Backend: `wsl.exe -e bash -lc 'cd /mnt/g/Projects/ISACAPI/backend && go test ./...'`
+- Frontend: `wsl.exe -e bash -lc 'cd /mnt/g/Projects/ISACAPI && pnpm --dir frontend run test:run'`
+- Targeted frontend: `wsl.exe -e bash -lc 'cd /mnt/g/Projects/ISACAPI/frontend && ./node_modules/.bin/vitest run src/path/to/test.spec.ts'`
+
+On Windows, prefer one WSL invocation for related checks because WSL startup may be slow. Set command timeouts high enough for WSL startup and first-time compilation. Do not reinstall dependencies merely to run a test unless the user explicitly requests dependency installation.
 
 ## Commit & Pull Request Guidelines
 

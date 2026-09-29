@@ -349,7 +349,7 @@ describe('UseKeyModal', () => {
     expect(codeBlocks.join('\n')).toContain('experimental_bearer_token = "sk-grok-codex-test"')
   })
 
-  it('keeps legacy OpenAI Codex config as the default with GPT-5.6 and goals', () => {
+  it('keeps legacy OpenAI Codex config as the default with GPT-6 Sol and goals', () => {
     const wrapper = mount(UseKeyModal, {
       props: {
         show: true,
@@ -373,11 +373,11 @@ describe('UseKeyModal', () => {
     const configToml = codeBlocks.find((content) => content.includes('model_provider = "OpenAI"'))
 
     expect(configToml).toBeDefined()
-    expect(configToml).toContain('# ISACAPI Codex default model: gpt-5.6-sol')
-    expect(configToml).toContain('model = "gpt-5.6-sol"')
-    expect(configToml).toContain('review_model = "gpt-5.6-sol"')
+    expect(configToml).toContain('# ISACAPI Codex default model: gpt-6-sol')
+    expect(configToml).toContain('model = "gpt-6-sol"')
+    expect(configToml).toContain('review_model = "gpt-6-sol"')
     expect(configToml).not.toContain('model = "gpt-5.5"')
-    expect(wrapper.text()).toContain('gpt-5.6-sol')
+    expect(wrapper.text()).toContain('gpt-6-sol')
     expect(configToml).not.toContain('model = "gpt-5.4"')
     expect(configToml).not.toContain('model_context_window')
     expect(configToml).not.toContain('model_auto_compact_token_limit')
@@ -485,7 +485,7 @@ describe('UseKeyModal', () => {
     )
   })
 
-  it('keeps legacy OpenAI Codex WebSocket config as the default with GPT-5.6 and goals', async () => {
+  it('keeps legacy OpenAI Codex WebSocket config as the default with GPT-6 Sol and goals', async () => {
     const wrapper = mount(UseKeyModal, {
       props: {
         show: true,
@@ -517,9 +517,9 @@ describe('UseKeyModal', () => {
     const configToml = codeBlocks.find((content) => content.includes('supports_websockets = true'))
 
     expect(configToml).toBeDefined()
-    expect(configToml).toContain('# ISACAPI Codex default model: gpt-5.6-sol')
-    expect(configToml).toContain('model = "gpt-5.6-sol"')
-    expect(configToml).toContain('review_model = "gpt-5.6-sol"')
+    expect(configToml).toContain('# ISACAPI Codex default model: gpt-6-sol')
+    expect(configToml).toContain('model = "gpt-6-sol"')
+    expect(configToml).toContain('review_model = "gpt-6-sol"')
     expect(configToml).not.toContain('model = "gpt-5.5"')
     expect(configToml).not.toContain('model = "gpt-5.4"')
     expect(configToml).not.toContain('model_context_window')
@@ -664,8 +664,8 @@ describe('UseKeyModal', () => {
     })
   }
 
-  function installedUnixFile(script: string, path: string): string {
-    const marker = `cat > "$HOME/${path}" <<'SUB2API_EOF'\n`
+  function installedUnixFile(script: string, path: string, redirect: '>' | '>>' = '>'): string {
+    const marker = `cat ${redirect} "$HOME/${path}" <<'SUB2API_EOF'\n`
     expect(script).toContain(marker)
     return script.split(marker)[1]!.split('\nSUB2API_EOF')[0]!
   }
@@ -770,12 +770,21 @@ describe('UseKeyModal', () => {
     wrapper.unmount()
   })
 
-  it.each(['openai', 'anthropic', 'gemini', 'antigravity', 'grok', 'kimi', 'composite'] as const)(
-    'does not require an undelivered model catalog in %s Codex exports',
-    async (platform) => {
+  it.each([
+    ['openai', 'codexCli'],
+    ['openai', 'codexCliWs'],
+    ['anthropic', 'codexCli'],
+    ['gemini', 'codexCli'],
+    ['antigravity', 'codexCli'],
+    ['grok', 'codexCli'],
+    ['kimi', 'codexCli'],
+    ['composite', 'codexCli']
+  ] as const)(
+    'does not require an undelivered model catalog in %s %s exports',
+    async (platform, cli) => {
       const wrapper = mountEndpointExport(platform, 'https://example.com/gateway')
       const codexTab = wrapper.find('nav[aria-label="Client"]').findAll('button').find((button) =>
-        button.text().includes('keys.useKeyModal.cliTabs.codexCli')
+        button.text().trim().split(/\s+/)[0] === `keys.useKeyModal.cliTabs.${cli}`
       )!
       await codexTab.trigger('click')
 
@@ -786,6 +795,7 @@ describe('UseKeyModal', () => {
         expect(config).not.toMatch(/^model_catalog_json\s*=/m)
         expect(config).toContain('# model_catalog_json = "~/.codex/codex-models.json"')
         expect(config).not.toContain('cat > "$HOME/.codex/codex-models.json"')
+        expect(config).not.toContain('isacapi_catalog_path=')
       }
       if (platform !== 'openai' && platform !== 'grok') {
         const script = blocks.find((content) => content.includes('cat > "$HOME/.codex/config.toml"'))!
@@ -800,17 +810,26 @@ describe('UseKeyModal', () => {
         button.text().trim() === 'Windows'
       )!
       await windowsTab.trigger('click')
-      const windowsConfig = wrapper.findAll('pre code').map((code) => code.text())
-        .find((content) => content.includes('model_provider = ') && !content.includes('mkdir -p'))!
-      expect(windowsConfig).not.toMatch(/^model_catalog_json\s*=/m)
-      expect(windowsConfig).toContain('# model_catalog_json = "%userprofile%\\\\.codex\\\\codex-models.json"')
+      const windowsConfigs = wrapper.findAll('pre code').map((code) => code.text())
+        .filter((content) => content.includes('model_provider = '))
+      expect(windowsConfigs.length).toBeGreaterThan(0)
+      for (const config of windowsConfigs) {
+        expect(config).not.toMatch(/^model_catalog_json\s*=/m)
+        expect(config).toContain('# model_catalog_json = "~/.codex/codex-models.json"')
+        expect(config).not.toContain('$isacapiCatalogPath')
+        expect(config).not.toContain('[System.IO.File]::WriteAllText("$env:USERPROFILE\\.codex\\codex-models.json"')
+      }
       wrapper.unmount()
     }
   )
 
-  it.each(['openai', 'composite'] as const)(
-    'bundles the fetched %s catalog before enabling it in one-click scripts',
-    async (platform) => {
+  it.each([
+    ['openai', 'codexCli'],
+    ['openai', 'codexCliWs'],
+    ['composite', 'codexCli']
+  ] as const)(
+    'bundles the fetched %s %s catalog before enabling it in one-click scripts',
+    async (platform, cli) => {
       const manifest = {
         models: [{
           slug: 'gpt-5.6-sol',
@@ -828,7 +847,7 @@ describe('UseKeyModal', () => {
       }))
       const wrapper = mountEndpointExport(platform, 'https://example.com/gateway/v1')
       const codexTab = wrapper.find('nav[aria-label="Client"]').findAll('button').find((button) =>
-        button.text().includes('keys.useKeyModal.cliTabs.codexCli')
+        button.text().trim().split(/\s+/)[0] === `keys.useKeyModal.cliTabs.${cli}`
       )!
       await codexTab.trigger('click')
       await wrapper.get('[data-testid="codex-model-catalog-fetch"]').trigger('click')
@@ -843,6 +862,8 @@ describe('UseKeyModal', () => {
         .toBeLessThan(script.indexOf('cat >> "$HOME/.codex/config.toml"'))
       const manualConfig = blocks.find((content) => content.includes('model_provider = ') && !content.includes('mkdir -p'))!
       expect(manualConfig).not.toMatch(/^model_catalog_json\s*=/m)
+      expect(installedUnixFile(script, '.codex/config.toml', '>>')).toBe(manualConfig)
+      expect(script.match(/^printf 'model_catalog_json = /gm)).toHaveLength(1)
 
       const windowsButton = wrapper.findAll('button').find((button) => button.text() === 'Windows')!
       await windowsButton.trigger('click')
@@ -853,6 +874,9 @@ describe('UseKeyModal', () => {
       expect(JSON.parse(catalogText)).toEqual(manifest)
       expect(windowsScript).toContain("Join-Path $env:USERPROFILE '.codex\\codex-models.json'")
       expect(windowsScript).toContain("$isacapiCodexConfig = 'model_catalog_json = \"' + $isacapiCatalogPath")
+      const windowsConfig = windowsScript.match(/\$isacapiCodexConfig = [^\n]+@'\n([\s\S]*?)\n'@/)?.[1]
+      expect(windowsConfig).toBe(manualConfig)
+      expect(windowsScript.match(/^\$isacapiCodexConfig = 'model_catalog_json = /gm)).toHaveLength(1)
       expect(windowsScript).toContain('[System.IO.File]::WriteAllText("$env:USERPROFILE\\.codex\\config.toml", $isacapiCodexConfig, (New-Object System.Text.UTF8Encoding($false)))')
       expect(windowsScript).toContain('[System.IO.File]::WriteAllText("$env:USERPROFILE\\.codex\\codex-models.json", $isacapiCodexFile, (New-Object System.Text.UTF8Encoding($false)))')
       if (platform === 'openai') {
@@ -864,7 +888,7 @@ describe('UseKeyModal', () => {
     }
   )
 
-  it('renders GPT-5.6 and GPT-6 Astra capabilities in OpenCode config', async () => {
+  it('renders GPT-5.6 and GPT-6 Sol and Astra capabilities in OpenCode config', async () => {
     const wrapper = mount(UseKeyModal, {
       props: {
         show: true,
@@ -885,19 +909,19 @@ describe('UseKeyModal', () => {
     const config = wrapper
       .findAll('pre code')
       .map((code) => code.text())
-      .find((content) => content.trim().startsWith('{') && content.includes('"gpt-5.6-sol"'))
+      .find((content) => content.trim().startsWith('{') && content.includes('"gpt-6-sol"'))
 
     expect(config).toBeDefined()
     const parsed = JSON.parse(config!)
     const models = parsed.provider.openai.models
-    for (const model of ['gpt-5.6', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-6-sol', 'gpt-6-luna']) {
+    for (const model of ['gpt-5.6', 'gpt-6-sol']) {
       expect(models[model]).toBeDefined()
       expect(models[model].variants).toHaveProperty('max')
       expect(models[model].variants).toHaveProperty('xhigh')
     }
     expect(models['gpt-5.6'].name).toBe('GPT-5.6 (Sol)')
     expect(models['gpt-6-sol'].variants).toHaveProperty('none')
-    expect(models['gpt-6-luna'].limit).toEqual({ context: 1050000, output: 128000 })
+    expect(models['gpt-6-sol'].limit).toEqual({ context: 1050000, output: 128000 })
     expect(models['gpt-6']).toEqual({
       name: 'GPT-6 (Astra)',
       limit: { context: 1050000, output: 128000 },
@@ -958,14 +982,14 @@ describe('UseKeyModal', () => {
       .find((content) => content.includes('.codex/config.toml'))
 
     expect(script).toBeDefined()
-    expect(script).toContain('# keys.useKeyModal.oneClick.scriptComment (Codex: gpt-5.6-sol)')
+    expect(script).toContain('# keys.useKeyModal.oneClick.scriptComment (Codex: gpt-6-sol)')
     expect(script).toContain('.codex/config.toml')
     expect(script).toContain('.codex/auth.json')
     expect(script).toContain('"OPENAI_API_KEY": "sk-test"')
     expect(script).toContain('model_provider = "OpenAI"')
-    expect(script).toContain('# ISACAPI Codex default model: gpt-5.6-sol')
-    expect(script).toContain('model = "gpt-5.6-sol"')
-    expect(script).toContain('review_model = "gpt-5.6-sol"')
+    expect(script).toContain('# ISACAPI Codex default model: gpt-6-sol')
+    expect(script).toContain('model = "gpt-6-sol"')
+    expect(script).toContain('review_model = "gpt-6-sol"')
     expect(script).not.toContain('model = "gpt-5.5"')
     expect(script).toContain("export OPENAI_BASE_URL='https://example.com/v1'")
     expect(script).toContain("export OPENAI_API_BASE='https://example.com/v1'")
@@ -1217,7 +1241,7 @@ describe('UseKeyModal', () => {
       json: async () => ({
         models: [
           { slug: 'claude-opus-4-8' },
-          { slug: 'gpt-5.5' }
+          { slug: 'gpt-6-sol' }
         ]
       })
     }))
@@ -1252,8 +1276,8 @@ describe('UseKeyModal', () => {
     const config = wrapper.findAll('pre code')
       .map((code) => code.text())
       .find((content) => content.includes('[model_providers.sub2api]'))
-    expect(config).toContain('model = "gpt-5.5"')
-    expect(config).toContain('review_model = "gpt-5.5"')
+    expect(config).toContain('model = "gpt-6-sol"')
+    expect(config).toContain('review_model = "gpt-6-sol"')
   })
 
   it('derives OpenAI Codex reasoning effort from the selected catalog descriptor', async () => {
