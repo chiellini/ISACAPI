@@ -348,10 +348,14 @@ func submitConversationCaptureTask(c *gin.Context, pool *service.UsageRecordWork
 	if c != nil && c.Request != nil {
 		parent = c.Request.Context()
 	}
-	task = wrapUsageRecordTaskContext(parent, task)
+	task, abandon := wrapUsageRecordTaskContext(parent, task)
 	if pool != nil {
-		pool.Submit(task)
-		return
+		if mode := pool.Submit(task); mode != service.UsageRecordSubmitModeDroppedStopped {
+			if mode.Dropped() {
+				abandon()
+			}
+			return
+		}
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
