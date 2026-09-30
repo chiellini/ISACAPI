@@ -25,6 +25,11 @@ type builtInChatSearchRequest struct {
 	MaxResults int    `json:"max_results"`
 }
 
+type builtInChatFetchRequest struct {
+	Model string `json:"model"`
+	URL   string `json:"url"`
+}
+
 func decodeBuiltInChatSearchRequest(body io.Reader) (builtInChatSearchRequest, error) {
 	var req builtInChatSearchRequest
 	decoder := json.NewDecoder(body)
@@ -40,6 +45,62 @@ func decodeBuiltInChatSearchRequest(body io.Reader) (builtInChatSearchRequest, e
 		return req, err
 	}
 	return req, nil
+}
+
+func decodeBuiltInChatFetchRequest(body io.Reader) (builtInChatFetchRequest, error) {
+	var req builtInChatFetchRequest
+	decoder := json.NewDecoder(body)
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&req); err != nil {
+		return req, err
+	}
+	var trailing any
+	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
+		if err == nil {
+			return req, errors.New("chat fetch request must contain one JSON object")
+		}
+		return req, err
+	}
+	return req, nil
+}
+
+// requireChatWebToolProfile 校验聊天策略启用、模型档案存在且开启 WebSearch 能力、
+// 用户分组可用。失败时已写出错误并返回 false。/chat/search 与 /chat/fetch 共用。
+func requireChatWebToolProfile(
+	c *gin.Context,
+	settingService *service.SettingService,
+	apiKeyService *service.APIKeyService,
+	model string,
+) bool {
+	policy, err := settingService.GetChatPolicy(c.Request.Context())
+	if err != nil {
+		middleware.AbortWithError(c, http.StatusServiceUnavailable, "CHAT_POLICY_UNAVAILABLE", "chat configuration is temporarily unavailable")
+		return false
+	}
+	if policy == nil || !policy.Enabled {
+		middleware.AbortWithError(c, http.StatusForbidden, "CHAT_DISABLED", "chat is disabled by the administrator")
+		return false
+	}
+	profile, ok := policy.EnabledProfileByModel(model)
+	if !ok || !profile.Capabilities.WebSearch {
+		middleware.AbortWithError(c, http.StatusForbidden, "CHAT_SEARCH_UNAVAILABLE", "web search is not enabled for the selected model")
+		return false
+	}
+	subject, ok := middleware.GetAuthSubjectFromContext(c)
+	if !ok {
+		middleware.AbortWithError(c, http.StatusUnauthorized, "UNAUTHORIZED", "session authentication required")
+		return false
+	}
+	groups, groupsErr := apiKeyService.GetAvailableGroups(c.Request.Context(), subject.UserID)
+	if groupsErr != nil {
+		middleware.AbortWithError(c, http.StatusServiceUnavailable, "CHAT_GROUPS_UNAVAILABLE", "chat groups are temporarily unavailable")
+		return false
+	}
+	if !middleware.ChatProfileGroupAvailable(profile, groups) {
+		middleware.AbortWithError(c, http.StatusForbidden, "CHAT_SEARCH_UNAVAILABLE", "web search is not enabled for the selected model")
+		return false
+	}
+	return true
 }
 
 // RegisterChatRoutes 注册内置聊天 Playground 路由。
@@ -153,6 +214,18 @@ func RegisterChatRoutes(
 		sessions.POST("/:id/images", h.ChatHistory.UploadImage)
 	}
 
+	// 用户自定义助手（仅 JWT 鉴权，按 user 隔离）。
+	assistants := r.Group("/api/v1/chat/assistants")
+	assistants.Use(bodyLimit)
+	assistants.Use(gin.HandlerFunc(jwtAuth))
+	{
+		assistants.GET("", h.ChatAssistants.List)
+		assistants.POST("", h.ChatAssistants.Create)
+		assistants.GET("/:id", h.ChatAssistants.Get)
+		assistants.PUT("/:id", h.ChatAssistants.Update)
+		assistants.DELETE("/:id", h.ChatAssistants.Delete)
+	}
+
 	// 图片回读（JWT 鉴权，按 user 隔离；直出原始字节，不走 JSON 信封）。
 	images := r.Group("/api/v1/chat/images")
 	images.Use(gin.HandlerFunc(jwtAuth))
@@ -169,15 +242,6 @@ func RegisterChatRoutes(
 	{
 		chatMeta.GET("/capabilities", h.ChatHistory.Capabilities)
 		chatMeta.POST("/search", middleware.RequestBodyLimit(maxBuiltInChatSearchBodyBytes), searchLimiter.Limit("chat-web-search", 30, time.Minute), func(c *gin.Context) {
-			policy, err := settingService.GetChatPolicy(c.Request.Context())
-			if err != nil {
-				middleware.AbortWithError(c, http.StatusServiceUnavailable, "CHAT_POLICY_UNAVAILABLE", "chat configuration is temporarily unavailable")
-				return
-			}
-			if policy == nil || !policy.Enabled {
-				middleware.AbortWithError(c, http.StatusForbidden, "CHAT_DISABLED", "chat is disabled by the administrator")
-				return
-			}
 			req, decodeErr := decodeBuiltInChatSearchRequest(c.Request.Body)
 			if decodeErr != nil {
 				var maxBytesErr *http.MaxBytesError
@@ -188,26 +252,27 @@ func RegisterChatRoutes(
 				middleware.AbortWithError(c, http.StatusBadRequest, "INVALID_REQUEST", "chat search request must be one valid JSON object with no unknown fields")
 				return
 			}
-			profile, ok := policy.EnabledProfileByModel(req.Model)
-			if !ok || !profile.Capabilities.WebSearch {
-				middleware.AbortWithError(c, http.StatusForbidden, "CHAT_SEARCH_UNAVAILABLE", "web search is not enabled for the selected model")
-				return
-			}
-			subject, ok := middleware.GetAuthSubjectFromContext(c)
-			if !ok {
-				middleware.AbortWithError(c, http.StatusUnauthorized, "UNAUTHORIZED", "session authentication required")
-				return
-			}
-			groups, groupsErr := apiKeyService.GetAvailableGroups(c.Request.Context(), subject.UserID)
-			if groupsErr != nil {
-				middleware.AbortWithError(c, http.StatusServiceUnavailable, "CHAT_GROUPS_UNAVAILABLE", "chat groups are temporarily unavailable")
-				return
-			}
-			if !middleware.ChatProfileGroupAvailable(profile, groups) {
-				middleware.AbortWithError(c, http.StatusForbidden, "CHAT_SEARCH_UNAVAILABLE", "web search is not enabled for the selected model")
+			if !requireChatWebToolProfile(c, settingService, apiKeyService, req.Model) {
 				return
 			}
 			h.ChatHistory.SearchValidated(c, req.Query, req.MaxResults)
+		})
+		// web_fetch 工具：抓取公网页面正文（SSRF 防护在 ChatHistoryService.FetchPage）。
+		chatMeta.POST("/fetch", middleware.RequestBodyLimit(maxBuiltInChatSearchBodyBytes), searchLimiter.Limit("chat-web-fetch", 30, time.Minute), func(c *gin.Context) {
+			req, decodeErr := decodeBuiltInChatFetchRequest(c.Request.Body)
+			if decodeErr != nil {
+				var maxBytesErr *http.MaxBytesError
+				if errors.As(decodeErr, &maxBytesErr) {
+					middleware.AbortWithError(c, http.StatusRequestEntityTooLarge, "REQUEST_TOO_LARGE", "chat fetch request exceeds 64 KiB")
+					return
+				}
+				middleware.AbortWithError(c, http.StatusBadRequest, "INVALID_REQUEST", "chat fetch request must be one valid JSON object with no unknown fields")
+				return
+			}
+			if !requireChatWebToolProfile(c, settingService, apiKeyService, req.Model) {
+				return
+			}
+			h.ChatHistory.FetchValidated(c, req.URL)
 		})
 	}
 }

@@ -23,6 +23,8 @@ func NewChatHistoryHandler(svc *service.ChatHistoryService) *ChatHistoryHandler 
 type chatSessionUpsertRequest struct {
 	Title string `json:"title"`
 	Model string `json:"model"`
+	// AssistantID 仅在创建时生效：把会话绑定到该用户的一个自定义助手。
+	AssistantID int64 `json:"assistant_id"`
 	// 记忆字段用指针区分「未提供（保持原值）」与「显式置空」。
 	Summary         *string                      `json:"summary"`
 	Memory          *string                      `json:"memory"`
@@ -85,7 +87,7 @@ func (h *ChatHistoryHandler) Create(c *gin.Context) {
 	}
 	var req chatSessionUpsertRequest
 	_ = c.ShouldBindJSON(&req) // 允许空 body
-	id, err := h.svc.Create(c.Request.Context(), subject.UserID, req.Title, req.Model)
+	id, err := h.svc.Create(c.Request.Context(), subject.UserID, req.Title, req.Model, req.AssistantID)
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return
@@ -237,4 +239,19 @@ func (h *ChatHistoryHandler) SearchValidated(c *gin.Context, query string, maxRe
 		return
 	}
 	response.Success(c, gin.H{"results": results})
+}
+
+// FetchValidated executes a web_fetch tool request already decoded and
+// policy-checked by the built-in Chat route.
+func (h *ChatHistoryHandler) FetchValidated(c *gin.Context, targetURL string) {
+	if _, ok := middleware2.GetAuthSubjectFromContext(c); !ok {
+		response.Unauthorized(c, "User not authenticated")
+		return
+	}
+	page, err := h.svc.FetchPage(c.Request.Context(), targetURL)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, gin.H{"page": page})
 }

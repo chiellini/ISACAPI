@@ -27,6 +27,32 @@
             <button class="opacity-0 group-hover:opacity-100" :title="t('chat.delete')" @click.stop="deleteSession(s.id)">🗑</button>
           </div>
         </div>
+
+        <!-- 我的助手：点击即开一个绑定该助手的新会话 -->
+        <div class="mt-2 shrink-0 border-t border-gray-200 pt-2 dark:border-dark-600">
+          <div class="mb-1 flex items-center justify-between px-1 text-xs font-medium text-gray-500 dark:text-gray-400">
+            <span>{{ t('chat.assistants') }}</span>
+            <button class="hover:text-primary-600" :title="t('chat.newAssistant')" @click="openAssistantEditor(null)">＋</button>
+          </div>
+          <div class="max-h-44 space-y-1 overflow-y-auto">
+            <div v-if="!assistants.length" class="px-2 py-1 text-xs text-gray-400">{{ t('chat.assistantEmpty') }}</div>
+            <div
+              v-for="a in assistants"
+              :key="a.id"
+              class="group flex cursor-pointer items-center gap-1 rounded-lg px-2 py-1.5 text-sm"
+              :class="activeAssistant?.id === a.id
+                ? 'bg-primary-100 text-primary-700 dark:bg-primary-900/40 dark:text-primary-300'
+                : 'hover:bg-gray-100 dark:hover:bg-dark-700'"
+              :title="a.description || a.name"
+              @click="startAssistantChat(a)"
+            >
+              <img src="/logo.png" alt="" class="h-4 w-4 shrink-0 rounded object-cover" />
+              <span class="min-w-0 flex-1 truncate">{{ a.name }}</span>
+              <button class="opacity-0 group-hover:opacity-100" :title="t('chat.editAssistant')" @click.stop="openAssistantEditor(a)">✎</button>
+              <button class="opacity-0 group-hover:opacity-100" :title="t('chat.deleteAssistant')" @click.stop="removeAssistant(a)">🗑</button>
+            </div>
+          </div>
+        </div>
       </aside>
 
       <!-- 主区 -->
@@ -38,16 +64,27 @@
           <select v-model="selectedModel" class="input w-44 sm:w-56" :disabled="streaming || modelOptionsLoading || models.length === 0">
             <option v-for="m in models" :key="m.id" :value="m.id">{{ m.label }}</option>
           </select>
-          <!-- 联网搜索开关：仅文本模型 + 平台已配置搜索时出现 -->
+          <!-- 当前会话绑定的助手 -->
+          <span
+            v-if="activeAssistant"
+            class="hidden h-9 max-w-[10rem] items-center gap-1 rounded-lg border border-gray-200 px-2 text-xs text-gray-500 sm:flex dark:border-dark-600 dark:text-gray-400"
+            :title="activeAssistant.description || activeAssistant.system_prompt"
+          >
+            <img src="/logo.png" alt="" class="h-4 w-4 rounded object-cover" />
+            <span class="truncate">{{ activeAssistant.name }}</span>
+          </span>
+          <!-- 联网搜索开关：文本模型 + 平台已配置搜索时出现；档案未开启能力时置灰提示 -->
           <button
-            v-if="canWebSearch"
+            v-if="canWebSearch || webSearchBlockedByModel"
             type="button"
             class="flex h-9 items-center gap-1 rounded-lg border px-3 text-sm transition"
-            :class="webSearchOn
-              ? 'border-primary-500 bg-primary-50 text-primary-700 dark:border-primary-500 dark:bg-primary-900/30 dark:text-primary-300'
-              : 'border-gray-200 text-gray-500 hover:bg-gray-100 dark:border-dark-600 dark:hover:bg-dark-700'"
-            :disabled="streaming"
-            :title="t('chat.webSearchHint')"
+            :class="webSearchBlockedByModel
+              ? 'cursor-not-allowed border-gray-200 text-gray-300 dark:border-dark-600 dark:text-gray-500'
+              : webSearchOn
+                ? 'border-primary-500 bg-primary-50 text-primary-700 dark:border-primary-500 dark:bg-primary-900/30 dark:text-primary-300'
+                : 'border-gray-200 text-gray-500 hover:bg-gray-100 dark:border-dark-600 dark:hover:bg-dark-700'"
+            :disabled="streaming || webSearchBlockedByModel"
+            :title="webSearchBlockedByModel ? t('chat.webSearchModelOff') : t('chat.webSearchHint')"
             :aria-pressed="webSearchOn"
             @click="webSearchOn = !webSearchOn"
           >
@@ -72,7 +109,7 @@
                 ? 'whitespace-pre-wrap bg-primary-600 text-white'
                 : 'bg-white text-gray-800 shadow-sm dark:bg-dark-700 dark:text-gray-100'"
             >
-              <!-- 生成的图片：点击可全屏预览 -->
+              <!-- 生成的图片：点击可全屏预览（可与助手文本共存） -->
               <div v-if="msg.images?.length" class="flex flex-wrap gap-2">
                 <img
                   v-for="(src, j) in msg.images"
@@ -84,8 +121,8 @@
                 />
               </div>
               <!-- 助手文本：Markdown 渲染（点击其中图片也可全屏） -->
-              <template v-else-if="msg.role === 'assistant'">
-                <!-- 联网搜索进行中的状态提示 -->
+              <template v-if="msg.role === 'assistant'">
+                <!-- 工具进行中的状态提示 -->
                 <div
                   v-if="msg.searchStatus"
                   class="mb-1 flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400"
@@ -93,8 +130,9 @@
                   <span class="animate-pulse">🔍</span><span class="truncate">{{ msg.searchStatus }}</span>
                 </div>
                 <div
+                  v-if="msg.content || (!msg.images?.length && streaming && !msg.searchStatus)"
                   class="markdown-body"
-                  v-html="msg.content ? renderMarkdown(msg.content) : (streaming && !msg.searchStatus ? '…' : '')"
+                  v-html="msg.content ? renderMarkdown(msg.content) : '…'"
                   @click="onMarkdownClick"
                 ></div>
                 <!-- 搜索来源引用 -->
@@ -205,6 +243,48 @@
       </div>
     </div>
 
+    <!-- 助手编辑弹窗 -->
+    <BaseDialog
+      :show="assistantEditorShow"
+      :title="assistantEditing ? t('chat.editAssistant') : t('chat.newAssistant')"
+      @close="closeAssistantEditor"
+    >
+      <div class="space-y-3">
+        <label class="block">
+          <span class="mb-1 block text-sm text-gray-600 dark:text-gray-300">{{ t('chat.assistantName') }} *</span>
+          <input v-model="assistantForm.name" class="input w-full" :placeholder="t('chat.assistantNamePlaceholder')" maxlength="100" />
+        </label>
+        <label class="block">
+          <span class="mb-1 block text-sm text-gray-600 dark:text-gray-300">{{ t('chat.assistantDescription') }}</span>
+          <input v-model="assistantForm.description" class="input w-full" :placeholder="t('chat.assistantDescriptionPlaceholder')" maxlength="500" />
+        </label>
+        <label class="block">
+          <span class="mb-1 block text-sm text-gray-600 dark:text-gray-300">{{ t('chat.assistantPrompt') }}</span>
+          <textarea v-model="assistantForm.system_prompt" class="input min-h-[7rem] w-full resize-y" :placeholder="t('chat.assistantPromptPlaceholder')"></textarea>
+        </label>
+        <label class="block">
+          <span class="mb-1 block text-sm text-gray-600 dark:text-gray-300">{{ t('chat.assistantModel') }}</span>
+          <select v-model="assistantForm.model" class="input w-full">
+            <option value="">{{ t('chat.assistantModelAny') }}</option>
+            <option v-for="m in chatModelOptions" :key="m.id" :value="m.id">{{ m.label }}</option>
+          </select>
+        </label>
+        <label class="block">
+          <span class="mb-1 block text-sm text-gray-600 dark:text-gray-300">{{ t('chat.assistantOpening') }}</span>
+          <textarea v-model="assistantForm.opening_message" class="input min-h-[4.5rem] w-full resize-y" :placeholder="t('chat.assistantOpeningPlaceholder')"></textarea>
+        </label>
+        <p v-if="assistantEditorError" class="text-sm text-red-500">{{ assistantEditorError }}</p>
+      </div>
+      <template #footer>
+        <div class="flex justify-end gap-2">
+          <button class="btn btn-secondary" @click="closeAssistantEditor">{{ t('common.cancel') }}</button>
+          <button class="btn btn-primary" :disabled="assistantSaving || !assistantForm.name.trim()" @click="saveAssistant">
+            {{ t('common.save') }}
+          </button>
+        </div>
+      </template>
+    </BaseDialog>
+
     <!-- 全屏图片预览 -->
     <Teleport to="body">
       <div
@@ -233,6 +313,7 @@ import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { onKeyStroke } from '@vueuse/core'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/components/layout/AppLayout.vue'
+import BaseDialog from '@/components/common/BaseDialog.vue'
 import { renderMarkdown } from '@/utils/markdown'
 import { sanitizeUrl } from '@/utils/url'
 import {
@@ -244,11 +325,13 @@ import {
   type ChatModelOption,
 } from './modelOptions'
 import { buildApiMessageContent } from './messageContent'
+import { buildToolList, formatCurrentTime, parseToolArguments } from './chatTools'
 import {
   generateImage,
   streamChatCompletion,
   completeChat,
   chatSearch,
+  chatFetch,
   getChatCapabilities,
   listModels,
   listSessions as apiListSessions,
@@ -256,6 +339,10 @@ import {
   createSession as apiCreateSession,
   updateSession as apiUpdateSession,
   deleteSession as apiDeleteSession,
+  listAssistants as apiListAssistants,
+  createAssistant as apiCreateAssistant,
+  updateAssistant as apiUpdateAssistant,
+  deleteAssistant as apiDeleteAssistant,
   uploadChatImage,
   fetchChatImageDataUrl,
   type ChatMessage,
@@ -263,6 +350,7 @@ import {
   type AssistantToolCall,
   type ServerMessage,
   type ChatSource,
+  type ChatAssistant,
 } from '@/api/chat'
 
 const { t } = useI18n()
@@ -297,6 +385,7 @@ interface SessionMeta {
   id: number
   title: string
   model: string
+  assistantId?: number
 }
 
 interface StoredChatImage {
@@ -346,6 +435,114 @@ const inputEl = ref<HTMLTextAreaElement | null>(null)
 const previewSrc = ref('')
 let controller: AbortController | null = null
 
+// ───────── 用户自定义助手（人设 + 默认模型 + 开场白） ─────────
+const assistants = ref<ChatAssistant[]>([])
+// 当前会话绑定的助手（决定 system prompt 与侧栏高亮）。
+const activeAssistant = ref<ChatAssistant | null>(null)
+const assistantEditorShow = ref(false)
+const assistantEditing = ref<ChatAssistant | null>(null)
+const assistantSaving = ref(false)
+const assistantEditorError = ref('')
+const assistantForm = ref({ name: '', description: '', system_prompt: '', model: '', opening_message: '' })
+const chatModelOptions = computed(() => models.value.filter((m) => m.kind === 'chat'))
+
+async function loadAssistants() {
+  try {
+    assistants.value = await apiListAssistants()
+  } catch {
+    assistants.value = []
+  }
+}
+
+function openAssistantEditor(assistant: ChatAssistant | null) {
+  assistantEditing.value = assistant
+  assistantForm.value = assistant
+    ? {
+        name: assistant.name,
+        description: assistant.description,
+        system_prompt: assistant.system_prompt,
+        model: assistant.model,
+        opening_message: assistant.opening_message,
+      }
+    : { name: '', description: '', system_prompt: '', model: '', opening_message: '' }
+  assistantEditorError.value = ''
+  assistantEditorShow.value = true
+}
+
+function closeAssistantEditor() {
+  assistantEditorShow.value = false
+}
+
+async function saveAssistant() {
+  const form = assistantForm.value
+  if (!form.name.trim()) return
+  assistantSaving.value = true
+  assistantEditorError.value = ''
+  const payload = {
+    name: form.name.trim(),
+    description: form.description.trim(),
+    system_prompt: form.system_prompt.trim(),
+    model: form.model,
+    opening_message: form.opening_message.trim(),
+  }
+  try {
+    if (assistantEditing.value) {
+      await apiUpdateAssistant(assistantEditing.value.id, payload)
+      const index = assistants.value.findIndex((a) => a.id === assistantEditing.value?.id)
+      if (index >= 0) {
+        assistants.value[index] = { ...assistants.value[index], ...payload }
+        if (activeAssistant.value?.id === assistants.value[index].id) {
+          activeAssistant.value = assistants.value[index]
+        }
+      }
+    } else {
+      const id = await apiCreateAssistant(payload)
+      assistants.value.unshift({ id, updated_at: new Date().toISOString(), ...payload })
+    }
+    assistantEditorShow.value = false
+  } catch (e) {
+    assistantEditorError.value = friendlyError(e as Error)
+  } finally {
+    assistantSaving.value = false
+  }
+}
+
+async function removeAssistant(assistant: ChatAssistant) {
+  if (!window.confirm(t('chat.assistantDeleteConfirm', { name: assistant.name }))) return
+  try {
+    await apiDeleteAssistant(assistant.id)
+  } catch {
+    /* 删除失败仍本地移除，避免卡死列表 */
+  }
+  assistants.value = assistants.value.filter((a) => a.id !== assistant.id)
+  if (activeAssistant.value?.id === assistant.id) activeAssistant.value = null
+}
+
+// 点击助手：开一个绑定它的新会话（模型优先用助手默认，回退当前选择）。
+async function startAssistantChat(assistant: ChatAssistant) {
+  if (streaming.value) return
+  const model = resolveAvailableModel(models.value, assistant.model) || selectedModel.value
+  try {
+    const id = await apiCreateSession(assistant.name, model, assistant.id)
+    sessions.value.unshift({ id, title: assistant.name, model, assistantId: assistant.id })
+    currentId.value = id
+  } catch (e) {
+    errorMsg.value = friendlyError(e as Error)
+    return
+  }
+  selectedModel.value = model
+  activeAssistant.value = assistant
+  messages.value = []
+  resetMemory()
+  errorMsg.value = ''
+  pending.value = []
+  showHistory.value = false
+  if (assistant.opening_message.trim()) {
+    messages.value.push({ role: 'assistant', content: assistant.opening_message.trim() })
+    await scrollToBottom()
+  }
+}
+
 // 输入框自增高：内容多时最多撑到约 1/3 页面高度，之后内部滚动。
 // 「只增不减」——保留用户用拖拽把它拉大的高度（发送后由 resetInputHeight 收回）。
 function autoGrowInput() {
@@ -382,6 +579,10 @@ const selectedModelOption = computed(() => models.value.find((model) => model.id
 const canWebSearch = computed(() => webSearchAvailable.value
   && selectedModelOption.value?.kind === 'chat'
   && selectedModelOption.value.capabilities.webSearch !== false)
+// 平台已配置搜索但当前模型档案未开启：显示禁用态开关并提示，而不是静默隐藏。
+const webSearchBlockedByModel = computed(() => webSearchAvailable.value
+  && selectedModelOption.value?.kind === 'chat'
+  && selectedModelOption.value.capabilities.webSearch === false)
 const canAttachFiles = computed(() => selectedModelOption.value?.kind === 'chat')
 const canAttachImages = computed(() => canAttachFiles.value && selectedModelOption.value?.capabilities.vision !== false)
 const attachmentAccept = computed(() => canAttachImages.value
@@ -677,6 +878,7 @@ function friendlyError(err: Error): string {
     /* 非 JSON，按原文处理 */
   }
   const hay = `${code} ${msg}`.toLowerCase()
+  if (hay.includes('assistant_limit')) return t('chat.assistantLimit')
   if (hay.includes('insufficient') || hay.includes('balance')) return t('chat.errBalance')
   if (hay.includes('quota')) return t('chat.errQuota')
   if (hay.includes('429') || hay.includes('rate') || hay.includes('too many')) return t('chat.errRate')
@@ -726,7 +928,7 @@ function currentMeta(): SessionMeta | undefined {
 async function loadSessions() {
   try {
     const list = await apiListSessions()
-    sessions.value = list.map((s) => ({ id: s.id, title: s.title, model: s.model }))
+    sessions.value = list.map((s) => ({ id: s.id, title: s.title, model: s.model, assistantId: s.assistant_id }))
   } catch {
     sessions.value = []
   }
@@ -771,6 +973,7 @@ async function newSession() {
     currentId.value = 0
     messages.value = []
     pending.value = []
+    activeAssistant.value = null
     return
   }
   try {
@@ -785,6 +988,7 @@ async function newSession() {
   resetMemory()
   errorMsg.value = ''
   pending.value = []
+  activeAssistant.value = null
   showHistory.value = false
 }
 
@@ -795,6 +999,7 @@ async function switchSession(id: number) {
     currentId.value = id
     messages.value = await Promise.all((s.messages || []).map(fromServerMessage))
     selectedModel.value = resolveAvailableModel(models.value, s.model)
+    activeAssistant.value = assistants.value.find((a) => a.id === s.assistant_id) ?? null
     summary.value = s.summary || ''
     memory.value = s.memory || ''
     // 折叠水位以服务端为准，并夹取到当前消息条数（消息经过滤后条数可能微调）。
@@ -969,6 +1174,9 @@ function buildTextMessages(history: UiMessage[], allowImages: boolean): ChatMess
   const start = Math.min(Math.max(summarizedCount.value, 0), history.length)
   const shortTerm = history.slice(start)
   let system = BASE_CHAT_SYSTEM
+  if (activeAssistant.value?.system_prompt) {
+    system += `\n\n【当前助手人设 · ${activeAssistant.value.name}】\n${activeAssistant.value.system_prompt.trim()}`
+  }
   if (memory.value.trim()) system += `\n\n【长期记忆 · 用户与对话的稳定事实】\n${memory.value.trim()}`
   if (summary.value.trim()) system += `\n\n【早前对话摘要】\n${summary.value.trim()}`
   return [
@@ -1122,50 +1330,110 @@ async function agentImagePrompt(history: UiMessage[], signal: AbortSignal): Prom
   }
 }
 
-// ───────── 联网搜索 agent 循环 ─────────
+// ───────── agent 工具循环 ─────────
+//
+// 工具由 chatTools.ts 的注册表按上下文组装（web_search/web_fetch/generate_image/
+// current_time）。执行在前端：模型发起 tool_calls → 前端调用对应后端端点或本地
+// 计算 → 结果回灌 → 继续作答。服务端 ChatPolicyMiddleware 会重写 tools 白名单，
+// 未审核的工具到不了模型。
 
-const MAX_SEARCH_ROUNDS = 3
+const MAX_TOOL_ROUNDS = 4
 const SEARCH_MAX_RESULTS = 5
 
-// 以 OpenAI 函数工具形式暴露给模型；模型自行判断是否需要联网。
-const WEB_SEARCH_TOOL = {
-  type: 'function',
-  function: {
-    name: 'web_search',
-    description:
-      '联网搜索获取实时/最新信息（新闻、当前事件、价格、天气、发布时间、事实核查，或任何知识截止之后的内容）。'
-      + '当回答需要最新或可引用的外部信息时调用；不需要时可直接作答。',
-    parameters: {
-      type: 'object',
-      properties: {
-        query: { type: 'string', description: '检索关键词或问题，使用与用户相同的语言' },
-      },
-      required: ['query'],
-    },
-  },
+// 可用的生图模型（generate_image 工具的执行载体）。
+const imageModelId = computed(() => models.value.find((m) => m.kind === 'image')?.id ?? '')
+const activeToolSchemas = computed(() => buildToolList({
+  isChatModel: selectedModelOption.value?.kind === 'chat',
+  webToolsOn: canWebSearch.value && webSearchOn.value,
+  imageModelId: imageModelId.value,
+}))
+
+// 执行一次工具调用：返回回灌给模型的内容；顺带更新来源与图片展示。
+async function executeToolCall(
+  assistant: UiMessage,
+  tc: { id: string; name: string; arguments: string },
+  signal: AbortSignal,
+  sources: ChatSource[],
+): Promise<unknown> {
+  const args = parseToolArguments(tc.arguments)
+  if (tc.name === 'web_search') {
+    const query = args.query?.trim() || ''
+    if (!query) return { note: 'no query provided' }
+    assistant.searchStatus = t('chat.searching', { query })
+    await scrollToBottom()
+    try {
+      const results = (await chatSearch(selectedModel.value, query, SEARCH_MAX_RESULTS))
+        .map(normalizeStoredSource)
+        .filter((source): source is ChatSource => source !== null)
+      for (const r of results) {
+        if (r.url && !sources.some((s) => s.url === r.url)) sources.push(r)
+      }
+      return results.length ? results : { note: 'no results' }
+    } catch {
+      return { note: 'search unavailable or failed' }
+    }
+  }
+  if (tc.name === 'web_fetch') {
+    const url = args.url?.trim() || ''
+    if (!url) return { note: 'no url provided' }
+    assistant.searchStatus = t('chat.fetching', { url })
+    await scrollToBottom()
+    try {
+      const page = await chatFetch(selectedModel.value, url)
+      if (!page.text) return { note: 'empty page' }
+      if (!sources.some((s) => s.url === page.url)) {
+        sources.push({ title: page.title || page.url, url: page.url, snippet: '' })
+      }
+      return { url: page.url, title: page.title, text: page.text }
+    } catch {
+      return { note: 'fetch unavailable or failed' }
+    }
+  }
+  if (tc.name === 'generate_image') {
+    const prompt = args.prompt?.trim() || ''
+    if (!prompt || !imageModelId.value) return { note: 'image generation unavailable' }
+    assistant.searchStatus = t('chat.generatingImage')
+    await scrollToBottom()
+    try {
+      const images = await generateImage({ model: imageModelId.value, prompt }, signal)
+      if (images.length) {
+        assistant.images = [...(assistant.images ?? []), ...images]
+        const refs = await saveServerImages(currentId.value, images)
+        assistant.imageRefs = [...(assistant.imageRefs ?? []), ...refs]
+        return { status: 'generated', images: images.length }
+      }
+      return { note: 'image generation returned nothing' }
+    } catch {
+      return { note: 'image generation failed' }
+    }
+  }
+  if (tc.name === 'current_time') {
+    return { datetime: formatCurrentTime(args.timezone?.trim() || '') }
+  }
+  return { note: `unknown tool ${tc.name}` }
 }
 
-// 文本对话一轮：无搜索时单轮流式；开启搜索时按需进入「调用 web_search → 回灌结果 → 继续」的 agent 循环。
+// 文本对话一轮：无工具时单轮流式；有工具时进入「调用工具 → 回灌结果 → 继续」的 agent 循环。
 async function runTextTurn(
   assistant: UiMessage,
   base: ChatMessage[],
   signal: AbortSignal,
-  withSearch: boolean,
 ) {
   const messages: ChatCompletionMessage[] = [...base]
   const sources: ChatSource[] = []
-  const maxRounds = withSearch ? MAX_SEARCH_ROUNDS : 1
+  const toolSchemas = activeToolSchemas.value
+  const maxRounds = toolSchemas.length ? MAX_TOOL_ROUNDS : 1
 
   for (let round = 0; round < maxRounds; round++) {
     const isLast = round === maxRounds - 1
     // 最后一轮不再给工具，逼模型给出最终答案。
-    const tools = withSearch && !isLast ? [WEB_SEARCH_TOOL] : undefined
+    const tools = toolSchemas.length && !isLast ? toolSchemas : undefined
     const result = await streamChatCompletion(
       { model: selectedModel.value, messages, tools },
       { signal, onDelta: (delta) => { assistant.content += delta; scrollToBottom() } },
     )
 
-    if (signal.aborted) break // 用户已停止：不再发起后续搜索/回合
+    if (signal.aborted) break // 用户已停止：不再发起后续工具调用/回合
 
     if (tools && result.toolCalls.length) {
       // 丢弃本轮可能的前言（如"让我搜一下"），最终答案在后续轮流式呈现。
@@ -1180,32 +1448,11 @@ async function runTextTurn(
         })),
       })
       for (const tc of result.toolCalls) {
-        let query = ''
-        try {
-          query = String(JSON.parse(tc.arguments || '{}').query || '')
-        } catch {
-          /* 参数非 JSON，按空查询处理 */
-        }
-        assistant.searchStatus = query ? t('chat.searching', { query }) : t('chat.searchingGeneric')
-        await scrollToBottom()
-        let results: ChatSource[] = []
-        if (tc.name === 'web_search' && query.trim()) {
-          try {
-            const rawResults = await chatSearch(selectedModel.value, query, SEARCH_MAX_RESULTS)
-            results = rawResults
-              .map(normalizeStoredSource)
-              .filter((source): source is ChatSource => source !== null)
-          } catch {
-            /* 搜索不可用/失败：让模型无搜索继续作答 */
-          }
-        }
-        for (const r of results) {
-          if (r.url && !sources.some((s) => s.url === r.url)) sources.push(r)
-        }
+        const outcome = await executeToolCall(assistant, tc, signal, sources)
         messages.push({
           role: 'tool',
           tool_call_id: tc.id,
-          content: JSON.stringify(results.length ? results : { note: 'no results (search unavailable or empty)' }),
+          content: JSON.stringify(outcome),
         })
       }
       assistant.searchStatus = ''
@@ -1246,7 +1493,6 @@ async function runAssistant() {
         assistant,
         buildTextMessages(history, canAttachImages.value),
         signal,
-        canWebSearch.value && webSearchOn.value,
       )
     }
   } catch (err) {
@@ -1302,8 +1548,10 @@ watch(selectedModel, (model) => {
 })
 
 onMounted(async () => {
+  // 助手列表先于会话加载：switchSession 需要它来恢复会话绑定的助手。
   await Promise.all([
     loadModelOptions(),
+    loadAssistants(),
     getChatCapabilities()
       .then((caps) => {
         webSearchAvailable.value = caps.web_search

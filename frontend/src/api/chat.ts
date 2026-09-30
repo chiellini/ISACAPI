@@ -324,6 +324,8 @@ export interface ServerSession {
   title: string
   model: string
   updated_at: string
+  // 会话绑定的用户自定义助手（0/缺省 = 未绑定）。
+  assistant_id?: number
   // 会话记忆：中期滚动摘要 / 长期稳定事实 / 已折叠进摘要的前缀消息条数。
   summary?: string
   memory?: string
@@ -334,6 +336,7 @@ export interface ServerSession {
 export interface SessionUpdatePayload {
   title: string
   model: string
+  assistant_id?: number
   summary?: string
   memory?: string
   summarized_count?: number
@@ -350,8 +353,8 @@ export async function getSession(id: number): Promise<ServerSession> {
   return r.data as ServerSession
 }
 
-export async function createSession(title = '', model = ''): Promise<number> {
-  const r = await apiClient.post('/chat/sessions', { title, model })
+export async function createSession(title = '', model = '', assistantId = 0): Promise<number> {
+  const r = await apiClient.post('/chat/sessions', { title, model, assistant_id: assistantId || undefined })
   return (r.data as { id: number }).id
 }
 
@@ -361,6 +364,38 @@ export async function updateSession(id: number, payload: SessionUpdatePayload): 
 
 export async function deleteSession(id: number): Promise<void> {
   await apiClient.delete(`/chat/sessions/${id}`)
+}
+
+// ───────── 用户自定义助手（人设 + 默认模型 + 开场白，按用户隔离） ─────────
+
+export interface ChatAssistant {
+  id: number
+  name: string
+  description: string
+  system_prompt: string
+  model: string
+  opening_message: string
+  updated_at: string
+}
+
+export type ChatAssistantPayload = Omit<ChatAssistant, 'id' | 'updated_at'>
+
+export async function listAssistants(): Promise<ChatAssistant[]> {
+  const r = await apiClient.get('/chat/assistants')
+  return (r.data as ChatAssistant[]) || []
+}
+
+export async function createAssistant(payload: ChatAssistantPayload): Promise<number> {
+  const r = await apiClient.post('/chat/assistants', payload)
+  return (r.data as { id: number }).id
+}
+
+export async function updateAssistant(id: number, payload: ChatAssistantPayload): Promise<void> {
+  await apiClient.put(`/chat/assistants/${id}`, payload)
+}
+
+export async function deleteAssistant(id: number): Promise<void> {
+  await apiClient.delete(`/chat/assistants/${id}`)
 }
 
 // ───────── 服务端图片存储（生成图 / 上传图落库，跨设备回读） ─────────
@@ -660,6 +695,19 @@ export async function streamChatCompletion(
 export async function chatSearch(model: string, query: string, maxResults = 5): Promise<ChatSource[]> {
   const r = await apiClient.post('/chat/search', { model, query, max_results: maxResults })
   return (r.data as { results?: ChatSource[] }).results ?? []
+}
+
+/** web_fetch 工具：抓取一个公网页面正文（服务端做 SSRF 防护与体积截断）。 */
+export interface ChatFetchedPage {
+  title: string
+  url: string
+  text: string
+}
+
+export async function chatFetch(model: string, url: string): Promise<ChatFetchedPage> {
+  const r = await apiClient.post('/chat/fetch', { model, url })
+  return (r.data as { page?: ChatFetchedPage }).page
+    ?? { title: '', url, text: '' }
 }
 
 /** 查询聊天页可用能力（当前：是否已配置联网搜索）。失败按不可用处理。 */

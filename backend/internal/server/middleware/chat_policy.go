@@ -214,7 +214,7 @@ func normalizeChatCompletionPayload(payload map[string]any, profile *service.Cha
 	if len(rawMessages) > maxChatPolicyMessages {
 		return nil, fmt.Errorf("messages exceeds the %d item limit", maxChatPolicyMessages)
 	}
-	requestedWebSearch, err := validateWebSearchRequest(payload, profile.Capabilities.WebSearch)
+	requestedTools, err := validateToolsRequest(payload, profile.Capabilities)
 	if err != nil {
 		return nil, err
 	}
@@ -239,8 +239,8 @@ func normalizeChatCompletionPayload(payload map[string]any, profile *service.Cha
 		"messages": messages,
 		"stream":   stream,
 	}
-	if requestedWebSearch {
-		normalized["tools"] = canonicalWebSearchTools()
+	if requestedTools != nil {
+		normalized["tools"] = requestedTools
 		normalized["tool_choice"] = "auto"
 	}
 	return normalized, nil
@@ -303,58 +303,218 @@ func rejectUnexpectedJSONFields(value map[string]any, allowed ...string) error {
 	return nil
 }
 
-func validateWebSearchRequest(payload map[string]any, allowed bool) (bool, error) {
+// chatToolSpec 描述一个内置聊天允许的函数工具：能力门槛与参数校验。
+// web_search / web_fetch 消耗外部检索资源，统一挂在 WebSearch 能力下；
+// generate_image 走生图链路，挂在 Image 能力下；current_time 纯本地。
+type chatToolSpec struct {
+	allowed            func(capabilities service.ChatCapabilities) bool
+	validateArguments  func(decoded map[string]any) error
+	canonicalArguments func(decoded map[string]any) map[string]any
+}
+
+func chatToolStringArg(decoded map[string]any, field string, maxRunes int, required bool) (string, error) {
+	value, exists := decoded[field]
+	if !exists || value == nil {
+		if required {
+			return "", fmt.Errorf("argument %q is required", field)
+		}
+		return "", nil
+	}
+	text, ok := value.(string)
+	if !ok {
+		return "", fmt.Errorf("argument %q must be a string", field)
+	}
+	trimmed := strings.TrimSpace(text)
+	if required && trimmed == "" {
+		return "", fmt.Errorf("argument %q must not be empty", field)
+	}
+	if utf8.RuneCountInString(trimmed) > maxRunes {
+		return "", fmt.Errorf("argument %q exceeds %d characters", field, maxRunes)
+	}
+	return trimmed, nil
+}
+
+// chatToolSpecs 是内置聊天工具白名单。请求里的 tools 会被替换为这里的
+// 规范定义，模型只会看到经过审核的 schema。
+var chatToolSpecs = map[string]chatToolSpec{
+	"web_search": {
+		allowed: func(capabilities service.ChatCapabilities) bool { return capabilities.WebSearch },
+		validateArguments: func(decoded map[string]any) error {
+			_, err := chatToolStringArg(decoded, "query", 2000, true)
+			return err
+		},
+		canonicalArguments: func(decoded map[string]any) map[string]any {
+			query, _ := chatToolStringArg(decoded, "query", 2000, true)
+			return map[string]any{"query": query}
+		},
+	},
+	"web_fetch": {
+		allowed: func(capabilities service.ChatCapabilities) bool { return capabilities.WebSearch },
+		validateArguments: func(decoded map[string]any) error {
+			_, err := chatToolStringArg(decoded, "url", 2048, true)
+			return err
+		},
+		canonicalArguments: func(decoded map[string]any) map[string]any {
+			target, _ := chatToolStringArg(decoded, "url", 2048, true)
+			return map[string]any{"url": target}
+		},
+	},
+	"generate_image": {
+		allowed: func(capabilities service.ChatCapabilities) bool { return capabilities.Image },
+		validateArguments: func(decoded map[string]any) error {
+			_, err := chatToolStringArg(decoded, "prompt", 4000, true)
+			return err
+		},
+		canonicalArguments: func(decoded map[string]any) map[string]any {
+			prompt, _ := chatToolStringArg(decoded, "prompt", 4000, true)
+			return map[string]any{"prompt": prompt}
+		},
+	},
+	"current_time": {
+		allowed: func(capabilities service.ChatCapabilities) bool { return true },
+		validateArguments: func(decoded map[string]any) error {
+			_, err := chatToolStringArg(decoded, "timezone", 64, false)
+			return err
+		},
+		canonicalArguments: func(decoded map[string]any) map[string]any {
+			timezone, _ := chatToolStringArg(decoded, "timezone", 64, false)
+			if timezone == "" {
+				return map[string]any{}
+			}
+			return map[string]any{"timezone": timezone}
+		},
+	},
+}
+
+// validateToolsRequest 校验 tools 数组：条目必须命中白名单且当前档案能力允许。
+// 返回请求所含工具的规范定义（nil 表示未请求工具）。服务端始终以规范定义
+// 覆盖客户端 schema，模型不可能看到未经审核的工具定义。
+func validateToolsRequest(payload map[string]any, capabilities service.ChatCapabilities) ([]any, error) {
 	rawTools, toolsExist := payload["tools"]
 	if !toolsExist {
 		if _, choiceExists := payload["tool_choice"]; choiceExists {
-			return false, errors.New("tool_choice requires the web_search tool")
+			return nil, errors.New("tool_choice requires at least one tool")
 		}
-		return false, nil
+		return nil, nil
 	}
 	tools, ok := rawTools.([]any)
-	if !ok || len(tools) != 1 {
-		return false, errors.New("tools must contain exactly one web_search tool")
+	if !ok || len(tools) == 0 {
+		return nil, errors.New("tools must be a non-empty array")
 	}
-	tool, ok := tools[0].(map[string]any)
-	if !ok {
-		return false, errors.New("web_search tool must be an object")
+	if len(tools) > len(chatToolSpecs) {
+		return nil, fmt.Errorf("tools exceeds the %d supported tools", len(chatToolSpecs))
 	}
-	if err := rejectUnexpectedJSONFields(tool, "type", "function"); err != nil {
-		return false, err
-	}
-	if toolType, ok := tool["type"].(string); !ok || toolType != "function" {
-		return false, errors.New("only the web_search function tool is supported")
-	}
-	function, ok := tool["function"].(map[string]any)
-	if !ok {
-		return false, errors.New("web_search function definition must be an object")
-	}
-	if err := rejectUnexpectedJSONFields(function, "name", "description", "parameters"); err != nil {
-		return false, err
-	}
-	if name, ok := function["name"].(string); !ok || name != "web_search" {
-		return false, errors.New("only the web_search function tool is supported")
-	}
-	if description, exists := function["description"]; exists {
-		if _, ok := description.(string); !ok {
-			return false, errors.New("web_search description must be a string")
+	requested := make([]string, 0, len(tools))
+	seen := make(map[string]struct{}, len(tools))
+	for index, rawTool := range tools {
+		tool, ok := rawTool.(map[string]any)
+		if !ok {
+			return nil, fmt.Errorf("tool %d must be an object", index+1)
 		}
-	}
-	if parameters, exists := function["parameters"]; exists {
-		if _, ok := parameters.(map[string]any); !ok {
-			return false, errors.New("web_search parameters must be an object")
+		if err := rejectUnexpectedJSONFields(tool, "type", "function"); err != nil {
+			return nil, fmt.Errorf("tool %d: %w", index+1, err)
 		}
-	}
-	if !allowed {
-		return false, errors.New("web search is not enabled for the selected model")
+		if toolType, ok := tool["type"].(string); !ok || toolType != "function" {
+			return nil, fmt.Errorf("tool %d: only function tools are supported", index+1)
+		}
+		function, ok := tool["function"].(map[string]any)
+		if !ok {
+			return nil, fmt.Errorf("tool %d function definition must be an object", index+1)
+		}
+		if err := rejectUnexpectedJSONFields(function, "name", "description", "parameters"); err != nil {
+			return nil, fmt.Errorf("tool %d: %w", index+1, err)
+		}
+		name, ok := function["name"].(string)
+		if !ok {
+			return nil, fmt.Errorf("tool %d function name must be a string", index+1)
+		}
+		spec, allowed := chatToolSpecs[name]
+		if !allowed {
+			return nil, fmt.Errorf("tool %q is not supported by the built-in chat", name)
+		}
+		if !spec.allowed(capabilities) {
+			return nil, fmt.Errorf("tool %q is not enabled for the selected model", name)
+		}
+		if _, duplicate := seen[name]; duplicate {
+			return nil, fmt.Errorf("tool %q is requested more than once", name)
+		}
+		seen[name] = struct{}{}
+		requested = append(requested, name)
 	}
 	if rawChoice, exists := payload["tool_choice"]; exists {
 		choice, ok := rawChoice.(string)
 		if !ok || choice != "auto" {
-			return false, errors.New("tool_choice must be auto for web_search")
+			return nil, errors.New("tool_choice must be auto")
 		}
 	}
-	return true, nil
+	canonical := make([]any, 0, len(requested))
+	for _, name := range requested {
+		canonical = append(canonical, canonicalChatTool(name))
+	}
+	return canonical, nil
+}
+
+func canonicalChatTool(name string) map[string]any {
+	definitions := map[string]struct {
+		description string
+		parameters  map[string]any
+	}{
+		"web_search": {
+			description: "Search the web for current information when it is necessary to answer the user.",
+			parameters: map[string]any{
+				"type":                 "object",
+				"additionalProperties": false,
+				"properties": map[string]any{
+					"query": map[string]any{"type": "string", "description": "A focused web search query."},
+				},
+				"required": []string{"query"},
+			},
+		},
+		"web_fetch": {
+			description: "Fetch a public web page by URL and return its readable text. Use it after a search, or when the user references a specific URL.",
+			parameters: map[string]any{
+				"type":                 "object",
+				"additionalProperties": false,
+				"properties": map[string]any{
+					"url": map[string]any{"type": "string", "description": "The absolute http(s) URL to read."},
+				},
+				"required": []string{"url"},
+			},
+		},
+		"generate_image": {
+			description: "Generate an image from a text prompt and attach it to your reply. Use it when the user asks for a picture, illustration, or diagram.",
+			parameters: map[string]any{
+				"type":                 "object",
+				"additionalProperties": false,
+				"properties": map[string]any{
+					"prompt": map[string]any{"type": "string", "description": "A complete, self-contained image prompt."},
+				},
+				"required": []string{"prompt"},
+			},
+		},
+		"current_time": {
+			description: "Get the current date and time, optionally for a given IANA timezone (e.g. Asia/Shanghai).",
+			parameters: map[string]any{
+				"type":                 "object",
+				"additionalProperties": false,
+				"properties": map[string]any{
+					"timezone": map[string]any{"type": "string", "description": "Optional IANA timezone name. Defaults to the server timezone."},
+				},
+			},
+		},
+	}
+	definition, ok := definitions[name]
+	if !ok {
+		definition = definitions["web_search"]
+	}
+	return map[string]any{
+		"type": "function",
+		"function": map[string]any{
+			"name":        name,
+			"description": definition.description,
+			"parameters":  definition.parameters,
+		},
+	}
 }
 
 func normalizeChatMessages(rawMessages []any, trustedInstructions string, capabilities service.ChatCapabilities) ([]any, int, error) {
@@ -402,10 +562,7 @@ func normalizeChatMessages(rawMessages []any, trustedInstructions string, capabi
 			normalized := map[string]any{"role": "assistant", "content": content}
 			textCharacters += utf8.RuneCountInString(content)
 			if rawCalls, exists := message["tool_calls"]; exists {
-				if !capabilities.WebSearch {
-					return nil, 0, fmt.Errorf("message %d contains tool calls but web search is disabled", index+1)
-				}
-				calls, count, err := normalizeWebSearchToolCalls(rawCalls, pendingToolCalls)
+				calls, count, err := normalizeToolCalls(rawCalls, pendingToolCalls, capabilities)
 				if err != nil {
 					return nil, 0, fmt.Errorf("message %d: %w", index+1, err)
 				}
@@ -420,9 +577,6 @@ func normalizeChatMessages(rawMessages []any, trustedInstructions string, capabi
 			}
 			result = append(result, normalized)
 		case "tool":
-			if !capabilities.WebSearch {
-				return nil, 0, fmt.Errorf("message %d contains a tool result but web search is disabled", index+1)
-			}
 			if err := rejectUnexpectedJSONFields(message, "role", "tool_call_id", "content"); err != nil {
 				return nil, 0, fmt.Errorf("message %d: %w", index+1, err)
 			}
@@ -445,7 +599,7 @@ func normalizeChatMessages(rawMessages []any, trustedInstructions string, capabi
 		}
 	}
 	if len(pendingToolCalls) != 0 {
-		return nil, 0, errors.New("every web_search tool call must have a matching tool result")
+		return nil, 0, errors.New("every tool call must have a matching tool result")
 	}
 	return result, textCharacters, nil
 }
@@ -540,7 +694,9 @@ func validRasterImageDataURL(value string) bool {
 	return true
 }
 
-func normalizeWebSearchToolCalls(raw any, pending map[string]struct{}) ([]any, int, error) {
+// normalizeToolCalls 校验历史消息里的 assistant tool_calls：工具名必须命中
+// 白名单且当前档案能力允许，参数按 chatToolSpecs 逐工具校验并规范化。
+func normalizeToolCalls(raw any, pending map[string]struct{}, capabilities service.ChatCapabilities) ([]any, int, error) {
 	calls, ok := raw.([]any)
 	if !ok || len(calls) == 0 {
 		return nil, 0, errors.New("tool_calls must be a non-empty array")
@@ -574,8 +730,15 @@ func normalizeWebSearchToolCalls(raw any, pending map[string]struct{}) ([]any, i
 			return nil, 0, fmt.Errorf("tool call %d: %w", index+1, err)
 		}
 		name, ok := function["name"].(string)
-		if !ok || name != "web_search" {
-			return nil, 0, fmt.Errorf("tool call %d is not web_search", index+1)
+		if !ok {
+			return nil, 0, fmt.Errorf("tool call %d function name must be a string", index+1)
+		}
+		spec, allowed := chatToolSpecs[name]
+		if !allowed {
+			return nil, 0, fmt.Errorf("tool call %d uses unsupported tool %q", index+1, name)
+		}
+		if !spec.allowed(capabilities) {
+			return nil, 0, fmt.Errorf("tool call %d uses tool %q which is not enabled for the selected model", index+1, name)
 		}
 		arguments, ok := function["arguments"].(string)
 		if !ok {
@@ -585,41 +748,38 @@ func normalizeWebSearchToolCalls(raw any, pending map[string]struct{}) ([]any, i
 		if err := json.Unmarshal([]byte(arguments), &decoded); err != nil || decoded == nil {
 			return nil, 0, fmt.Errorf("tool call %d arguments must be valid JSON", index+1)
 		}
-		if err := rejectUnexpectedJSONFields(decoded, "query"); err != nil {
+		if err := rejectUnexpectedJSONFields(decoded, chatToolArgumentFields(name)...); err != nil {
 			return nil, 0, fmt.Errorf("tool call %d arguments: %w", index+1, err)
 		}
-		query, ok := decoded["query"].(string)
-		if !ok || strings.TrimSpace(query) == "" || utf8.RuneCountInString(query) > 2000 {
-			return nil, 0, fmt.Errorf("tool call %d query is invalid", index+1)
+		if err := spec.validateArguments(decoded); err != nil {
+			return nil, 0, fmt.Errorf("tool call %d arguments: %w", index+1, err)
 		}
-		canonicalArguments, _ := json.Marshal(map[string]string{"query": query})
+		canonicalArguments, _ := json.Marshal(spec.canonicalArguments(decoded))
 		pending[callID] = struct{}{}
 		result = append(result, map[string]any{
 			"id":       callID,
 			"type":     "function",
-			"function": map[string]any{"name": "web_search", "arguments": string(canonicalArguments)},
+			"function": map[string]any{"name": name, "arguments": string(canonicalArguments)},
 		})
-		textCharacters += utf8.RuneCountInString(query)
+		textCharacters += utf8.RuneCountInString(arguments)
 	}
 	return result, textCharacters, nil
 }
 
-func canonicalWebSearchTools() []any {
-	return []any{map[string]any{
-		"type": "function",
-		"function": map[string]any{
-			"name":        "web_search",
-			"description": "Search the web for current information when it is necessary to answer the user.",
-			"parameters": map[string]any{
-				"type":                 "object",
-				"additionalProperties": false,
-				"properties": map[string]any{
-					"query": map[string]any{"type": "string", "description": "A focused web search query."},
-				},
-				"required": []string{"query"},
-			},
-		},
-	}}
+// chatToolArgumentFields 返回一个工具允许出现在参数里的字段名（用于拒绝未知字段）。
+func chatToolArgumentFields(name string) []string {
+	switch name {
+	case "web_search":
+		return []string{"query"}
+	case "web_fetch":
+		return []string{"url"}
+	case "generate_image":
+		return []string{"prompt"}
+	case "current_time":
+		return []string{"timezone"}
+	default:
+		return nil
+	}
 }
 
 func enforceConfiguredContextLimit(limit, textCharacters int) error {
