@@ -21,7 +21,8 @@ func NewChatHistoryRepository(db *sql.DB) service.ChatHistoryRepository {
 
 func (r *chatHistoryRepository) ListSessions(ctx context.Context, userID int64) ([]service.ChatHistorySession, error) {
 	rows, err := r.db.QueryContext(ctx,
-		`SELECT id, title, model, updated_at FROM chat_sessions WHERE user_id = $1 ORDER BY updated_at DESC`,
+		`SELECT id, title, model, updated_at, COALESCE(assistant_id, 0)
+		   FROM chat_sessions WHERE user_id = $1 ORDER BY updated_at DESC`,
 		userID,
 	)
 	if err != nil {
@@ -32,7 +33,7 @@ func (r *chatHistoryRepository) ListSessions(ctx context.Context, userID int64) 
 	out := make([]service.ChatHistorySession, 0)
 	for rows.Next() {
 		var s service.ChatHistorySession
-		if err := rows.Scan(&s.ID, &s.Title, &s.Model, &s.UpdatedAt); err != nil {
+		if err := rows.Scan(&s.ID, &s.Title, &s.Model, &s.UpdatedAt, &s.AssistantID); err != nil {
 			return nil, err
 		}
 		out = append(out, s)
@@ -43,10 +44,10 @@ func (r *chatHistoryRepository) ListSessions(ctx context.Context, userID int64) 
 func (r *chatHistoryRepository) GetSession(ctx context.Context, userID, id int64) (*service.ChatHistorySession, error) {
 	var s service.ChatHistorySession
 	err := r.db.QueryRowContext(ctx,
-		`SELECT id, title, model, updated_at, summary, memory, summarized_count
+		`SELECT id, title, model, updated_at, COALESCE(assistant_id, 0), summary, memory, summarized_count
 		   FROM chat_sessions WHERE id = $1 AND user_id = $2`,
 		id, userID,
-	).Scan(&s.ID, &s.Title, &s.Model, &s.UpdatedAt, &s.Summary, &s.Memory, &s.SummarizedCount)
+	).Scan(&s.ID, &s.Title, &s.Model, &s.UpdatedAt, &s.AssistantID, &s.Summary, &s.Memory, &s.SummarizedCount)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, service.ErrChatSessionNotFound
 	}
@@ -74,12 +75,26 @@ func (r *chatHistoryRepository) GetSession(ctx context.Context, userID, id int64
 	return &s, rows.Err()
 }
 
-func (r *chatHistoryRepository) CreateSession(ctx context.Context, userID int64, title, model string) (int64, error) {
+func (r *chatHistoryRepository) CreateSession(ctx context.Context, userID int64, title, model string, assistantID int64) (int64, error) {
 	var id int64
-	err := r.db.QueryRowContext(ctx,
-		`INSERT INTO chat_sessions (user_id, title, model) VALUES ($1, $2, $3) RETURNING id`,
-		userID, title, model,
-	).Scan(&id)
+	var err error
+	if assistantID > 0 {
+		// SELECT 子句在插入的同时校验助手归属：不匹配则一行都不产生。
+		err = r.db.QueryRowContext(ctx,
+			`INSERT INTO chat_sessions (user_id, title, model, assistant_id)
+			 SELECT $1, $2, $3, a.id FROM chat_assistants a WHERE a.id = $4 AND a.user_id = $1
+			 RETURNING id`,
+			userID, title, model, assistantID,
+		).Scan(&id)
+		if errors.Is(err, sql.ErrNoRows) {
+			return 0, service.ErrChatAssistantNotFound
+		}
+	} else {
+		err = r.db.QueryRowContext(ctx,
+			`INSERT INTO chat_sessions (user_id, title, model) VALUES ($1, $2, $3) RETURNING id`,
+			userID, title, model,
+		).Scan(&id)
+	}
 	if err != nil {
 		return 0, fmt.Errorf("create chat session: %w", err)
 	}

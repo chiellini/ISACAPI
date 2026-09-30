@@ -59,6 +59,7 @@ type Handlers struct {
 	ChannelMonitor   *ChannelMonitorUserHandler
 	ChannelMonitorV2 *ChannelMonitorV2Handler
 	ChatHistory      *ChatHistoryHandler
+	ChatAssistants   *ChatAssistantsHandler
 	Admin            *AdminHandlers
 	Gateway          *GatewayHandler
 	OpenAIGateway    *OpenAIGatewayHandler

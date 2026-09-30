@@ -41,8 +41,10 @@ type ChatHistorySession struct {
 	Title     string    `json:"title"`
 	Model     string    `json:"model"`
 	UpdatedAt time.Time `json:"updated_at"`
-	Summary   string    `json:"summary"`
-	Memory    string    `json:"memory"`
+	// AssistantID 是会话绑定的用户自定义助手（0 = 未绑定）。
+	AssistantID int64  `json:"assistant_id"`
+	Summary     string `json:"summary"`
+	Memory      string `json:"memory"`
 	// SummarizedCount 是已折叠进 Summary 的前缀消息条数（其后为短期原文上下文）。
 	SummarizedCount int                  `json:"summarized_count"`
 	Messages        []ChatHistoryMessage `json:"messages,omitempty"`
@@ -64,7 +66,9 @@ type ChatSessionUpdate struct {
 type ChatHistoryRepository interface {
 	ListSessions(ctx context.Context, userID int64) ([]ChatHistorySession, error)
 	GetSession(ctx context.Context, userID, id int64) (*ChatHistorySession, error)
-	CreateSession(ctx context.Context, userID int64, title, model string) (int64, error)
+	// CreateSession 新建会话；assistantID > 0 时绑定该用户的一个助手
+	// （不存在或不属于该用户时返回 ErrChatAssistantNotFound）。
+	CreateSession(ctx context.Context, userID int64, title, model string, assistantID int64) (int64, error)
 	// UpdateSession 按 ChatSessionUpdate 的语义更新会话元数据 / 记忆 / 消息。
 	UpdateSession(ctx context.Context, userID, id int64, in ChatSessionUpdate) error
 	DeleteSession(ctx context.Context, userID, id int64) error
@@ -92,8 +96,8 @@ func (s *ChatHistoryService) Get(ctx context.Context, userID, id int64) (*ChatHi
 	return s.repo.GetSession(ctx, userID, id)
 }
 
-func (s *ChatHistoryService) Create(ctx context.Context, userID int64, title, model string) (int64, error) {
-	return s.repo.CreateSession(ctx, userID, title, model)
+func (s *ChatHistoryService) Create(ctx context.Context, userID int64, title, model string, assistantID int64) (int64, error) {
+	return s.repo.CreateSession(ctx, userID, title, model, assistantID)
 }
 
 func (s *ChatHistoryService) Update(ctx context.Context, userID, id int64, in ChatSessionUpdate) error {
