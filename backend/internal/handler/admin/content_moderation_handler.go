@@ -57,6 +57,9 @@ type contentModerationConfigRequest struct {
 	BlockedKeywords                *[]string                             `json:"blocked_keywords"`
 	KeywordBlockingMode            *string                               `json:"keyword_blocking_mode"`
 	ModelFilter                    *service.ContentModerationModelFilter `json:"model_filter"`
+	// fork 本地安全白名单（数字用户 ID + 邮箱/用户名），RiskControlView 顶部卡片读写。
+	LocalSecurityWhitelistUserIDs *[]int64  `json:"local_security_whitelist_user_ids"`
+	LocalSecurityWhitelistUsers   *[]string `json:"local_security_whitelist_users"`
 }
 
 type contentModerationAPIKeyTestRequest struct {
@@ -124,6 +127,8 @@ func (h *ContentModerationHandler) UpdateConfig(c *gin.Context) {
 		BlockedKeywords:                req.BlockedKeywords,
 		KeywordBlockingMode:            req.KeywordBlockingMode,
 		ModelFilter:                    req.ModelFilter,
+		LocalSecurityWhitelistUserIDs:  req.LocalSecurityWhitelistUserIDs,
+		LocalSecurityWhitelistUsers:    req.LocalSecurityWhitelistUsers,
 	})
 	if err != nil {
 		response.ErrorFrom(c, err)

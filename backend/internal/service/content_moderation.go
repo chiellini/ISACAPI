@@ -89,6 +89,8 @@ const (
 	maxContentModerationBlockedKeywordRunes      = 200
 	maxContentModerationModelFilterModels        = 1000
 	maxContentModerationModelFilterRunes         = 200
+	maxContentModerationLocalWhitelistUserIDs    = 10000
+	maxContentModerationLocalWhitelistUserRunes  = 200
 
 	contentModerationCleanupInterval = 24 * time.Hour
 	contentModerationCleanupTimeout  = 30 * time.Minute
@@ -174,6 +176,11 @@ type ContentModerationConfig struct {
 	// 当次不判定封号，且历史 cyber 行在 CountFlaggedByUserSince 中被排除。
 	// 默认 false（计入，与历史行为一致；旧配置 JSON 无此字段时反序列化为 false）。
 	CyberPolicyExcludeFromBanCount bool `json:"cyber_policy_exclude_from_ban_count"`
+	// LocalSecurityWhitelist 沿用 fork 本地安全白名单的存储位置（本 JSON blob），
+	// 支持数字用户 ID、邮箱或用户名（不区分大小写）。命中用户复用 risk-control
+	// log-only 机制：保留审计证据，但所有本地拦截路径一律放行。
+	LocalSecurityWhitelistUserIDs []int64  `json:"local_security_whitelist_user_ids,omitempty"`
+	LocalSecurityWhitelistUsers   []string `json:"local_security_whitelist_users,omitempty"`
 }
 
 type ContentModerationConfigView struct {
@@ -211,6 +218,8 @@ type ContentModerationConfigView struct {
 	KeywordBlockingMode            string                                  `json:"keyword_blocking_mode"`
 	ModelFilter                    ContentModerationModelFilter            `json:"model_filter"`
 	CyberPolicyExcludeFromBanCount bool                                    `json:"cyber_policy_exclude_from_ban_count"`
+	LocalSecurityWhitelistUserIDs  []int64                                 `json:"local_security_whitelist_user_ids"`
+	LocalSecurityWhitelistUsers    []string                                `json:"local_security_whitelist_users"`
 }
 
 type ContentModerationAPIKeyStatus struct {
@@ -308,6 +317,8 @@ type UpdateContentModerationConfigInput struct {
 	KeywordBlockingMode            *string                       `json:"keyword_blocking_mode"`
 	ModelFilter                    *ContentModerationModelFilter `json:"model_filter"`
 	CyberPolicyExcludeFromBanCount *bool                         `json:"cyber_policy_exclude_from_ban_count"`
+	LocalSecurityWhitelistUserIDs  *[]int64                      `json:"local_security_whitelist_user_ids"`
+	LocalSecurityWhitelistUsers    *[]string                     `json:"local_security_whitelist_users"`
 }
 
 type ContentModerationModelFilter struct {
@@ -320,6 +331,7 @@ type ContentModerationCheckInput struct {
 	RequestID          string
 	UserID             int64
 	UserEmail          string
+	UserName           string
 	APIKeyID           int64
 	APIKeyName         string
 	GroupID            *int64
@@ -698,6 +710,12 @@ func (s *ContentModerationService) UpdateConfig(ctx context.Context, input Updat
 	if input.CyberPolicyExcludeFromBanCount != nil {
 		cfg.CyberPolicyExcludeFromBanCount = *input.CyberPolicyExcludeFromBanCount
 	}
+	if input.LocalSecurityWhitelistUserIDs != nil {
+		cfg.LocalSecurityWhitelistUserIDs = normalizeLocalSecurityWhitelistUserIDs(*input.LocalSecurityWhitelistUserIDs)
+	}
+	if input.LocalSecurityWhitelistUsers != nil {
+		cfg.LocalSecurityWhitelistUsers = normalizeLocalSecurityWhitelistUsers(*input.LocalSecurityWhitelistUsers)
+	}
 	// Legacy flat updates target the selected engine; explicit profiles preserve both drafts.
 	if err := s.updateEngineProfile(ctx, cfg, cfg.Engine, UpdateContentModerationEngineInput{
 		BaseURL: input.BaseURL, Model: input.Model, ProxyID: input.ProxyID, APIKey: input.APIKey,
@@ -841,6 +859,11 @@ func (s *ContentModerationService) Check(ctx context.Context, input ContentModer
 		return allow, nil
 	}
 	_, input.riskControlLogOnly = runtimeSnapshot.allowlistedUsers[input.UserID]
+	if !input.riskControlLogOnly && localSecurityWhitelisted(runtimeSnapshot.config, &input) {
+		// fork 本地安全白名单（content_moderation_config blob 内）与系统级
+		// cyber_policy_user_allowlist 等价：命中即 log-only，保留证据但永不拦截。
+		input.riskControlLogOnly = true
+	}
 	// Keep audit evidence while ensuring all local rejection paths allow trusted users.
 	defer func() {
 		if input.riskControlLogOnly && decision != nil {
@@ -2492,6 +2515,8 @@ func (s *ContentModerationService) configView(cfg *ContentModerationConfig) *Con
 		KeywordBlockingMode:            cfg.KeywordBlockingMode,
 		ModelFilter:                    cloneContentModerationModelFilter(cfg.ModelFilter),
 		CyberPolicyExcludeFromBanCount: cfg.CyberPolicyExcludeFromBanCount,
+		LocalSecurityWhitelistUserIDs:  normalizeLocalSecurityWhitelistUserIDs(cfg.LocalSecurityWhitelistUserIDs),
+		LocalSecurityWhitelistUsers:    normalizeLocalSecurityWhitelistUsers(cfg.LocalSecurityWhitelistUsers),
 	}
 }
 
@@ -2797,6 +2822,71 @@ func normalizeInt64IDs(ids []int64) []int64 {
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i] < out[j] })
 	return out
+}
+
+func normalizeLocalSecurityWhitelistUserIDs(in []int64) []int64 {
+	ids := normalizeInt64IDs(in)
+	if len(ids) > maxContentModerationLocalWhitelistUserIDs {
+		ids = ids[:maxContentModerationLocalWhitelistUserIDs]
+	}
+	return ids
+}
+
+func normalizeLocalSecurityWhitelistUsers(in []string) []string {
+	if len(in) == 0 {
+		return []string{}
+	}
+	seen := make(map[string]struct{}, len(in))
+	out := make([]string, 0, len(in))
+	for _, raw := range in {
+		identifier := normalizeLocalSecurityWhitelistUser(raw)
+		if identifier == "" {
+			continue
+		}
+		if _, ok := seen[identifier]; ok {
+			continue
+		}
+		seen[identifier] = struct{}{}
+		out = append(out, identifier)
+		if len(out) >= maxContentModerationLocalWhitelistUserIDs {
+			break
+		}
+	}
+	return out
+}
+
+// normalizeLocalSecurityWhitelistUser folds an email or username to the form
+// used for comparison so administrators do not have to match letter case.
+func normalizeLocalSecurityWhitelistUser(raw string) string {
+	return strings.ToLower(trimRunes(strings.TrimSpace(raw), maxContentModerationLocalWhitelistUserRunes))
+}
+
+// localSecurityWhitelisted matches a request against the fork's local security
+// whitelist by numeric user ID, email, or username (case-insensitive).
+func localSecurityWhitelisted(cfg *ContentModerationConfig, input *ContentModerationCheckInput) bool {
+	if cfg == nil || input == nil {
+		return false
+	}
+	for _, id := range cfg.LocalSecurityWhitelistUserIDs {
+		if id != 0 && id == input.UserID {
+			return true
+		}
+	}
+	email := strings.ToLower(strings.TrimSpace(input.UserEmail))
+	username := strings.ToLower(strings.TrimSpace(input.UserName))
+	if email == "" && username == "" {
+		return false
+	}
+	for _, entry := range cfg.LocalSecurityWhitelistUsers {
+		identifier := normalizeLocalSecurityWhitelistUser(entry)
+		if identifier == "" {
+			continue
+		}
+		if (email != "" && identifier == email) || (username != "" && identifier == username) {
+			return true
+		}
+	}
+	return false
 }
 
 func normalizeBlockedKeywords(in []string) []string {
