@@ -211,6 +211,8 @@ const typesByPlatform: Record<AccountPlatform, AccountType[]> = {
   deepseek: ['apikey', 'upstream'],
   minimax: ['apikey', 'upstream'],
   opencode_go: ['apikey', 'upstream'],
+  // typesafe 账号仅支持 apikey（后端 UpdateAccount 强制校验）。
+  typesafe: ['apikey'],
 }
 
 const form = reactive({
