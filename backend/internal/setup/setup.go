@@ -549,6 +549,18 @@ func createAdminUserWithDB(ctx context.Context, db *sql.DB, cfg *SetupConfig) (b
 	return true, decision.reason, nil
 }
 
+// generateAdminEmail returns a random, non-guessable admin login email.
+// It only seeds the interactive CLI prompt default (issue #7850); automated
+// and web setup both require the operator to provide credentials explicitly,
+// and bootstrap credentials are never written to process/container logs.
+func generateAdminEmail() (string, error) {
+	suffix, err := generateSecret(6)
+	if err != nil {
+		return "", fmt.Errorf("failed to generate admin email: %w", err)
+	}
+	return fmt.Sprintf("admin-%s@sub2api.local", suffix), nil
+}
+
 func writeConfigFile(cfg *SetupConfig) error {
 	// Ensure timezone has a default value
 	tz := cfg.Timezone
