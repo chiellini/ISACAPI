@@ -168,6 +168,7 @@ import {
   buildOpenAIOAuthCredentials,
 } from '@/utils/oauthCredentialBuilders'
 import type { Account, AccountPlatform, AccountType } from '@/types'
+import { platformDisplayName } from '@/constants/platformCatalog'
 
 interface OAuthFlowExposed {
   authCode: string
@@ -199,6 +200,8 @@ const platforms: AccountPlatform[] = [
   'deepseek',
   'minimax',
   'opencode_go',
+  'command_code',
+  'cline',
 ]
 const typesByPlatform: Record<AccountPlatform, AccountType[]> = {
   anthropic: ['oauth', 'setup-token', 'apikey', 'bedrock', 'service_account'],
@@ -211,6 +214,8 @@ const typesByPlatform: Record<AccountPlatform, AccountType[]> = {
   deepseek: ['apikey', 'upstream'],
   minimax: ['apikey', 'upstream'],
   opencode_go: ['apikey', 'upstream'],
+  command_code: ['apikey', 'upstream'],
+  cline: ['apikey', 'upstream'],
   // typesafe 账号仅支持 apikey（后端 UpdateAccount 强制校验）。
   typesafe: ['apikey'],
 }
@@ -255,17 +260,7 @@ const canExchange = computed(() =>
   Boolean(!oauthLoading.value && oauthSessionId.value && (oauthFlowRef.value?.authCode || '').trim())
 )
 
-const platformLabel = (platform: AccountPlatform) => {
-  if (platform === 'openai') return 'OpenAI'
-  if (platform === 'anthropic') return 'Anthropic'
-  if (platform === 'antigravity') return 'Antigravity'
-  if (platform === 'grok') return 'Grok'
-  if (platform === 'kimi') return 'Kimi'
-  if (platform === 'zhipu') return 'Zhipu'
-  if (platform === 'deepseek') return 'DeepSeek'
-  if (platform === 'minimax') return 'MiniMax'
-  return 'Gemini'
-}
+const platformLabel = (platform: AccountPlatform) => platformDisplayName(platform)
 
 const resetOAuthState = () => {
   oauthAuthUrl.value = ''
