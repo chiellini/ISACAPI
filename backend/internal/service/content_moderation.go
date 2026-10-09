@@ -2890,6 +2890,29 @@ func localSecurityWhitelisted(cfg *ContentModerationConfig, input *ContentModera
 	return false
 }
 
+// IsUserSecurityAuditExempt 报告用户是否命中 fork 本地安全白名单（数字 ID、
+// 邮箱或用户名）或系统级 cyber_policy_user_allowlist。命中者对提示词安全审计
+// （prompt engine）整体豁免：不进入 prompt 评估/入队，拦截决定仍由带 log-only
+// 语义的本地风控路径负责。不依赖 riskControlEnabled：白名单表达的是管理员对该
+// 用户的信任，风控总开关不应清空它。配置加载失败时按未命中处理（fail closed）。
+func (s *ContentModerationService) IsUserSecurityAuditExempt(ctx context.Context, userID int64, email, username string) bool {
+	if s == nil || s.settingRepo == nil {
+		return false
+	}
+	snapshot, err := s.loadRuntimeSnapshot(ctx)
+	if err != nil {
+		return false
+	}
+	if _, ok := snapshot.allowlistedUsers[userID]; ok {
+		return true
+	}
+	return localSecurityWhitelisted(snapshot.config, &ContentModerationCheckInput{
+		UserID:    userID,
+		UserEmail: email,
+		UserName:  username,
+	})
+}
+
 func normalizeBlockedKeywords(in []string) []string {
 	if len(in) == 0 {
 		return []string{}

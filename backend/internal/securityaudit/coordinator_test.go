@@ -174,3 +174,68 @@ func TestCoordinatorAsyncEnqueueFailuresNeverChangeResponseOrDownstreamDispatch(
 		require.Zero(t, prompt.evaluates.Load())
 	}
 }
+
+type fakeExemptLegacyEngine struct {
+	fakeLegacyEngine
+	exempt atomic.Bool
+}
+
+func (f *fakeExemptLegacyEngine) ExemptFromPromptAudit(context.Context, Request) bool {
+	return f.exempt.Load()
+}
+
+func TestCoordinatorWhitelistedUserSkipsPromptEngine(t *testing.T) {
+	run := func(t *testing.T, mode Mode, prompt *PromptDecision, promptErr error, exempt bool) (Decision, *fakePromptEngine, *fakeExemptLegacyEngine) {
+		t.Helper()
+		legacy := &fakeExemptLegacyEngine{}
+		legacy.exempt.Store(exempt)
+		engine := &fakePromptEngine{mode: mode, decision: prompt, err: promptErr}
+		decision := NewCoordinator(legacy, engine).Check(context.Background(), Request{UserID: 42, Body: []byte(`{}`)})
+		return decision, engine, legacy
+	}
+
+	t.Run("blocking block is neutralized", func(t *testing.T) {
+		decision, engine, legacy := run(t, ModeBlocking, &PromptDecision{Kind: DecisionBlock}, nil, true)
+		require.Equal(t, DecisionAllow, decision.Kind)
+		require.True(t, decision.AllowNextStage)
+		require.Equal(t, int64(0), engine.evaluates.Load())
+		require.Equal(t, int64(1), legacy.calls.Load())
+		require.Nil(t, decision.Prompt)
+	})
+
+	t.Run("blocking unavailable no longer fails the request", func(t *testing.T) {
+		decision, engine, _ := run(t, ModeBlocking, nil, errors.New("guard down"), true)
+		require.Equal(t, DecisionAllow, decision.Kind)
+		require.True(t, decision.AllowNextStage)
+		require.Equal(t, int64(0), engine.evaluates.Load())
+	})
+
+	t.Run("async skips enqueue for exempt user", func(t *testing.T) {
+		decision, engine, _ := run(t, ModeAsync, nil, nil, true)
+		require.Equal(t, DecisionAllow, decision.Kind)
+		require.Equal(t, int64(0), engine.enqueues.Load())
+	})
+
+	t.Run("legacy block still enforced for exempt user", func(t *testing.T) {
+		legacy := &fakeExemptLegacyEngine{decision: &LegacyDecision{Blocked: true, StatusCode: http.StatusForbidden, ErrorCode: "content_policy_violation", Message: "legacy"}}
+		legacy.exempt.Store(true)
+		engine := &fakePromptEngine{mode: ModeBlocking, decision: &PromptDecision{Kind: DecisionBlock}}
+		decision := NewCoordinator(legacy, engine).Check(context.Background(), Request{UserID: 42})
+		require.Equal(t, DecisionBlock, decision.Kind)
+		require.Equal(t, "content_policy_violation", decision.ErrorCode)
+		require.Equal(t, int64(0), engine.evaluates.Load())
+	})
+
+	t.Run("non exempt user keeps prompt enforcement", func(t *testing.T) {
+		decision, engine, _ := run(t, ModeBlocking, &PromptDecision{Kind: DecisionBlock}, nil, false)
+		require.Equal(t, DecisionBlock, decision.Kind)
+		require.Equal(t, ErrorCodeBlocked, decision.ErrorCode)
+		require.Equal(t, int64(1), engine.evaluates.Load())
+	})
+
+	t.Run("off mode never consults exemption", func(t *testing.T) {
+		decision, engine, _ := run(t, ModeOff, nil, nil, true)
+		require.Equal(t, DecisionAllow, decision.Kind)
+		require.Equal(t, int64(0), engine.evaluates.Load())
+	})
+}

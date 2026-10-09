@@ -17,6 +17,15 @@ type PromptEngine interface {
 	Evaluate(ctx context.Context, req Request) (*PromptDecision, error)
 }
 
+// legacyUserExemption is an optional LegacyEngine capability. Engines that own
+// the security whitelists (fork local security whitelist or the system
+// cyber-policy allowlist) use it to exempt a user from prompt-audit
+// enforcement entirely: exempt users never reach the prompt engine, and only
+// the legacy — log-only aware — path decides.
+type legacyUserExemption interface {
+	ExemptFromPromptAudit(ctx context.Context, req Request) bool
+}
+
 type Coordinator struct {
 	legacy LegacyEngine
 	prompt PromptEngine
@@ -33,6 +42,14 @@ func (c *Coordinator) Check(ctx context.Context, req Request) Decision {
 	mode := ModeOff
 	if c.prompt != nil {
 		mode = c.prompt.EffectiveMode()
+		if mode != ModeOff {
+			if exemptor, ok := c.legacy.(legacyUserExemption); ok && exemptor.ExemptFromPromptAudit(ctx, req) {
+				LogInfo(EventCheckSkipped, mergeLogFields(requestLogFields(req),
+					map[string]any{"status": "skipped", "error_code": "user_whitelisted"}))
+				legacy, _ := c.checkLegacy(ctx, req)
+				return prioritize(legacy, nil)
+			}
+		}
 	}
 	switch mode {
 	case ModeAsync:

@@ -14,6 +14,17 @@ func NewLegacyModerationAdapter(svc *service.ContentModerationService) LegacyEng
 	return &LegacyModerationAdapter{service: svc}
 }
 
+// ExemptFromPromptAudit implements the coordinator's optional exemption
+// capability: users on the fork's local security whitelist or the system
+// cyber-policy allowlist skip prompt-audit enforcement entirely, matching the
+// legacy log-only semantics (evidence kept, never blocked).
+func (a *LegacyModerationAdapter) ExemptFromPromptAudit(ctx context.Context, req Request) bool {
+	if a == nil || a.service == nil {
+		return false
+	}
+	return a.service.IsUserSecurityAuditExempt(ctx, req.UserID, req.UserEmail, req.Username)
+}
+
 func (a *LegacyModerationAdapter) Check(ctx context.Context, req Request) (*LegacyDecision, error) {
 	if a == nil || a.service == nil {
 		return nil, nil

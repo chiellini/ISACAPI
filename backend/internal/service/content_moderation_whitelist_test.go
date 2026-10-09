@@ -141,3 +141,64 @@ func TestContentModerationConfigWhitelistRoundTrip(t *testing.T) {
 	require.Equal(t, []int64{8, 9}, persisted.LocalSecurityWhitelistUserIDs)
 	require.Equal(t, []string{"b@example.com", "vip"}, persisted.LocalSecurityWhitelistUsers)
 }
+
+// IsUserSecurityAuditExempt 是提示词安全审计（prompt engine）的豁免判定：
+// 本地安全白名单（ID/邮箱/用户名）与系统级 cyber_policy_user_allowlist
+// 任一命中即豁免；即使风控总开关关闭，白名单表达的信任仍然生效。
+func TestContentModerationService_IsUserSecurityAuditExempt(t *testing.T) {
+	newService := func(t *testing.T, cfg *ContentModerationConfig, cyberAllowlist, riskControlEnabled string) *ContentModerationService {
+		t.Helper()
+		rawCfg, err := json.Marshal(cfg)
+		require.NoError(t, err)
+		values := map[string]string{
+			SettingKeyRiskControlEnabled:      riskControlEnabled,
+			SettingKeyContentModerationConfig: string(rawCfg),
+		}
+		if cyberAllowlist != "" {
+			values[SettingKeyCyberPolicyUserAllowlist] = cyberAllowlist
+		}
+		return NewContentModerationService(
+			&contentModerationTestSettingRepo{values: values},
+			&contentModerationTestRepo{},
+			&contentModerationTestHashCache{},
+			nil, nil, nil, nil, nil,
+		)
+	}
+	cfgWithWhitelist := func() *ContentModerationConfig {
+		cfg := defaultContentModerationConfig()
+		cfg.LocalSecurityWhitelistUserIDs = []int64{42}
+		cfg.LocalSecurityWhitelistUsers = []string{"Trusted@Example.com", "vip-user"}
+		return cfg
+	}
+	ctx := context.Background()
+
+	t.Run("local whitelist user id hit", func(t *testing.T) {
+		svc := newService(t, cfgWithWhitelist(), "", "true")
+		require.True(t, svc.IsUserSecurityAuditExempt(ctx, 42, "", ""))
+	})
+
+	t.Run("local whitelist email hit is case-insensitive", func(t *testing.T) {
+		svc := newService(t, cfgWithWhitelist(), "", "true")
+		require.True(t, svc.IsUserSecurityAuditExempt(ctx, 77, "trusted@example.com", ""))
+	})
+
+	t.Run("local whitelist username hit", func(t *testing.T) {
+		svc := newService(t, cfgWithWhitelist(), "", "true")
+		require.True(t, svc.IsUserSecurityAuditExempt(ctx, 78, "", "VIP-User"))
+	})
+
+	t.Run("cyber policy allowlist id hit", func(t *testing.T) {
+		svc := newService(t, cfgWithWhitelist(), "1001, 1002", "true")
+		require.True(t, svc.IsUserSecurityAuditExempt(ctx, 1002, "", ""))
+	})
+
+	t.Run("whitelist still applies when risk control disabled", func(t *testing.T) {
+		svc := newService(t, cfgWithWhitelist(), "", "false")
+		require.True(t, svc.IsUserSecurityAuditExempt(ctx, 42, "", ""))
+	})
+
+	t.Run("non whitelisted user is not exempt", func(t *testing.T) {
+		svc := newService(t, cfgWithWhitelist(), "1001", "true")
+		require.False(t, svc.IsUserSecurityAuditExempt(ctx, 99, "other@example.com", "other-user"))
+	})
+}
