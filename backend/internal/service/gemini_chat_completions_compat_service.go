@@ -579,6 +579,8 @@ func (s *GeminiMessagesCompatService) handleChatCompletionsStreamingResponseFrom
 	openBlockIndex := -1
 	openBlockType := ""
 	seenText := ""
+	seenAnswer := ""
+	seenThought := ""
 	openToolIndex := -1
 	openToolName := ""
 	seenToolJSON := ""
@@ -641,6 +643,13 @@ func (s *GeminiMessagesCompatService) handleChatCompletionsStreamingResponseFrom
 								}
 								delta, newSeen := computeGeminiTextDelta(seenText, text)
 								seenText = newSeen
+								if geminiPartIsThought(part) {
+									_, nt := computeGeminiTextDelta(seenThought, text)
+									seenThought = nt
+								} else {
+									_, na := computeGeminiTextDelta(seenAnswer, text)
+									seenAnswer = na
+								}
 								if delta == "" {
 									continue
 								}
@@ -796,7 +805,7 @@ func (s *GeminiMessagesCompatService) handleChatCompletionsStreamingResponseFrom
 	_, _ = io.WriteString(c.Writer, "data: [DONE]\n\n")
 	flusher.Flush()
 	if s != nil && s.cfg != nil && s.cfg.ConversationArchive.Enabled {
-		capturePlainAssistantText(c, seenText, messageID, stopReason)
+		capturePlainAssistantText(c, seenAnswer, seenThought, messageID, stopReason)
 	}
 
 	return &geminiStreamResult{usage: &usage, firstTokenMs: firstTokenMs}, nil

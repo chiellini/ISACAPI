@@ -150,3 +150,44 @@ func TestExtract_GarbageDoesNotPanic(t *testing.T) {
 	_ = ExtractAnthropicMessagesResponse([]byte(`[]`))
 	_ = ExtractGeminiGenerateContentRequest([]byte(`{`))
 }
+
+func TestExtractAnthropicMessagesResponse_Thinking(t *testing.T) {
+	body := []byte(`{
+		"id":"msg_2","model":"claude-x","stop_reason":"end_turn",
+		"content":[{"type":"thinking","thinking":"let me think"},{"type":"text","text":"answer"}],
+		"usage":{"input_tokens":3,"output_tokens":2}
+	}`)
+	got := ExtractAnthropicMessagesResponse(body)
+	if len(got.AssistantEvents) != 2 {
+		t.Fatalf("assistant events = %+v", got.AssistantEvents)
+	}
+	th, msg := got.AssistantEvents[0], got.AssistantEvents[1]
+	if th.Kind != ConversationKindThinking || th.Content != "let me think" {
+		t.Fatalf("thinking event = %+v", th)
+	}
+	if msg.Kind != ConversationKindMessage || msg.Content != "answer" {
+		t.Fatalf("message event = %+v", msg)
+	}
+}
+
+func TestExtractOpenAIResponsesResponse_Reasoning(t *testing.T) {
+	body := []byte(`{
+		"id":"resp_r","model":"gpt-5","status":"completed",
+		"output":[
+			{"type":"reasoning","summary":[{"type":"summary_text","text":"step one"}],"content":[{"type":"reasoning_text","text":"step one detail"}]},
+			{"type":"message","content":[{"type":"output_text","text":"final"}]}
+		],
+		"usage":{"input_tokens":10,"output_tokens":5}
+	}`)
+	got := ExtractOpenAIResponsesResponse(body)
+	if len(got.AssistantEvents) != 2 {
+		t.Fatalf("assistant events = %+v", got.AssistantEvents)
+	}
+	th, msg := got.AssistantEvents[0], got.AssistantEvents[1]
+	if th.Kind != ConversationKindThinking || th.Content != "step one\nstep one detail" {
+		t.Fatalf("thinking event = %+v", th)
+	}
+	if msg.Kind != ConversationKindMessage || msg.Content != "final" {
+		t.Fatalf("message event = %+v", msg)
+	}
+}

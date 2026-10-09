@@ -25,6 +25,7 @@ const (
 	ConversationRoleTool      = domain.ConversationRoleTool
 
 	ConversationKindMessage    = domain.ConversationKindMessage
+	ConversationKindThinking   = domain.ConversationKindThinking
 	ConversationKindToolCall   = domain.ConversationKindToolCall
 	ConversationKindToolResult = domain.ConversationKindToolResult
 	ConversationKindImageRef   = domain.ConversationKindImageRef

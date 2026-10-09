@@ -2168,6 +2168,8 @@ func (s *GeminiMessagesCompatService) handleStreamingResponse(c *gin.Context, re
 	openBlockIndex := -1
 	openBlockType := ""
 	seenText := ""
+	seenAnswer := ""
+	seenThought := ""
 	openToolIndex := -1
 	openToolID := ""
 	openToolName := ""
@@ -2235,6 +2237,13 @@ func (s *GeminiMessagesCompatService) handleStreamingResponse(c *gin.Context, re
 
 				delta, newSeen := computeGeminiTextDelta(seenText, text)
 				seenText = newSeen
+				if geminiPartIsThought(part) {
+					_, nt := computeGeminiTextDelta(seenThought, text)
+					seenThought = nt
+				} else {
+					_, na := computeGeminiTextDelta(seenAnswer, text)
+					seenAnswer = na
+				}
 				if delta == "" {
 					continue
 				}
@@ -2399,7 +2408,7 @@ func (s *GeminiMessagesCompatService) handleStreamingResponse(c *gin.Context, re
 	})
 	flusher.Flush()
 	if s != nil && s.cfg != nil && s.cfg.ConversationArchive.Enabled {
-		capturePlainAssistantText(c, seenText, messageID, stopReason)
+		capturePlainAssistantText(c, seenAnswer, seenThought, messageID, stopReason)
 	}
 
 	return &geminiStreamResult{usage: &usage, firstTokenMs: firstTokenMs}, nil
@@ -2796,6 +2805,7 @@ func (s *GeminiMessagesCompatService) handleNativeStreamingResponse(c *gin.Conte
 	finishReason := ""
 	responseID := ""
 	seenText := ""
+	seenThought := ""
 	observer := upstreamResponseModelObserverFromContext(c)
 	if observer == nil {
 		observer = beginUpstreamResponseModelObservation(c)
@@ -2847,8 +2857,13 @@ func (s *GeminiMessagesCompatService) handleNativeStreamingResponse(c *gin.Conte
 						}
 						for _, part := range extractGeminiParts(geminiResp) {
 							if text, ok := part["text"].(string); ok && text != "" {
-								_, newSeen := computeGeminiTextDelta(seenText, text)
-								seenText = newSeen
+								if geminiPartIsThought(part) {
+									_, nt := computeGeminiTextDelta(seenThought, text)
+									seenThought = nt
+								} else {
+									_, newSeen := computeGeminiTextDelta(seenText, text)
+									seenText = newSeen
+								}
 							}
 						}
 					}
@@ -2886,7 +2901,7 @@ func (s *GeminiMessagesCompatService) handleNativeStreamingResponse(c *gin.Conte
 		}
 	}
 	if s != nil && s.cfg != nil && s.cfg.ConversationArchive.Enabled {
-		capturePlainAssistantText(c, seenText, responseID, finishReason)
+		capturePlainAssistantText(c, seenText, seenThought, responseID, finishReason)
 	}
 
 	s.finalizeGeminiSSESignal(c, account, true, upstreamRequestID, best, sawDataEvent, fallback)
@@ -3333,6 +3348,12 @@ func extractGeminiParts(geminiResp map[string]any) []map[string]any {
 		}
 	}
 	return nil
+}
+
+// geminiPartIsThought 判断 Gemini part 是否为思维链摘要（thought:true）。
+func geminiPartIsThought(part map[string]any) bool {
+	b, ok := part["thought"].(bool)
+	return ok && b
 }
 
 func computeGeminiTextDelta(seen, incoming string) (delta, newSeen string) {

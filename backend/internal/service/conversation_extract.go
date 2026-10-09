@@ -173,6 +173,10 @@ type openaiResponsesResponse struct {
 			Type string `json:"type"`
 			Text string `json:"text"`
 		} `json:"content"`
+		Summary []struct {
+			Type string `json:"type"`
+			Text string `json:"text"`
+		} `json:"summary"`
 	} `json:"output"`
 	Usage struct {
 		InputTokens  int64 `json:"input_tokens"`
@@ -193,8 +197,28 @@ func ExtractOpenAIResponsesResponse(body []byte) ConversationResponseExtract {
 	out.InputTokens = resp.Usage.InputTokens
 	out.OutputTokens = resp.Usage.OutputTokens
 
-	var b strings.Builder
+	var b, tb strings.Builder
 	for _, item := range resp.Output {
+		if item.Type == "reasoning" {
+			// reasoning 项：summary 摘要与 content 明文都属于思维链。
+			for _, s := range item.Summary {
+				if s.Text != "" && strings.Contains(s.Type, "text") {
+					if tb.Len() > 0 {
+						_, _ = tb.WriteString("\n")
+					}
+					_, _ = tb.WriteString(s.Text)
+				}
+			}
+			for _, c := range item.Content {
+				if c.Text != "" && strings.Contains(c.Type, "text") {
+					if tb.Len() > 0 {
+						_, _ = tb.WriteString("\n")
+					}
+					_, _ = tb.WriteString(c.Text)
+				}
+			}
+			continue
+		}
 		if item.Type != "" && item.Type != "message" {
 			continue
 		}
@@ -206,6 +230,11 @@ func ExtractOpenAIResponsesResponse(body []byte) ConversationResponseExtract {
 				_, _ = b.WriteString(c.Text)
 			}
 		}
+	}
+	if thinking := strings.TrimSpace(tb.String()); thinking != "" {
+		out.AssistantEvents = append(out.AssistantEvents, NormalizedEvent{
+			Role: ConversationRoleAssistant, Kind: ConversationKindThinking, Content: thinking,
+		})
 	}
 	if text := strings.TrimSpace(b.String()); text != "" {
 		out.AssistantEvents = append(out.AssistantEvents, NormalizedEvent{
@@ -291,15 +320,18 @@ func extractAnthropicText(raw json.RawMessage) string {
 	return strings.TrimSpace(b.String())
 }
 
+type anthropicContentBlock struct {
+	Type     string `json:"type"`
+	Text     string `json:"text"`
+	Thinking string `json:"thinking"`
+}
+
 type anthropicMessagesResponse struct {
-	ID         string `json:"id"`
-	Model      string `json:"model"`
-	StopReason string `json:"stop_reason"`
-	Content    []struct {
-		Type string `json:"type"`
-		Text string `json:"text"`
-	} `json:"content"`
-	Usage struct {
+	ID         string                  `json:"id"`
+	Model      string                  `json:"model"`
+	StopReason string                  `json:"stop_reason"`
+	Content    []anthropicContentBlock `json:"content"`
+	Usage      struct {
 		InputTokens  int64 `json:"input_tokens"`
 		OutputTokens int64 `json:"output_tokens"`
 	} `json:"usage"`
@@ -318,14 +350,25 @@ func ExtractAnthropicMessagesResponse(body []byte) ConversationResponseExtract {
 	out.InputTokens = resp.Usage.InputTokens
 	out.OutputTokens = resp.Usage.OutputTokens
 
-	var b strings.Builder
+	var b, tb strings.Builder
 	for _, c := range resp.Content {
-		if c.Text != "" && c.Type == "text" {
+		switch {
+		case c.Type == "text" && c.Text != "":
 			if b.Len() > 0 {
 				_, _ = b.WriteString("\n")
 			}
 			_, _ = b.WriteString(c.Text)
+		case c.Type == "thinking" && c.Thinking != "":
+			if tb.Len() > 0 {
+				_, _ = tb.WriteString("\n")
+			}
+			_, _ = tb.WriteString(c.Thinking)
 		}
+	}
+	if thinking := strings.TrimSpace(tb.String()); thinking != "" {
+		out.AssistantEvents = append(out.AssistantEvents, NormalizedEvent{
+			Role: ConversationRoleAssistant, Kind: ConversationKindThinking, Content: thinking,
+		})
 	}
 	if text := strings.TrimSpace(b.String()); text != "" {
 		out.AssistantEvents = append(out.AssistantEvents, NormalizedEvent{

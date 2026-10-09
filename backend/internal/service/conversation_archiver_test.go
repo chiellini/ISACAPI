@@ -378,3 +378,31 @@ func TestArchiver_MetadataModeStoresNoEvents(t *testing.T) {
 		t.Fatalf("metadata mode should still create the session")
 	}
 }
+
+func TestArchiver_PersistsThinkingEvent(t *testing.T) {
+	repo := newFakeConversationRepo()
+	a := newTestArchiver(repo, ConversationModeUserAssistantText)
+
+	rec := mkRecord(7, "ak-t", ContextDomainOpenAIAPI, "req-t", "q", "a", "resp-t", "")
+	rec.Response.Events = []NormalizedEvent{
+		{Role: ConversationRoleAssistant, Kind: ConversationKindThinking, Content: "chain of thought"},
+		{Role: ConversationRoleAssistant, Kind: ConversationKindMessage, Content: "a"},
+	}
+	a.Submit(context.Background(), rec)
+	a.Stop()
+
+	var sess *ConversationSession
+	for _, s := range repo.sessions {
+		sess = s
+	}
+	evs, _ := repo.ListEvents(context.Background(), sess.ID, nil)
+	if len(evs) != 3 {
+		t.Fatalf("expected 3 events (user+thinking+message), got %d", len(evs))
+	}
+	if evs[1].Kind != ConversationKindThinking || string(evs[1].ContentCiphertext) != "chain of thought" {
+		t.Fatalf("thinking event = %+v", evs[1])
+	}
+	if evs[2].Kind != ConversationKindMessage || string(evs[2].ContentCiphertext) != "a" {
+		t.Fatalf("message event = %+v", evs[2])
+	}
+}

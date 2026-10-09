@@ -49,7 +49,7 @@ type NormalizedResponse struct {
 	Partial      bool  // 流中断导致不完整
 	InputTokens  int64 // 用于会话聚合（可选）
 	OutputTokens int64 // 用于会话聚合（可选）
-	// 归一后的出站事件（最终 assistant 文本，第一版不含工具/思维链）。
+	// 归一后的出站事件（assistant 正文与思维链；工具调用留待后续）。
 	Events []NormalizedEvent
 }
 

@@ -31,6 +31,7 @@ const (
 // 事件类型。
 const (
 	ConversationKindMessage    = "message"
+	ConversationKindThinking   = "thinking"
 	ConversationKindToolCall   = "tool_call"
 	ConversationKindToolResult = "tool_result"
 	ConversationKindImageRef   = "image_reference"

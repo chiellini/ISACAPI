@@ -98,3 +98,74 @@ func TestOpenAIResponseAccumulator_Anthropic(t *testing.T) {
 		t.Fatalf("got %+v", got)
 	}
 }
+
+func TestOpenAIResponseAccumulator_ReasoningDeltas(t *testing.T) {
+	acc := newOpenAIResponseAccumulator()
+	acc.observeSSEWithType([]byte(`{"delta":"thin"}`), "response.reasoning_summary_text.delta")
+	acc.observeSSEWithType([]byte(`{"delta":"king"}`), "response.reasoning_summary_text.delta")
+	acc.observeSSEWithType([]byte(`{"delta":" rd"}`), "response.reasoning_text.delta")
+	acc.observeSSE([]byte(`{"type":"response.output_text.delta","delta":"answer"}`))
+	got := acc.result()
+	if got.Thinking != "thinking rd" || got.Text != "answer" {
+		t.Fatalf("captured = %+v", got)
+	}
+}
+
+func TestOpenAIResponseAccumulator_ReasoningTerminalFallback(t *testing.T) {
+	acc := newOpenAIResponseAccumulator()
+	acc.observeSSE([]byte(`{"type":"response.completed","response":{"id":"resp_t","status":"completed","output":[{"type":"reasoning","summary":[{"type":"summary_text","text":"because"}]},{"type":"message","content":[{"type":"output_text","text":"ok"}]}]}}`))
+	got := acc.result()
+	if got.Thinking != "because" || got.Text != "ok" {
+		t.Fatalf("captured = %+v", got)
+	}
+}
+
+func TestOpenAIResponseAccumulator_ChatCompletionsReasoning(t *testing.T) {
+	acc := newOpenAIResponseAccumulator()
+	acc.observeChatCompletionsSSE([]byte(`{"id":"c1","choices":[{"delta":{"reasoning_content":"deep"}}]}`))
+	acc.observeChatCompletionsSSE([]byte(`{"id":"c1","choices":[{"delta":{"content":"ans"},"finish_reason":"stop"}]}`))
+	got := acc.result()
+	if got.Thinking != "deep" || got.Text != "ans" {
+		t.Fatalf("captured = %+v", got)
+	}
+}
+
+func TestOpenAIResponseAccumulator_AnthropicThinking(t *testing.T) {
+	acc := newOpenAIResponseAccumulator()
+	acc.observeAnthropicSSE([]byte(`{"type":"content_block_delta","delta":{"type":"thinking_delta","thinking":"hmm"}}`))
+	acc.observeAnthropicSSE([]byte(`{"type":"content_block_delta","delta":{"type":"text_delta","text":"done"}}`))
+	got := acc.result()
+	if got.Thinking != "hmm" || got.Text != "done" {
+		t.Fatalf("captured = %+v", got)
+	}
+}
+
+func TestCaptureOpenAIResponseFromJSON_Reasoning(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	captureOpenAIResponseFromJSON(c, []byte(`{"id":"resp_ok","status":"completed","output":[{"type":"reasoning","summary":[{"type":"summary_text","text":"chain"}]},{"type":"message","content":[{"type":"output_text","text":"final answer"}]}]}`))
+	got, ok := GetOpenAICapturedResponse(c)
+	if !ok || got.Text != "final answer" || got.Thinking != "chain" {
+		t.Fatalf("captured = %+v, ok=%v", got, ok)
+	}
+}
+
+func TestCaptureOpenAIChatCompletionsResponseFromJSON_Reasoning(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	captureOpenAIChatCompletionsResponseFromJSON(c, []byte(`{"id":"c9","choices":[{"message":{"content":"ans","reasoning_content":"why"},"finish_reason":"stop"}]}`))
+	got, ok := GetOpenAICapturedResponse(c)
+	if !ok || got.Text != "ans" || got.Thinking != "why" {
+		t.Fatalf("captured = %+v, ok=%v", got, ok)
+	}
+}
+
+func TestCaptureGeminiResponseFromJSON_ThoughtSplit(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	captureGeminiResponseFromJSON(c, []byte(`{"candidates":[{"content":{"parts":[{"text":"pondering","thought":true},{"text":"answer"}]},"finishReason":"STOP"}]}`))
+	got, ok := GetOpenAICapturedResponse(c)
+	if !ok || got.Text != "answer" || got.Thinking != "pondering" {
+		t.Fatalf("captured = %+v, ok=%v", got, ok)
+	}
+}

@@ -280,6 +280,7 @@ func submitConversationCapture(
 		finishReason = captured.FinishReason
 	}
 	assistantText := captured.Text
+	assistantThinking := captured.Thinking
 	inputTokens := result.InputTokens
 	outputTokens := result.OutputTokens
 	finishedAt := time.Now()
@@ -305,12 +306,19 @@ func submitConversationCapture(
 			reqModel = model
 		}
 		var assistantEvents []service.NormalizedEvent
+		if assistantThinking != "" {
+			assistantEvents = append(assistantEvents, service.NormalizedEvent{
+				Role:    service.ConversationRoleAssistant,
+				Kind:    service.ConversationKindThinking,
+				Content: assistantThinking,
+			})
+		}
 		if assistantText != "" {
-			assistantEvents = []service.NormalizedEvent{{
+			assistantEvents = append(assistantEvents, service.NormalizedEvent{
 				Role:    service.ConversationRoleAssistant,
 				Kind:    service.ConversationKindMessage,
 				Content: assistantText,
-			}}
+			})
 		}
 		captureSink.Submit(ctx, service.CaptureRecord{
 			Version:  service.CaptureRecordVersion,
